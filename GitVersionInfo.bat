@@ -39,13 +39,19 @@ if %ERRORLEVEL%==0 (
         for /f "usebackq delims=.- tokens=3" %%V in (`echo !merged_release_ver!`) do set version_patch=%%~V
         for /f "usebackq" %%V in (`git rev-list --count v!merged_release_ver!..HEAD`) do set version_commit_distance=%%~V
     ) else (
-        echo No prior version tag could be located. Unable to determine version information.
+        echo No prior version tag could be located. Using distance from initial commit.
 
         set version_major=0
         set version_minor=0
         set version_patch=0
-        set version_commit_distance=0
-        set version_build_metadata=unknown.!version_build_metadata!
+        for /f "usebackq" %%V in (`git rev-list --count HEAD`) do set version_commit_distance=%%~V
+
+        if "!version_commit_distance!"=="" (
+            echo Failed to obtain distance from initial commit.
+
+            set version_commit_distance=0
+            set version_build_metadata=unknown.!version_build_metadata!
+        )
     )
 
     if "!version_commit_distance!!version_is_dirty!"=="00" (
