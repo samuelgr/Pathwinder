@@ -3,7 +3,7 @@ setlocal enabledelayedexpansion
 
 rem +--------------------------------------------------------------------------
 rem | Pathwinder
-rem |   Path redirection for files, directories, and registry keys.
+rem |   Path redirection for files, directories, and registry entries.
 rem +--------------------------------------------------------------------------
 rem | Authored by Samuel Grossman
 rem | Copyright (c) 2022

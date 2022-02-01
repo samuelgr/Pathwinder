@@ -1,6 +1,6 @@
 /*****************************************************************************
  * Pathwinder
- *   Path redirection for files, directories, and registry keys.
+ *   Path redirection for files, directories, and registry entries.
  *****************************************************************************
  * Authored by Samuel Grossman
  * Copyright (c) 2022
