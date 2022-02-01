@@ -15,6 +15,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <sal.h>
 #include <string>
 #include <string_view>
@@ -75,6 +76,12 @@ namespace Pathwinder
         /// @param [in] format Format string, possibly with format specifiers which must be matched with the arguments that follow.
         /// @return Resulting string after all formatting is applied.
         TemporaryBuffer<wchar_t> FormatString(_Printf_format_string_ const wchar_t* format, ...);
+
+        /// Splits a string using the specified delimiter character and returns a list of views each corresponding to a part of the input string.
+        /// @param [in] stringToSplit Input string to be split.
+        /// @param [in] delimiter Delimiter character sequence that identifies boundaries between pieces of the input string.
+        /// @return Container that holds views referring to pieces of the input string split using the specified delimiter.
+        std::deque<std::wstring_view> SplitString(std::wstring_view stringToSplit, std::wstring_view delimiter);
 
         /// Generates a string representation of a system error code.
         /// @param [in] systemErrorCode System error code for which to generate a string.

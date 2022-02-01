@@ -14,7 +14,7 @@
 #include "TemporaryBuffer.h"
 
 #include <cstdlib>
-#include <intrin.h>
+#include <deque>
 #include <mutex>
 #include <psapi.h>
 #include <sal.h>
@@ -275,6 +275,34 @@ namespace Pathwinder
             va_end(args);
 
             return buf;
+        }
+
+        // --------
+
+        std::deque<std::wstring_view> SplitString(std::wstring_view stringToSplit, std::wstring_view delimiter)
+        {
+            std::deque<std::wstring_view> stringPieces;
+
+            auto beginIter = stringToSplit.cbegin();
+            auto endIter = ((false == delimiter.empty()) ? beginIter : stringToSplit.cend());
+
+            while (stringToSplit.cend() != endIter)
+            {
+                std::wstring_view remainingStringToSplit(endIter, stringToSplit.cend());
+                if (true == remainingStringToSplit.starts_with(delimiter))
+                {
+                    stringPieces.emplace_back(beginIter, endIter);
+                    endIter += delimiter.length();
+                    beginIter = endIter;
+                }
+                else
+                {
+                    endIter += 1;
+                }
+            }
+
+            stringPieces.emplace_back(beginIter, endIter);
+            return stringPieces;
         }
 
         // --------

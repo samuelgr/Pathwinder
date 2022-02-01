@@ -208,6 +208,7 @@
     <ClCompile Include="Source\Message.cpp" />
     <ClCompile Include="Source\Strings.cpp" />
     <ClCompile Include="Source\TemporaryBuffer.cpp" />
+    <ClCompile Include="Source\Test\Case\StringsTest.cpp" />
     <ClCompile Include="Source\Test\Harness.cpp" />
     <ClCompile Include="Source\Test\TestCase.cpp" />
     <ClCompile Include="Source\Test\Utilities.cpp" />
