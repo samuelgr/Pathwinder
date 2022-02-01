@@ -206,9 +206,22 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Source\Configuration.cpp" />
+    <ClCompile Include="Source\Globals.cpp" />
     <ClCompile Include="Source\HookModuleMain.cpp" />
+    <ClCompile Include="Source\Message.cpp" />
+    <ClCompile Include="Source\PathwinderConfigReader.cpp" />
+    <ClCompile Include="Source\Strings.cpp" />
+    <ClCompile Include="Source\TemporaryBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Include\Pathwinder\Configuration.h" />
+    <ClInclude Include="Include\Pathwinder\Globals.h" />
+    <ClInclude Include="Include\Pathwinder\Message.h" />
+    <ClInclude Include="Include\Pathwinder\PathwinderConfigReader.h" />
+    <ClInclude Include="Include\Pathwinder\Strings.h" />
+    <ClInclude Include="Include\Pathwinder\TemporaryBuffer.h" />
+    <ClInclude Include="Include\Pathwinder\ValueOrError.h" />
     <ClInclude Include="Resources\Pathwinder.h" />
   </ItemGroup>
   <ItemGroup>

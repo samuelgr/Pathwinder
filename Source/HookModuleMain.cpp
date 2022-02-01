@@ -9,6 +9,8 @@
  *   Entry point when injecting Pathwinder as a hook module.
  *****************************************************************************/
 
+#include "Globals.h"
+
 #include <Hookshot/Hookshot.h>
 
 
@@ -17,5 +19,5 @@
 /// Hook module entry point. 
 HOOKSHOT_HOOK_MODULE_ENTRY(hookshot)
 {
-    
+    Pathwinder::Globals::Initialize();
 }
