@@ -37,7 +37,7 @@ namespace Pathwinder
 
         /// Conversion constructor.
         /// Delegates to the underlying data structure.
-        template <typename... Args> constexpr ValueOrError(Args... args) : std::variant<ValueType, ErrorType>(std::forward<Args...>(args...))
+        template <typename... Args> constexpr ValueOrError(Args&&... args) : std::variant<ValueType, ErrorType>(std::forward<Args>(args)...)
         {
             // Nothing to do here.
         }
