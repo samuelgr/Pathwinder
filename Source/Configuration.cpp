@@ -430,7 +430,7 @@ namespace Pathwinder
 
             int configLineNumber = 1;
             TemporaryBuffer<wchar_t> configLineBuffer;
-            int configLineLength = ReadAndTrimLine(configFileHandle, configLineBuffer, configLineBuffer.Count());
+            int configLineLength = ReadAndTrimLine(configFileHandle, configLineBuffer, configLineBuffer.Capacity());
             bool skipValueLines = false;
 
             while (configLineLength >= 0)
@@ -608,7 +608,7 @@ namespace Pathwinder
                     break;
                 }
 
-                configLineLength = ReadAndTrimLine(configFileHandle, configLineBuffer, configLineBuffer.Count());
+                configLineLength = ReadAndTrimLine(configFileHandle, configLineBuffer, configLineBuffer.Capacity());
                 configLineNumber += 1;
             }
 

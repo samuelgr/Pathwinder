@@ -184,12 +184,12 @@ namespace Pathwinder
 
             TemporaryBuffer<wchar_t> bufferTimestamp;
 
-            if (0 != GetDateFormatEx(LOCALE_NAME_USER_DEFAULT, 0, nullptr, L"MM'/'dd'/'yyyy", bufferTimestamp, bufferTimestamp.Count(), nullptr))
+            if (0 != GetDateFormatEx(LOCALE_NAME_USER_DEFAULT, 0, nullptr, L"MM'/'dd'/'yyyy", bufferTimestamp, bufferTimestamp.Capacity(), nullptr))
                 outputString << (wchar_t*)bufferTimestamp;
             else
                 outputString << L"(date not available)";
 
-            if (0 != GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, 0, nullptr, L"HH':'mm':'ss", bufferTimestamp, bufferTimestamp.Count()))
+            if (0 != GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, 0, nullptr, L"HH':'mm':'ss", bufferTimestamp, bufferTimestamp.Capacity()))
                 outputString << L' ' << (wchar_t*)bufferTimestamp;
             else
                 outputString << L" (time not available)";
@@ -286,7 +286,7 @@ namespace Pathwinder
         {
             TemporaryBuffer<wchar_t> messageBuf;
 
-            vswprintf_s(messageBuf, messageBuf.Count(), format, args);
+            vswprintf_s(messageBuf, messageBuf.Capacity(), format, args);
             OutputInternal(severity, messageBuf);
         }
 

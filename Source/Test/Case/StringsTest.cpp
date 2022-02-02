@@ -10,9 +10,9 @@
  *****************************************************************************/
 
 #include "Strings.h"
+#include "TemporaryBuffer.h"
 #include "TestCase.h"
 
-#include <deque>
 #include <string_view>
 
 
@@ -30,8 +30,8 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"ABCD%EFGH%IJKL%MNOP%QRSTUV WX Y  % Z  ";
-        const std::deque<std::wstring_view> kExpectedPieces = {L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV WX Y  ", L" Z  "};
-        const std::deque<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV WX Y  ", L" Z  "};
+        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
         TEST_ASSERT(kActualPieces == kExpectedPieces);
     }
 
@@ -40,8 +40,8 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L":::";
         constexpr std::wstring_view kInputString = L"ABCD:::EFGH:::IJKL:::MNOP:::QRSTUV WX Y  ::: Z  ";
-        const std::deque<std::wstring_view> kExpectedPieces = {L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV WX Y  ", L" Z  "};
-        const std::deque<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV WX Y  ", L" Z  "};
+        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
         TEST_ASSERT(kActualPieces == kExpectedPieces);
     }
 
@@ -50,8 +50,8 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"ABCD EFGH IJKL MNOP QRSTUV WX Y  Z  ";
-        const std::deque<std::wstring_view> kExpectedPieces = {kInputString};
-        const std::deque<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        const TemporaryVector<std::wstring_view> kExpectedPieces = {kInputString};
+        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
         TEST_ASSERT(kActualPieces == kExpectedPieces);
     }
 
@@ -60,8 +60,8 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"ABCD%%EFGH%%IJKL%%MNOP%%QRSTUV WX Y  %% Z  ";
-        const std::deque<std::wstring_view> kExpectedPieces = {L"ABCD", L"", L"EFGH", L"", L"IJKL", L"", L"MNOP", L"", L"QRSTUV WX Y  ", L"", L" Z  "};
-        const std::deque<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"ABCD", L"", L"EFGH", L"", L"IJKL", L"", L"MNOP", L"", L"QRSTUV WX Y  ", L"", L" Z  "};
+        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
         TEST_ASSERT(kActualPieces == kExpectedPieces);
     }
 
@@ -70,8 +70,8 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L":::";
         constexpr std::wstring_view kInputString = L"ABCD::::::EFGH::::::IJKL::::::MNOP::::::QRSTUV WX Y  :::::: Z  ";
-        const std::deque<std::wstring_view> kExpectedPieces = {L"ABCD", L"", L"EFGH", L"", L"IJKL", L"", L"MNOP", L"", L"QRSTUV WX Y  ", L"", L" Z  "};
-        const std::deque<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"ABCD", L"", L"EFGH", L"", L"IJKL", L"", L"MNOP", L"", L"QRSTUV WX Y  ", L"", L" Z  "};
+        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
         TEST_ASSERT(kActualPieces == kExpectedPieces);
     }
 
@@ -80,8 +80,8 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"%%%%MyTestString";
-        const std::deque<std::wstring_view> kExpectedPieces = {L"", L"", L"", L"", L"MyTestString"};
-        const std::deque<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"", L"", L"", L"", L"MyTestString"};
+        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
         TEST_ASSERT(kActualPieces == kExpectedPieces);
     }
 
@@ -90,8 +90,8 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"MyTestString%";
-        const std::deque<std::wstring_view> kExpectedPieces = {L"MyTestString", L""};
-        const std::deque<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"MyTestString", L""};
+        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
         TEST_ASSERT(kActualPieces == kExpectedPieces);
     }
 
@@ -100,8 +100,8 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"MyTestString%%%%";
-        const std::deque<std::wstring_view> kExpectedPieces = {L"MyTestString", L"", L"", L"", L""};
-        const std::deque<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"MyTestString", L"", L"", L"", L""};
+        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
         TEST_ASSERT(kActualPieces == kExpectedPieces);
     }
 
@@ -110,8 +110,8 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"";
-        const std::deque<std::wstring_view> kExpectedPieces = {L""};
-        const std::deque<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        const TemporaryVector<std::wstring_view> kExpectedPieces = {L""};
+        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
         TEST_ASSERT(kActualPieces == kExpectedPieces);
     }
 
@@ -120,8 +120,8 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"";
         constexpr std::wstring_view kInputString = L"MyTestString";
-        const std::deque<std::wstring_view> kExpectedPieces = {kInputString};
-        const std::deque<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        const TemporaryVector<std::wstring_view> kExpectedPieces = {kInputString};
+        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
         TEST_ASSERT(kActualPieces == kExpectedPieces);
     }
 
@@ -133,8 +133,8 @@ namespace PathwinderTest
         for (const auto kSplitDelimiter : kSplitDelimiters)
         {
             const std::wstring_view kInputString = kSplitDelimiter;
-            const std::deque<std::wstring_view> kExpectedPieces = { L"", L"" };
-            const std::deque<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+            const TemporaryVector<std::wstring_view> kExpectedPieces = { L"", L"" };
+            const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
             TEST_ASSERT(kActualPieces == kExpectedPieces);
         }
     }
@@ -144,8 +144,8 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"";
         constexpr std::wstring_view kInputString = kSplitDelimiter;
-        const std::deque<std::wstring_view> kExpectedPieces = {L""};
-        const std::deque<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        const TemporaryVector<std::wstring_view> kExpectedPieces = {L""};
+        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
         TEST_ASSERT(kActualPieces == kExpectedPieces);
     }
 }

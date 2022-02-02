@@ -13,6 +13,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <utility>
 
 
@@ -127,9 +128,9 @@ namespace Pathwinder
 
         /// Retrieves the size of the buffer space, in number of elements of type T.
         /// @return Size of the buffer, in T-sized elements.
-        constexpr inline unsigned int Count(void) const
+        constexpr inline unsigned int Capacity(void) const
         {
-            return Size() / sizeof(T);
+            return CapacityBytes() / sizeof(T);
         }
 
         /// Retrieves a properly-typed pointer to the buffer itself.
@@ -141,9 +142,133 @@ namespace Pathwinder
 
         /// Retrieves the size of the buffer space, in bytes.
         /// @return Size of the buffer, in bytes.
-        constexpr inline unsigned int Size(void) const
+        constexpr inline unsigned int CapacityBytes(void) const
         {
             return kBytesPerBuffer;
+        }
+    };
+
+    /// Implements a vector-like container backed by a temporary buffer.
+    template <typename T> class TemporaryVector : public TemporaryBuffer<T>
+    {
+    private:
+        // -------- INSTANCE VARIABLES ------------------------------------- //
+
+        /// Number of elements held by this container.
+        size_t size;
+
+
+    public:
+        // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
+
+        /// Default constructor.
+        inline TemporaryVector(void) : TemporaryBuffer<T>(), size(0)
+        {
+            // Nothing to do here.
+        }
+
+        /// Initializer list constructor.
+        inline TemporaryVector(std::initializer_list<T> initializers) : TemporaryVector()
+        {
+            operator=(initializers);
+        }
+
+        /// Move constructor.
+        inline TemporaryVector(TemporaryVector&& other) : TemporaryBuffer<T>(std::move(other)), size(std::move(other.size))
+        {
+            // Nothing to do here.
+        }
+
+
+        // -------- OPERATORS ---------------------------------------------- //
+
+        /// Move assignment operator.
+        inline TemporaryVector& operator=(TemporaryVector&& other)
+        {
+            Clear();
+
+            TemporaryBuffer::operator=(std::move(other));
+            size = std::move(other.size);
+            return *this;
+        }
+
+        /// Initializer list assigment operator.
+        inline TemporaryVector& operator=(std::initializer_list<T> initializers)
+        {
+            Clear();
+
+            for (auto init = initializers.begin(); init != initializers.end(); ++init)
+                PushBack(std::move(*init));
+
+            return *this;
+        }
+
+        /// Equality check.
+        inline bool operator==(const TemporaryVector& other) const
+        {
+            if (other.size != size)
+                return false;
+
+            for (size_t i = 0; i < size; ++i)
+            {
+                if (other[i] != (*this)[i])
+                    return false;
+            }
+
+            return true;
+        }
+
+        /// Array subscripting operator, mutable version.
+        inline T& operator[](size_t index)
+        {
+            return TemporaryBuffer<T>::Data()[index];
+        }
+
+        /// Array subscripting operator, read-only version.
+        inline const T& operator[](size_t index) const
+        {
+            return TemporaryBuffer<T>::Data()[index];
+        }
+
+
+        // -------- INSTANCE METHODS --------------------------------------- //
+
+        /// Removes all elements from this container, destroying each in sequence.
+        void Clear(void)
+        {
+            for (size_t i = 0; i < size; ++i)
+                (*this)[i].~T();
+
+            size = 0;
+        }
+
+        /// Constructs a new element using the specified arguments at the end of this container.
+        /// @return Reference to the constructed and inserted element.
+        template <typename... Args> inline T& EmplaceBack(Args&&... args)
+        {
+            new (&((*this)[size])) T(std::forward<Args>(args)...);
+            return (*this)[size++];
+        }
+
+        /// Appends the specified element to the end of this container using copy semantics.
+        /// @param [in] value Value to be appended.
+        inline void PushBack(const T& value)
+        {
+            (*this)[size++] = value;
+        }
+
+        /// Appends the specified element to the end of this container using move semantics.
+        /// @param [in] value Value to be appended.
+        inline void PushBack(T&& value)
+        {
+            (*this)[size++] = std::move(value);
+        }
+
+        /// Retrieves the number of elements held in this container.
+        /// @return Number of elements in the container.
+        inline size_t Size(void) const
+        {
+            return size;
         }
     };
 }

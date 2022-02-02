@@ -14,7 +14,6 @@
 #include "TemporaryBuffer.h"
 
 #include <cstdlib>
-#include <deque>
 #include <mutex>
 #include <psapi.h>
 #include <sal.h>
@@ -73,7 +72,7 @@ namespace Pathwinder
             std::call_once(initFlag, []() -> void
                 {
                     TemporaryBuffer<wchar_t> buf;
-                    GetModuleFileName(nullptr, buf, (DWORD)buf.Count());
+                    GetModuleFileName(nullptr, buf, (DWORD)buf.Capacity());
 
                     initString.assign(buf);
                 }
@@ -137,7 +136,7 @@ namespace Pathwinder
             std::call_once(initFlag, []() -> void
                 {
                     TemporaryBuffer<wchar_t> buf;
-                    GetModuleFileName(Globals::GetInstanceHandle(), buf, (DWORD)buf.Count());
+                    GetModuleFileName(Globals::GetInstanceHandle(), buf, (DWORD)buf.Capacity());
 
                     initString.assign(buf);
                 }
@@ -270,7 +269,7 @@ namespace Pathwinder
             va_list args;
             va_start(args, format);
 
-            vswprintf_s(buf.Data(), buf.Count(), format, args);
+            vswprintf_s(buf.Data(), buf.Capacity(), format, args);
 
             va_end(args);
 
@@ -279,19 +278,19 @@ namespace Pathwinder
 
         // --------
 
-        std::deque<std::wstring_view> SplitString(std::wstring_view stringToSplit, std::wstring_view delimiter)
+        TemporaryVector<std::wstring_view> SplitString(std::wstring_view stringToSplit, std::wstring_view delimiter)
         {
-            std::deque<std::wstring_view> stringPieces;
+            TemporaryVector<std::wstring_view> stringPieces;
 
             auto beginIter = stringToSplit.cbegin();
             auto endIter = ((false == delimiter.empty()) ? beginIter : stringToSplit.cend());
 
-            while (stringToSplit.cend() != endIter)
+            while ((stringPieces.Size() < stringPieces.Capacity())  && (stringToSplit.cend() != endIter))
             {
                 std::wstring_view remainingStringToSplit(endIter, stringToSplit.cend());
                 if (true == remainingStringToSplit.starts_with(delimiter))
                 {
-                    stringPieces.emplace_back(beginIter, endIter);
+                    stringPieces.EmplaceBack(beginIter, endIter);
                     endIter += delimiter.length();
                     beginIter = endIter;
                 }
@@ -301,7 +300,9 @@ namespace Pathwinder
                 }
             }
 
-            stringPieces.emplace_back(beginIter, endIter);
+            if (stringPieces.Size() < stringPieces.Capacity())
+                stringPieces.EmplaceBack(beginIter, endIter);
+
             return stringPieces;
         }
 
@@ -310,11 +311,11 @@ namespace Pathwinder
         std::wstring SystemErrorCodeString(const unsigned long systemErrorCode)
         {
             TemporaryBuffer<wchar_t> systemErrorString;
-            DWORD systemErrorLength = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, systemErrorCode, 0, systemErrorString, systemErrorString.Count(), nullptr);
+            DWORD systemErrorLength = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, systemErrorCode, 0, systemErrorString, systemErrorString.Capacity(), nullptr);
 
             if (0 == systemErrorLength)
             {
-                swprintf_s(systemErrorString, systemErrorString.Count(), L"System error %u.", (unsigned int)systemErrorCode);
+                swprintf_s(systemErrorString, systemErrorString.Capacity(), L"System error %u.", (unsigned int)systemErrorCode);
             }
             else
             {

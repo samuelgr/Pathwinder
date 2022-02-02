@@ -15,7 +15,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <deque>
 #include <sal.h>
 #include <string>
 #include <string_view>
@@ -81,7 +80,7 @@ namespace Pathwinder
         /// @param [in] stringToSplit Input string to be split.
         /// @param [in] delimiter Delimiter character sequence that identifies boundaries between pieces of the input string.
         /// @return Container that holds views referring to pieces of the input string split using the specified delimiter.
-        std::deque<std::wstring_view> SplitString(std::wstring_view stringToSplit, std::wstring_view delimiter);
+        TemporaryVector<std::wstring_view> SplitString(std::wstring_view stringToSplit, std::wstring_view delimiter);
 
         /// Generates a string representation of a system error code.
         /// @param [in] systemErrorCode System error code for which to generate a string.
