@@ -16,7 +16,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <sal.h>
-#include <string>
 #include <string_view>
 
 
@@ -77,6 +76,8 @@ namespace Pathwinder
         TemporaryBuffer<wchar_t> FormatString(_Printf_format_string_ const wchar_t* format, ...);
 
         /// Splits a string using the specified delimiter character and returns a list of views each corresponding to a part of the input string.
+        /// If there are too many delimiters present such that not all of the pieces can fit into the returned container type then the returned container will be empty.
+        /// Otherwise the returned container will contain at least one element.
         /// @param [in] stringToSplit Input string to be split.
         /// @param [in] delimiter Delimiter character sequence that identifies boundaries between pieces of the input string.
         /// @return Container that holds views referring to pieces of the input string split using the specified delimiter.
@@ -85,6 +86,6 @@ namespace Pathwinder
         /// Generates a string representation of a system error code.
         /// @param [in] systemErrorCode System error code for which to generate a string.
         /// @return String representation of the system error code.
-        std::wstring SystemErrorCodeString(const unsigned long systemErrorCode);
+        TemporaryBuffer<wchar_t> SystemErrorCodeString(const unsigned long systemErrorCode);
     }
 }

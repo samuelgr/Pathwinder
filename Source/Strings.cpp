@@ -302,13 +302,15 @@ namespace Pathwinder
 
             if (stringPieces.Size() < stringPieces.Capacity())
                 stringPieces.EmplaceBack(beginIter, endIter);
+            else
+                stringPieces.Clear();
 
             return stringPieces;
         }
 
         // --------
 
-        std::wstring SystemErrorCodeString(const unsigned long systemErrorCode)
+        TemporaryBuffer<wchar_t> SystemErrorCodeString(const unsigned long systemErrorCode)
         {
             TemporaryBuffer<wchar_t> systemErrorString;
             DWORD systemErrorLength = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, systemErrorCode, 0, systemErrorString, systemErrorString.Capacity(), nullptr);
@@ -328,7 +330,7 @@ namespace Pathwinder
                 }
             }
 
-            return std::wstring(systemErrorString);
+            return systemErrorString;
         }
     }
 }

@@ -149,6 +149,7 @@ namespace Pathwinder
     };
 
     /// Implements a vector-like container backed by a temporary buffer.
+    /// Optimized for efficiency. Performs no boundary checks.
     template <typename T> class TemporaryVector : public TemporaryBuffer<T>
     {
     private:
@@ -170,13 +171,13 @@ namespace Pathwinder
         /// Initializer list constructor.
         inline TemporaryVector(std::initializer_list<T> initializers) : TemporaryVector()
         {
-            operator=(initializers);
+            *this = initializers;
         }
 
         /// Move constructor.
-        inline TemporaryVector(TemporaryVector&& other) : TemporaryBuffer<T>(std::move(other)), size(std::move(other.size))
+        inline TemporaryVector(TemporaryVector&& other) : TemporaryVector()
         {
-            // Nothing to do here.
+            *this = std::move(other);
         }
 
 
@@ -187,8 +188,8 @@ namespace Pathwinder
         {
             Clear();
 
-            TemporaryBuffer::operator=(std::move(other));
-            size = std::move(other.size);
+            TemporaryBuffer<T>::operator=(std::move(other));
+            std::swap(size, other.size);
             return *this;
         }
 
@@ -236,10 +237,8 @@ namespace Pathwinder
         /// Removes all elements from this container, destroying each in sequence.
         void Clear(void)
         {
-            for (size_t i = 0; i < size; ++i)
-                (*this)[i].~T();
-
-            size = 0;
+            while (0 != size)
+                PopBack();
         }
 
         /// Constructs a new element using the specified arguments at the end of this container.
@@ -248,6 +247,12 @@ namespace Pathwinder
         {
             new (&((*this)[size])) T(std::forward<Args>(args)...);
             return (*this)[size++];
+        }
+
+        /// Removes the last element from this container and destroys it.
+        inline void PopBack(void)
+        {
+            (*this)[size--].~T();
         }
 
         /// Appends the specified element to the end of this container using copy semantics.
