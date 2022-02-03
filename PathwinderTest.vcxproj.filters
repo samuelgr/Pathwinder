@@ -53,19 +53,19 @@
     <ClInclude Include="Resources\Pathwinder.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Globals.h">
+    <ClInclude Include="Include\Pathwinder\Internal\Globals.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Message.h">
+    <ClInclude Include="Include\Pathwinder\Internal\Message.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Strings.h">
+    <ClInclude Include="Include\Pathwinder\Internal\Strings.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Include\Pathwinder\TemporaryBuffer.h">
+    <ClInclude Include="Include\Pathwinder\Internal\TemporaryBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Include\Pathwinder\ValueOrError.h">
+    <ClInclude Include="Include\Pathwinder\Internal\ValueOrError.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

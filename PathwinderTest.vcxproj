@@ -98,7 +98,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <AdditionalIncludeDirectories>Include\$(SolutionName);Include\$(SolutionName)\Test;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Include\$(SolutionName);Include\$(SolutionName)\Internal;Include\$(SolutionName)\Test;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <SupportJustMyCode>false</SupportJustMyCode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -125,7 +125,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <AdditionalIncludeDirectories>Include\$(SolutionName);Include\$(SolutionName)\Test;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Include\$(SolutionName);Include\$(SolutionName)\Internal;Include\$(SolutionName)\Test;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
@@ -154,7 +154,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <AdditionalIncludeDirectories>Include\$(SolutionName);Include\$(SolutionName)\Test;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Include\$(SolutionName);Include\$(SolutionName)\Internal;Include\$(SolutionName)\Test;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <SupportJustMyCode>false</SupportJustMyCode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -182,7 +182,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <AdditionalIncludeDirectories>Include\$(SolutionName);Include\$(SolutionName)\Test;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Include\$(SolutionName);Include\$(SolutionName)\Internal;Include\$(SolutionName)\Test;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
@@ -214,14 +214,14 @@
     <ClCompile Include="Source\Test\Utilities.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Include\Pathwinder\Globals.h" />
-    <ClInclude Include="Include\Pathwinder\Message.h" />
-    <ClInclude Include="Include\Pathwinder\Strings.h" />
-    <ClInclude Include="Include\Pathwinder\TemporaryBuffer.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\Strings.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\TemporaryBuffer.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\ValueOrError.h" />
     <ClInclude Include="Include\Pathwinder\Test\Harness.h" />
     <ClInclude Include="Include\Pathwinder\Test\TestCase.h" />
     <ClInclude Include="Include\Pathwinder\Test\Utilities.h" />
-    <ClInclude Include="Include\Pathwinder\ValueOrError.h" />
     <ClInclude Include="Resources\Pathwinder.h" />
   </ItemGroup>
   <ItemGroup>

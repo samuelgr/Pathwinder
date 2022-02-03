@@ -102,7 +102,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <AdditionalIncludeDirectories>Include\$(SolutionName);ThirdParty\Hookshot\Files\Include;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Include\$(SolutionName);Include\$(SolutionName)\Internal;ThirdParty\Hookshot\Files\Include;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <SupportJustMyCode>false</SupportJustMyCode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -129,7 +129,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <AdditionalIncludeDirectories>Include\$(SolutionName);ThirdParty\Hookshot\Files\Include;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Include\$(SolutionName);Include\$(SolutionName)\Internal;ThirdParty\Hookshot\Files\Include;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
@@ -157,7 +157,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <AdditionalIncludeDirectories>Include\$(SolutionName);ThirdParty\Hookshot\Files\Include;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Include\$(SolutionName);Include\$(SolutionName)\Internal;ThirdParty\Hookshot\Files\Include;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <SupportJustMyCode>false</SupportJustMyCode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -185,7 +185,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <AdditionalIncludeDirectories>Include\$(SolutionName);ThirdParty\Hookshot\Files\Include;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Include\$(SolutionName);Include\$(SolutionName)\Internal;ThirdParty\Hookshot\Files\Include;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
@@ -215,13 +215,13 @@
     <ClCompile Include="Source\TemporaryBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Include\Pathwinder\Configuration.h" />
-    <ClInclude Include="Include\Pathwinder\Globals.h" />
-    <ClInclude Include="Include\Pathwinder\Message.h" />
-    <ClInclude Include="Include\Pathwinder\PathwinderConfigReader.h" />
-    <ClInclude Include="Include\Pathwinder\Strings.h" />
-    <ClInclude Include="Include\Pathwinder\TemporaryBuffer.h" />
-    <ClInclude Include="Include\Pathwinder\ValueOrError.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\Configuration.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\PathwinderConfigReader.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\Strings.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\TemporaryBuffer.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\ValueOrError.h" />
     <ClInclude Include="Resources\Pathwinder.h" />
   </ItemGroup>
   <ItemGroup>
