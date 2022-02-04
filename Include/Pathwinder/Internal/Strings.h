@@ -27,7 +27,26 @@ namespace Pathwinder
         // Can safely be used at any time, including to perform static initialization.
         // Views are guaranteed to be null-terminated.
 
-        // Placeholder
+        /// Configuration file section for defining variables.
+        inline constexpr std::wstring_view kStrConfigurationSectionVariables = L"Variables";
+
+        /// Configuration file setting for enabling and specifying the verbosity of output to the log file.
+        inline constexpr std::wstring_view kStrConfigurationSettingLogLevel = L"LogLevel";
+
+        /// Delimiter used to separate portions of a string that are to be taken as literals versus to be taken as named references.
+        inline constexpr std::wstring_view kStrDelimiterReferenceVsLiteral = L"%";
+
+        /// Delimiter used to separate a named reference into a domain part and a name part.
+        inline constexpr std::wstring_view kStrDelimterReferenceDomainVsName = L"::";
+
+        /// Domain part of a named reference that identifies the domain as being an environment variable.
+        inline constexpr std::wstring_view kStrReferenceDomainEnvironmentVariable = L"ENV";
+
+        /// Domain part of a named reference that identifies the domain as being a shell "known folder" identifier.
+        inline constexpr std::wstring_view kStrReferenceDomainKnownFolderIdentifier = L"FOLDERID";
+
+        /// Domain part of a named reference that identifies the domain as being a variable defined in the configuration file.
+        inline constexpr std::wstring_view kStrReferenceDomainVariable = L"VAR";
 
 
         // -------- RUN-TIME CONSTANTS ------------------------------------- //
@@ -63,9 +82,6 @@ namespace Pathwinder
         /// Expected filename for the log file.
         /// Pathwinder log filename = (current user's desktop)\Pathwinder_(base name of the running executable)_(process ID).log
         extern const std::wstring_view kStrLogFilename;
-
-        /// Configuration file setting name for enabling and specifying the verbosity of output to the log file.
-        inline constexpr std::wstring_view kStrConfigurationSettingNameLogLevel = L"LogLevel";
 
 
         // -------- FUNCTIONS ---------------------------------------------- //

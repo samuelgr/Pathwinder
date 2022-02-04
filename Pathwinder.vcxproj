@@ -211,6 +211,7 @@
     <ClCompile Include="Source\HookModuleMain.cpp" />
     <ClCompile Include="Source\Message.cpp" />
     <ClCompile Include="Source\PathwinderConfigReader.cpp" />
+    <ClCompile Include="Source\Resolver.cpp" />
     <ClCompile Include="Source\Strings.cpp" />
     <ClCompile Include="Source\TemporaryBuffer.cpp" />
   </ItemGroup>
@@ -219,6 +220,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PathwinderConfigReader.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\Resolver.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Strings.h" />
     <ClInclude Include="Include\Pathwinder\Internal\TemporaryBuffer.h" />
     <ClInclude Include="Include\Pathwinder\Internal\ValueOrError.h" />

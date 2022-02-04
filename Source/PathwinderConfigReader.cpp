@@ -31,7 +31,7 @@ namespace Pathwinder
     /// Holds the layout of the Pathwinder configuration file that is known statically.
     static Configuration::TConfigurationFileLayout configurationFileLayout = {
         ConfigurationFileLayoutSection(Configuration::kSectionNameGlobal, {
-            ConfigurationFileLayoutNameAndValueType(Strings::kStrConfigurationSettingNameLogLevel, Configuration::EValueType::Integer),
+            ConfigurationFileLayoutNameAndValueType(Strings::kStrConfigurationSettingLogLevel, Configuration::EValueType::Integer),
         }),
     };
 

@@ -102,7 +102,7 @@ namespace Pathwinder
         /// Enables the log, if it is configured in the configuration file.
         static void EnableLogIfConfigured(void)
         {
-            const int64_t kLogLevel = GetConfigurationData().GetFirstIntegerValue(Configuration::kSectionNameGlobal, Strings::kStrConfigurationSettingNameLogLevel).value_or(0);
+            const int64_t kLogLevel = GetConfigurationData().GetFirstIntegerValue(Configuration::kSectionNameGlobal, Strings::kStrConfigurationSettingLogLevel).value_or(0);
 
             if (kLogLevel > 0)
             {

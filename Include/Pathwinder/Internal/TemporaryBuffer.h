@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
+#include <type_traits>
 #include <utility>
 
 
@@ -180,14 +181,18 @@ namespace Pathwinder
             *this = std::move(other);
         }
 
+        /// Default destructor.
+        inline ~TemporaryVector(void)
+        {
+            Clear();
+        }
+
 
         // -------- OPERATORS ---------------------------------------------- //
 
         /// Move assignment operator.
         inline TemporaryVector& operator=(TemporaryVector&& other)
         {
-            Clear();
-
             TemporaryBuffer<T>::operator=(std::move(other));
             std::swap(size, other.size);
             return *this;
@@ -219,26 +224,21 @@ namespace Pathwinder
             return true;
         }
 
-        /// Array subscripting operator, mutable version.
-        inline T& operator[](size_t index)
-        {
-            return TemporaryBuffer<T>::Data()[index];
-        }
-
-        /// Array subscripting operator, read-only version.
-        inline const T& operator[](size_t index) const
-        {
-            return TemporaryBuffer<T>::Data()[index];
-        }
-
 
         // -------- INSTANCE METHODS --------------------------------------- //
 
         /// Removes all elements from this container, destroying each in sequence.
-        void Clear(void)
+        inline void Clear(void)
         {
-            while (0 != size)
-                PopBack();
+            if constexpr (true == std::is_trivially_destructible_v<T>)
+            {
+                size = 0;
+            }
+            else
+            {
+                while (0 != size)
+                    PopBack();
+            }
         }
 
         /// Constructs a new element using the specified arguments at the end of this container.
