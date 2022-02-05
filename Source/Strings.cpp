@@ -117,7 +117,7 @@ namespace Pathwinder
                     const size_t lastBackslashPos = executableDirectoryName.find_last_of(L"\\");
                     if (std::wstring_view::npos != lastBackslashPos)
                     {
-                        executableDirectoryName.remove_suffix(executableDirectoryName.length() - lastBackslashPos - 1);
+                        executableDirectoryName.remove_suffix(executableDirectoryName.length() - lastBackslashPos);
                         initString.assign(executableDirectoryName);
                     }
                 }
@@ -181,7 +181,7 @@ namespace Pathwinder
                     const size_t lastBackslashPos = executableDirectoryName.find_last_of(L"\\");
                     if (std::wstring_view::npos != lastBackslashPos)
                     {
-                        executableDirectoryName.remove_suffix(executableDirectoryName.length() - lastBackslashPos - 1);
+                        executableDirectoryName.remove_suffix(executableDirectoryName.length() - lastBackslashPos);
                         initString.assign(executableDirectoryName);
                     }
                 }

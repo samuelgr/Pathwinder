@@ -66,7 +66,7 @@ namespace Pathwinder
         /// Base name of the currently-running executable.
         extern const std::wstring_view kStrExecutableBaseName;
 
-        /// Directory name of the currently-running executable, including trailing backslash if available.
+        /// Directory name of the currently-running executable, without trailing backslash.
         extern const std::wstring_view kStrExecutableDirectoryName;
 
         /// Complete path and filename of the currently-running form of Pathwinder.
@@ -75,7 +75,7 @@ namespace Pathwinder
         /// Base name of the currently-running form of Pathwinder.
         extern const std::wstring_view kStrPathwinderBaseName;
 
-        /// Directory name of the currently-running form of Pathwinder, including trailing backslash if available.
+        /// Directory name of the currently-running form of Pathwinder, without trailing backslash.
         extern const std::wstring_view kStrPathwinderDirectoryName;
 
         /// Expected filename of a configuration file.
