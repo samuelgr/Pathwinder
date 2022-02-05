@@ -361,7 +361,7 @@ namespace Pathwinder
 
         // --------
 
-        ResolvedStringOrError ResolveAllReferences(std::wstring_view str)
+        ResolvedStringOrError ResolveAllReferences(std::wstring_view str, std::wstring_view escapeCharacters, std::wstring_view escapeSequenceStart)
         {
             std::wstringstream resolvedStr;
             TemporaryVector<std::wstring_view> strParts = Strings::SplitString(str, Strings::kStrDelimiterReferenceVsLiteral);
@@ -384,7 +384,20 @@ namespace Pathwinder
                     if (true == resolvedReferenceResult.HasError())
                         return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to resolve reference: %s", std::wstring(str).c_str(), resolvedReferenceResult.Error().c_str()));
 
-                    resolvedStr << resolvedReferenceResult.Value();
+                    if (true == escapeCharacters.empty())
+                    {
+                        resolvedStr << resolvedReferenceResult.Value();
+                    }
+                    else
+                    {
+                        for (const auto resolvedReferenceResultChar : resolvedReferenceResult.Value())
+                        {
+                            if (true == escapeCharacters.contains(resolvedReferenceResultChar))
+                                resolvedStr << escapeSequenceStart;
+
+                            resolvedStr << resolvedReferenceResultChar;
+                        }
+                    }
                 }
 
                 resolvedStr << strParts[i + 1];

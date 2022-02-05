@@ -39,16 +39,19 @@ namespace Pathwinder
         /// Resolves a single reference represented by the input string.
         /// Input string is expected to be of the form [DOMAIN]::[REFERENCE_NAME].
         /// Single reference resolution results are cached internally, so the result is a view into the internal cache data structure.
-        /// @param [in] Input string representing a single reference.
+        /// @param [in] str Input string representing a single reference.
         /// @return Resolved reference or an error message if the resolution failed.
         ResolvedStringViewOrError ResolveSingleReference(std::wstring_view str);
 
-        /// Resolves all references contained in the input string.
+        /// Resolves all references contained in the input string and optionally escapes special characters if they appear within the results of any references that are resolved.
+        /// For example, if variable X is defined as "ABC!DEF" and this function is asked to escape characters including '!' then the result of "%X%" is "ABC\!DEF" with a backslash escape in the proper location.
         /// Each reference is expected to be of the form %[DOMAIN]::[REFERENCE_NAME]% with %% used to indicate a literal '%' sign.
         /// Full string reference resolution results are not cached and involve a fair bit of dynamic memory manipulation, so the result fully contains and owns its string.
-        /// @param [in] Input string for which references should be resolved.
+        /// @param [in] str Input string for which references should be resolved.
+        /// @param [in] escapeCharacters Optional input string containing characters to escape if they appear within the results of any references that are resolved, defaults to none.
+        /// @param [in] escapeSequenceStart Optional input string specifying what character sequence to use to begin an escape sequence, defaults to a single backslash.
         /// @return Input string with all references resolved or an error message if the resolution failed.
-        ResolvedStringOrError ResolveAllReferences(std::wstring_view str);
+        ResolvedStringOrError ResolveAllReferences(std::wstring_view str, std::wstring_view escapeCharacters = L"", std::wstring_view escapeSequenceStart = L"\\");
 
 #ifdef PATHWINDER_SKIP_CONFIG
         /// Sets the configuration file definitions map contents.
