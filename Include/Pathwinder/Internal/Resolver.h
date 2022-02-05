@@ -14,6 +14,7 @@
 #include "TemporaryBuffer.h"
 #include "ValueOrError.h"
 
+#include <map>
 #include <string>
 #include <string_view>
 
@@ -25,7 +26,7 @@ namespace Pathwinder
         // -------- TYPE DEFINITIONS --------------------------------------- //
 
         /// Type alias for representing either the result of resolving one or more references or an error message.
-        typedef ValueOrError<std::wstring_view, std::wstring> ResolvedStringOrError;
+        typedef ValueOrError<std::wstring, std::wstring> ResolvedStringOrError;
 
 
         // -------- FUNCTIONS ---------------------------------------------- //
@@ -41,5 +42,12 @@ namespace Pathwinder
         /// @param [in] Input string for which references should be resolved.
         /// @return Input string with all references resolved or an error message if the resolution failed.
         ResolvedStringOrError ResolveAllReferences(std::wstring_view str);
+
+#ifdef PATHWINDER_SKIP_CONFIG
+        /// Sets the configuration file definitions map contents.
+        /// Intended primarily for testing.
+        /// @param [in] newConfigurationFileDefinitions Map containing new contents.
+        void SetConfigurationFileDefinitions(std::map<std::wstring_view, std::wstring_view>&& newConfigurationFileDefinitions);
+#endif
     }
 }

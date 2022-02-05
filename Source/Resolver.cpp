@@ -46,7 +46,73 @@ namespace Pathwinder
         typedef ResolvedStringOrError(*TResolveReferenceFunc)(std::wstring_view);
 
 
+        // -------- INTERNAL VARIABLES ------------------------------------- //
+
+#ifdef PATHWINDER_SKIP_CONFIG
+        /// Holds configuration file definitions to be used when a real configuration file is not available.
+        std::map<std::wstring_view, std::wstring_view> configurationFileDefinitions;
+#endif
+
+
         // -------- INTERNAL FUNCTIONS ------------------------------------- //
+
+        /// Resolves a built-in string reference.
+        /// Built-in strings are a subset of the "Strings.h" declarations.
+        /// @param [in] name Name of the built-in string to resolve.
+        /// @return Resolved value on success, error message on failure.
+        static ResolvedStringOrError ResolveBuiltin(std::wstring_view name)
+        {
+            static const std::unordered_map<std::wstring_view, std::wstring_view> kBuiltinStrings = {
+                {L"ExecutableCompleteFilename", Strings::kStrExecutableCompleteFilename},
+                {L"ExecutableBaseName", Strings::kStrExecutableBaseName},
+                {L"ExecutableDirectoryName", Strings::kStrExecutableDirectoryName},
+                {L"PathwinderCompleteFilename", Strings::kStrPathwinderCompleteFilename},
+                {L"PathwinderBaseName", Strings::kStrPathwinderBaseName},
+                {L"PathwinderDirectoryName", Strings::kStrPathwinderDirectoryName}
+            };
+
+            const auto builtinStringsIter = kBuiltinStrings.find(name);
+            if (kBuiltinStrings.cend() == builtinStringsIter)
+                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Unrecognized built-in string", std::wstring(name).c_str()));
+
+            return ResolvedStringOrError::MakeValue(builtinStringsIter->second);
+        }
+        
+        /// Resolves a definition contained in the configuration file.
+        /// @param [in] name Name of the configuration file variable to resolve.
+        /// @return Resolved value on success, error message on failure.
+        static ResolvedStringOrError ResolveConfiguredDefinition(std::wstring_view name)
+        {
+            static std::unordered_set<std::wstring_view> resolutionsInProgress;
+
+            bool variableNameIsRecognized = false;
+
+#ifndef PATHWINDER_SKIP_CONFIG
+            const Configuration::ConfigurationData& configData = Globals::GetConfigurationData();
+            variableNameIsRecognized = configData.SectionNamePairExists(Strings::kStrConfigurationSectionDefinitions, name);
+#else
+            const auto fakeConfigurationFileDefinitionIter = configurationFileDefinitions.find(name);
+            variableNameIsRecognized = (configurationFileDefinitions.cend() != fakeConfigurationFileDefinitionIter);
+#endif
+
+            if (false == variableNameIsRecognized)
+                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Unrecognized variable name", std::wstring(name).c_str()));
+
+#ifndef PATHWINDER_SKIP_CONFIG
+            std::wstring_view unresolvedConfigDefinition = configData[Strings::kStrConfigurationSectionDefinitions][name].FirstValue().GetStringValue();
+#else
+            std::wstring_view unresolvedConfigDefinition = fakeConfigurationFileDefinitionIter->second;
+#endif
+
+            std::pair resolutionInProgress = resolutionsInProgress.emplace(name);
+            if (false == resolutionInProgress.second)
+                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Circular reference", std::wstring(name).c_str()));
+
+            ResolvedStringOrError resolvedDefinition = ResolveAllReferences(unresolvedConfigDefinition);
+            resolutionsInProgress.erase(resolutionInProgress.first);
+
+            return resolvedDefinition;
+        }
 
         /// Resolves an environment variable.
         /// @param [in] name Name of the environment variable to resolve.
@@ -70,6 +136,8 @@ namespace Pathwinder
         /// @return Resolved value on success, error message on failure.
         static ResolvedStringOrError ResolveKnownFolderIdentifier(std::wstring_view name)
         {
+            // Every single known folder definition from "KnownFolders.h" is contained in this map.
+            // Some of them are virtual and so cannot be mapped to real paths.
             static const std::unordered_map<std::wstring_view, const KNOWNFOLDERID*> kKnownFolderIdentifiers = {
                 {L"NetworkFolder", &FOLDERID_NetworkFolder},
                 {L"ComputerFolder", &FOLDERID_ComputerFolder},
@@ -227,7 +295,7 @@ namespace Pathwinder
                 if (nullptr != knownFolderPath)
                     CoTaskMemFree(knownFolderPath);
 
-                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to obtain known folder path (0x%08lx)", std::wstring(name).c_str(), (unsigned long)kGetKnownFolderPathResult));
+                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to obtain known folder path: error code 0x%08lx", std::wstring(name).c_str(), (unsigned long)kGetKnownFolderPathResult));
             }
             else
             {
@@ -240,26 +308,6 @@ namespace Pathwinder
             }
         }
 
-#ifndef PATHWINDER_SKIP_CONFIG
-        static ResolvedStringOrError ResolveVariable(std::wstring_view name)
-        {
-            static std::unordered_set<std::wstring_view> resolutionsInProgress;
-
-            const Configuration::ConfigurationData& configData = Globals::GetConfigurationData();
-
-            if (false == configData.SectionNamePairExists(Strings::kStrConfigurationSectionVariables, name))
-                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Unrecognized variable name", std::wstring(name).c_str()));
-
-            std::pair resolutionInProgress = resolutionsInProgress.emplace(name);
-            if (false == resolutionInProgress.second)
-                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Circular variable reference", std::wstring(name).c_str()));
-
-            ResolvedStringOrError resolvedVariable = ResolveAllReferences(configData[Strings::kStrConfigurationSectionVariables][name].FirstValue().GetStringValue());
-            resolutionsInProgress.erase(resolutionInProgress.first);
-
-            return resolvedVariable;
-        }
-#endif
 
         // -------- FUNCTIONS ---------------------------------------------- //
         // See "Resolver.h" for documentation.
@@ -267,12 +315,10 @@ namespace Pathwinder
         ResolvedStringOrError ResolveSingleReference(std::wstring_view str)
         {
             static const std::unordered_map<std::wstring_view, TResolveReferenceFunc> kResolversByDomain = {
-                {L"", &ResolveEnvironmentVariable},
+                {Strings::kStrReferenceDomainBuiltin, &ResolveBuiltin},
+                {Strings::kStrReferenceDomainConfigDefinition, &ResolveConfiguredDefinition},
                 {Strings::kStrReferenceDomainEnvironmentVariable, &ResolveEnvironmentVariable},
-                {Strings::kStrReferenceDomainKnownFolderIdentifier, &ResolveKnownFolderIdentifier},
-#ifndef PATHWINDER_SKIP_CONFIG
-                {Strings::kStrReferenceDomainVariable, &ResolveVariable}
-#endif
+                {Strings::kStrReferenceDomainKnownFolderIdentifier, &ResolveKnownFolderIdentifier}
             };
 
             static std::map<std::wstring, std::wstring, std::less<void>> previouslyResolvedReferences;
@@ -303,11 +349,11 @@ namespace Pathwinder
 
             const auto resolverByDomainIter = kResolversByDomain.find(strPartReferenceDomain);
             if (kResolversByDomain.cend() == resolverByDomainIter)
-                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Unrecognized reference domain", std::wstring(str).c_str()));
+                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Unrecognized reference domain", std::wstring(strPartReferenceDomain).c_str()));
 
             ResolvedStringOrError resolveResult = resolverByDomainIter->second(strPartReferenceName);
 
-            if (resolveResult.HasValue())
+            if (true == resolveResult.HasValue())
                 previouslyResolvedReferences.emplace(str, resolveResult.Value());
 
             return resolveResult;
@@ -318,7 +364,7 @@ namespace Pathwinder
         ResolvedStringOrError ResolveAllReferences(std::wstring_view str)
         {
             std::wstringstream resolvedStr;
-            TemporaryVector<std::wstring_view> strParts = Strings::SplitString(str, Strings::kStrDelimterReferenceDomainVsName);
+            TemporaryVector<std::wstring_view> strParts = Strings::SplitString(str, Strings::kStrDelimiterReferenceVsLiteral);
 
             if (1 != (strParts.Size() % 2))
                 return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Unmatched '%s' delimiters", std::wstring(str).c_str(), Strings::kStrDelimiterReferenceVsLiteral.data()));
@@ -327,23 +373,32 @@ namespace Pathwinder
 
             for (size_t i = 1; i < strParts.Size(); i += 2)
             {
-                resolvedStr << strParts[i];
-
-                if (true == strParts[i + 1].empty())
+                if (true == strParts[i].empty())
                 {
                     resolvedStr << Strings::kStrDelimiterReferenceVsLiteral;
                 }
                 else
                 {
-                    ResolvedStringOrError resolvedReferenceResult = ResolveSingleReference(strParts[i + 1]);
+                    ResolvedStringOrError resolvedReferenceResult = ResolveSingleReference(strParts[i]);
                     if (true == resolvedReferenceResult.HasError())
                         return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to resolve reference: %s", std::wstring(str).c_str(), resolvedReferenceResult.Error().c_str()));
 
                     resolvedStr << resolvedReferenceResult.Value();
                 }
+
+                resolvedStr << strParts[i + 1];
             }
 
             return ResolvedStringOrError::MakeValue(resolvedStr.str());
         }
+
+        // --------
+
+#ifdef PATHWINDER_SKIP_CONFIG
+        void SetConfigurationFileDefinitions(std::map<std::wstring_view, std::wstring_view>&& newConfigurationFileDefinitions)
+        {
+            configurationFileDefinitions = std::move(newConfigurationFileDefinitions);
+        }
+#endif
     }
 }

@@ -23,8 +23,15 @@ namespace Pathwinder
     /// Useful as a return value from functions that can either produce a result or indicate an error.
     /// @tparam ValueType Type used to represent values.
     /// @tparam ErrorType Type used to represent errors.
-    template <typename ValueType, typename ErrorType> class ValueOrError : private std::variant<ValueType, ErrorType>
+    template <typename ValueType, typename ErrorType> class ValueOrError
     {
+    private:
+        // -------- INSTANCE VARIABLES ------------------------------------- //
+
+        /// Value or error itself.
+        std::variant<ValueType, ErrorType> valueOrError;
+
+
     public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
@@ -34,7 +41,7 @@ namespace Pathwinder
 
         /// Conversion constructor.
         /// Delegates to the underlying data structure.
-        template <typename... Args> constexpr ValueOrError(Args&&... args) : std::variant<ValueType, ErrorType>(std::forward<Args>(args)...)
+        template <typename... Args> constexpr ValueOrError(Args&&... args) : valueOrError(std::forward<Args>(args)...)
         {
             // Nothing to do here.
         }
@@ -42,7 +49,7 @@ namespace Pathwinder
         /// Disambiguating constructor for null pointers.
         /// If the value type is constructible from a null pointer,  then a null pointer argument favors construction of a value rather than an error.
         /// Useful when both value and error types can be constructed using a null pointer argument.
-        template <typename = std::enable_if_t<std::is_constructible_v<ValueType, std::nullptr_t>>> constexpr ValueOrError(std::nullptr_t) : std::variant<ValueType, ErrorType>(ValueType(nullptr))
+        template <typename = std::enable_if_t<std::is_constructible_v<ValueType, std::nullptr_t>>> constexpr ValueOrError(std::nullptr_t) : valueOrError(ValueType(nullptr))
         {
             // Nothing to do here.
         }
@@ -77,42 +84,42 @@ namespace Pathwinder
         /// @return Error by reference.
         constexpr inline const ErrorType& Error(void) const
         {
-            return std::get<ErrorType>(*this);
+            return std::get<ErrorType>(valueOrError);
         }
 
         /// Retrieves a mutable reference to the error held by this object.
         /// @return Error by reference.
         constexpr inline ErrorType& Error(void)
         {
-            return std::get<ErrorType>(*this);
+            return std::get<ErrorType>(valueOrError);
         }
 
         /// Specifies if this object holds an error, as opposed to a value.
         /// @return `true` if so, `false` otherwise.
         constexpr inline bool HasError(void) const
         {
-            return std::holds_alternative<ErrorType>(*this);
+            return std::holds_alternative<ErrorType>(valueOrError);
         }
 
         /// Specifies if this object holds a value, as opposed to an error.
         /// @return `true` if so, `false` otherwise.
         constexpr inline bool HasValue(void) const
         {
-            return std::holds_alternative<ValueType>(*this);
+            return std::holds_alternative<ValueType>(valueOrError);
         }
 
         /// Retrieves a read-only reference to the value held by this object.
         /// @return Value by reference.
         constexpr inline const ValueType& Value(void) const
         {
-            return std::get<ValueType>(*this);
+            return std::get<ValueType>(valueOrError);
         }
 
         /// Retrieves a mutable reference to the value held by this object.
         /// @return Value by reference.
         constexpr inline ValueType& Value(void)
         {
-            return std::get<ValueType>(*this);
+            return std::get<ValueType>(valueOrError);
         }
 
         /// Retrieves a copy of the value held by this object, if this object holds a value, or a copy of the specified default value otherwise.
