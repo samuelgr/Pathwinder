@@ -48,10 +48,11 @@ namespace Pathwinder
         /// Each reference is expected to be of the form %[DOMAIN]::[REFERENCE_NAME]% with %% used to indicate a literal '%' sign.
         /// Full string reference resolution results are not cached and involve a fair bit of dynamic memory manipulation, so the result fully contains and owns its string.
         /// @param [in] str Input string for which references should be resolved.
-        /// @param [in] escapeCharacters Optional input string containing characters to escape if they appear within the results of any references that are resolved, defaults to none.
-        /// @param [in] escapeSequenceStart Optional input string specifying what character sequence to use to begin an escape sequence, defaults to a single backslash.
+        /// @param [in] escapeCharacters Optional string containing characters to escape if they appear within the results of any references that are resolved, defaults to none.
+        /// @param [in] escapeSequenceStart Optional string specifying what character sequence to use to begin an escape sequence, defaults to a single backslash.
+        /// @param [in] escapeSequenceEnd Optional string specifying what character sequence to use to end an escape sequence, defaults to an empty string.
         /// @return Input string with all references resolved or an error message if the resolution failed.
-        ResolvedStringOrError ResolveAllReferences(std::wstring_view str, std::wstring_view escapeCharacters = L"", std::wstring_view escapeSequenceStart = L"\\");
+        ResolvedStringOrError ResolveAllReferences(std::wstring_view str, std::wstring_view escapeCharacters = L"", std::wstring_view escapeSequenceStart = L"\\", std::wstring_view escapeSequenceEnd = L"");
 
 #ifdef PATHWINDER_SKIP_CONFIG
         /// Sets the configuration file definitions map contents.

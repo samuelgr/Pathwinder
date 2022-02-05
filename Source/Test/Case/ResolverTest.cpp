@@ -313,8 +313,8 @@ namespace PathwinderTest
     }
 
     // Verifies that valid inputs for all-reference resolution produce the correct successful resolution results.
-    // Multiple escape characters are supplied, and escape sequences should be generated only in the result sequence.
-    TEST_CASE(Resolver_AllReferences_Escape)
+    // Multiple escape characters are supplied and the default escape sequence is used.
+    TEST_CASE(Resolver_AllReferences_EscapeSequenceDefault)
     {
         SetConfigurationFileDefinitions({
             {L"Variable1", L"abcdef"},
@@ -324,33 +324,78 @@ namespace PathwinderTest
         });
 
         constexpr std::wstring_view kEscapeCharacters = L"cF ";
-        constexpr std::wstring_view kEscapeSequenceStart = L"!&!";
 
         // For most of these inputs first the literal value of the reference appears and then the reference itself.
         // This is to ensure that only the reference result gets escaped, not the literal, even if the literal contains special characters marked for escaping.
         const std::pair<std::wstring_view, std::wstring> kAllReferenceTestRecords[] = {
             {
                 L"abcdef %CONF::Variable1%",
-                L"abcdef " L"ab!&!cdef"
+                L"abcdef " L"ab\\cdef"
             },
             {
                 L"ABCDEF %CONF::Variable2%",
-                L"ABCDEF " L"ABCDE!&!F"
+                L"ABCDEF " L"ABCDE\\F"
             },
             {
                 L"This is a NICE test for real! %CONF::Variable3%",
-                L"This is a NICE test for real! " L"This!&! is!&! a!&! NICE!&! test!&! for!&! real!"
+                L"This is a NICE test for real! " L"This\\ is\\ a\\ NICE\\ test\\ for\\ real!"
             },
             {
                 L"%CONF::Variable4%",
-                L"!&! !&!c!&! !&!F!&! "
+                L"\\ \\c\\ \\F\\ "
             }
         };
 
         for (const auto& kAllReferenceTestRecord : kAllReferenceTestRecords)
         {
             const std::wstring_view kExpectedResolveResult = kAllReferenceTestRecord.second;
-            const ResolvedStringOrError kActualResolveResult = ResolveAllReferences(kAllReferenceTestRecord.first, kEscapeCharacters, kEscapeSequenceStart);
+            const ResolvedStringOrError kActualResolveResult = ResolveAllReferences(kAllReferenceTestRecord.first, kEscapeCharacters);
+
+            TEST_ASSERT(true == kActualResolveResult.HasValue());
+            TEST_ASSERT(kActualResolveResult.Value() == kExpectedResolveResult);
+        }
+    }
+
+    // Verifies that valid inputs for all-reference resolution produce the correct successful resolution results.
+    // Multiple escape characters are supplied along with special sequences for the start and end of escape sequences.
+    TEST_CASE(Resolver_AllReferences_EscapeSequenceStartAndEnd)
+    {
+        SetConfigurationFileDefinitions({
+            {L"Variable5", L"abcdef"},
+            {L"Variable6", L"ABCDEF"},
+            {L"Variable7", L"This is a NICE test for real!"},
+            {L"Variable8", L" c F "}
+        });
+
+        constexpr std::wstring_view kEscapeCharacters = L"cF ";
+        constexpr std::wstring_view kEscapeSequenceStart = L"!&!";
+        constexpr std::wstring_view kEscapeSequenceEnd = L">>";
+
+        // For most of these inputs first the literal value of the reference appears and then the reference itself.
+        // This is to ensure that only the reference result gets escaped, not the literal, even if the literal contains special characters marked for escaping.
+        const std::pair<std::wstring_view, std::wstring> kAllReferenceTestRecords[] = {
+            {
+                L"abcdef %CONF::Variable5%",
+                L"abcdef " L"ab!&!c>>def"
+            },
+            {
+                L"ABCDEF %CONF::Variable6%",
+                L"ABCDEF " L"ABCDE!&!F>>"
+            },
+            {
+                L"This is a NICE test for real! %CONF::Variable7%",
+                L"This is a NICE test for real! " L"This!&! >>is!&! >>a!&! >>NICE!&! >>test!&! >>for!&! >>real!"
+            },
+            {
+                L"%CONF::Variable8%",
+                L"!&! >>!&!c>>!&! >>!&!F>>!&! >>"
+            }
+        };
+
+        for (const auto& kAllReferenceTestRecord : kAllReferenceTestRecords)
+        {
+            const std::wstring_view kExpectedResolveResult = kAllReferenceTestRecord.second;
+            const ResolvedStringOrError kActualResolveResult = ResolveAllReferences(kAllReferenceTestRecord.first, kEscapeCharacters, kEscapeSequenceStart, kEscapeSequenceEnd);
 
             TEST_ASSERT(true == kActualResolveResult.HasValue());
             TEST_ASSERT(kActualResolveResult.Value() == kExpectedResolveResult);
