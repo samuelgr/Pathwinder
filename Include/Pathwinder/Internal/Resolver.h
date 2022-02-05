@@ -25,20 +25,27 @@ namespace Pathwinder
     {
         // -------- TYPE DEFINITIONS --------------------------------------- //
 
-        /// Type alias for representing either the result of resolving one or more references or an error message.
+        /// Type alias for representing either the result of resolving references or an error message.
+        /// This version fully contains and owns the resulting string.
         typedef ValueOrError<std::wstring, std::wstring> ResolvedStringOrError;
+
+        /// Type alias for representing either the result of resolving references or an error message.
+        /// This version provides the resulting string as a read-only view.
+        typedef ValueOrError<std::wstring_view, std::wstring> ResolvedStringViewOrError;
 
 
         // -------- FUNCTIONS ---------------------------------------------- //
 
         /// Resolves a single reference represented by the input string.
         /// Input string is expected to be of the form [DOMAIN]::[REFERENCE_NAME].
+        /// Single reference resolution results are cached internally, so the result is a view into the internal cache data structure.
         /// @param [in] Input string representing a single reference.
         /// @return Resolved reference or an error message if the resolution failed.
-        ResolvedStringOrError ResolveSingleReference(std::wstring_view str);
+        ResolvedStringViewOrError ResolveSingleReference(std::wstring_view str);
 
         /// Resolves all references contained in the input string.
         /// Each reference is expected to be of the form %[DOMAIN]::[REFERENCE_NAME]% with %% used to indicate a literal '%' sign.
+        /// Full string reference resolution results are not cached and involve a fair bit of dynamic memory manipulation, so the result fully contains and owns its string.
         /// @param [in] Input string for which references should be resolved.
         /// @return Input string with all references resolved or an error message if the resolution failed.
         ResolvedStringOrError ResolveAllReferences(std::wstring_view str);

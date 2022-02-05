@@ -72,7 +72,7 @@ namespace PathwinderTest
         constexpr std::wstring_view kEnvironmentVariableName = L"COMPUTERNAME";
 
         const std::optional<std::wstring> kExpectedResolveResult = GetEnvironmentVariableString(kEnvironmentVariableName);
-        const ResolvedStringOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainEnvironmentVariable) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kEnvironmentVariableName));
+        const ResolvedStringViewOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainEnvironmentVariable) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kEnvironmentVariableName));
 
         TEST_ASSERT(true == kExpectedResolveResult.has_value());
         TEST_ASSERT(true == kActualResolveResult.HasValue());
@@ -86,7 +86,7 @@ namespace PathwinderTest
         constexpr std::wstring_view kEnvironmentVariableName = L"COMPUTERNAME";
 
         const std::optional<std::wstring> kExpectedResolveResult = GetEnvironmentVariableString(kEnvironmentVariableName);
-        const ResolvedStringOrError kActualResolveResult = ResolveSingleReference(kEnvironmentVariableName);
+        const ResolvedStringViewOrError kActualResolveResult = ResolveSingleReference(kEnvironmentVariableName);
 
         TEST_ASSERT(true == kExpectedResolveResult.has_value());
         TEST_ASSERT(true == kActualResolveResult.HasValue());
@@ -98,7 +98,7 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kEnvironmentVariableName = L"ASDF=GH=JKL;";
 
-        const ResolvedStringOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainEnvironmentVariable) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kEnvironmentVariableName));
+        const ResolvedStringViewOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainEnvironmentVariable) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kEnvironmentVariableName));
         TEST_ASSERT(true == kActualResolveResult.HasError());
     }
 
@@ -107,7 +107,7 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kEnvironmentVariableName = L"ASDF=GH=JKL;";
 
-        const ResolvedStringOrError kActualResolveResult = ResolveSingleReference(kEnvironmentVariableName);
+        const ResolvedStringViewOrError kActualResolveResult = ResolveSingleReference(kEnvironmentVariableName);
         TEST_ASSERT(true == kActualResolveResult.HasError());
     }
 
@@ -140,7 +140,7 @@ namespace PathwinderTest
             const KNOWNFOLDERID& kKnownFolderIdentifier = *kKnownFolderIdentifierRecord.second;
 
             const std::optional<std::wstring> kExpectedResolveResult = GetKnownFolderPathString(kKnownFolderIdentifier);
-            const ResolvedStringOrError kActualResolveResult = ResolveSingleReference(kKnownFolderInputString);
+            const ResolvedStringViewOrError kActualResolveResult = ResolveSingleReference(kKnownFolderInputString);
 
             TEST_ASSERT(kActualResolveResult.HasValue() == kExpectedResolveResult.has_value());
             
@@ -167,7 +167,7 @@ namespace PathwinderTest
         {
             const std::wstring kKnownFolderInputString = kTestInputPrefix + std::wstring(kKnownFolderIdentifierRecord.first);
 
-            const ResolvedStringOrError kActualResolveResult = ResolveSingleReference(kKnownFolderInputString);
+            const ResolvedStringViewOrError kActualResolveResult = ResolveSingleReference(kKnownFolderInputString);
             TEST_ASSERT(true == kActualResolveResult.HasError());
         }
     }
@@ -183,7 +183,7 @@ namespace PathwinderTest
         });
 
         const std::wstring_view kExpectedResolveResult = kVariableValue;
-        const ResolvedStringOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName));
+        const ResolvedStringViewOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName));
 
         TEST_ASSERT(true == kActualResolveResult.HasValue());
         TEST_ASSERT(kActualResolveResult.Value() == kExpectedResolveResult);
@@ -199,7 +199,7 @@ namespace PathwinderTest
         });
 
         const std::wstring_view kExpectedResolveResult = L"Value of Z incorporates value of Y: (Value of Y incorporates value of X: (Value of X))";
-        const ResolvedStringOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"Z");
+        const ResolvedStringViewOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"Z");
 
         TEST_ASSERT(true == kActualResolveResult.HasValue());
         TEST_ASSERT(kActualResolveResult.Value() == kExpectedResolveResult);
@@ -215,7 +215,7 @@ namespace PathwinderTest
             {kVariableName, kVariableValue}
         });
 
-        const ResolvedStringOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName));
+        const ResolvedStringViewOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName));
         TEST_ASSERT(true == kActualResolveResult.HasError());
     }
 
@@ -228,14 +228,14 @@ namespace PathwinderTest
             {L"Invalid3", L"Value of Invalid3 incorporates %CONF::Invalid1%"}
         });
 
-        const ResolvedStringOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"Invalid2");
+        const ResolvedStringViewOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"Invalid2");
         TEST_ASSERT(true == kActualResolveResult.HasError());
     }
 
     // Verifies that a configured definition referencing an unrecognized variable fails to be resolved.
     TEST_CASE(Resolver_SingleReference_ConfiguredDefinition_Invalid)
     {
-        const ResolvedStringOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"UnknownVariable123456");
+        const ResolvedStringViewOrError kActualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"UnknownVariable123456");
         TEST_ASSERT(true == kActualResolveResult.HasError());
     }
 
@@ -250,7 +250,7 @@ namespace PathwinderTest
         for (const auto& kBuiltinStringTestRecord : kBuiltinStringTestRecords)
         {
             const std::wstring_view kExpectedResolveResult = kBuiltinStringTestRecord.second;
-            const ResolvedStringOrError kActualResolveResult = ResolveSingleReference(kBuiltinStringTestRecord.first);
+            const ResolvedStringViewOrError kActualResolveResult = ResolveSingleReference(kBuiltinStringTestRecord.first);
 
             TEST_ASSERT(true == kActualResolveResult.HasValue());
             TEST_ASSERT(kActualResolveResult.Value() == kExpectedResolveResult);

@@ -312,7 +312,7 @@ namespace Pathwinder
         // -------- FUNCTIONS ---------------------------------------------- //
         // See "Resolver.h" for documentation.
 
-        ResolvedStringOrError ResolveSingleReference(std::wstring_view str)
+        ResolvedStringViewOrError ResolveSingleReference(std::wstring_view str)
         {
             static const std::unordered_map<std::wstring_view, TResolveReferenceFunc> kResolversByDomain = {
                 {Strings::kStrReferenceDomainBuiltin, &ResolveBuiltin},
@@ -325,7 +325,7 @@ namespace Pathwinder
 
             const auto previouslyResolvedIter = previouslyResolvedReferences.find(str);
             if (previouslyResolvedReferences.cend() != previouslyResolvedIter)
-                return ResolvedStringOrError::MakeValue(previouslyResolvedIter->second);
+                return ResolvedStringViewOrError::MakeValue(previouslyResolvedIter->second);
 
             TemporaryVector<std::wstring_view> strParts = Strings::SplitString(str, Strings::kStrDelimterReferenceDomainVsName);
             std::wstring_view strPartReferenceDomain;
@@ -344,19 +344,19 @@ namespace Pathwinder
                 break;
 
             default:
-                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Unparseable reference", std::wstring(str).c_str()));
+                return ResolvedStringViewOrError::MakeError(Strings::FormatString(L"%s: Unparseable reference", std::wstring(str).c_str()));
             }
 
             const auto resolverByDomainIter = kResolversByDomain.find(strPartReferenceDomain);
             if (kResolversByDomain.cend() == resolverByDomainIter)
-                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Unrecognized reference domain", std::wstring(strPartReferenceDomain).c_str()));
+                return ResolvedStringViewOrError::MakeError(Strings::FormatString(L"%s: Unrecognized reference domain", std::wstring(strPartReferenceDomain).c_str()));
 
             ResolvedStringOrError resolveResult = resolverByDomainIter->second(strPartReferenceName);
 
             if (true == resolveResult.HasValue())
-                previouslyResolvedReferences.emplace(str, resolveResult.Value());
-
-            return resolveResult;
+                return ResolvedStringViewOrError::MakeValue(previouslyResolvedReferences.emplace(str, resolveResult.Value()).first->second);
+            else
+                return ResolvedStringViewOrError::MakeError(std::move(resolveResult.Error()));
         }
 
         // --------
@@ -379,7 +379,8 @@ namespace Pathwinder
                 }
                 else
                 {
-                    ResolvedStringOrError resolvedReferenceResult = ResolveSingleReference(strParts[i]);
+                    const ResolvedStringViewOrError resolvedReferenceResult = ResolveSingleReference(strParts[i]);
+
                     if (true == resolvedReferenceResult.HasError())
                         return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to resolve reference: %s", std::wstring(str).c_str(), resolvedReferenceResult.Error().c_str()));
 
