@@ -36,12 +36,12 @@ namespace PathwinderTest
     static std::optional<std::wstring> GetEnvironmentVariableString(std::wstring_view name)
     {
         TemporaryBuffer<wchar_t> environmentVariableValue;
-        const DWORD kGetEnvironmentVariableResult = GetEnvironmentVariable(std::wstring(name).c_str(), environmentVariableValue, environmentVariableValue.Capacity());
+        const DWORD kGetEnvironmentVariableResult = GetEnvironmentVariable(std::wstring(name).c_str(), environmentVariableValue.Data(), environmentVariableValue.Capacity());
 
         if ((kGetEnvironmentVariableResult >= environmentVariableValue.Capacity()) || (0 == kGetEnvironmentVariableResult))
             return std::nullopt;
 
-        return std::wstring(environmentVariableValue);
+        return std::wstring(environmentVariableValue.Data());
     }
 
     /// Attempts to resolve a known path identifier to a string representation of its path.

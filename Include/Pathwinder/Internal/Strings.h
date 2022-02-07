@@ -92,7 +92,7 @@ namespace Pathwinder
         /// Formats a string and returns the result in a newly-allocated null-terminated temporary buffer.
         /// @param [in] format Format string, possibly with format specifiers which must be matched with the arguments that follow.
         /// @return Resulting string after all formatting is applied.
-        TemporaryBuffer<wchar_t> FormatString(_Printf_format_string_ const wchar_t* format, ...);
+        TemporaryString FormatString(_Printf_format_string_ const wchar_t* format, ...);
 
         /// Splits a string using the specified delimiter character and returns a list of views each corresponding to a part of the input string.
         /// If there are too many delimiters present such that not all of the pieces can fit into the returned container type then the returned container will be empty.
@@ -105,6 +105,6 @@ namespace Pathwinder
         /// Generates a string representation of a system error code.
         /// @param [in] systemErrorCode System error code for which to generate a string.
         /// @return String representation of the system error code.
-        TemporaryBuffer<wchar_t> SystemErrorCodeString(const unsigned long systemErrorCode);
+        TemporaryString SystemErrorCodeString(const unsigned long systemErrorCode);
     }
 }

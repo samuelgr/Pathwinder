@@ -20,7 +20,6 @@
 
 #include <map>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -120,14 +119,14 @@ namespace Pathwinder
         static ResolvedStringOrError ResolveEnvironmentVariable(std::wstring_view name)
         {
             TemporaryBuffer<wchar_t> environmentVariableValue;
-            const DWORD kGetEnvironmentVariableResult = GetEnvironmentVariable(std::wstring(name).c_str(), environmentVariableValue, environmentVariableValue.Capacity());
+            const DWORD kGetEnvironmentVariableResult = GetEnvironmentVariable(std::wstring(name).c_str(), environmentVariableValue.Data(), environmentVariableValue.Capacity());
 
             if (kGetEnvironmentVariableResult >= environmentVariableValue.Capacity())
                 return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to obtain environment variable value: Value is too long", std::wstring(name).c_str()));
             else if (0 == kGetEnvironmentVariableResult)
-                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to obtain environment variable value: %s", std::wstring(name).c_str(), (wchar_t*)Strings::SystemErrorCodeString(GetLastError())));
+                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to obtain environment variable value: %s", std::wstring(name).c_str(), Strings::SystemErrorCodeString(GetLastError()).AsCString()));
 
-            return ResolvedStringOrError::MakeValue(environmentVariableValue);
+            return ResolvedStringOrError::MakeValue(environmentVariableValue.Data());
         }
 
         /// Resolves a known folder identifier.
@@ -363,7 +362,7 @@ namespace Pathwinder
 
         ResolvedStringOrError ResolveAllReferences(std::wstring_view str, std::wstring_view escapeCharacters, std::wstring_view escapeSequenceStart, std::wstring_view escapeSequenceEnd)
         {
-            std::wstringstream resolvedStr;
+            TemporaryString resolvedStr;
             TemporaryVector<std::wstring_view> strParts = Strings::SplitString(str, Strings::kStrDelimiterReferenceVsLiteral);
 
             if (1 != (strParts.Size() % 2))
@@ -409,7 +408,10 @@ namespace Pathwinder
                 resolvedStr << strParts[i + 1];
             }
 
-            return ResolvedStringOrError::MakeValue(resolvedStr.str());
+            if (true == resolvedStr.Overflow())
+                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Successfully resolved, but result exceeds the limit of %u characters", std::wstring(str).c_str(), resolvedStr.Capacity()));
+
+            return ResolvedStringOrError::MakeValue(resolvedStr);
         }
 
         // --------

@@ -18,7 +18,6 @@
 #include <psapi.h>
 #include <sal.h>
 #include <shlobj.h>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <windows.h>
@@ -72,9 +71,9 @@ namespace Pathwinder
             std::call_once(initFlag, []() -> void
                 {
                     TemporaryBuffer<wchar_t> buf;
-                    GetModuleFileName(nullptr, buf, (DWORD)buf.Capacity());
+                    GetModuleFileName(nullptr, buf.Data(), (DWORD)buf.Capacity());
 
-                    initString.assign(buf);
+                    initString.assign(buf.Data());
                 }
             );
 
@@ -136,9 +135,9 @@ namespace Pathwinder
             std::call_once(initFlag, []() -> void
                 {
                     TemporaryBuffer<wchar_t> buf;
-                    GetModuleFileName(Globals::GetInstanceHandle(), buf, (DWORD)buf.Capacity());
+                    GetModuleFileName(Globals::GetInstanceHandle(), buf.Data(), (DWORD)buf.Capacity());
 
-                    initString.assign(buf);
+                    initString.assign(buf.Data());
                 }
             );
 
@@ -199,7 +198,7 @@ namespace Pathwinder
 
             std::call_once(initFlag, []() -> void
                 {
-                    std::wstring_view pieces[] = {GetPathwinderDirectoryName(), GetProductName(), kStrConfigurationFileExtension};
+                    std::wstring_view pieces[] = {GetPathwinderDirectoryName(), L"\\", GetProductName(), kStrConfigurationFileExtension};
 
                     size_t totalLength = 0;
                     for (int i = 0; i < _countof(pieces); ++i)
@@ -224,7 +223,7 @@ namespace Pathwinder
 
             std::call_once(initFlag, []() -> void
                 {
-                    std::wstringstream logFilename;
+                    TemporaryString logFilename;
 
                     PWSTR knownFolderPath;
                     const HRESULT result = SHGetKnownFolderPath(FOLDERID_Desktop, 0, nullptr, &knownFolderPath);
@@ -237,7 +236,7 @@ namespace Pathwinder
 
                     logFilename << GetProductName().c_str() << L'_' << GetExecutableBaseName().c_str() << L'_' << Globals::GetCurrentProcessId() << kStrLogFileExtension;
 
-                    initString.assign(logFilename.str());
+                    initString.assign(logFilename);
                 }
             );
 
@@ -262,14 +261,14 @@ namespace Pathwinder
         // -------- FUNCTIONS ---------------------------------------------- //
         // See "Strings.h" for documentation.
 
-        TemporaryBuffer<wchar_t> FormatString(_Printf_format_string_ const wchar_t* format, ...)
+        TemporaryString FormatString(_Printf_format_string_ const wchar_t* format, ...)
         {
-            TemporaryBuffer<wchar_t> buf;
+            TemporaryString buf;
 
             va_list args;
             va_start(args, format);
 
-            vswprintf_s(buf.Data(), buf.Capacity(), format, args);
+            buf.UnsafeSetSize((size_t)vswprintf_s(buf.Data(), buf.Capacity(), format, args));
 
             va_end(args);
 
@@ -310,14 +309,14 @@ namespace Pathwinder
 
         // --------
 
-        TemporaryBuffer<wchar_t> SystemErrorCodeString(const unsigned long systemErrorCode)
+        TemporaryString SystemErrorCodeString(const unsigned long systemErrorCode)
         {
-            TemporaryBuffer<wchar_t> systemErrorString;
-            DWORD systemErrorLength = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, systemErrorCode, 0, systemErrorString, systemErrorString.Capacity(), nullptr);
+            TemporaryString systemErrorString;
+            DWORD systemErrorLength = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, systemErrorCode, 0, systemErrorString.Data(), systemErrorString.Capacity(), nullptr);
 
             if (0 == systemErrorLength)
             {
-                swprintf_s(systemErrorString, systemErrorString.Capacity(), L"System error %u.", (unsigned int)systemErrorCode);
+                systemErrorString = FormatString(L"System error %u.", (unsigned int)systemErrorCode);
             }
             else
             {
@@ -327,6 +326,7 @@ namespace Pathwinder
                         break;
 
                     systemErrorString[systemErrorLength] = L'\0';
+                    systemErrorString.UnsafeSetSize(systemErrorLength);
                 }
             }
 
