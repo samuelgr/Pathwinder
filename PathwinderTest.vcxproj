@@ -205,10 +205,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Source\Globals.cpp" />
+    <ClCompile Include="Source\MatchRule.cpp" />
     <ClCompile Include="Source\Message.cpp" />
     <ClCompile Include="Source\Resolver.cpp" />
     <ClCompile Include="Source\Strings.cpp" />
     <ClCompile Include="Source\TemporaryBuffer.cpp" />
+    <ClCompile Include="Source\Test\Case\MatchRuleTest.cpp" />
     <ClCompile Include="Source\Test\Case\ResolverTest.cpp" />
     <ClCompile Include="Source\Test\Case\StringsTest.cpp" />
     <ClCompile Include="Source\Test\Harness.cpp" />
@@ -217,6 +219,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\MatchRule.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Resolver.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Strings.h" />
