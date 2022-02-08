@@ -88,10 +88,10 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Natvis Include="Debug\TemporaryBuffer.natvis">
+    <Natvis Include="Include\Pathwinder\Internal\TemporaryBuffer.natvis">
       <Filter>Debugging Files</Filter>
     </Natvis>
-    <Natvis Include="Debug\ValueOrError.natvis">
+    <Natvis Include="Include\Pathwinder\Internal\ValueOrError.natvis">
       <Filter>Debugging Files</Filter>
     </Natvis>
   </ItemGroup>
