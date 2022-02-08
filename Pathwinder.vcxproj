@@ -229,10 +229,6 @@
   <ItemGroup>
     <ResourceCompile Include="Resources\Pathwinder.rc" />
   </ItemGroup>
-  <ItemGroup>
-    <Natvis Include="Include\Pathwinder\Internal\TemporaryBuffer.natvis" />
-    <Natvis Include="Include\Pathwinder\Internal\ValueOrError.natvis" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

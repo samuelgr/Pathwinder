@@ -7,6 +7,12 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PathwinderTest", "Pathwinde
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Pathwinder", "Pathwinder.vcxproj", "{8482EB4C-9E88-41A2-B593-BDCF578DD205}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Debugging Files", "Debugging Files", "{6F5436BE-1782-44C2-9755-0014C6DDC7BB}"
+	ProjectSection(SolutionItems) = preProject
+		Include\Pathwinder\Internal\TemporaryBuffer.natvis = Include\Pathwinder\Internal\TemporaryBuffer.natvis
+		Include\Pathwinder\Internal\ValueOrError.natvis = Include\Pathwinder\Internal\ValueOrError.natvis
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
