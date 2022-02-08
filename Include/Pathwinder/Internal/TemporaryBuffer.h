@@ -219,6 +219,8 @@ namespace Pathwinder
         /// Copy assignment operator.
         inline TemporaryVector& operator=(const TemporaryVector& other)
         {
+            Clear();
+
             for (unsigned int i = 0; i < other.size; ++i)
                 EmplaceBack(other[i]);
 
@@ -282,6 +284,13 @@ namespace Pathwinder
         {
             new (&((*this)[size])) T(std::forward<Args>(args)...);
             return (*this)[size++];
+        }
+
+        /// Specifies if this container contains no elements.
+        /// @return `true` if this is container is empty, `false` otherwise.
+        inline bool Empty(void) const
+        {
+            return (0 == Size());
         }
 
         /// Removes the last element from this container and destroys it.
