@@ -40,7 +40,7 @@ namespace Pathwinder
         /// Even once this limit is reached buffers can be allocated but they are dynamically heap-allocated.
         static constexpr unsigned int kBuffersCount = 8;
 
-        /// Specifies the size of each temporary buffer.
+        /// Specifies the size of each temporary buffer in bytes.
         static constexpr unsigned int kBytesPerBuffer = kBuffersTotalNumBytes / kBuffersCount;
 
 
@@ -95,6 +95,12 @@ namespace Pathwinder
     template <typename T> class TemporaryBuffer : public TemporaryBufferBase
     {
     public:
+        // -------- CONSTANTS ---------------------------------------------- //
+
+        /// Specifies the size of each temporary buffer in number of elements.
+        static constexpr unsigned int kNumElementsPerBuffer = kBytesPerBuffer / sizeof(T);
+
+
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
         /// Default constructor.
@@ -138,7 +144,7 @@ namespace Pathwinder
         /// @return Size of the buffer, in T-sized elements.
         constexpr inline unsigned int Capacity(void) const
         {
-            return CapacityBytes() / sizeof(T);
+            return kNumElementsPerBuffer;
         }
 
         /// Retrieves a properly-typed pointer to the buffer itself, constant version.
@@ -347,7 +353,7 @@ namespace Pathwinder
         /// Move constructor.
         inline TemporaryString(TemporaryString&& other) : TemporaryVector<wchar_t>(std::move(other))
         {
-            (*this)[size] = L'\0';
+            // Nothing to do here.
         }
 
 

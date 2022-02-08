@@ -13,6 +13,10 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Debugging Files">
+      <UniqueIdentifier>{F7F4757F-0D30-4ED8-BA0F-DA9F7109F9BC}</UniqueIdentifier>
+      <Extensions>natvis</Extensions>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\Test\Harness.cpp">
@@ -82,5 +86,13 @@
     <ResourceCompile Include="Resources\Pathwinder.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="Debug\TemporaryBuffer.natvis">
+      <Filter>Debugging Files</Filter>
+    </Natvis>
+    <Natvis Include="Debug\ValueOrError.natvis">
+      <Filter>Debugging Files</Filter>
+    </Natvis>
   </ItemGroup>
 </Project>

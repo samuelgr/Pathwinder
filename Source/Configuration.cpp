@@ -430,12 +430,12 @@ namespace Pathwinder
 
             int configLineNumber = 1;
             TemporaryBuffer<wchar_t> configLineBuffer;
-            int configLineLength = ReadAndTrimLine(configFileHandle, configLineBuffer, configLineBuffer.Capacity());
+            int configLineLength = ReadAndTrimLine(configFileHandle, configLineBuffer.Data(), configLineBuffer.Capacity());
             bool skipValueLines = false;
 
             while (configLineLength >= 0)
             {
-                switch (ClassifyConfigurationFileLine(configLineBuffer, configLineLength))
+                switch (ClassifyConfigurationFileLine(configLineBuffer.Data(), configLineLength))
                 {
                 case ELineClassification::Error:
                     readErrors.emplace_back(Strings::FormatString(L"%s(%d): Unable to parse line.", configFileName.data(), configLineNumber));
@@ -446,7 +446,7 @@ namespace Pathwinder
 
                 case ELineClassification::Section:
                     do {
-                        std::wstring_view section = ParseSection(configLineBuffer);
+                        std::wstring_view section = ParseSection(configLineBuffer.Data());
 
                         if (0 != seenSections.count(section))
                         {
@@ -488,7 +488,7 @@ namespace Pathwinder
                     {
                         std::wstring_view name;
                         std::wstring_view value;
-                        ParseNameAndValue(configLineBuffer, name, value);
+                        ParseNameAndValue(configLineBuffer.Data(), name, value);
 
                         const EValueType valueType = TypeForValue(thisSection, name);
                         bool shouldParseValue = true;
@@ -608,7 +608,7 @@ namespace Pathwinder
                     break;
                 }
 
-                configLineLength = ReadAndTrimLine(configFileHandle, configLineBuffer, configLineBuffer.Capacity());
+                configLineLength = ReadAndTrimLine(configFileHandle, configLineBuffer.Data(), configLineBuffer.Capacity());
                 configLineNumber += 1;
             }
 
