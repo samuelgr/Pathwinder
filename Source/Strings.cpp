@@ -13,7 +13,9 @@
 #include "Strings.h"
 #include "TemporaryBuffer.h"
 
+#include <cctype>
 #include <cstdlib>
+#include <cwctype>
 #include <mutex>
 #include <psapi.h>
 #include <sal.h>
@@ -37,6 +39,35 @@ namespace Pathwinder
 
 
         // -------- INTERNAL FUNCTIONS ------------------------------------- //
+
+        /// Converts a single character to lowercase.
+        /// Default implementation does nothing useful.
+        /// @tparam CharType Character type.
+        /// @param [in] c Character to convert.
+        /// @return Null character, as the default implementation does nothing useful.
+        template <typename CharType> static inline CharType ToLowercase(CharType c)
+        {
+            return L'\0';
+        }
+
+        /// Converts a single narrow character to lowercase.
+        /// @tparam CharType Character type.
+        /// @param [in] c Character to convert.
+        /// @return Lowercase version of the input, if a conversion is possible, or the same character as the input otherwise.
+        template <> char static inline ToLowercase(char c)
+        {
+            return std::tolower(c);
+        }
+
+        /// Converts a single wide character to lowercase.
+        /// Default implementation does nothing useful.
+        /// @tparam CharType Character type.
+        /// @param [in] c Character to convert.
+        /// @return Lowercase version of the input, if a conversion is possible, or the same character as the input otherwise.
+        template <> wchar_t static inline ToLowercase(wchar_t c)
+        {
+            return std::towlower(c);
+        }
 
         /// Generates the value for kStrProductName; see documentation of this run-time constant for more information.
         /// @return Corresponding run-time constant value.
@@ -260,6 +291,38 @@ namespace Pathwinder
 
         // -------- FUNCTIONS ---------------------------------------------- //
         // See "Strings.h" for documentation.
+
+        TemporaryString ConvertStringNarrowToWide(const char* str)
+        {
+            TemporaryString convertedStr;
+            size_t numCharsConverted = 0;
+
+            if (0 == mbstowcs_s(&numCharsConverted, convertedStr.Data(), convertedStr.Capacity(), str, convertedStr.Capacity() - 1))
+                convertedStr.UnsafeSetSize(numCharsConverted);
+
+            return convertedStr;
+        }
+
+        // --------
+
+        template <typename CharType> bool EqualsCaseInsensitive(std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB)
+        {
+            if (strA.length() != strB.length())
+                return false;
+
+            for (size_t i = 0; i < strA.length(); ++i)
+            {
+                if (ToLowercase(strA[i]) != ToLowercase(strB[i]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        template bool EqualsCaseInsensitive<char>(std::string_view, std::string_view);
+        template bool EqualsCaseInsensitive<wchar_t>(std::wstring_view, std::wstring_view);
+
+        // --------
 
         TemporaryString FormatString(_Printf_format_string_ const wchar_t* format, ...)
         {

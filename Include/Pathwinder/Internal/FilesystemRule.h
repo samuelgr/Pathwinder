@@ -11,8 +11,10 @@
 
 #pragma once
 
+#include "TemporaryBuffer.h"
 #include "ValueOrError.h"
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -96,5 +98,28 @@ namespace Pathwinder
         /// @param [in] candidateFilePattern File pattern string to check.
         /// @return `true` if the directory string is valid, `false` otherwise.
         static bool IsValidFilePatternString(std::wstring_view candidateFilePattern);
+
+
+        // -------- INSTANCE METHODS --------------------------------------- //
+
+        /// Determines if the specified filename matches any of the file patterns associated with this object.
+        /// Input filename must not contain any backslash separators, as it is intended to represent a file within a directory rather than a path.
+        /// @param [in] candidateFileName File name to check for matches with any file pattern.
+        /// @return `true` if any file pattern produces a match, `false` otherwise.
+        bool FileNameMatchesAnyPattern(const wchar_t* candidateFileName) const;
+
+        /// Computes and returns the result of redirecting from the specified candidate path to the target directory associated with this rule.
+        /// If the origin directory matches the candidate path and a file pattern matches then a redirection can occur to the target directory.
+        /// Otherwise no redirection occurs and no output is produced.
+        /// @param [in] candidatePath Path for which a redirection is attempted, which may be absolute or relative path.
+        /// @return Redirected location as an absolute path, if redirection occurred successfully.
+        std::optional<TemporaryString> RedirectPathOriginToTarget(const wchar_t* candidatePath) const;
+
+        /// Computes and returns the result of redirecting from the specified candidate path to the origin directory associated with this rule.
+        /// If the target directory matches the candidate path and a file pattern matches then a redirection can occur to the origin directory.
+        /// Otherwise no redirection occurs and no output is produced.
+        /// @param [in] candidatePath Path for which a redirection is attempted, which may be absolute or relative path.
+        /// @return Redirected location as an absolute path, if redirection occurred successfully.
+        std::optional<TemporaryString> RedirectPathTargetToOrigin(const wchar_t* candidatePath) const;
     };
 }

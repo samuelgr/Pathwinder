@@ -89,6 +89,18 @@ namespace Pathwinder
 
         // -------- FUNCTIONS ---------------------------------------------- //
 
+        /// Converts characters in a a narrow string wide character format.
+        /// @param [in] str Null-terminated string to convert.
+        /// @return Result of the conversion, or an empty string on failure.
+        TemporaryString ConvertStringNarrowToWide(const char* str);
+
+        /// Compares two strings without regard for the case of each individual character.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
+        /// @param [in] strA First string in the comparison.
+        /// @param [in] strB Second string in the comparison.
+        /// @return `true` if the strings compare equal, `false` otherwise.
+        template <typename CharType> bool EqualsCaseInsensitive(std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB);
+
         /// Formats a string and returns the result in a newly-allocated null-terminated temporary buffer.
         /// @param [in] format Format string, possibly with format specifiers which must be matched with the arguments that follow.
         /// @return Resulting string after all formatting is applied.

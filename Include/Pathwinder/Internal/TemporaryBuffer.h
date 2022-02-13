@@ -34,11 +34,11 @@ namespace Pathwinder
         // -------- CONSTANTS -------------------------------------------------- //
 
         /// Specifies the total size of all temporary buffers, in bytes.
-        static constexpr unsigned int kBuffersTotalNumBytes = 1 * 1024 * 1024;
+        static constexpr unsigned int kBuffersTotalNumBytes = 4 * 1024 * 1024;
 
         /// Specifies the number of temporary buffers to create statically.
         /// Even once this limit is reached buffers can be allocated but they are dynamically heap-allocated.
-        static constexpr unsigned int kBuffersCount = 8;
+        static constexpr unsigned int kBuffersCount = 32;
 
         /// Specifies the size of each temporary buffer in bytes.
         static constexpr unsigned int kBytesPerBuffer = kBuffersTotalNumBytes / kBuffersCount;
