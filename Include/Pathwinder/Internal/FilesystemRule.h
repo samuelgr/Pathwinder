@@ -26,6 +26,18 @@ namespace Pathwinder
     /// Implements all of the behavior needed to determine whether and how paths are covered by the rule.
     class FilesystemRule
     {
+    public:
+        // -------- TYPE DEFINITIONS --------------------------------------- //
+
+        /// Enumerates the possible results of comparing a directory with either the origin or target directory associated with a filesystem rule.
+        enum class EDirectoryCompareResult
+        {
+            Equal,                                                          ///< Candidate directory is exactly equal to the comparison target directory.
+            Unrelated,                                                      ///< Candidate directory is not related to the comparison target directory. Paths diverge, and one is not a parent or child of the other.
+            CandidateIsParent,                                              ///< Candidate directory is a parent of the comparison target directory.
+            CandidateIsChild                                                ///< Candidate directory is a child of the comparison target directory.
+        };
+
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
@@ -101,6 +113,16 @@ namespace Pathwinder
 
 
         // -------- INSTANCE METHODS --------------------------------------- //
+
+        /// Compares the specified directory with the origin directory associated with this object.
+        /// @param [in] candidateDirectory Directory to compare with the origin directory.
+        /// @return Result of the comparison. See #EDirectoryCompareResult documentation for more information.
+        EDirectoryCompareResult DirectoryCompareWithOrigin(std::wstring_view candidateDirectory) const;
+
+        /// Compares the specified directory with the target directory associated with this object.
+        /// @param [in] candidateDirectory Directory to compare with the origin directory.
+        /// @return Result of the comparison. See #EDirectoryCompareResult documentation for more information.
+        EDirectoryCompareResult DirectoryCompareWithTarget(std::wstring_view candidateDirectory) const;
 
         /// Determines if the specified filename matches any of the file patterns associated with this object.
         /// Input filename must not contain any backslash separators, as it is intended to represent a file within a directory rather than a path.

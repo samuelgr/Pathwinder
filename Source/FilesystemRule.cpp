@@ -28,6 +28,41 @@ namespace Pathwinder
 {
     // -------- INTERNAL FUNCTIONS ----------------------------------------- //
 
+    /// Compares the specified candidate directory with a comparison target directory to determine if and how they might be related.
+    /// @param [in] candidateDirectory Directory to compare.
+    /// @param [in] comparisonTargetDirectory Comparison target directory, which is typically associated with a filesystem rule object.
+    /// @return Result of the comparison. See #EDirectoryCompareResult documentation for more information.
+    static FilesystemRule::EDirectoryCompareResult DirectoryCompareInternal(std::wstring_view candidateDirectory, std::wstring_view comparisonTargetDirectory)
+    {
+        if (candidateDirectory.length() == comparisonTargetDirectory.length())
+        {
+            // Lengths are the same, so either the two are equal or unrelated.
+
+            if (candidateDirectory == comparisonTargetDirectory)
+                return FilesystemRule::EDirectoryCompareResult::Equal;
+            else
+                return FilesystemRule::EDirectoryCompareResult::Unrelated;
+        }
+        else if (candidateDirectory.length() < comparisonTargetDirectory.length())
+        {
+            // Candidate directory is shorter, so it could be a parent of the comparison target.
+
+            if ((true == comparisonTargetDirectory.starts_with(candidateDirectory)) && (L'\\' == comparisonTargetDirectory[candidateDirectory.length()]))
+                return FilesystemRule::EDirectoryCompareResult::CandidateIsParent;
+            else
+                return FilesystemRule::EDirectoryCompareResult::Unrelated;
+        }
+        else
+        {
+            // Comparison target is shorter, so it could be a parent of the candidate.
+
+            if ((true == candidateDirectory.starts_with(comparisonTargetDirectory)) && (L'\\' == candidateDirectory[comparisonTargetDirectory.length()]))
+                return FilesystemRule::EDirectoryCompareResult::CandidateIsChild;
+            else
+                return FilesystemRule::EDirectoryCompareResult::Unrelated;
+        }
+    }
+
     /// Determines if the specified filename matches any of the specified file patterns.
     /// Input filename must not contain any backslash separators, as it is intended to represent a file within a directory rather than a path.
     /// @param [in] candidateFileName File name to check for matches with any file pattern.
@@ -40,7 +75,7 @@ namespace Pathwinder
 
         for (const auto& kFilePattern : kFilePatterns)
         {
-            if (S_OK == PathMatchSpecEx(candidateFileName, kFilePattern.data(), PMSF_NORMAL | PMSF_DONT_STRIP_SPACES))
+            if (TRUE == PathMatchSpecW(candidateFileName, kFilePattern.data()))
                 return true;
         }
 
@@ -59,9 +94,9 @@ namespace Pathwinder
     {
         TemporaryString candidateFullPath;
         wchar_t* candidateFilePart = nullptr;
-        
-        candidateFullPath.UnsafeSetSize(GetFullPathName(candidatePath, candidateFullPath.Capacity(), candidateFullPath.Data(), &candidateFilePart));
-        
+
+        candidateFullPath.UnsafeSetSize(GetFullPathNameW(candidatePath, candidateFullPath.Capacity(), candidateFullPath.Data(), &candidateFilePart));
+
         if (true == candidateFullPath.Empty())
         {
             Message::OutputFormatted(Message::ESeverity::Warning, L"Filesystem redirection failed for candidate path \"%s\" because the resulting absolute path could not be computed: %s.", candidatePath, Strings::SystemErrorCodeString(GetLastError()).AsCString());
@@ -111,7 +146,7 @@ namespace Pathwinder
             return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Origin directory: %s: Either empty or contains disallowed characters", maybeOriginDirectoryResolvedString.Value().c_str()));
 
         TemporaryString originDirectoryFullPath;
-        originDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeOriginDirectoryResolvedString.Value().c_str(), originDirectoryFullPath.Capacity(), originDirectoryFullPath.Data(), nullptr));
+        originDirectoryFullPath.UnsafeSetSize(GetFullPathNameW(maybeOriginDirectoryResolvedString.Value().c_str(), originDirectoryFullPath.Capacity(), originDirectoryFullPath.Data(), nullptr));
         if (true == originDirectoryFullPath.Empty())
             return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Origin directory: Failed to resolve full path: %s", Strings::SystemErrorCodeString(GetLastError()).AsCString()));
         if (true == originDirectoryFullPath.Overflow())
@@ -124,7 +159,7 @@ namespace Pathwinder
             return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Target directory: %s: Either empty or contains disallowed characters", maybeTargetDirectoryResolvedString.Value().c_str()));
 
         TemporaryString targetDirectoryFullPath;
-        targetDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeTargetDirectoryResolvedString.Value().c_str(), targetDirectoryFullPath.Capacity(), targetDirectoryFullPath.Data(), nullptr));
+        targetDirectoryFullPath.UnsafeSetSize(GetFullPathNameW(maybeTargetDirectoryResolvedString.Value().c_str(), targetDirectoryFullPath.Capacity(), targetDirectoryFullPath.Data(), nullptr));
         if (true == targetDirectoryFullPath.Empty())
             return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Target directory: Failed to resolve full path: %s", Strings::SystemErrorCodeString(GetLastError()).AsCString()));
         if (true == targetDirectoryFullPath.Overflow())
@@ -183,6 +218,20 @@ namespace Pathwinder
 
     // -------- INSTANCE METHODS ------------------------------------------- //
     // See "FilesystemRule.h" for documentation.
+
+    FilesystemRule::EDirectoryCompareResult FilesystemRule::DirectoryCompareWithOrigin(std::wstring_view candidateDirectory) const
+    {
+        return DirectoryCompareInternal(candidateDirectory, kOriginDirectory);
+    }
+
+    // --------
+
+    FilesystemRule::EDirectoryCompareResult FilesystemRule::DirectoryCompareWithTarget(std::wstring_view candidateDirectory) const
+    {
+        return DirectoryCompareInternal(candidateDirectory, kTargetDirectory);
+    }
+
+    // --------
 
     bool FilesystemRule::FileNameMatchesAnyPattern(const wchar_t* candidateFileName) const
     {

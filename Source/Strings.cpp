@@ -305,6 +305,19 @@ namespace Pathwinder
 
         // --------
 
+        TemporaryBuffer<char> ConvertStringWideToNarrow(const wchar_t* str)
+        {
+            TemporaryBuffer<char> convertedStr;
+            size_t numCharsConverted = 0;
+
+            if (0 != wcstombs_s(&numCharsConverted, convertedStr.Data(), convertedStr.Capacity(), str, convertedStr.Capacity() - 1))
+                convertedStr[0] = '\0';
+
+            return convertedStr;
+        }
+
+        // --------
+
         template <typename CharType> bool EqualsCaseInsensitive(std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB)
         {
             if (strA.length() != strB.length())

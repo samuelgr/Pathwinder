@@ -89,10 +89,15 @@ namespace Pathwinder
 
         // -------- FUNCTIONS ---------------------------------------------- //
 
-        /// Converts characters in a a narrow string wide character format.
+        /// Converts characters in a narrow character string to wide character format.
         /// @param [in] str Null-terminated string to convert.
         /// @return Result of the conversion, or an empty string on failure.
         TemporaryString ConvertStringNarrowToWide(const char* str);
+
+        /// Converts characters in a wide character string to narrow character format.
+        /// @param [in] str Null-terminated string to convert.
+        /// @return Result of the conversion, or an empty string on failure.
+        TemporaryBuffer<char> ConvertStringWideToNarrow(const wchar_t* str);
 
         /// Compares two strings without regard for the case of each individual character.
         /// @tparam CharType Type of character in each string, either narrow or wide.
