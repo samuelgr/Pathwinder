@@ -75,6 +75,20 @@ namespace Pathwinder
         return FilesystemRule::EDirectoryCompareResult::Unrelated;
     }
 
+    /// Extracts the file part from a filesystem path.
+    /// File part is the part after the final backslash character.
+    /// @param [in] path Path from which the file part is desired.
+    /// @return View into the parameter string consisting of the file part. If the entire absolute path is a file part then the returned string equals the parameter.
+    static std::wstring_view ExtractFilePart(std::wstring_view path)
+    {
+        const size_t kLastBackslashPos = path.find_last_of(L'\\');
+
+        if (std::wstring_view::npos != kLastBackslashPos)
+            path.remove_prefix(1 + kLastBackslashPos);
+
+        return path;
+    }
+
     /// Determines if the specified filename matches any of the specified file patterns.
     /// Input filename must not contain any backslash separators, as it is intended to represent a file within a directory rather than a path.
     /// @param [in] candidateFileName File name to check for matches with any file pattern.
@@ -116,48 +130,34 @@ namespace Pathwinder
     }
 
 
+    // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
+    // See "FilesystemRule.h" for documentation.
+
+    FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring_view>&& filePatterns) : kOriginDirectoryFullPath(originDirectoryFullPath), kOriginDirectoryName(ExtractFilePart(originDirectoryFullPath)), kTargetDirectoryFullPath(targetDirectoryFullPath), kTargetDirectoryName(ExtractFilePart(targetDirectoryFullPath)), kFilePatterns(std::move(filePatterns))
+    {
+        // Nothing to do here.
+    }
+
+
     // -------- CLASS METHODS ---------------------------------------------- //
     // See "FilesystemRule.h" for documentation.
 
-    ValueOrError<FilesystemRule, std::wstring> FilesystemRule::Create(std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring_view>&& filePatterns)
+    ValueOrError<FilesystemRule, std::wstring> FilesystemRule::Create(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring_view>&& filePatterns)
     {
+        if (false == IsValidDirectoryString(originDirectoryFullPath))
+            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Origin directory: %s: Either empty or contains disallowed characters", originDirectoryFullPath.data()));
+
+        if (false == IsValidDirectoryString(targetDirectoryFullPath))
+            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Target directory: %s: Either empty or contains disallowed characters", originDirectoryFullPath.data()));
+
+        if (originDirectoryFullPath == targetDirectoryFullPath)
+            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"%s: Origin and target cannot be the same", originDirectoryFullPath.data()));
+
         for (std::wstring_view filePattern : filePatterns)
         {
             if (false == IsValidFilePatternString(filePattern))
                 return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"File pattern: %s: Either empty or contains disallowed characters", std::wstring(filePattern).c_str()));
         }
-
-        // For each of the origin and target directories:
-        // 1. Resolve any embedded references.
-        // 2. Check for any invalid characters.
-        // 3. Transform a possible relative path (possibly including "." and "..") into an absolute path.
-        // If all operations succeed then the filesystem rule object can be created.
-
-        Resolver::ResolvedStringOrError maybeOriginDirectoryResolvedString = Resolver::ResolveAllReferences(originDirectory);
-        if (true == maybeOriginDirectoryResolvedString.HasError())
-            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Origin directory: %s", maybeOriginDirectoryResolvedString.Error().c_str()));
-        if (false == IsValidDirectoryString(maybeOriginDirectoryResolvedString.Value()))
-            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Origin directory: %s: Either empty or contains disallowed characters", maybeOriginDirectoryResolvedString.Value().c_str()));
-
-        TemporaryString originDirectoryFullPath;
-        originDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeOriginDirectoryResolvedString.Value().c_str(), originDirectoryFullPath.Capacity(), originDirectoryFullPath.Data(), nullptr));
-        if (true == originDirectoryFullPath.Empty())
-            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Origin directory: Failed to resolve full path: %s", Strings::SystemErrorCodeString(GetLastError()).AsCString()));
-        if (true == originDirectoryFullPath.Overflow())
-            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Origin directory: Full path exceeds limit of %u characters", originDirectoryFullPath.Capacity()));
-
-        Resolver::ResolvedStringOrError maybeTargetDirectoryResolvedString = Resolver::ResolveAllReferences(targetDirectory);
-        if (true == maybeTargetDirectoryResolvedString.HasError())
-            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Target directory: %s", maybeTargetDirectoryResolvedString.Error().c_str()));
-        if (false == IsValidDirectoryString(maybeTargetDirectoryResolvedString.Value()))
-            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Target directory: %s: Either empty or contains disallowed characters", maybeTargetDirectoryResolvedString.Value().c_str()));
-
-        TemporaryString targetDirectoryFullPath;
-        targetDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeTargetDirectoryResolvedString.Value().c_str(), targetDirectoryFullPath.Capacity(), targetDirectoryFullPath.Data(), nullptr));
-        if (true == targetDirectoryFullPath.Empty())
-            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Target directory: Failed to resolve full path: %s", Strings::SystemErrorCodeString(GetLastError()).AsCString()));
-        if (true == targetDirectoryFullPath.Overflow())
-            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Target directory: Full path exceeds limit of %u characters", targetDirectoryFullPath.Capacity()));
 
         return FilesystemRule(originDirectoryFullPath, targetDirectoryFullPath, std::move(filePatterns));
     }
@@ -215,14 +215,14 @@ namespace Pathwinder
 
     FilesystemRule::EDirectoryCompareResult FilesystemRule::DirectoryCompareWithOrigin(std::wstring_view candidateDirectory) const
     {
-        return DirectoryCompareInternal(candidateDirectory, kOriginDirectory);
+        return DirectoryCompareInternal(candidateDirectory, kOriginDirectoryFullPath);
     }
 
     // --------
 
     FilesystemRule::EDirectoryCompareResult FilesystemRule::DirectoryCompareWithTarget(std::wstring_view candidateDirectory) const
     {
-        return DirectoryCompareInternal(candidateDirectory, kTargetDirectory);
+        return DirectoryCompareInternal(candidateDirectory, kTargetDirectoryFullPath);
     }
 
     // --------
@@ -236,13 +236,13 @@ namespace Pathwinder
 
     std::optional<TemporaryString> FilesystemRule::RedirectPathOriginToTarget(std::wstring_view candidatePathDirectoryPart, const wchar_t* candidatePathFilePart) const
     {
-        return RedirectPathInternal(candidatePathDirectoryPart, candidatePathFilePart, kOriginDirectory, kTargetDirectory, kFilePatterns);
+        return RedirectPathInternal(candidatePathDirectoryPart, candidatePathFilePart, kOriginDirectoryFullPath, kTargetDirectoryFullPath, kFilePatterns);
     }
 
     // --------
 
     std::optional<TemporaryString> FilesystemRule::RedirectPathTargetToOrigin(std::wstring_view candidatePathDirectoryPart, const wchar_t* candidatePathFilePart) const
     {
-        return RedirectPathInternal(candidatePathDirectoryPart, candidatePathFilePart, kTargetDirectory, kOriginDirectory, kFilePatterns);
+        return RedirectPathInternal(candidatePathDirectoryPart, candidatePathFilePart, kTargetDirectoryFullPath, kOriginDirectoryFullPath, kFilePatterns);
     }
 }

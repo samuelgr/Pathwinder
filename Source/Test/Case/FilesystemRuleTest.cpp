@@ -23,7 +23,6 @@ namespace PathwinderTest
 {
     using namespace ::Pathwinder;
 
-
     // Verifies that valid strings for identifying origin and target directories are accepted as such.
     TEST_CASE(FilesystemRule_IsValidDirectoryString_Valid)
     {
@@ -90,6 +89,41 @@ namespace PathwinderTest
 
         for (const auto& kFilePatternString : kFilePatternStrings)
             TEST_ASSERT(false == FilesystemRule::IsValidFilePatternString(kFilePatternString));
+    }
+
+    // Verifies that origin and target directory strings are parsed correctly into origin and target full paths and names.
+    TEST_CASE(FilesystemRule_GetOriginAndTargetDirectories)
+    {
+        constexpr std::pair<std::pair<std::wstring_view, std::wstring_view>, std::pair<std::wstring_view, std::wstring_view>> kDirectoryTestRecords[] = {
+            {{L"C:\\Directory", L"Directory"}, {L"D:\\Some Other Directory", L"Some Other Directory"}},
+            {{L"C:", L"C:"}, {L"D:", L"D:"}},
+            {{L"\\sharepath\\shared folder$\\another shared folder", L"another shared folder"}, {L"D:\\Long\\Sub Directory \\   Path To Directory\\Yes", L"Yes"}},
+        };
+
+        for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
+        {
+            const std::wstring_view kExpectedOriginDirectoryFullPath = kDirectoryTestRecord.first.first;
+            const std::wstring_view kExpectedOriginDirectoryName = kDirectoryTestRecord.first.second;
+            const std::wstring_view kExpectedTargetDirectoryFullPath = kDirectoryTestRecord.second.first;
+            const std::wstring_view kExpectedTargetDirectoryName = kDirectoryTestRecord.second.second;
+
+            const auto kMaybeFilesystemRule = FilesystemRule::Create(kExpectedOriginDirectoryFullPath, kExpectedTargetDirectoryFullPath);
+            TEST_ASSERT(true == kMaybeFilesystemRule.HasValue());
+
+            const FilesystemRule& kFilesystemRule = kMaybeFilesystemRule.Value();
+
+            const std::wstring_view kActualOriginDirectoryFullPath = kFilesystemRule.GetOriginDirectoryFullPath();
+            TEST_ASSERT(kActualOriginDirectoryFullPath == kExpectedOriginDirectoryFullPath);
+
+            const std::wstring_view kActualOriginDirectoryName = kFilesystemRule.GetOriginDirectoryName();
+            TEST_ASSERT(kActualOriginDirectoryName == kExpectedOriginDirectoryName);
+
+            const std::wstring_view kActualTargetDirectoryFullPath = kFilesystemRule.GetTargetDirectoryFullPath();
+            TEST_ASSERT(kActualTargetDirectoryFullPath == kExpectedTargetDirectoryFullPath);
+
+            const std::wstring_view kActualTargetDirectoryName = kFilesystemRule.GetTargetDirectoryName();
+            TEST_ASSERT(kActualTargetDirectoryName == kExpectedTargetDirectoryName);
+        }
     }
 
     // Verifies that paths are successfully redirected in the nominal case of straightforward absolute paths.

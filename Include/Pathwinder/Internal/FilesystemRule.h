@@ -24,6 +24,7 @@ namespace Pathwinder
 {
     /// Holds all of the data needed to represent a single filesystem redirection rule.
     /// Implements all of the behavior needed to determine whether and how paths are covered by the rule.
+    /// From the application's point of view, the origin directory is where files covered by each rule appear to exist, and the target directory is where they actually exist.
     class FilesystemRule
     {
     public:
@@ -43,15 +44,17 @@ namespace Pathwinder
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
-        /// Origin or source directory.
-        /// From the application's point of view, this is where files covered by this rule appear to exist.
-        /// Must be an absolute path, not contain any wildcards, and not end in backslash.
-        const std::wstring kOriginDirectory;
+        /// Absolute path to the origin directory.
+        const std::wstring_view kOriginDirectoryFullPath;
 
-        /// Target or destination directory.
-        /// This is where files covered by this rule actually exist on the filesystem.
-        /// Must be an absolute path, not contain any wildcards, and not end in backslash.
-        const std::wstring kTargetDirectory;
+        /// Name of the origin directory itself within its parent directory.
+        const std::wstring_view kOriginDirectoryName;
+
+        /// Absolute path to the target directory.
+        const std::wstring_view kTargetDirectoryFullPath;
+
+        /// Name of the target directory itself within its parent directory.
+        const std::wstring_view kTargetDirectoryName;
 
         /// Pattern that specifies which files within the origin and target directories are affected by this rule.
         /// Can be used to filter this rule to apply to only specific named files.
@@ -63,21 +66,8 @@ namespace Pathwinder
 
         /// Initialization constructor.
         /// Requires all instance variables be set at construction time.
-        /// Uses copy semantics for origin and target directory strings.
         /// Not intended to be invoked externally. Objects of this type should be created using a factory method.
-        inline FilesystemRule(std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring_view>&& filePatterns) : kOriginDirectory(originDirectory), kTargetDirectory(targetDirectory), kFilePatterns(std::move(filePatterns))
-        {
-            // Nothing to do here.
-        }
-
-        /// Initialization constructor.
-        /// Requires all instance variables be set at construction time.
-        /// Uses move semantics for origin and target directory strings.
-        /// Not intended to be invoked externally. Objects of this type should be created using a factory method.
-        inline FilesystemRule(std::wstring&& originDirectory, std::wstring&& targetDirectory, std::vector<std::wstring_view>&& filePatterns) : kOriginDirectory(std::move(originDirectory)), kTargetDirectory(std::move(targetDirectory)), kFilePatterns(std::move(filePatterns))
-        {
-            // Nothing to do here.
-        }
+        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring_view>&& filePatterns);
 
 
     public:
@@ -93,11 +83,11 @@ namespace Pathwinder
         // -------- CLASS METHODS ------------------------------------------ //
 
         /// Attempts to create a filesystem rule object using the given origin directory, target directory, and file patterns.
-        /// @param [in] originDirectory Origin directory string, which may contain embedded references to be resolved.
-        /// @param [in] targetDirectory Target directory string, which may contain embedded references to be resolved.
+        /// @param [in] originDirectoryFullPath Origin directory. Must be an absolute path, not contain any wildcards, and not end in backslash.
+        /// @param [in] targetDirectoryFullPath Target directory. Must be an absolute path, not contain any wildcards, and not end in backslash.
         /// @param [in] filePatterns File patterns to restrict the scope of the rule, defaults to matching all files in the origin and target directories.
         /// @return Filesystem rule object if successful, error message explaining the failure otherwise.
-        static ValueOrError<FilesystemRule, std::wstring> Create(std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring_view>&& filePatterns = std::vector<std::wstring_view>());
+        static ValueOrError<FilesystemRule, std::wstring> Create(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring_view>&& filePatterns = std::vector<std::wstring_view>());
 
         /// Checks if the specified candidate directory string is valid for use as an origin or a target directory.
         /// It must not be empty, must not contain any disallowed characters, and must not end in a backslash.
@@ -131,6 +121,36 @@ namespace Pathwinder
         /// @param [in] candidateFileName File name to check for matches with any file pattern.
         /// @return `true` if any file pattern produces a match, `false` otherwise.
         bool FileNameMatchesAnyPattern(const wchar_t* candidateFileName) const;
+
+        /// Retrieves and returns the full path of the origin directory associated with this rule.
+        /// @return Full path of the origin directory.
+        inline std::wstring_view GetOriginDirectoryFullPath(void) const
+        {
+            return kOriginDirectoryFullPath;
+        }
+
+        /// Retrieves and returns the name of the origin directory associated with this rule.
+        /// This is otherwise known as the relative path of the origin directory within its parent.
+        /// @return Name of the origin directory.
+        inline std::wstring_view GetOriginDirectoryName(void) const
+        {
+            return kOriginDirectoryName;
+        }
+
+        /// Retrieves and returns the full path of the target directory associated with this rule.
+        /// @return Full path of the target directory.
+        inline std::wstring_view GetTargetDirectoryFullPath(void) const
+        {
+            return kTargetDirectoryFullPath;
+        }
+
+        /// Retrieves and returns the name of the target directory associated with this rule.
+        /// This is otherwise known as the relative path of the target directory within its parent.
+        /// @return Name of the target directory.
+        inline std::wstring_view GetTargetDirectoryName(void) const
+        {
+            return kTargetDirectoryName;
+        }
 
         /// Computes and returns the result of redirecting from the specified candidate path to the target directory associated with this rule.
         /// Input candidate path is split into two parts: the directory part, which identifies the absolute directory in which the file is located, and the file part, which identifies the file within its directory.
