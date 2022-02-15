@@ -36,31 +36,43 @@ namespace Pathwinder
     {
         if (candidateDirectory.length() == comparisonTargetDirectory.length())
         {
-            // Lengths are the same, so either the two are equal or unrelated.
+            // Lengths are the same, so the two could be equal if they are related at all.
 
             if (candidateDirectory == comparisonTargetDirectory)
                 return FilesystemRule::EDirectoryCompareResult::Equal;
-            else
-                return FilesystemRule::EDirectoryCompareResult::Unrelated;
         }
         else if (candidateDirectory.length() < comparisonTargetDirectory.length())
         {
-            // Candidate directory is shorter, so it could be a parent of the comparison target.
+            // Candidate directory is shorter, so the candidate could be an ancestor or the immediate parent of the comparison target.
+            // These two situations can be distinguished based on whether or not the non-matching suffix in the comparison target contains more than one backslash character.
 
             if ((true == comparisonTargetDirectory.starts_with(candidateDirectory)) && (L'\\' == comparisonTargetDirectory[candidateDirectory.length()]))
-                return FilesystemRule::EDirectoryCompareResult::CandidateIsParent;
-            else
-                return FilesystemRule::EDirectoryCompareResult::Unrelated;
+            {
+                comparisonTargetDirectory.remove_prefix(candidateDirectory.length());
+
+                if (0 == comparisonTargetDirectory.find_last_of(L'\\'))
+                    return FilesystemRule::EDirectoryCompareResult::CandidateIsParent;
+                else
+                    return FilesystemRule::EDirectoryCompareResult::CandidateIsAncestor;
+            }
         }
         else
         {
-            // Comparison target is shorter, so it could be a parent of the candidate.
+            // Comparison target is shorter, so the candidate could be a descendant or the immediate child of the comparison target.
+            // These two situations can be distinguished based on whether or not the non-matching suffix in the candidate directory contains more than one backslash character.
 
             if ((true == candidateDirectory.starts_with(comparisonTargetDirectory)) && (L'\\' == candidateDirectory[comparisonTargetDirectory.length()]))
-                return FilesystemRule::EDirectoryCompareResult::CandidateIsChild;
-            else
-                return FilesystemRule::EDirectoryCompareResult::Unrelated;
+            {
+                candidateDirectory.remove_prefix(comparisonTargetDirectory.length());
+
+                if (0 == candidateDirectory.find_last_of(L'\\'))
+                    return FilesystemRule::EDirectoryCompareResult::CandidateIsChild;
+                else
+                    return FilesystemRule::EDirectoryCompareResult::CandidateIsDescendant;
+            }
         }
+
+        return FilesystemRule::EDirectoryCompareResult::Unrelated;
     }
 
     /// Determines if the specified filename matches any of the specified file patterns.
@@ -75,7 +87,7 @@ namespace Pathwinder
 
         for (const auto& kFilePattern : kFilePatterns)
         {
-            if (TRUE == PathMatchSpecW(candidateFileName, kFilePattern.data()))
+            if (TRUE == PathMatchSpec(candidateFileName, kFilePattern.data()))
                 return true;
         }
 
@@ -83,40 +95,22 @@ namespace Pathwinder
     }
 
     /// Computes and returns the result of redirecting from the specified candidate path from one directory to another.
+    /// Input candidate path is split into two parts: the directory part, which identifies the absolute directory in which the file is located, and the file part, which identifies the file within its directory.
     /// If the source directory matches the candidate path and a file pattern matches then a redirection can occur to the destination directory.
     /// Otherwise no redirection occurs and no output is produced.
-    /// @param [in] candidatePath Path for which a redirection is attempted, which may be absolute or relative path.
-    /// @param [in] fromDirectory Source directory.
-    /// @param [in] toDirectory Destination directory.
-    /// @param [in] kFilePatterns Patterns against which to compare the candidate file name.
+    /// @param [in] candidatePathDirectoryPart Directory portion of the candidate path, which is an absolute path and does not contain a trailing backslash.
+    /// @param [in] candidatePathFilePart File portion of the candidate path without any leading backslash. Must be null-terminated.
     /// @return Redirected location as an absolute path, if redirection occurred successfully.
-    static std::optional<TemporaryString> RedirectPathInternal(const wchar_t* candidatePath, std::wstring_view fromDirectory, std::wstring_view toDirectory, const std::vector<std::wstring_view>& kFilePatterns)
+    static std::optional<TemporaryString> RedirectPathInternal(std::wstring_view candidatePathDirectoryPart, const wchar_t* candidatePathFilePart, std::wstring_view fromDirectory, std::wstring_view toDirectory, const std::vector<std::wstring_view>& kFilePatterns)
     {
-        TemporaryString candidateFullPath;
-        wchar_t* candidateFilePart = nullptr;
-
-        candidateFullPath.UnsafeSetSize(GetFullPathNameW(candidatePath, candidateFullPath.Capacity(), candidateFullPath.Data(), &candidateFilePart));
-
-        if (true == candidateFullPath.Empty())
-        {
-            Message::OutputFormatted(Message::ESeverity::Warning, L"Filesystem redirection failed for candidate path \"%s\" because the resulting absolute path could not be computed: %s.", candidatePath, Strings::SystemErrorCodeString(GetLastError()).AsCString());
-            return std::nullopt;
-        }
-        else if (true == candidateFullPath.Overflow())
-        {
-            Message::OutputFormatted(Message::ESeverity::Warning, L"Filesystem redirection failed for candidate path \"%s\" because the resulting absolute path could not be computed: Resulting absolute path is too long.", candidatePath);
-            return std::nullopt;
-        }
-
-        std::wstring_view candidateDirectory(candidateFullPath.Data(), candidateFilePart - 1 - candidateFullPath.Data());
-        if (false == Strings::EqualsCaseInsensitive(fromDirectory, candidateDirectory))
+        if (false == Strings::EqualsCaseInsensitive(fromDirectory, candidatePathDirectoryPart))
             return std::nullopt;
 
-        if (false == FileNameMatchesAnyPatternInternal(candidateFilePart, kFilePatterns))
+        if (false == FileNameMatchesAnyPatternInternal(candidatePathFilePart, kFilePatterns))
             return std::nullopt;
 
         TemporaryString redirectedPath;
-        redirectedPath << toDirectory << L'\\' << candidateFilePart;
+        redirectedPath << toDirectory << L'\\' << candidatePathFilePart;
 
         return redirectedPath;
     }
@@ -146,7 +140,7 @@ namespace Pathwinder
             return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Origin directory: %s: Either empty or contains disallowed characters", maybeOriginDirectoryResolvedString.Value().c_str()));
 
         TemporaryString originDirectoryFullPath;
-        originDirectoryFullPath.UnsafeSetSize(GetFullPathNameW(maybeOriginDirectoryResolvedString.Value().c_str(), originDirectoryFullPath.Capacity(), originDirectoryFullPath.Data(), nullptr));
+        originDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeOriginDirectoryResolvedString.Value().c_str(), originDirectoryFullPath.Capacity(), originDirectoryFullPath.Data(), nullptr));
         if (true == originDirectoryFullPath.Empty())
             return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Origin directory: Failed to resolve full path: %s", Strings::SystemErrorCodeString(GetLastError()).AsCString()));
         if (true == originDirectoryFullPath.Overflow())
@@ -159,7 +153,7 @@ namespace Pathwinder
             return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Target directory: %s: Either empty or contains disallowed characters", maybeTargetDirectoryResolvedString.Value().c_str()));
 
         TemporaryString targetDirectoryFullPath;
-        targetDirectoryFullPath.UnsafeSetSize(GetFullPathNameW(maybeTargetDirectoryResolvedString.Value().c_str(), targetDirectoryFullPath.Capacity(), targetDirectoryFullPath.Data(), nullptr));
+        targetDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeTargetDirectoryResolvedString.Value().c_str(), targetDirectoryFullPath.Capacity(), targetDirectoryFullPath.Data(), nullptr));
         if (true == targetDirectoryFullPath.Empty())
             return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Target directory: Failed to resolve full path: %s", Strings::SystemErrorCodeString(GetLastError()).AsCString()));
         if (true == targetDirectoryFullPath.Overflow())
@@ -240,15 +234,15 @@ namespace Pathwinder
 
     // --------
 
-    std::optional<TemporaryString> FilesystemRule::RedirectPathOriginToTarget(const wchar_t* candidatePath) const
+    std::optional<TemporaryString> FilesystemRule::RedirectPathOriginToTarget(std::wstring_view candidatePathDirectoryPart, const wchar_t* candidatePathFilePart) const
     {
-        return RedirectPathInternal(candidatePath, kOriginDirectory, kTargetDirectory, kFilePatterns);
+        return RedirectPathInternal(candidatePathDirectoryPart, candidatePathFilePart, kOriginDirectory, kTargetDirectory, kFilePatterns);
     }
 
     // --------
 
-    std::optional<TemporaryString> FilesystemRule::RedirectPathTargetToOrigin(const wchar_t* candidatePath) const
+    std::optional<TemporaryString> FilesystemRule::RedirectPathTargetToOrigin(std::wstring_view candidatePathDirectoryPart, const wchar_t* candidatePathFilePart) const
     {
-        return RedirectPathInternal(candidatePath, kTargetDirectory, kOriginDirectory, kFilePatterns);
+        return RedirectPathInternal(candidatePathDirectoryPart, candidatePathFilePart, kTargetDirectory, kOriginDirectory, kFilePatterns);
     }
 }

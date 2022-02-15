@@ -298,7 +298,7 @@ namespace Pathwinder
             size_t numCharsConverted = 0;
 
             if (0 == mbstowcs_s(&numCharsConverted, convertedStr.Data(), convertedStr.Capacity(), str, convertedStr.Capacity() - 1))
-                convertedStr.UnsafeSetSize(numCharsConverted);
+                convertedStr.UnsafeSetSize((unsigned int)numCharsConverted);
 
             return convertedStr;
         }

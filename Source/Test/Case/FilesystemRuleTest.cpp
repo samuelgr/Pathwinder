@@ -112,58 +112,20 @@ namespace PathwinderTest
 
         for (const auto& kTestFile : kTestFiles)
         {
-            TemporaryString inputPath = kOriginDirectory;
-            inputPath << L'\\' << kTestFile;
-
             TemporaryString expectedOutputPath = kTargetDirectory;
             expectedOutputPath << L'\\' << kTestFile;
 
-            std::optional<TemporaryString> actualOutputPath = kFilesystemRule.RedirectPathOriginToTarget(inputPath.AsCString());
+            std::optional<TemporaryString> actualOutputPath = kFilesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data());
             TEST_ASSERT(true == actualOutputPath.has_value());
             TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
         }
 
         for (const auto& kTestFile : kTestFiles)
         {
-            TemporaryString inputPath = kTargetDirectory;
-            inputPath << L'\\' << kTestFile;
-
             TemporaryString expectedOutputPath = kOriginDirectory;
             expectedOutputPath << L'\\' << kTestFile;
 
-            std::optional<TemporaryString> actualOutputPath = kFilesystemRule.RedirectPathTargetToOrigin(inputPath.AsCString());
-            TEST_ASSERT(true == actualOutputPath.has_value());
-            TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
-        }
-    }
-
-    // Verifies that paths are successfully redirected when the candidate path contains subdirectories with "." and ".." that still end up matching the origin directory.
-    TEST_CASE(FilesystemRule_RedirectPath_RelativePathResolution)
-    {
-        constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
-        constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
-        constexpr std::wstring_view kTestFile = L"test.file";
-
-        constexpr std::wstring_view kInputSubdirectories[] = {
-            L"Subdir\\..",
-            L".\\.\\.\\Sub Directory\\.\\..\\.",
-            L"1\\2\\3\\..\\33\\4\\55\\666\\..\\..\\..\\..\\..\\.."
-        };
-
-        const auto kMaybeFilesystemRule = FilesystemRule::Create(kOriginDirectory, kTargetDirectory);
-        TEST_ASSERT(true == kMaybeFilesystemRule.HasValue());
-
-        const FilesystemRule& kFilesystemRule = kMaybeFilesystemRule.Value();
-
-        for (const auto& kInputSubdirectory : kInputSubdirectories)
-        {
-            TemporaryString inputPath = kOriginDirectory;
-            inputPath << L'\\' << kInputSubdirectory << L'\\' << kTestFile;
-
-            TemporaryString expectedOutputPath = kTargetDirectory;
-            expectedOutputPath << L'\\' << kTestFile;
-
-            std::optional<TemporaryString> actualOutputPath = kFilesystemRule.RedirectPathOriginToTarget(inputPath.AsCString());
+            std::optional<TemporaryString> actualOutputPath = kFilesystemRule.RedirectPathTargetToOrigin(kTargetDirectory, kTestFile.data());
             TEST_ASSERT(true == actualOutputPath.has_value());
             TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
         }
@@ -198,23 +160,17 @@ namespace PathwinderTest
 
         for (const auto& kTestFile : kTestFilesMatching)
         {
-            TemporaryString inputPath = kOriginDirectory;
-            inputPath << L'\\' << kTestFile;
-
             TemporaryString expectedOutputPath = kTargetDirectory;
             expectedOutputPath << L'\\' << kTestFile;
 
-            std::optional<TemporaryString> actualOutputPath = kFilesystemRule.RedirectPathOriginToTarget(inputPath.AsCString());
+            std::optional<TemporaryString> actualOutputPath = kFilesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data());
             TEST_ASSERT(true == actualOutputPath.has_value());
             TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
         }
 
         for (const auto& kTestFile : kTestFilesNotMatching)
         {
-            TemporaryString inputPath = kOriginDirectory;
-            inputPath << L'\\' << kTestFile;
-
-            TEST_ASSERT(false == kFilesystemRule.RedirectPathOriginToTarget(inputPath.AsCString()).has_value());
+            TEST_ASSERT(false == kFilesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data()).has_value());
         }
     }
 
@@ -237,17 +193,17 @@ namespace PathwinderTest
         TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Equal == kFilesystemRule.DirectoryCompareWithTarget(kTargetDirectory));
     }
 
-    // Verifies that directories that are children of a directory associated with a filesystem rule are correctly identified as such.
+    // Verifies that directories that are children or descendants of a directory associated with a filesystem rule are correctly identified as such.
     // This test compares with the origin directory.
-    TEST_CASE(FilesystemRule_DirectoryCompare_CandidateIsChild)
+    TEST_CASE(FilesystemRule_DirectoryCompare_CandidateIsChildOrDescendant)
     {
         constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
         constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
 
-        constexpr std::wstring_view kDirectories[] = {
-            L"C:\\Directory\\Origin\\Subdir",
-            L"C:\\Directory\\Origin\\Sub Directory 2",
-            L"C:\\Directory\\Origin\\Sub Directory 2\\Subdir3\\Subdir4",
+        constexpr std::pair<std::wstring_view, FilesystemRule::EDirectoryCompareResult> kDirectoryTestRecords[] = {
+            {L"C:\\Directory\\Origin\\Subdir", FilesystemRule::EDirectoryCompareResult::CandidateIsChild},
+            {L"C:\\Directory\\Origin\\Sub Directory 2", FilesystemRule::EDirectoryCompareResult::CandidateIsChild},
+            {L"C:\\Directory\\Origin\\Sub Directory 2\\Subdir3\\Subdir4", FilesystemRule::EDirectoryCompareResult::CandidateIsDescendant}
         };
 
         const auto kMaybeFilesystemRule = FilesystemRule::Create(kOriginDirectory, kTargetDirectory);
@@ -255,20 +211,20 @@ namespace PathwinderTest
 
         const FilesystemRule& kFilesystemRule = kMaybeFilesystemRule.Value();
 
-        for (const auto& kDirectory : kDirectories)
-            TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::CandidateIsChild == kFilesystemRule.DirectoryCompareWithOrigin(kDirectory));
+        for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
+            TEST_ASSERT(kDirectoryTestRecord.second == kFilesystemRule.DirectoryCompareWithOrigin(kDirectoryTestRecord.first));
     }
 
-    // Verifies that directories that are parents of a directory associated with a filesystem rule are correctly identified as such.
+    // Verifies that directories that are parents or ancestors of a directory associated with a filesystem rule are correctly identified as such.
     // This test compares with the target directory.
-    TEST_CASE(FilesystemRule_DirectoryCompare_CandidateIsParent)
+    TEST_CASE(FilesystemRule_DirectoryCompare_CandidateIsParentOrAncestor)
     {
         constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
         constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
 
-        constexpr std::wstring_view kDirectories[] = {
-            L"D:",
-            L"D:\\AnotherDirectory"
+        constexpr std::pair<std::wstring_view, FilesystemRule::EDirectoryCompareResult> kDirectoryTestRecords[] = {
+            {L"D:", FilesystemRule::EDirectoryCompareResult::CandidateIsAncestor},
+            {L"D:\\AnotherDirectory", FilesystemRule::EDirectoryCompareResult::CandidateIsParent}
         };
 
         const auto kMaybeFilesystemRule = FilesystemRule::Create(kOriginDirectory, kTargetDirectory);
@@ -276,8 +232,8 @@ namespace PathwinderTest
 
         const FilesystemRule& kFilesystemRule = kMaybeFilesystemRule.Value();
 
-        for (const auto& kDirectory : kDirectories)
-            TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::CandidateIsParent == kFilesystemRule.DirectoryCompareWithTarget(kDirectory));
+        for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
+            TEST_ASSERT(kDirectoryTestRecord.second == kFilesystemRule.DirectoryCompareWithTarget(kDirectoryTestRecord.first));
     }
 
     // Verifies that directories that are unrelated to a directory associated with a filesystem rule are correctly identified as such.

@@ -33,9 +33,11 @@ namespace Pathwinder
         enum class EDirectoryCompareResult
         {
             Equal,                                                          ///< Candidate directory is exactly equal to the comparison target directory.
-            Unrelated,                                                      ///< Candidate directory is not related to the comparison target directory. Paths diverge, and one is not a parent or child of the other.
-            CandidateIsParent,                                              ///< Candidate directory is a parent of the comparison target directory.
-            CandidateIsChild                                                ///< Candidate directory is a child of the comparison target directory.
+            Unrelated,                                                      ///< Candidate directory is not related to the comparison target directory. Paths diverge, and one is not an ancestor or descendant of the other.
+            CandidateIsParent,                                              ///< Candidate directory is the immediate parent of the comparison target directory.
+            CandidateIsChild,                                               ///< Candidate directory is the immediate child of the comparison target directory.
+            CandidateIsAncestor,                                            ///< Candidate directory is an ancestor of the comparison target directory. In other words it is not the immediate parent but it exists higher up in the hierarchy.
+            CandidateIsDescendant                                           ///< Candidate directory is a descendant of the comparison target directory. In other words it is not the immediate child but it exists lower down in the hierarchy.
         };
 
     private:
@@ -131,17 +133,21 @@ namespace Pathwinder
         bool FileNameMatchesAnyPattern(const wchar_t* candidateFileName) const;
 
         /// Computes and returns the result of redirecting from the specified candidate path to the target directory associated with this rule.
-        /// If the origin directory matches the candidate path and a file pattern matches then a redirection can occur to the target directory.
+        /// Input candidate path is split into two parts: the directory part, which identifies the absolute directory in which the file is located, and the file part, which identifies the file within its directory.
+        /// If the origin directory matches the candidate path's directory part and a file pattern matches the candidate path's file part then a redirection can occur to the target directory.
         /// Otherwise no redirection occurs and no output is produced.
-        /// @param [in] candidatePath Path for which a redirection is attempted, which may be absolute or relative path.
+        /// @param [in] candidatePathDirectoryPart Directory portion of the candidate path, which is an absolute path and does not contain a trailing backslash. Does not need to be null-terminated.
+        /// @param [in] candidatePathFilePart File portion of the candidate path without any leading backslash. Must be null-terminated.
         /// @return Redirected location as an absolute path, if redirection occurred successfully.
-        std::optional<TemporaryString> RedirectPathOriginToTarget(const wchar_t* candidatePath) const;
+        std::optional<TemporaryString> RedirectPathOriginToTarget(std::wstring_view candidatePathDirectoryPart, const wchar_t* candidatePathFilePart) const;
 
         /// Computes and returns the result of redirecting from the specified candidate path to the origin directory associated with this rule.
-        /// If the target directory matches the candidate path and a file pattern matches then a redirection can occur to the origin directory.
+        /// Input candidate path is split into two parts: the directory part, which identifies the absolute directory in which the file is located, and the file part, which identifies the file within its directory.
+        /// If the target directory matches the candidate path's directory part and a file pattern matches the candidate path's file part then a redirection can occur to the origin directory.
         /// Otherwise no redirection occurs and no output is produced.
-        /// @param [in] candidatePath Path for which a redirection is attempted, which may be absolute or relative path.
+        /// @param [in] candidatePathDirectoryPart Directory portion of the candidate path, which is an absolute path and does not contain a trailing backslash.
+        /// @param [in] candidatePathFilePart File portion of the candidate path without any leading backslash. Must be null-terminated.
         /// @return Redirected location as an absolute path, if redirection occurred successfully.
-        std::optional<TemporaryString> RedirectPathTargetToOrigin(const wchar_t* candidatePath) const;
+        std::optional<TemporaryString> RedirectPathTargetToOrigin(std::wstring_view candidatePathDirectoryPart, const wchar_t* candidatePathFilePart) const;
     };
 }
