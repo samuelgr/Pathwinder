@@ -23,73 +23,8 @@ namespace PathwinderTest
 {
     using namespace ::Pathwinder;
 
-    // Verifies that valid strings for identifying origin and target directories are accepted as such.
-    TEST_CASE(FilesystemRule_IsValidDirectoryString_Valid)
-    {
-        constexpr std::wstring_view kDirectoryStrings[] = {
-            L"C:",
-            L"C:\\Directory",
-            L"C:\\Program Files (x86)\\Games\\Some Game With A Title",
-            L"\\sharepath\\shared folder$\\another shared folder",
-            L"C:\\Program Files (x86)\\Games\\Some Game With A Title\\..",
-            L"C:\\Program Files (x86)\\Games\\Some Game With A Title\\."
-        };
 
-        for (const auto& kDirectoryString : kDirectoryStrings)
-            TEST_ASSERT(true == FilesystemRule::IsValidDirectoryString(kDirectoryString));
-    }
-
-    // Verifies that invalid strings for identifying origin and target directories are rejected.
-    TEST_CASE(FilesystemRule_IsValidDirectoryString_Invalid)
-    {
-        constexpr std::wstring_view kDirectoryStrings[] = {
-            L"",
-            L"D:\\",
-            L"C:\\Program Files <x86>\\Games\\Some Game With A Title",
-            L"\"C:\\Program Files (x86)\\Games\\Some Game With A Title\"",
-            L"C:\\Program Files (x86)\\Games\\Some Game With A Title\\",
-            L"C:\\Program Files*",
-            L"C:\\Program Files (???)",
-            L"C:\\Program Files\\*",
-            L"C:\\Program Files\t(x86)\\Games\\Some Game With A Title",
-            L"C:\\Program Files\n(x86)\\Games\\Some Game With A Title",
-            L"C:\\Program Files\b(x86)\\Games\\Some Game With A Title",
-        };
-
-        for (const auto& kDirectoryString : kDirectoryStrings)
-            TEST_ASSERT(false == FilesystemRule::IsValidDirectoryString(kDirectoryString));
-    }
-
-    // Verifies that valid strings for identifying file patterns within an origin or target directory are accepted as such.
-    TEST_CASE(FilesystemRule_IsValidFilePatternString_Valid)
-    {
-        constexpr std::wstring_view kFilePatternStrings[] = {
-            L"*",
-            L"?",
-            L"***????",
-            L"data???.sav",
-            L"*.bin",
-            L".*",
-            L"data???.MyGame.MyPublisher.sav"
-        };
-
-        for (const auto& kFilePatternString : kFilePatternStrings)
-            TEST_ASSERT(true == FilesystemRule::IsValidFilePatternString(kFilePatternString));
-    }
-
-    // Verifies that invalid strings for identifying file patterns within an origin or target directory are rejected.
-    TEST_CASE(FilesystemRule_IsValidFilePatternString_Invalid)
-    {
-        constexpr std::wstring_view kFilePatternStrings[] = {
-            L"",
-            L"data000.sav|data001.sav",
-            L"\\*.bin",
-            L"C:*.bin"
-        };
-
-        for (const auto& kFilePatternString : kFilePatternStrings)
-            TEST_ASSERT(false == FilesystemRule::IsValidFilePatternString(kFilePatternString));
-    }
+    // -------- TEST CASES ------------------------------------------------- //
 
     // Verifies that origin and target directory strings are parsed correctly into origin and target full paths and names.
     TEST_CASE(FilesystemRule_GetOriginAndTargetDirectories)
@@ -107,10 +42,7 @@ namespace PathwinderTest
             const std::wstring_view kExpectedTargetDirectoryFullPath = kDirectoryTestRecord.second.first;
             const std::wstring_view kExpectedTargetDirectoryName = kDirectoryTestRecord.second.second;
 
-            const auto kMaybeFilesystemRule = FilesystemRule::Create(kExpectedOriginDirectoryFullPath, kExpectedTargetDirectoryFullPath);
-            TEST_ASSERT(true == kMaybeFilesystemRule.HasValue());
-
-            const FilesystemRule& kFilesystemRule = kMaybeFilesystemRule.Value();
+            const FilesystemRule kFilesystemRule(kExpectedOriginDirectoryFullPath, kExpectedTargetDirectoryFullPath);
 
             const std::wstring_view kActualOriginDirectoryFullPath = kFilesystemRule.GetOriginDirectoryFullPath();
             TEST_ASSERT(kActualOriginDirectoryFullPath == kExpectedOriginDirectoryFullPath);
@@ -139,10 +71,7 @@ namespace PathwinderTest
             L"FILE3.BIN"
         };
 
-        const auto kMaybeFilesystemRule = FilesystemRule::Create(kOriginDirectory, kTargetDirectory);
-        TEST_ASSERT(true == kMaybeFilesystemRule.HasValue());
-
-        const FilesystemRule& kFilesystemRule = kMaybeFilesystemRule.Value();
+        const FilesystemRule kFilesystemRule(kOriginDirectory, kTargetDirectory);
 
         for (const auto& kTestFile : kTestFiles)
         {
@@ -187,11 +116,8 @@ namespace PathwinderTest
             L"test.file"
         };
 
-        const auto kMaybeFilesystemRule = FilesystemRule::Create(kOriginDirectory, kTargetDirectory, std::move(kFilePatterns));
-        TEST_ASSERT(true == kMaybeFilesystemRule.HasValue());
-
-        const FilesystemRule& kFilesystemRule = kMaybeFilesystemRule.Value();
-
+        const FilesystemRule kFilesystemRule(kOriginDirectory, kTargetDirectory, std::move(kFilePatterns));
+        
         for (const auto& kTestFile : kTestFilesMatching)
         {
             TemporaryString expectedOutputPath = kTargetDirectory;
@@ -215,11 +141,8 @@ namespace PathwinderTest
         constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
         constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
 
-        const auto kMaybeFilesystemRule = FilesystemRule::Create(kOriginDirectory, kTargetDirectory);
-        TEST_ASSERT(true == kMaybeFilesystemRule.HasValue());
-
-        const FilesystemRule& kFilesystemRule = kMaybeFilesystemRule.Value();
-
+        const FilesystemRule kFilesystemRule(kOriginDirectory, kTargetDirectory);
+        
         TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Equal == kFilesystemRule.DirectoryCompareWithOrigin(kOriginDirectory));
         TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Unrelated == kFilesystemRule.DirectoryCompareWithTarget(kOriginDirectory));
 
@@ -240,11 +163,8 @@ namespace PathwinderTest
             {L"C:\\Directory\\Origin\\Sub Directory 2\\Subdir3\\Subdir4", FilesystemRule::EDirectoryCompareResult::CandidateIsDescendant}
         };
 
-        const auto kMaybeFilesystemRule = FilesystemRule::Create(kOriginDirectory, kTargetDirectory);
-        TEST_ASSERT(true == kMaybeFilesystemRule.HasValue());
-
-        const FilesystemRule& kFilesystemRule = kMaybeFilesystemRule.Value();
-
+        const FilesystemRule kFilesystemRule(kOriginDirectory, kTargetDirectory);
+        
         for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
             TEST_ASSERT(kDirectoryTestRecord.second == kFilesystemRule.DirectoryCompareWithOrigin(kDirectoryTestRecord.first));
     }
@@ -261,11 +181,8 @@ namespace PathwinderTest
             {L"D:\\AnotherDirectory", FilesystemRule::EDirectoryCompareResult::CandidateIsParent}
         };
 
-        const auto kMaybeFilesystemRule = FilesystemRule::Create(kOriginDirectory, kTargetDirectory);
-        TEST_ASSERT(true == kMaybeFilesystemRule.HasValue());
-
-        const FilesystemRule& kFilesystemRule = kMaybeFilesystemRule.Value();
-
+        const FilesystemRule kFilesystemRule(kOriginDirectory, kTargetDirectory);
+        
         for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
             TEST_ASSERT(kDirectoryTestRecord.second == kFilesystemRule.DirectoryCompareWithTarget(kDirectoryTestRecord.first));
     }
@@ -286,11 +203,8 @@ namespace PathwinderTest
             L"D:\\AnotherDirectory\\Target234"
         };
 
-        const auto kMaybeFilesystemRule = FilesystemRule::Create(kOriginDirectory, kTargetDirectory);
-        TEST_ASSERT(true == kMaybeFilesystemRule.HasValue());
-
-        const FilesystemRule& kFilesystemRule = kMaybeFilesystemRule.Value();
-
+        const FilesystemRule kFilesystemRule(kOriginDirectory, kTargetDirectory);
+        
         for (const auto& kDirectory : kDirectories)
         {
             TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Unrelated == kFilesystemRule.DirectoryCompareWithOrigin(kDirectory));

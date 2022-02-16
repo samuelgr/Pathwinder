@@ -12,10 +12,8 @@
 #pragma once
 
 #include "TemporaryBuffer.h"
-#include "ValueOrError.h"
 
 #include <optional>
-#include <string>
 #include <string_view>
 #include <vector>
 
@@ -62,15 +60,15 @@ namespace Pathwinder
         const std::vector<std::wstring_view> kFilePatterns;
 
 
+    public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
         /// Initialization constructor.
         /// Requires all instance variables be set at construction time.
-        /// Not intended to be invoked externally. Objects of this type should be created using a factory method.
-        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring_view>&& filePatterns);
+        /// File patterns are optional, with default behavior equivalent to supplying "*" as the only file pattern.
+        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring_view>&& filePatterns = std::vector<std::wstring_view>());
 
 
-    public:
         // -------- OPERATORS ---------------------------------------------- //
 
         /// Simple check for equality.
@@ -78,30 +76,6 @@ namespace Pathwinder
         /// @param [in] other Object with which to compare.
         /// @return `true` if this object is equal to the other object, `false` otherwise.
         inline bool operator==(const FilesystemRule& other) const = default;
-
-
-        // -------- CLASS METHODS ------------------------------------------ //
-
-        /// Attempts to create a filesystem rule object using the given origin directory, target directory, and file patterns.
-        /// @param [in] originDirectoryFullPath Origin directory. Must be an absolute path, not contain any wildcards, and not end in backslash.
-        /// @param [in] targetDirectoryFullPath Target directory. Must be an absolute path, not contain any wildcards, and not end in backslash.
-        /// @param [in] filePatterns File patterns to restrict the scope of the rule, defaults to matching all files in the origin and target directories.
-        /// @return Filesystem rule object if successful, error message explaining the failure otherwise.
-        static ValueOrError<FilesystemRule, std::wstring> Create(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring_view>&& filePatterns = std::vector<std::wstring_view>());
-
-        /// Checks if the specified candidate directory string is valid for use as an origin or a target directory.
-        /// It must not be empty, must not contain any disallowed characters, and must not end in a backslash.
-        /// Intended for internal use but exposed for testing.
-        /// @param [in] candidateDirectory Directory string to check.
-        /// @return `true` if the directory string is valid, `false` otherwise.
-        static bool IsValidDirectoryString(std::wstring_view candidateDirectory);
-
-        /// Checks if the specified candidate file pattern string is valid for use as a file pattern.
-        /// It must not be empty and must not contain any disallowed characters.
-        /// Intended for internal use but exposed for testing.
-        /// @param [in] candidateFilePattern File pattern string to check.
-        /// @return `true` if the directory string is valid, `false` otherwise.
-        static bool IsValidFilePatternString(std::wstring_view candidateFilePattern);
 
 
         // -------- INSTANCE METHODS --------------------------------------- //

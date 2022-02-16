@@ -10,15 +10,12 @@
  *****************************************************************************/
 
 #include "FilesystemRule.h"
-#include "Message.h"
-#include "Resolver.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
 
 #include <cwctype>
 #include <optional>
 #include <shlwapi.h>
-#include <string>
 #include <string_view>
 #include <vector>
 #include <windows.h>
@@ -136,77 +133,6 @@ namespace Pathwinder
     FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring_view>&& filePatterns) : kOriginDirectoryFullPath(originDirectoryFullPath), kOriginDirectoryName(ExtractFilePart(originDirectoryFullPath)), kTargetDirectoryFullPath(targetDirectoryFullPath), kTargetDirectoryName(ExtractFilePart(targetDirectoryFullPath)), kFilePatterns(std::move(filePatterns))
     {
         // Nothing to do here.
-    }
-
-
-    // -------- CLASS METHODS ---------------------------------------------- //
-    // See "FilesystemRule.h" for documentation.
-
-    ValueOrError<FilesystemRule, std::wstring> FilesystemRule::Create(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring_view>&& filePatterns)
-    {
-        if (false == IsValidDirectoryString(originDirectoryFullPath))
-            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Origin directory: %s: Either empty or contains disallowed characters", originDirectoryFullPath.data()));
-
-        if (false == IsValidDirectoryString(targetDirectoryFullPath))
-            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"Target directory: %s: Either empty or contains disallowed characters", originDirectoryFullPath.data()));
-
-        if (originDirectoryFullPath == targetDirectoryFullPath)
-            return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"%s: Origin and target cannot be the same", originDirectoryFullPath.data()));
-
-        for (std::wstring_view filePattern : filePatterns)
-        {
-            if (false == IsValidFilePatternString(filePattern))
-                return ValueOrError<FilesystemRule, std::wstring>::MakeError(Strings::FormatString(L"File pattern: %s: Either empty or contains disallowed characters", std::wstring(filePattern).c_str()));
-        }
-
-        return FilesystemRule(originDirectoryFullPath, targetDirectoryFullPath, std::move(filePatterns));
-    }
-
-    // --------
-
-    bool FilesystemRule::IsValidDirectoryString(std::wstring_view candidateDirectory)
-    {
-        // These characters are disallowed at any position in the directory string.
-        // Directory strings cannot contain wildcards but can contain backslashes as separators and colons to identify drives.
-        constexpr std::wstring_view kDisallowedCharacters = L"/*?\"<>|";
-
-        // These characters are disallowed as the last character in the directory string.
-        constexpr std::wstring_view kDisallowedAsLastCharacter = L"\\";
-
-        if (true == candidateDirectory.empty())
-            return false;
-
-        for (wchar_t c : candidateDirectory)
-        {
-            if ((0 == iswprint(c)) || (kDisallowedCharacters.contains(c)))
-                return false;
-        }
-
-        if (kDisallowedAsLastCharacter.contains(candidateDirectory.back()))
-            return false;
-
-        return true;
-    }
-
-    // --------
-
-    bool FilesystemRule::IsValidFilePatternString(std::wstring_view candidateFilePattern)
-    {
-        // These characters are disallowed inside file patterns.
-        // File patterns identify files within directories and cannot identify subdirectories or drives.
-        // Wildcards are allowed, but backslashes and colons are not.
-        constexpr std::wstring_view kDisallowedCharacters = L"\\/:\"<>|";
-
-        if (true == candidateFilePattern.empty())
-            return false;
-
-        for (wchar_t c : candidateFilePattern)
-        {
-            if ((0 == iswprint(c)) || (kDisallowedCharacters.contains(c)))
-                return false;
-        }
-
-        return true;
     }
 
 
