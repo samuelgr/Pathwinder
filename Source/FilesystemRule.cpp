@@ -72,18 +72,12 @@ namespace Pathwinder
         return FilesystemRule::EDirectoryCompareResult::Unrelated;
     }
 
-    /// Extracts the file part from a filesystem path.
-    /// File part is the part after the final backslash character.
-    /// @param [in] path Path from which the file part is desired.
-    /// @return View into the parameter string consisting of the file part. If the entire absolute path is a file part then the returned string equals the parameter.
-    static std::wstring_view ExtractFilePart(std::wstring_view path)
+    /// Determines the position of the final separator character in a filesystem path.
+    /// @param [in] path Path for which the final separator position is desired.
+    /// @return Index of the final separator character, or -1 if no final separator character exists.
+    static inline size_t FinalSeparatorPosition(std::wstring_view path)
     {
-        const size_t kLastBackslashPos = path.find_last_of(L'\\');
-
-        if (std::wstring_view::npos != kLastBackslashPos)
-            path.remove_prefix(1 + kLastBackslashPos);
-
-        return path;
+        return path.find_last_of(L'\\');
     }
 
     /// Determines if the specified filename matches any of the specified file patterns.
@@ -130,7 +124,7 @@ namespace Pathwinder
     // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
     // See "FilesystemRule.h" for documentation.
 
-    FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring_view>&& filePatterns) : kOriginDirectoryFullPath(originDirectoryFullPath), kOriginDirectoryName(ExtractFilePart(originDirectoryFullPath)), kTargetDirectoryFullPath(targetDirectoryFullPath), kTargetDirectoryName(ExtractFilePart(targetDirectoryFullPath)), kFilePatterns(std::move(filePatterns))
+    FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring_view>&& filePatterns) : kOriginDirectoryFullPath(originDirectoryFullPath), kOriginDirectorySeparator(FinalSeparatorPosition(originDirectoryFullPath)), kTargetDirectoryFullPath(targetDirectoryFullPath), kTargetDirectorySeparator(FinalSeparatorPosition(targetDirectoryFullPath)), kFilePatterns(std::move(filePatterns))
     {
         // Nothing to do here.
     }

@@ -13,6 +13,7 @@
 
 #include "TemporaryBuffer.h"
 
+#include <cstddef>
 #include <optional>
 #include <string_view>
 #include <vector>
@@ -45,14 +46,14 @@ namespace Pathwinder
         /// Absolute path to the origin directory.
         const std::wstring_view kOriginDirectoryFullPath;
 
-        /// Name of the origin directory itself within its parent directory.
-        const std::wstring_view kOriginDirectoryName;
+        /// Position within the origin directory absolute path of the final separator between name and parent path.
+        const size_t kOriginDirectorySeparator;
 
         /// Absolute path to the target directory.
         const std::wstring_view kTargetDirectoryFullPath;
 
-        /// Name of the target directory itself within its parent directory.
-        const std::wstring_view kTargetDirectoryName;
+        /// Position within the target directory absolute path of the final separator between name and parent path.
+        const size_t kTargetDirectorySeparator;
 
         /// Pattern that specifies which files within the origin and target directories are affected by this rule.
         /// Can be used to filter this rule to apply to only specific named files.
@@ -108,7 +109,25 @@ namespace Pathwinder
         /// @return Name of the origin directory.
         inline std::wstring_view GetOriginDirectoryName(void) const
         {
-            return kOriginDirectoryName;
+            std::wstring_view originDirectoryName = kOriginDirectoryFullPath;
+
+            if (std::wstring_view::npos != kOriginDirectorySeparator)
+                originDirectoryName.remove_prefix(1 + kOriginDirectorySeparator);
+
+            return originDirectoryName;
+        }
+
+        /// Retrieves and returns the immediate parent directory of the origin directory associated with this rule.
+        /// @return Parent of the origin directory.
+        inline std::wstring_view GetOriginDirectoryParent(void) const
+        {
+            if (std::wstring_view::npos == kOriginDirectorySeparator)
+                return std::wstring_view();
+
+            std::wstring_view originDirectoryParent = kOriginDirectoryFullPath;
+            originDirectoryParent.remove_suffix(originDirectoryParent.length() - kOriginDirectorySeparator);
+
+            return originDirectoryParent;
         }
 
         /// Retrieves and returns the full path of the target directory associated with this rule.
@@ -123,7 +142,25 @@ namespace Pathwinder
         /// @return Name of the target directory.
         inline std::wstring_view GetTargetDirectoryName(void) const
         {
-            return kTargetDirectoryName;
+            std::wstring_view targetDirectoryName = kTargetDirectoryFullPath;
+
+            if (std::wstring_view::npos != kTargetDirectorySeparator)
+                targetDirectoryName.remove_prefix(1 + kTargetDirectorySeparator);
+
+            return targetDirectoryName;
+        }
+
+        /// Retrieves and returns the immediate parent directory of the target directory associated with this rule.
+        /// @return Parent of the target directory.
+        inline std::wstring_view GetTargetDirectoryParent(void) const
+        {
+            if (std::wstring_view::npos == kOriginDirectorySeparator)
+                return std::wstring_view();
+
+            std::wstring_view targetDirectoryParent = kTargetDirectoryFullPath;
+            targetDirectoryParent.remove_suffix(targetDirectoryParent.length() - kTargetDirectorySeparator);
+
+            return targetDirectoryParent;
         }
 
         /// Computes and returns the result of redirecting from the specified candidate path to the target directory associated with this rule.

@@ -32,7 +32,7 @@ namespace PathwinderTest
         constexpr std::pair<std::pair<std::wstring_view, std::wstring_view>, std::pair<std::wstring_view, std::wstring_view>> kDirectoryTestRecords[] = {
             {{L"C:\\Directory", L"Directory"}, {L"D:\\Some Other Directory", L"Some Other Directory"}},
             {{L"C:", L"C:"}, {L"D:", L"D:"}},
-            {{L"\\sharepath\\shared folder$\\another shared folder", L"another shared folder"}, {L"D:\\Long\\Sub Directory \\   Path To Directory\\Yes", L"Yes"}},
+            {{L"\\sharepath\\shared folder$\\another shared folder", L"another shared folder"}, {L"D:\\Long\\Sub Directory \\   Path To Directory\\Yes", L"Yes"}}
         };
 
         for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
@@ -55,6 +55,30 @@ namespace PathwinderTest
 
             const std::wstring_view kActualTargetDirectoryName = kFilesystemRule.GetTargetDirectoryName();
             TEST_ASSERT(kActualTargetDirectoryName == kExpectedTargetDirectoryName);
+        }
+    }
+
+    // Verifies that origin and target directory strings are parsed correctly and their immediate parent directories are returned.
+    TEST_CASE(FilesystemRule_GetOriginAndTargetDirectoryParents)
+    {
+        constexpr std::pair<std::pair<std::wstring_view, std::wstring_view>, std::pair<std::wstring_view, std::wstring_view>> kDirectoryTestRecords[] = {
+            {{L"C:\\Directory", L"C:"}, {L"D:\\Some Other Directory", L"D:"}},
+            {{L"C:", L""}, {L"D:", L""}},
+            {{L"\\sharepath\\shared folder$\\another shared folder", L"\\sharepath\\shared folder$"}, {L"D:\\Long\\Sub Directory \\   Path To Directory\\Yes", L"D:\\Long\\Sub Directory \\   Path To Directory"}}
+        };
+
+        for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
+        {
+            const std::wstring_view kExpectedOriginDirectoryParent = kDirectoryTestRecord.first.second;
+            const std::wstring_view kExpectedTargetDirectoryParent = kDirectoryTestRecord.second.second;
+
+            const FilesystemRule kFilesystemRule(kDirectoryTestRecord.first.first, kDirectoryTestRecord.second.first);
+
+            const std::wstring_view kActualOriginDirectoryParent = kFilesystemRule.GetOriginDirectoryParent();
+            TEST_ASSERT(kActualOriginDirectoryParent == kExpectedOriginDirectoryParent);
+
+            const std::wstring_view kActualTargetDirectoryParent = kFilesystemRule.GetTargetDirectoryParent();
+            TEST_ASSERT(kActualTargetDirectoryParent == kExpectedTargetDirectoryParent);
         }
     }
 
