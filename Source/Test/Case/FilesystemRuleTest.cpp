@@ -37,24 +37,24 @@ namespace PathwinderTest
 
         for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
         {
-            const std::wstring_view kExpectedOriginDirectoryFullPath = kDirectoryTestRecord.first.first;
-            const std::wstring_view kExpectedOriginDirectoryName = kDirectoryTestRecord.first.second;
-            const std::wstring_view kExpectedTargetDirectoryFullPath = kDirectoryTestRecord.second.first;
-            const std::wstring_view kExpectedTargetDirectoryName = kDirectoryTestRecord.second.second;
+            const std::wstring_view expectedOriginDirectoryFullPath = kDirectoryTestRecord.first.first;
+            const std::wstring_view expectedOriginDirectoryName = kDirectoryTestRecord.first.second;
+            const std::wstring_view expectedTargetDirectoryFullPath = kDirectoryTestRecord.second.first;
+            const std::wstring_view expectedTargetDirectoryName = kDirectoryTestRecord.second.second;
 
-            const FilesystemRule kFilesystemRule(kExpectedOriginDirectoryFullPath, kExpectedTargetDirectoryFullPath);
+            const FilesystemRule kFilesystemRule(expectedOriginDirectoryFullPath, expectedTargetDirectoryFullPath);
 
-            const std::wstring_view kActualOriginDirectoryFullPath = kFilesystemRule.GetOriginDirectoryFullPath();
-            TEST_ASSERT(kActualOriginDirectoryFullPath == kExpectedOriginDirectoryFullPath);
+            const std::wstring_view actualOriginDirectoryFullPath = kFilesystemRule.GetOriginDirectoryFullPath();
+            TEST_ASSERT(actualOriginDirectoryFullPath == expectedOriginDirectoryFullPath);
 
-            const std::wstring_view kActualOriginDirectoryName = kFilesystemRule.GetOriginDirectoryName();
-            TEST_ASSERT(kActualOriginDirectoryName == kExpectedOriginDirectoryName);
+            const std::wstring_view actualOriginDirectoryName = kFilesystemRule.GetOriginDirectoryName();
+            TEST_ASSERT(actualOriginDirectoryName == expectedOriginDirectoryName);
 
-            const std::wstring_view kActualTargetDirectoryFullPath = kFilesystemRule.GetTargetDirectoryFullPath();
-            TEST_ASSERT(kActualTargetDirectoryFullPath == kExpectedTargetDirectoryFullPath);
+            const std::wstring_view actualTargetDirectoryFullPath = kFilesystemRule.GetTargetDirectoryFullPath();
+            TEST_ASSERT(actualTargetDirectoryFullPath == expectedTargetDirectoryFullPath);
 
-            const std::wstring_view kActualTargetDirectoryName = kFilesystemRule.GetTargetDirectoryName();
-            TEST_ASSERT(kActualTargetDirectoryName == kExpectedTargetDirectoryName);
+            const std::wstring_view actualTargetDirectoryName = kFilesystemRule.GetTargetDirectoryName();
+            TEST_ASSERT(actualTargetDirectoryName == expectedTargetDirectoryName);
         }
     }
 
@@ -69,16 +69,16 @@ namespace PathwinderTest
 
         for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
         {
-            const std::wstring_view kExpectedOriginDirectoryParent = kDirectoryTestRecord.first.second;
-            const std::wstring_view kExpectedTargetDirectoryParent = kDirectoryTestRecord.second.second;
+            const std::wstring_view expectedOriginDirectoryParent = kDirectoryTestRecord.first.second;
+            const std::wstring_view expectedTargetDirectoryParent = kDirectoryTestRecord.second.second;
 
             const FilesystemRule kFilesystemRule(kDirectoryTestRecord.first.first, kDirectoryTestRecord.second.first);
 
-            const std::wstring_view kActualOriginDirectoryParent = kFilesystemRule.GetOriginDirectoryParent();
-            TEST_ASSERT(kActualOriginDirectoryParent == kExpectedOriginDirectoryParent);
+            const std::wstring_view actualOriginDirectoryParent = kFilesystemRule.GetOriginDirectoryParent();
+            TEST_ASSERT(actualOriginDirectoryParent == expectedOriginDirectoryParent);
 
-            const std::wstring_view kActualTargetDirectoryParent = kFilesystemRule.GetTargetDirectoryParent();
-            TEST_ASSERT(kActualTargetDirectoryParent == kExpectedTargetDirectoryParent);
+            const std::wstring_view actualTargetDirectoryParent = kFilesystemRule.GetTargetDirectoryParent();
+            TEST_ASSERT(actualTargetDirectoryParent == expectedTargetDirectoryParent);
         }
     }
 

@@ -119,11 +119,11 @@ namespace Pathwinder
         static ResolvedStringOrError ResolveEnvironmentVariable(std::wstring_view name)
         {
             TemporaryBuffer<wchar_t> environmentVariableValue;
-            const DWORD kGetEnvironmentVariableResult = GetEnvironmentVariable(std::wstring(name).c_str(), environmentVariableValue.Data(), environmentVariableValue.Capacity());
+            const DWORD getEnvironmentVariableResult = GetEnvironmentVariable(std::wstring(name).c_str(), environmentVariableValue.Data(), environmentVariableValue.Capacity());
 
-            if (kGetEnvironmentVariableResult >= environmentVariableValue.Capacity())
+            if (getEnvironmentVariableResult >= environmentVariableValue.Capacity())
                 return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to obtain environment variable value: Value is too long", std::wstring(name).c_str()));
-            else if (0 == kGetEnvironmentVariableResult)
+            else if (0 == getEnvironmentVariableResult)
                 return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to obtain environment variable value: %s", std::wstring(name).c_str(), Strings::SystemErrorCodeString(GetLastError()).AsCString()));
 
             return ResolvedStringOrError::MakeValue(environmentVariableValue.Data());
@@ -287,14 +287,14 @@ namespace Pathwinder
                 return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Unrecognized known folder identifier", std::wstring(name).c_str()));
 
             wchar_t* knownFolderPath = nullptr;
-            const HRESULT kGetKnownFolderPathResult = SHGetKnownFolderPath(*knownFolderIter->second, KF_FLAG_DEFAULT, NULL, &knownFolderPath);
+            const HRESULT getKnownFolderPathResult = SHGetKnownFolderPath(*knownFolderIter->second, KF_FLAG_DEFAULT, NULL, &knownFolderPath);
 
-            if (S_OK != kGetKnownFolderPathResult)
+            if (S_OK != getKnownFolderPathResult)
             {
                 if (nullptr != knownFolderPath)
                     CoTaskMemFree(knownFolderPath);
 
-                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to obtain known folder path: error code 0x%08lx", std::wstring(name).c_str(), (unsigned long)kGetKnownFolderPathResult));
+                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to obtain known folder path: error code 0x%08lx", std::wstring(name).c_str(), (unsigned long)getKnownFolderPathResult));
             }
             else
             {

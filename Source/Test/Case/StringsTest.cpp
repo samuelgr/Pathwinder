@@ -30,9 +30,9 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"ABCD%EFGH%IJKL%MNOP%QRSTUV WX Y  % Z  ";
-        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV WX Y  ", L" Z  "};
-        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
-        TEST_ASSERT(kActualPieces == kExpectedPieces);
+        const TemporaryVector<std::wstring_view> expectedPieces = {L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV WX Y  ", L" Z  "};
+        const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        TEST_ASSERT(actualPieces == expectedPieces);
     }
 
     // Same as the nominal case but with a multi-character delimiter.
@@ -40,9 +40,9 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L":::";
         constexpr std::wstring_view kInputString = L"ABCD:::EFGH:::IJKL:::MNOP:::QRSTUV WX Y  ::: Z  ";
-        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV WX Y  ", L" Z  "};
-        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
-        TEST_ASSERT(kActualPieces == kExpectedPieces);
+        const TemporaryVector<std::wstring_view> expectedPieces = {L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV WX Y  ", L" Z  "};
+        const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        TEST_ASSERT(actualPieces == expectedPieces);
     }
 
     // No delimiters are present, so the entire string should be returned in one piece.
@@ -50,9 +50,9 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"ABCD EFGH IJKL MNOP QRSTUV WX Y  Z  ";
-        const TemporaryVector<std::wstring_view> kExpectedPieces = {kInputString};
-        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
-        TEST_ASSERT(kActualPieces == kExpectedPieces);
+        const TemporaryVector<std::wstring_view> expectedPieces = {kInputString};
+        const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        TEST_ASSERT(actualPieces == expectedPieces);
     }
 
     // Multiple consecutive delimiters are present, so those pieces should be empty.
@@ -60,9 +60,9 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"ABCD%%EFGH%%IJKL%%MNOP%%QRSTUV WX Y  %% Z  ";
-        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"ABCD", L"", L"EFGH", L"", L"IJKL", L"", L"MNOP", L"", L"QRSTUV WX Y  ", L"", L" Z  "};
-        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
-        TEST_ASSERT(kActualPieces == kExpectedPieces);
+        const TemporaryVector<std::wstring_view> expectedPieces = {L"ABCD", L"", L"EFGH", L"", L"IJKL", L"", L"MNOP", L"", L"QRSTUV WX Y  ", L"", L" Z  "};
+        const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        TEST_ASSERT(actualPieces == expectedPieces);
     }
 
     // Multiple consecutive multi-character delimiters are present, so those pieces should be empty.
@@ -70,9 +70,9 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L":::";
         constexpr std::wstring_view kInputString = L"ABCD::::::EFGH::::::IJKL::::::MNOP::::::QRSTUV WX Y  :::::: Z  ";
-        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"ABCD", L"", L"EFGH", L"", L"IJKL", L"", L"MNOP", L"", L"QRSTUV WX Y  ", L"", L" Z  "};
-        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
-        TEST_ASSERT(kActualPieces == kExpectedPieces);
+        const TemporaryVector<std::wstring_view> expectedPieces = {L"ABCD", L"", L"EFGH", L"", L"IJKL", L"", L"MNOP", L"", L"QRSTUV WX Y  ", L"", L" Z  "};
+        const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        TEST_ASSERT(actualPieces == expectedPieces);
     }
 
     // Multiple delimiters exist at the start of the string.
@@ -80,9 +80,9 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"%%%%MyTestString";
-        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"", L"", L"", L"", L"MyTestString"};
-        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
-        TEST_ASSERT(kActualPieces == kExpectedPieces);
+        const TemporaryVector<std::wstring_view> expectedPieces = {L"", L"", L"", L"", L"MyTestString"};
+        const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        TEST_ASSERT(actualPieces == expectedPieces);
     }
 
     // A single terminal delimiter exists at the end of the string.
@@ -90,9 +90,9 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"MyTestString%";
-        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"MyTestString", L""};
-        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
-        TEST_ASSERT(kActualPieces == kExpectedPieces);
+        const TemporaryVector<std::wstring_view> expectedPieces = {L"MyTestString", L""};
+        const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        TEST_ASSERT(actualPieces == expectedPieces);
     }
 
     // Multiple delimiters exist at the end of the string.
@@ -100,9 +100,9 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"MyTestString%%%%";
-        const TemporaryVector<std::wstring_view> kExpectedPieces = {L"MyTestString", L"", L"", L"", L""};
-        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
-        TEST_ASSERT(kActualPieces == kExpectedPieces);
+        const TemporaryVector<std::wstring_view> expectedPieces = {L"MyTestString", L"", L"", L"", L""};
+        const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        TEST_ASSERT(actualPieces == expectedPieces);
     }
 
     // Empty input string.
@@ -110,9 +110,9 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"";
-        const TemporaryVector<std::wstring_view> kExpectedPieces = {L""};
-        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
-        TEST_ASSERT(kActualPieces == kExpectedPieces);
+        const TemporaryVector<std::wstring_view> expectedPieces = {L""};
+        const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        TEST_ASSERT(actualPieces == expectedPieces);
     }
 
     // Empty delimiter, which semantically means that no characters match the delimiter and thus the entire input string is returned in one piece.
@@ -120,9 +120,9 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"";
         constexpr std::wstring_view kInputString = L"MyTestString";
-        const TemporaryVector<std::wstring_view> kExpectedPieces = {kInputString};
-        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
-        TEST_ASSERT(kActualPieces == kExpectedPieces);
+        const TemporaryVector<std::wstring_view> expectedPieces = {kInputString};
+        const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        TEST_ASSERT(actualPieces == expectedPieces);
     }
 
     // Delimiter and input strings are equal, so the output should be two empty string, one for the empty part before the delimiter and one for the empty part after it.
@@ -132,10 +132,10 @@ namespace PathwinderTest
 
         for (const auto kSplitDelimiter : kSplitDelimiters)
         {
-            const std::wstring_view kInputString = kSplitDelimiter;
-            const TemporaryVector<std::wstring_view> kExpectedPieces = { L"", L"" };
-            const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
-            TEST_ASSERT(kActualPieces == kExpectedPieces);
+            const std::wstring_view inputString = kSplitDelimiter;
+            const TemporaryVector<std::wstring_view> expectedPieces = { L"", L"" };
+            const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString(inputString, kSplitDelimiter);
+            TEST_ASSERT(actualPieces == expectedPieces);
         }
     }
 
@@ -144,8 +144,8 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kSplitDelimiter = L"";
         constexpr std::wstring_view kInputString = kSplitDelimiter;
-        const TemporaryVector<std::wstring_view> kExpectedPieces = {L""};
-        const TemporaryVector<std::wstring_view> kActualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
-        TEST_ASSERT(kActualPieces == kExpectedPieces);
+        const TemporaryVector<std::wstring_view> expectedPieces = {L""};
+        const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
+        TEST_ASSERT(actualPieces == expectedPieces);
     }
 }

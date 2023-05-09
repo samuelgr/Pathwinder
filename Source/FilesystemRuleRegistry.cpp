@@ -147,27 +147,27 @@ namespace Pathwinder
         // - Origin directory either exists as a real directory or does not exist at all.
         // - Immediate parent of the origin directory either exists as a directory or serves as the origin directory for another rule.
 
-        for (const auto& kFilesystemRuleRecord : filesystemRules)
+        for (const auto& filesystemRuleRecord : filesystemRules)
         {
-            const FilesystemRule& kFilesystemRule = kFilesystemRuleRecord.second;
+            const FilesystemRule& filesystemRule = filesystemRuleRecord.second;
 
-            const DWORD kOriginDirectoryAttributes = GetFileAttributes(kFilesystemRule.GetOriginDirectoryFullPath().data());
-            const bool kOriginDirectoryDoesNotExist = (INVALID_FILE_ATTRIBUTES == kOriginDirectoryAttributes);
-            const bool kOriginDirectoryExistsAsRealDirectory = (INVALID_FILE_ATTRIBUTES != kOriginDirectoryAttributes) && (0 != (kOriginDirectoryAttributes & FILE_ATTRIBUTE_DIRECTORY));
-            if (false == (kOriginDirectoryDoesNotExist || kOriginDirectoryExistsAsRealDirectory))
-                return ValueOrError<unsigned int, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory must either not exist at all or exist as a real directory.", kFilesystemRuleRecord.first.c_str()));
+            const DWORD originDirectoryAttributes = GetFileAttributes(filesystemRule.GetOriginDirectoryFullPath().data());
+            const bool originDirectoryDoesNotExist = (INVALID_FILE_ATTRIBUTES == originDirectoryAttributes);
+            const bool originDirectoryExistsAsRealDirectory = (INVALID_FILE_ATTRIBUTES != originDirectoryAttributes) && (0 != (originDirectoryAttributes & FILE_ATTRIBUTE_DIRECTORY));
+            if (false == (originDirectoryDoesNotExist || originDirectoryExistsAsRealDirectory))
+                return ValueOrError<unsigned int, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory must either not exist at all or exist as a real directory.", filesystemRuleRecord.first.c_str()));
 
-            if (true == kFilesystemRule.GetTargetDirectoryParent().empty())
-                return ValueOrError<unsigned int, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Target directory cannot be a filesystem root.", kFilesystemRuleRecord.first.c_str()));
+            if (true == filesystemRule.GetTargetDirectoryParent().empty())
+                return ValueOrError<unsigned int, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Target directory cannot be a filesystem root.", filesystemRuleRecord.first.c_str()));
 
-            const TemporaryString kOriginDirectoryParent = kFilesystemRule.GetOriginDirectoryParent();
-            if (true == kOriginDirectoryParent.Empty())
-                return ValueOrError<unsigned int, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory cannot be a filesystem root.", kFilesystemRuleRecord.first.c_str()));
+            const TemporaryString originDirectoryParent = filesystemRule.GetOriginDirectoryParent();
+            if (true == originDirectoryParent.Empty())
+                return ValueOrError<unsigned int, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory cannot be a filesystem root.", filesystemRuleRecord.first.c_str()));
 
-            const DWORD kOriginDirectoryParentAttributes = GetFileAttributes(kOriginDirectoryParent.AsCString());
-            const bool kOriginDirectoryParentExistsAsRealDirectory = (INVALID_FILE_ATTRIBUTES != kOriginDirectoryParentAttributes) && (0 != (kOriginDirectoryParentAttributes & FILE_ATTRIBUTE_DIRECTORY));
-            if ((false == kOriginDirectoryParentExistsAsRealDirectory) && (false == HasOriginDirectory(kOriginDirectoryParent)))
-                return ValueOrError<unsigned int, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Parent of origin directory must either exist as a real directory or be the origin directory of another filesystem rule.", kFilesystemRuleRecord.first.c_str()));
+            const DWORD originDirectoryParentAttributes = GetFileAttributes(originDirectoryParent.AsCString());
+            const bool originDirectoryParentExistsAsRealDirectory = (INVALID_FILE_ATTRIBUTES != originDirectoryParentAttributes) && (0 != (originDirectoryParentAttributes & FILE_ATTRIBUTE_DIRECTORY));
+            if ((false == originDirectoryParentExistsAsRealDirectory) && (false == HasOriginDirectory(originDirectoryParent)))
+                return ValueOrError<unsigned int, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Parent of origin directory must either exist as a real directory or be the origin directory of another filesystem rule.", filesystemRuleRecord.first.c_str()));
         }
 
         isFinalized = true;
