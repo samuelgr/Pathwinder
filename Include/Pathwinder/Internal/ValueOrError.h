@@ -3,7 +3,7 @@
  *   Path redirection for files, directories, and registry entries.
  *****************************************************************************
  * Authored by Samuel Grossman
- * Copyright (c) 2022
+ * Copyright (c) 2022-2023
  *************************************************************************//**
  * @file ValueOrError.h
  *   Variant type that holds either a value or an error of some kind.

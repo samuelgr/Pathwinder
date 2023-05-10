@@ -3,7 +3,7 @@
  *   Path redirection for files, directories, and registry entries.
  *****************************************************************************
  * Authored by Samuel Grossman
- * Copyright (c) 2022
+ * Copyright (c) 2022-2023
  *************************************************************************//**
  * @file HookModuleMain.cpp
  *   Entry point when injecting Pathwinder as a hook module.

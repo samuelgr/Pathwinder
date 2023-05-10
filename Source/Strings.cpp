@@ -3,7 +3,7 @@
  *   Path redirection for files, directories, and registry entries.
  *****************************************************************************
  * Authored by Samuel Grossman
- * Copyright (c) 2022
+ * Copyright (c) 2022-2023
  *************************************************************************//**
  * @file Strings.cpp
  *   Implementation of functions for manipulating Pathwinder-specific strings.
