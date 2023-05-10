@@ -5,11 +5,11 @@
  * Authored by Samuel Grossman
  * Copyright (c) 2022
  *************************************************************************//**
- * @file FilesystemRuleRegistry.cpp
+ * @file FilesystemDirector.cpp
  *   Implementation of filesystem manipulation and application functionality.
  *****************************************************************************/
 
-#include "FilesystemRuleRegistry.h"
+#include "FilesystemDirector.h"
 #include "Resolver.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
@@ -24,9 +24,9 @@
 namespace Pathwinder
 {
     // -------- CLASS METHODS ---------------------------------------------- //
-    // See "FilesystemRuleRegistry.h" for documentation.
+    // See "FilesystemDirector.h" for documentation.
 
-    bool FilesystemRuleRegistry::IsValidDirectoryString(std::wstring_view candidateDirectory)
+    bool FilesystemDirector::IsValidDirectoryString(std::wstring_view candidateDirectory)
     {
         // These characters are disallowed at any position in the directory string.
         // Directory strings cannot contain wildcards but can contain backslashes as separators and colons to identify drives.
@@ -52,7 +52,7 @@ namespace Pathwinder
 
     // --------
 
-    bool FilesystemRuleRegistry::IsValidFilePatternString(std::wstring_view candidateFilePattern)
+    bool FilesystemDirector::IsValidFilePatternString(std::wstring_view candidateFilePattern)
     {
         // These characters are disallowed inside file patterns.
         // File patterns identify files within directories and cannot identify subdirectories or drives.
@@ -73,15 +73,11 @@ namespace Pathwinder
 
 
     // -------- INSTANCE METHODS ------------------------------------------- //
-    // See "FilesystemRuleRegistry.h" for documentation.
+    // See "FilesystemDirector.h" for documentation.
 
-    ValueOrError<FilesystemRule*, std::wstring> FilesystemRuleRegistry::CreateRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring_view>&& filePatterns)
+    ValueOrError<FilesystemRule*, std::wstring> FilesystemDirector::CreateRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring_view>&& filePatterns)
     {
-        // Constraints checked by this method for each filesystem rule:
-        // - Origin directory must not already be an origin or target directory for another rule.
-        // - Target directory must not already be an origin directory for another rule.
-        
-        if (true == isFinalized)
+        if (true == IsFinalized())
             return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Internal error: Attempted to create a new rule in a finalized registry.", ruleName.data()));
 
         if (true == filesystemRules.contains(ruleName))
@@ -137,15 +133,10 @@ namespace Pathwinder
 
     // --------
 
-    ValueOrError<unsigned int, std::wstring> FilesystemRuleRegistry::Finalize(void)
+    ValueOrError<unsigned int, std::wstring> FilesystemDirector::Finalize(void)
     {
         if (true == filesystemRules.empty())
             return ValueOrError<unsigned int, std::wstring>::MakeError(L"Filesystem rules: Internal error: Attempted to finalize an empty registry.");
-
-        // Constraints checked by this method for each filesystem rule:
-        // - Origin and target directories are not root directories (i.e. they both have parent directories).
-        // - Origin directory either exists as a real directory or does not exist at all.
-        // - Immediate parent of the origin directory either exists as a directory or serves as the origin directory for another rule.
 
         for (const auto& filesystemRuleRecord : filesystemRules)
         {

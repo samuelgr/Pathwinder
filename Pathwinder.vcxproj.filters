@@ -42,7 +42,7 @@
     <ClCompile Include="Source\FilesystemRule.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\FilesystemRuleRegistry.cpp">
+    <ClCompile Include="Source\FilesystemDirector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -77,7 +77,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemRule.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Internal\FilesystemRuleRegistry.h">
+    <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

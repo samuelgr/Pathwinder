@@ -43,7 +43,7 @@ namespace Pathwinder
             // Candidate directory is shorter, so the candidate could be an ancestor or the immediate parent of the comparison target.
             // These two situations can be distinguished based on whether or not the non-matching suffix in the comparison target contains more than one backslash character.
 
-            if ((true == comparisonTargetDirectory.starts_with(candidateDirectory)) && (L'\\' == comparisonTargetDirectory[candidateDirectory.length()]))
+            if ((true == Strings::StartsWithCaseInsensitive(comparisonTargetDirectory, candidateDirectory)) && (L'\\' == comparisonTargetDirectory[candidateDirectory.length()]))
             {
                 comparisonTargetDirectory.remove_prefix(candidateDirectory.length());
 
@@ -58,7 +58,7 @@ namespace Pathwinder
             // Comparison target is shorter, so the candidate could be a descendant or the immediate child of the comparison target.
             // These two situations can be distinguished based on whether or not the non-matching suffix in the candidate directory contains more than one backslash character.
 
-            if ((true == candidateDirectory.starts_with(comparisonTargetDirectory)) && (L'\\' == candidateDirectory[comparisonTargetDirectory.length()]))
+            if ((true == Strings::StartsWithCaseInsensitive(candidateDirectory, comparisonTargetDirectory)) && (L'\\' == candidateDirectory[comparisonTargetDirectory.length()]))
             {
                 candidateDirectory.remove_prefix(comparisonTargetDirectory.length());
 
@@ -82,17 +82,17 @@ namespace Pathwinder
 
     /// Determines if the specified filename matches any of the specified file patterns.
     /// Input filename must not contain any backslash separators, as it is intended to represent a file within a directory rather than a path.
-    /// @param [in] candidateFileName File name to check for matches with any file pattern.
-    /// @param [in] kFilePatterns Patterns against which to compare the candidate file name.
+    /// @param [in] candidateFileName File name to check for matches with any file pattern. Must be null-terminated.
+    /// @param [in] filePatterns Patterns against which to compare the candidate file name. Must be null-terminated.
     /// @return `true` if any file pattern produces a match, `false` otherwise.
-    static bool FileNameMatchesAnyPatternInternal(const wchar_t* candidateFileName, const std::vector<std::wstring_view>& kFilePatterns)
+    static bool FileNameMatchesAnyPatternInternal(std::wstring_view candidateFileName, const std::vector<std::wstring_view>& filePatterns)
     {
-        if (true == kFilePatterns.empty())
+        if (true == filePatterns.empty())
             return true;
 
-        for (const auto& kFilePattern : kFilePatterns)
+        for (const auto& filePattern : filePatterns)
         {
-            if (TRUE == PathMatchSpec(candidateFileName, kFilePattern.data()))
+            if (TRUE == PathMatchSpec(candidateFileName.data(), filePattern.data()))
                 return true;
         }
 
@@ -105,17 +105,49 @@ namespace Pathwinder
     /// Otherwise no redirection occurs and no output is produced.
     /// @param [in] candidatePathDirectoryPart Directory portion of the candidate path, which is an absolute path and does not contain a trailing backslash.
     /// @param [in] candidatePathFilePart File portion of the candidate path without any leading backslash. Must be null-terminated.
+    /// @param [in] fromDirectory Origin directory of the redirection. Typically this comes from a filesystem rule.
+    /// @param [in] toDirectory Target directory of the redirection. Typically this comes from a filesystem rule.
     /// @return Redirected location as an absolute path, if redirection occurred successfully.
-    static std::optional<TemporaryString> RedirectPathInternal(std::wstring_view candidatePathDirectoryPart, const wchar_t* candidatePathFilePart, std::wstring_view fromDirectory, std::wstring_view toDirectory, const std::vector<std::wstring_view>& kFilePatterns)
+    static std::optional<TemporaryString> RedirectPathInternal(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart, std::wstring_view fromDirectory, std::wstring_view toDirectory, const std::vector<std::wstring_view>& kFilePatterns)
     {
-        if (false == Strings::EqualsCaseInsensitive(fromDirectory, candidatePathDirectoryPart))
-            return std::nullopt;
+        switch (DirectoryCompareInternal(candidatePathDirectoryPart, fromDirectory))
+        {
+        case FilesystemRule::EDirectoryCompareResult::Equal:
 
-        if (false == FileNameMatchesAnyPatternInternal(candidatePathFilePart, kFilePatterns))
+            // Candidate directory and origin directory are equal. This is the simplest case.
+            // If the candidate file part matches the redirection file patterns then a redirection can occur.
+            // For example, if we are asked to redirect "C:\Dir1\file.txt" from "C:\Dir1" to "C:\Dir5000" then the result would be "C:\Dir5000\file.txt" but only if "file.txt" matches the file patterns for redirection.
+
+            if (false == FileNameMatchesAnyPatternInternal(candidatePathFilePart, kFilePatterns))
+                return std::nullopt;
+            break;
+
+        case FilesystemRule::EDirectoryCompareResult::CandidateIsChild:
+        case FilesystemRule::EDirectoryCompareResult::CandidateIsDescendant:
+
+            // Candidate directory is a descendent of the origin directory. This case is slightly more complicated.
+            // Since an entire directory hierarchy could be involved, we need to extract the part of the candidate directory that represents the immediate child of the origin directory.
+            // If that immediate child matches a redirection file pattern (here we ignore the candidate path file part) then the redirection can occur.
+            // For example, if we are asked to redirect "C:\Dir1\Dir2\file.txt" from "C:\Dir1" to "C:\Dir5000" then the result would be "C:\Dir5000\Dir2\file.txt" but only if "Dir2" matches the file patterns for redirection.
+
+            do {
+                std::wstring_view immediateChildOfFromDirectory(candidatePathDirectoryPart);
+                immediateChildOfFromDirectory.remove_prefix(1 + fromDirectory.length());
+                immediateChildOfFromDirectory.remove_suffix(immediateChildOfFromDirectory.length() - immediateChildOfFromDirectory.find_first_of(L'\\'));
+
+                if (false == FileNameMatchesAnyPatternInternal(immediateChildOfFromDirectory, kFilePatterns))
+                    return std::nullopt;
+            } while (false);
+            break;
+
+        default:
             return std::nullopt;
+        }
+
+        candidatePathDirectoryPart.remove_prefix(fromDirectory.length());
 
         TemporaryString redirectedPath;
-        redirectedPath << toDirectory << L'\\' << candidatePathFilePart;
+        redirectedPath << toDirectory << candidatePathDirectoryPart << L'\\' << candidatePathFilePart;
 
         return redirectedPath;
     }
@@ -147,21 +179,21 @@ namespace Pathwinder
 
     // --------
 
-    bool FilesystemRule::FileNameMatchesAnyPattern(const wchar_t* candidateFileName) const
+    bool FilesystemRule::FileNameMatchesAnyPattern(std::wstring_view candidateFileName) const
     {
         return FileNameMatchesAnyPatternInternal(candidateFileName, kFilePatterns);
     }
 
     // --------
 
-    std::optional<TemporaryString> FilesystemRule::RedirectPathOriginToTarget(std::wstring_view candidatePathDirectoryPart, const wchar_t* candidatePathFilePart) const
+    std::optional<TemporaryString> FilesystemRule::RedirectPathOriginToTarget(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart) const
     {
         return RedirectPathInternal(candidatePathDirectoryPart, candidatePathFilePart, kOriginDirectoryFullPath, kTargetDirectoryFullPath, kFilePatterns);
     }
 
     // --------
 
-    std::optional<TemporaryString> FilesystemRule::RedirectPathTargetToOrigin(std::wstring_view candidatePathDirectoryPart, const wchar_t* candidatePathFilePart) const
+    std::optional<TemporaryString> FilesystemRule::RedirectPathTargetToOrigin(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart) const
     {
         return RedirectPathInternal(candidatePathDirectoryPart, candidatePathFilePart, kTargetDirectoryFullPath, kOriginDirectoryFullPath, kFilePatterns);
     }

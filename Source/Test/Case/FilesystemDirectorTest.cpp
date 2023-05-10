@@ -5,11 +5,11 @@
  * Authored by Samuel Grossman
  * Copyright (c) 2022
  *************************************************************************//**
- * @file FilesystemRuleRegistryTest.cpp
- *   Unit tests for filesystem rule registry objects.
+ * @file FilesystemDirectorTest.cpp
+ *   Unit tests for filesystem redirector objects.
  *****************************************************************************/
 
-#include "FilesystemRuleRegistry.h"
+#include "FilesystemDirector.h"
 #include "TestCase.h"
 
 #include <string_view>
@@ -23,7 +23,7 @@ namespace PathwinderTest
     // -------- TEST CASES ------------------------------------------------- //
 
     // Verifies that valid strings for identifying origin and target directories are accepted as such.
-    TEST_CASE(FilesystemRuleRegistry_IsValidDirectoryString_Valid)
+    TEST_CASE(FilesystemDirector_IsValidDirectoryString_Valid)
     {
         constexpr std::wstring_view kDirectoryStrings[] = {
             L"C:",
@@ -35,11 +35,11 @@ namespace PathwinderTest
         };
 
         for (const auto& kDirectoryString : kDirectoryStrings)
-            TEST_ASSERT(true == FilesystemRuleRegistry::IsValidDirectoryString(kDirectoryString));
+            TEST_ASSERT(true == FilesystemDirector::IsValidDirectoryString(kDirectoryString));
     }
 
     // Verifies that invalid strings for identifying origin and target directories are rejected.
-    TEST_CASE(FilesystemRuleRegistry_IsValidDirectoryString_Invalid)
+    TEST_CASE(FilesystemDirector_IsValidDirectoryString_Invalid)
     {
         constexpr std::wstring_view kDirectoryStrings[] = {
             L"",
@@ -56,11 +56,11 @@ namespace PathwinderTest
         };
 
         for (const auto& kDirectoryString : kDirectoryStrings)
-            TEST_ASSERT(false == FilesystemRuleRegistry::IsValidDirectoryString(kDirectoryString));
+            TEST_ASSERT(false == FilesystemDirector::IsValidDirectoryString(kDirectoryString));
     }
 
     // Verifies that valid strings for identifying file patterns within an origin or target directory are accepted as such.
-    TEST_CASE(FilesystemRuleRegistry_IsValidFilePatternString_Valid)
+    TEST_CASE(FilesystemDirector_IsValidFilePatternString_Valid)
     {
         constexpr std::wstring_view kFilePatternStrings[] = {
             L"*",
@@ -73,11 +73,11 @@ namespace PathwinderTest
         };
 
         for (const auto& kFilePatternString : kFilePatternStrings)
-            TEST_ASSERT(true == FilesystemRuleRegistry::IsValidFilePatternString(kFilePatternString));
+            TEST_ASSERT(true == FilesystemDirector::IsValidFilePatternString(kFilePatternString));
     }
 
     // Verifies that invalid strings for identifying file patterns within an origin or target directory are rejected.
-    TEST_CASE(FilesystemRuleRegistry_IsValidFilePatternString_Invalid)
+    TEST_CASE(FilesystemDirector_IsValidFilePatternString_Invalid)
     {
         constexpr std::wstring_view kFilePatternStrings[] = {
             L"",
@@ -87,6 +87,6 @@ namespace PathwinderTest
         };
 
         for (const auto& kFilePatternString : kFilePatternStrings)
-            TEST_ASSERT(false == FilesystemRuleRegistry::IsValidFilePatternString(kFilePatternString));
+            TEST_ASSERT(false == FilesystemDirector::IsValidFilePatternString(kFilePatternString));
     }
 }

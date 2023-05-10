@@ -23,7 +23,7 @@ namespace PathwinderTest
 
     // -------- TEST CASES ------------------------------------------------- //
 
-    // The following sequence of tests, which together comprise the Split suite, exercises the SplitString function.
+    // The following sequence of tests, which together comprise the Split suite, exercise the SplitString function.
 
     // Nominal case of a string with delimiters being split into pieces.
     TEST_CASE(Strings_Split_Nominal)
@@ -147,5 +147,56 @@ namespace PathwinderTest
         const TemporaryVector<std::wstring_view> expectedPieces = {L""};
         const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString(kInputString, kSplitDelimiter);
         TEST_ASSERT(actualPieces == expectedPieces);
+    }
+
+
+    // The following sequence of tests, which together comprise the Compare suite, exercise the string comparison operations EqualsCaseInsensitive and StartsWithCaseInsensitive.
+
+    // Tests case-insensitive string equality comparison by providing some matching and some non-matching inputs.
+    TEST_CASE(Strings_Compare_EqualsCaseInsensitive)
+    {
+        constexpr std::wstring_view kTestString = L"TestStringAbCdEfG";
+        constexpr std::wstring_view kMatchingInputs[] = {
+            L"TestStringAbCdEfG",
+            L"teststringabcdefg",
+            L"TESTSTRINGABCDEFG",
+            L"tEsTsTrInGaBcDeFg"
+        };
+        constexpr std::wstring_view kNonMatchingInputs[] = {
+            L"TestString",
+            L"AbCdEfG",
+            L"Totally_unrelated_string"
+        };
+
+        for (const auto matchingInput : kMatchingInputs)
+            TEST_ASSERT(true == Strings::EqualsCaseInsensitive(kTestString, matchingInput));
+
+        for (const auto nonMatchingInput : kNonMatchingInputs)
+            TEST_ASSERT(false == Strings::EqualsCaseInsensitive(kTestString, nonMatchingInput));
+    }
+
+    TEST_CASE(Strings_Compare_StartsWithCaseInsensitive)
+    {
+        constexpr std::wstring_view kTestString = L"TestStringAbCdEfG";
+        constexpr std::wstring_view kMatchingInputs[] = {
+            L"TestStringAbCdEfG",
+            L"TestStringAbCdEf",
+            L"teststringabcdef",
+            L"teststring",
+            L"TEST",
+            L"tEsTsTrInGaB"
+        };
+        constexpr std::wstring_view kNonMatchingInputs[] = {
+            L"TestStringAbCdEfGhIj",
+            L"AbCdEfG",
+            L"TestOtherStringAbC",
+            L"Totally_unrelated_string"
+        };
+
+        for (const auto matchingInput : kMatchingInputs)
+            TEST_ASSERT(true == Strings::StartsWithCaseInsensitive(kTestString, matchingInput));
+
+        for (const auto nonMatchingInput : kNonMatchingInputs)
+            TEST_ASSERT(false == Strings::StartsWithCaseInsensitive(kTestString, nonMatchingInput));
     }
 }

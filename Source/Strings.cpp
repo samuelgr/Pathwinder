@@ -385,6 +385,20 @@ namespace Pathwinder
 
         // --------
 
+        template <typename CharType> bool StartsWithCaseInsensitive(std::basic_string_view<CharType> str, std::basic_string_view<CharType> maybePrefix)
+        {
+            if (str.length() < maybePrefix.length())
+                return false;
+
+            str.remove_suffix(str.length() - maybePrefix.length());
+            return EqualsCaseInsensitive(str, maybePrefix);
+        }
+
+        template bool StartsWithCaseInsensitive<char>(std::string_view, std::string_view);
+        template bool StartsWithCaseInsensitive<wchar_t>(std::wstring_view, std::wstring_view);
+
+        // --------
+
         TemporaryString SystemErrorCodeString(const unsigned long systemErrorCode)
         {
             TemporaryString systemErrorString;

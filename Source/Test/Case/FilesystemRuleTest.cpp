@@ -42,18 +42,18 @@ namespace PathwinderTest
             const std::wstring_view expectedTargetDirectoryFullPath = kDirectoryTestRecord.second.first;
             const std::wstring_view expectedTargetDirectoryName = kDirectoryTestRecord.second.second;
 
-            const FilesystemRule kFilesystemRule(expectedOriginDirectoryFullPath, expectedTargetDirectoryFullPath);
+            const FilesystemRule filesystemRule(expectedOriginDirectoryFullPath, expectedTargetDirectoryFullPath);
 
-            const std::wstring_view actualOriginDirectoryFullPath = kFilesystemRule.GetOriginDirectoryFullPath();
+            const std::wstring_view actualOriginDirectoryFullPath = filesystemRule.GetOriginDirectoryFullPath();
             TEST_ASSERT(actualOriginDirectoryFullPath == expectedOriginDirectoryFullPath);
 
-            const std::wstring_view actualOriginDirectoryName = kFilesystemRule.GetOriginDirectoryName();
+            const std::wstring_view actualOriginDirectoryName = filesystemRule.GetOriginDirectoryName();
             TEST_ASSERT(actualOriginDirectoryName == expectedOriginDirectoryName);
 
-            const std::wstring_view actualTargetDirectoryFullPath = kFilesystemRule.GetTargetDirectoryFullPath();
+            const std::wstring_view actualTargetDirectoryFullPath = filesystemRule.GetTargetDirectoryFullPath();
             TEST_ASSERT(actualTargetDirectoryFullPath == expectedTargetDirectoryFullPath);
 
-            const std::wstring_view actualTargetDirectoryName = kFilesystemRule.GetTargetDirectoryName();
+            const std::wstring_view actualTargetDirectoryName = filesystemRule.GetTargetDirectoryName();
             TEST_ASSERT(actualTargetDirectoryName == expectedTargetDirectoryName);
         }
     }
@@ -72,12 +72,12 @@ namespace PathwinderTest
             const std::wstring_view expectedOriginDirectoryParent = kDirectoryTestRecord.first.second;
             const std::wstring_view expectedTargetDirectoryParent = kDirectoryTestRecord.second.second;
 
-            const FilesystemRule kFilesystemRule(kDirectoryTestRecord.first.first, kDirectoryTestRecord.second.first);
+            const FilesystemRule filesystemRule(kDirectoryTestRecord.first.first, kDirectoryTestRecord.second.first);
 
-            const std::wstring_view actualOriginDirectoryParent = kFilesystemRule.GetOriginDirectoryParent();
+            const std::wstring_view actualOriginDirectoryParent = filesystemRule.GetOriginDirectoryParent();
             TEST_ASSERT(actualOriginDirectoryParent == expectedOriginDirectoryParent);
 
-            const std::wstring_view actualTargetDirectoryParent = kFilesystemRule.GetTargetDirectoryParent();
+            const std::wstring_view actualTargetDirectoryParent = filesystemRule.GetTargetDirectoryParent();
             TEST_ASSERT(actualTargetDirectoryParent == expectedTargetDirectoryParent);
         }
     }
@@ -95,14 +95,14 @@ namespace PathwinderTest
             L"FILE3.BIN"
         };
 
-        const FilesystemRule kFilesystemRule(kOriginDirectory, kTargetDirectory);
+        const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
 
         for (const auto& kTestFile : kTestFiles)
         {
             TemporaryString expectedOutputPath = kTargetDirectory;
             expectedOutputPath << L'\\' << kTestFile;
 
-            std::optional<TemporaryString> actualOutputPath = kFilesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data());
+            std::optional<TemporaryString> actualOutputPath = filesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data());
             TEST_ASSERT(true == actualOutputPath.has_value());
             TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
         }
@@ -112,7 +112,7 @@ namespace PathwinderTest
             TemporaryString expectedOutputPath = kOriginDirectory;
             expectedOutputPath << L'\\' << kTestFile;
 
-            std::optional<TemporaryString> actualOutputPath = kFilesystemRule.RedirectPathTargetToOrigin(kTargetDirectory, kTestFile.data());
+            std::optional<TemporaryString> actualOutputPath = filesystemRule.RedirectPathTargetToOrigin(kTargetDirectory, kTestFile.data());
             TEST_ASSERT(true == actualOutputPath.has_value());
             TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
         }
@@ -123,7 +123,7 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
         constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
-        std::vector<std::wstring_view> kFilePatterns = {L"ASDF*", L"?gh.jkl"};
+        std::vector<std::wstring_view> filePatterns = {L"A*F*", L"?gh.jkl"};
 
         constexpr std::wstring_view kTestFilesMatching[] = {
             L"ASDF",
@@ -140,22 +140,56 @@ namespace PathwinderTest
             L"test.file"
         };
 
-        const FilesystemRule kFilesystemRule(kOriginDirectory, kTargetDirectory, std::move(kFilePatterns));
+        const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory, std::move(filePatterns));
         
         for (const auto& kTestFile : kTestFilesMatching)
         {
             TemporaryString expectedOutputPath = kTargetDirectory;
             expectedOutputPath << L'\\' << kTestFile;
 
-            std::optional<TemporaryString> actualOutputPath = kFilesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data());
+            std::optional<TemporaryString> actualOutputPath = filesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data());
             TEST_ASSERT(true == actualOutputPath.has_value());
             TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
         }
 
         for (const auto& kTestFile : kTestFilesNotMatching)
         {
-            TEST_ASSERT(false == kFilesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data()).has_value());
+            TEST_ASSERT(false == filesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data()).has_value());
         }
+    }
+
+    // Verifies that paths are successfully redirected using prefix matching when the actual file being directed is deep in a directory hierarchy.
+    // No file patterns are used.
+    TEST_CASE(FilesystemRule_RedirectPath_DeepDirectoryHierarchyNoFilePattern)
+    {
+        constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
+        constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
+
+        constexpr std::wstring_view kInputDirectory = L"C:\\Directory\\Origin\\Subdir1\\Subdir2";
+        constexpr std::wstring_view kInputFile = L"file.txt";
+
+        constexpr std::wstring_view kExpectedOutputPath = L"D:\\AnotherDirectory\\Target\\Subdir1\\Subdir2\\file.txt";
+
+        const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
+        std::optional<TemporaryString> actualOutputPath = filesystemRule.RedirectPathOriginToTarget(kInputDirectory, kInputFile);
+        TEST_ASSERT(actualOutputPath.has_value());
+        TEST_ASSERT(actualOutputPath.value() == kExpectedOutputPath);
+    }
+
+    // Verifies that paths are not redirected even though there is a directory hierarchy match because of a file pattern mismatch.
+    // Here, the redirection should fail because "Subdir1" does not match the file pattern of the rule even though the file part, "file.txt," does.
+    TEST_CASE(FilesystemRule_RedirectPath_DeepDirectoryHierarchyNonMatchingFilePattern)
+    {
+        constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
+        constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
+        std::vector<std::wstring_view> filePatterns = {L"f*"};
+
+        constexpr std::wstring_view kInputDirectory = L"C:\\Directory\\Origin\\Subdir1\\Subdir2";
+        constexpr std::wstring_view kInputFile = L"file.txt";
+
+        const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory, std::move(filePatterns));
+        std::optional<TemporaryString> actualOutputPath = filesystemRule.RedirectPathOriginToTarget(kInputDirectory, kInputFile);
+        TEST_ASSERT(false == actualOutputPath.has_value());
     }
 
     // Verifies that directories that are equal to a directory associated with a filesystem rule are correctly identified and that routing to either origin or target directories is correct.
@@ -165,13 +199,13 @@ namespace PathwinderTest
         constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
         constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
 
-        const FilesystemRule kFilesystemRule(kOriginDirectory, kTargetDirectory);
+        const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
         
-        TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Equal == kFilesystemRule.DirectoryCompareWithOrigin(kOriginDirectory));
-        TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Unrelated == kFilesystemRule.DirectoryCompareWithTarget(kOriginDirectory));
+        TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Equal == filesystemRule.DirectoryCompareWithOrigin(kOriginDirectory));
+        TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Unrelated == filesystemRule.DirectoryCompareWithTarget(kOriginDirectory));
 
-        TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Unrelated == kFilesystemRule.DirectoryCompareWithOrigin(kTargetDirectory));
-        TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Equal == kFilesystemRule.DirectoryCompareWithTarget(kTargetDirectory));
+        TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Unrelated == filesystemRule.DirectoryCompareWithOrigin(kTargetDirectory));
+        TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Equal == filesystemRule.DirectoryCompareWithTarget(kTargetDirectory));
     }
 
     // Verifies that directories that are children or descendants of a directory associated with a filesystem rule are correctly identified as such.
@@ -187,10 +221,10 @@ namespace PathwinderTest
             {L"C:\\Directory\\Origin\\Sub Directory 2\\Subdir3\\Subdir4", FilesystemRule::EDirectoryCompareResult::CandidateIsDescendant}
         };
 
-        const FilesystemRule kFilesystemRule(kOriginDirectory, kTargetDirectory);
+        const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
         
         for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
-            TEST_ASSERT(kDirectoryTestRecord.second == kFilesystemRule.DirectoryCompareWithOrigin(kDirectoryTestRecord.first));
+            TEST_ASSERT(kDirectoryTestRecord.second == filesystemRule.DirectoryCompareWithOrigin(kDirectoryTestRecord.first));
     }
 
     // Verifies that directories that are parents or ancestors of a directory associated with a filesystem rule are correctly identified as such.
@@ -205,10 +239,10 @@ namespace PathwinderTest
             {L"D:\\AnotherDirectory", FilesystemRule::EDirectoryCompareResult::CandidateIsParent}
         };
 
-        const FilesystemRule kFilesystemRule(kOriginDirectory, kTargetDirectory);
+        const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
         
         for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
-            TEST_ASSERT(kDirectoryTestRecord.second == kFilesystemRule.DirectoryCompareWithTarget(kDirectoryTestRecord.first));
+            TEST_ASSERT(kDirectoryTestRecord.second == filesystemRule.DirectoryCompareWithTarget(kDirectoryTestRecord.first));
     }
 
     // Verifies that directories that are unrelated to a directory associated with a filesystem rule are correctly identified as such.
@@ -227,12 +261,12 @@ namespace PathwinderTest
             L"D:\\AnotherDirectory\\Target234"
         };
 
-        const FilesystemRule kFilesystemRule(kOriginDirectory, kTargetDirectory);
+        const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
         
         for (const auto& kDirectory : kDirectories)
         {
-            TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Unrelated == kFilesystemRule.DirectoryCompareWithOrigin(kDirectory));
-            TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Unrelated == kFilesystemRule.DirectoryCompareWithTarget(kDirectory));
+            TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Unrelated == filesystemRule.DirectoryCompareWithOrigin(kDirectory));
+            TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Unrelated == filesystemRule.DirectoryCompareWithTarget(kDirectory));
         }
     }
 }

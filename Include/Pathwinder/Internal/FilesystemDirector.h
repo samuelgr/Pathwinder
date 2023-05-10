@@ -5,7 +5,7 @@
  * Authored by Samuel Grossman
  * Copyright (c) 2022
  *************************************************************************//**
- * @file FilesystemRuleRegistry.h
+ * @file FilesystemDirector.h
  *   Declaration of objects that hold, manipulate, and apply filesystem rules.
  *****************************************************************************/
 
@@ -23,8 +23,8 @@
 
 namespace Pathwinder
 {
-    /// Holds multiple filesystem rules, ensures consistency between them, and applies them together to implement path redirection.
-    class FilesystemRuleRegistry
+    /// Holds multiple filesystem rules, ensures consistency between them, and applies them together to implement filesystem path redirection.
+    class FilesystemDirector
     {
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
@@ -51,7 +51,7 @@ namespace Pathwinder
         /// Primarily useful during testing.
         /// @param [in] other Object with which to compare.
         /// @return `true` if this object is equal to the other object, `false` otherwise.
-        inline bool operator==(const FilesystemRuleRegistry& other) const = default;
+        inline bool operator==(const FilesystemDirector& other) const = default;
 
 
         // -------- CLASS METHODS ------------------------------------------ //
@@ -80,8 +80,10 @@ namespace Pathwinder
             return filesystemRules;
         }
 
-        /// Attempts to create a new rule and insert it into this registry.
-        /// All parameter strings must be null-terminated.
+        /// Attempts to create a new rule and insert it into this registry. All parameter strings must be null-terminated.
+        /// Two constraints are imposed on rules as they are added to this registry object:
+        /// (1) Origin directory must not already be an origin or target directory for another rule.
+        /// (2) Target directory must not already be an origin directory for another rule.
         /// @param [in] ruleName Name of the new rule. Must be unique among rules.
         /// @param [in] originDirectory Origin directory for the new rule. May be relative and contain references to be resolved.
         /// @param [in] targetDirectory Target directory for the new rule. May be relative and contain references to be resolved.
@@ -89,8 +91,12 @@ namespace Pathwinder
         /// @return Pointer to the new rule on success, error message on failure.
         ValueOrError<FilesystemRule*, std::wstring> CreateRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring_view>&& filePatterns = std::vector<std::wstring_view>());
 
-        /// Attempts to finalize this registry object.
+        /// Attempts to finalize this registry object. Rules cannot be added or modified after this registry object is successfully finalized.
         /// Some constraints that are enforced between rules, such as relationships between directories, cannot be checked until all rules have been added.
+        /// Three constraints are imposed on each filesystem rule:
+        /// (1) Origin and target directories are not root directories (i.e. they both have parent directories).
+        /// (2) Origin directory either exists as a real directory or does not exist at all.
+        /// (3) Immediate parent of the origin directory either exists as a directory or serves as the origin directory for another rule.
         /// @return Number of rules contained in the registry on success, or an error message on failure.
         ValueOrError<unsigned int, std::wstring> Finalize(void);
 

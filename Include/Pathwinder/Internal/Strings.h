@@ -119,6 +119,13 @@ namespace Pathwinder
         /// @return Container that holds views referring to pieces of the input string split using the specified delimiter.
         TemporaryVector<std::wstring_view> SplitString(std::wstring_view stringToSplit, std::wstring_view delimiter);
 
+        /// Checks if one string is a prefix of another without regard for the case of each individual character.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
+        /// @param [in] str String to be checked for a possible prefix.
+        /// @param [in] maybePrefix Candidate prefix to compare with the beginning of the string.
+        /// @return `true` if the strings compare equal, `false` otherwise.
+        template <typename CharType> bool StartsWithCaseInsensitive(std::basic_string_view<CharType> str, std::basic_string_view<CharType> maybePrefix);
+
         /// Generates a string representation of a system error code.
         /// @param [in] systemErrorCode System error code for which to generate a string.
         /// @return String representation of the system error code.
