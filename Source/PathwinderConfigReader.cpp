@@ -9,6 +9,7 @@
  *   Implementation of Pathwinder-specific configuration reading functionality.
  *****************************************************************************/
 
+#include "ApiWindows.h"
 #include "Configuration.h"
 #include "PathwinderConfigReader.h"
 #include "Strings.h"
@@ -18,7 +19,6 @@
 #include <mutex>
 #include <optional>
 #include <string_view>
-#include <windows.h>
 
 
 namespace Pathwinder

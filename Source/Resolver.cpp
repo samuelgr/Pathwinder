@@ -9,6 +9,7 @@
  *   Implementation of named reference resolution functionality.
  *****************************************************************************/
 
+#include "ApiWindows.h"
 #include "Resolver.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
@@ -24,7 +25,6 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
-#include <windows.h>
 #include <knownfolders.h>
 #include <shlobj.h>
 

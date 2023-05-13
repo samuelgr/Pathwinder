@@ -95,7 +95,7 @@ namespace Pathwinder
         /// Some constraints that are enforced between rules, such as relationships between directories, cannot be checked until all rules have been added.
         /// Three constraints are imposed on each filesystem rule:
         /// (1) Origin and target directories are not root directories (i.e. they both have parent directories).
-        /// (2) Origin directory either exists as a real directory or does not exist at all.
+        /// (2) Origin directory either exists as a real directory or does not exist at all (i.e. it does not exist as a file or some other non-directory entity type).
         /// (3) Immediate parent of the origin directory either exists as a directory or serves as the origin directory for another rule.
         /// @return Number of rules contained in the registry on success, or an error message on failure.
         ValueOrError<unsigned int, std::wstring> Finalize(void);

@@ -12,13 +12,14 @@
 
 #pragma once
 
+#include "ApiWindows.h"
+
 #ifndef PATHWINDER_SKIP_CONFIG
 #include "Configuration.h"
 #endif
 
 #include <string>
 #include <string_view>
-#include <windows.h>
 
 
 namespace Pathwinder

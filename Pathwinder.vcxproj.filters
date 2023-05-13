@@ -45,6 +45,9 @@
     <ClCompile Include="Source\FilesystemDirector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\ApiWindows.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resources\Pathwinder.h">
@@ -78,6 +81,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Pathwinder\Internal\ApiWindows.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

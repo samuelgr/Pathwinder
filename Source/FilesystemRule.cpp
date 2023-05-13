@@ -9,6 +9,7 @@
  *   Implementation of filesystem redirection rule functionality.
  *****************************************************************************/
 
+#include "ApiWindows.h"
 #include "FilesystemRule.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
@@ -18,7 +19,6 @@
 #include <shlwapi.h>
 #include <string_view>
 #include <vector>
-#include <windows.h>
 
 
 namespace Pathwinder

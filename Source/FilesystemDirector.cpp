@@ -9,6 +9,7 @@
  *   Implementation of filesystem manipulation and application functionality.
  *****************************************************************************/
 
+#include "ApiWindows.h"
 #include "FilesystemDirector.h"
 #include "Resolver.h"
 #include "Strings.h"
@@ -18,7 +19,6 @@
 #include <set>
 #include <string>
 #include <string_view>
-#include <windows.h>
 
 
 namespace Pathwinder

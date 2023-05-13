@@ -9,6 +9,7 @@
  *   Message output implementation.
  *****************************************************************************/
 
+#include "ApiWindows.h"
 #include "Globals.h"
 #include "Message.h"
 #include "Strings.h"
@@ -21,7 +22,6 @@
 #include <sal.h>
 #include <shlobj.h>
 #include <string>
-#include <windows.h>
 
 
 namespace Pathwinder

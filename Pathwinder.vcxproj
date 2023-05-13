@@ -117,6 +117,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Source\ApiWindows.cpp" />
     <ClCompile Include="Source\Configuration.cpp" />
     <ClCompile Include="Source\FilesystemDirector.cpp" />
     <ClCompile Include="Source\FilesystemRule.cpp" />
@@ -129,6 +130,7 @@
     <ClCompile Include="Source\TemporaryBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Include\Pathwinder\Internal\ApiWindows.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Configuration.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirector.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemRule.h" />
