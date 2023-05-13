@@ -208,6 +208,21 @@ namespace PathwinderTest
         TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Equal == filesystemRule.DirectoryCompareWithTarget(kTargetDirectory));
     }
 
+    // Verifies that directories are compared without regard for case.
+    TEST_CASE(FilesystemRule_DirectoryCompare_EqualCaseInsensitive)
+    {
+        constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
+        constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
+
+        constexpr std::wstring_view kOriginCompareDirectory = L"c:\\direCTory\\oriGin";
+        constexpr std::wstring_view kTargetCompareDirectory = L"d:\\aNOTHeRdireCTORy\\tARgeT";
+
+        const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
+
+        TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Equal == filesystemRule.DirectoryCompareWithOrigin(kOriginCompareDirectory));
+        TEST_ASSERT(FilesystemRule::EDirectoryCompareResult::Equal == filesystemRule.DirectoryCompareWithTarget(kTargetCompareDirectory));
+    }
+
     // Verifies that directories that are children or descendants of a directory associated with a filesystem rule are correctly identified as such.
     // This test compares with the origin directory.
     TEST_CASE(FilesystemRule_DirectoryCompare_CandidateIsChildOrDescendant)
@@ -218,7 +233,10 @@ namespace PathwinderTest
         constexpr std::pair<std::wstring_view, FilesystemRule::EDirectoryCompareResult> kDirectoryTestRecords[] = {
             {L"C:\\Directory\\Origin\\Subdir", FilesystemRule::EDirectoryCompareResult::CandidateIsChild},
             {L"C:\\Directory\\Origin\\Sub Directory 2", FilesystemRule::EDirectoryCompareResult::CandidateIsChild},
-            {L"C:\\Directory\\Origin\\Sub Directory 2\\Subdir3\\Subdir4", FilesystemRule::EDirectoryCompareResult::CandidateIsDescendant}
+            {L"C:\\Directory\\Origin\\Sub Directory 2\\Subdir3\\Subdir4", FilesystemRule::EDirectoryCompareResult::CandidateIsDescendant},
+            {L"c:\\diRECTory\\oRIGin\\sUBDir", FilesystemRule::EDirectoryCompareResult::CandidateIsChild},
+            {L"c:\\diRECTory\\oRIGin\\sub dIRECTory 2", FilesystemRule::EDirectoryCompareResult::CandidateIsChild},
+            {L"c:\\diRECTory\\oRIGin\\sub dIRECTory 2\\suBDir3\\suBDir4", FilesystemRule::EDirectoryCompareResult::CandidateIsDescendant}
         };
 
         const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
@@ -236,7 +254,9 @@ namespace PathwinderTest
 
         constexpr std::pair<std::wstring_view, FilesystemRule::EDirectoryCompareResult> kDirectoryTestRecords[] = {
             {L"D:", FilesystemRule::EDirectoryCompareResult::CandidateIsAncestor},
-            {L"D:\\AnotherDirectory", FilesystemRule::EDirectoryCompareResult::CandidateIsParent}
+            {L"D:\\AnotherDirectory", FilesystemRule::EDirectoryCompareResult::CandidateIsParent},
+            {L"d:", FilesystemRule::EDirectoryCompareResult::CandidateIsAncestor},
+            {L"d:\\aNOTHeRdiRECTorY", FilesystemRule::EDirectoryCompareResult::CandidateIsParent}
         };
 
         const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);

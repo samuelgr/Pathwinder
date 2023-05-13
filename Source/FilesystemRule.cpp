@@ -35,7 +35,7 @@ namespace Pathwinder
         {
             // Lengths are the same, so the two could be equal if they are related at all.
 
-            if (candidateDirectory == comparisonTargetDirectory)
+            if (Strings::EqualsCaseInsensitive(candidateDirectory, comparisonTargetDirectory))
                 return FilesystemRule::EDirectoryCompareResult::Equal;
         }
         else if (candidateDirectory.length() < comparisonTargetDirectory.length())
