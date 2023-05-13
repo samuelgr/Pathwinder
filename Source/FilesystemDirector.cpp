@@ -75,18 +75,18 @@ namespace Pathwinder
     // -------- INSTANCE METHODS ------------------------------------------- //
     // See "FilesystemDirector.h" for documentation.
 
-    ValueOrError<FilesystemRule*, std::wstring> FilesystemDirector::CreateRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring_view>&& filePatterns)
+    ValueOrError<const FilesystemRule*, TemporaryString> FilesystemDirector::CreateRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring_view>&& filePatterns)
     {
         if (true == IsFinalized())
-            return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Internal error: Attempted to create a new rule in a finalized registry.", ruleName.data()));
+            return Strings::FormatString(L"Filesystem rule %s: Internal error: Attempted to create a new rule in a finalized registry.", ruleName.data());
 
         if (true == filesystemRules.contains(ruleName))
-            return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Rule with the same name already exists.", ruleName.data()));
+            return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Rule with the same name already exists.", ruleName.data());
 
         for (std::wstring_view filePattern : filePatterns)
         {
             if (false == IsValidFilePatternString(filePattern))
-                return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: File pattern: %s: Either empty or contains disallowed characters", ruleName.data(), filePattern.data()));
+                return Strings::FormatString(L"Filesystem rule %s: File pattern: %s: Either empty or contains disallowed characters", ruleName.data(), filePattern.data());
         }
 
         // For each of the origin and target directories:
@@ -98,45 +98,45 @@ namespace Pathwinder
 
         Resolver::ResolvedStringOrError maybeOriginDirectoryResolvedString = Resolver::ResolveAllReferences(originDirectory);
         if (true == maybeOriginDirectoryResolvedString.HasError())
-            return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Origin directory: %s.", ruleName.data(), maybeOriginDirectoryResolvedString.Error().c_str()));
+            return Strings::FormatString(L"Filesystem rule %s: Origin directory: %s.", ruleName.data(), maybeOriginDirectoryResolvedString.Error().AsCString());
         if (false == IsValidDirectoryString(maybeOriginDirectoryResolvedString.Value()))
-            return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Origin directory: Either empty or contains disallowed characters.", ruleName.data()));
+            return Strings::FormatString(L"Filesystem rule %s: Origin directory: Either empty or contains disallowed characters.", ruleName.data());
 
         TemporaryString originDirectoryFullPath;
         originDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeOriginDirectoryResolvedString.Value().c_str(), originDirectoryFullPath.Capacity(), originDirectoryFullPath.Data(), nullptr));
         if (true == originDirectoryFullPath.Empty())
-            return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Origin directory: Failed to resolve full path: %s.", ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString()));
+            return Strings::FormatString(L"Filesystem rule %s: Origin directory: Failed to resolve full path: %s.", ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
         if (true == originDirectoryFullPath.Overflow())
-            return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Origin directory: Full path exceeds limit of %u characters.", ruleName.data(), originDirectoryFullPath.Capacity()));
+            return Strings::FormatString(L"Filesystem rule %s: Origin directory: Full path exceeds limit of %u characters.", ruleName.data(), originDirectoryFullPath.Capacity());
         if (true == HasDirectory(originDirectoryFullPath))
-            return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory is already in use as either an origin or target directory by another rule.", ruleName.data()));
+            return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory is already in use as either an origin or target directory by another rule.", ruleName.data());
 
         Resolver::ResolvedStringOrError maybeTargetDirectoryResolvedString = Resolver::ResolveAllReferences(targetDirectory);
         if (true == maybeTargetDirectoryResolvedString.HasError())
-            return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Target directory: %s.", ruleName.data(), maybeTargetDirectoryResolvedString.Error().c_str()));
+            return Strings::FormatString(L"Filesystem rule %s: Target directory: %s.", ruleName.data(), maybeTargetDirectoryResolvedString.Error().AsCString());
         if (false == IsValidDirectoryString(maybeTargetDirectoryResolvedString.Value()))
-            return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Target directory: Either empty or contains disallowed characters.", ruleName.data()));
+            return Strings::FormatString(L"Filesystem rule %s: Target directory: Either empty or contains disallowed characters.", ruleName.data());
 
         TemporaryString targetDirectoryFullPath;
         targetDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeTargetDirectoryResolvedString.Value().c_str(), targetDirectoryFullPath.Capacity(), targetDirectoryFullPath.Data(), nullptr));
         if (true == targetDirectoryFullPath.Empty())
-            return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Target directory: Failed to resolve full path: %s.", ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString()));
+            return Strings::FormatString(L"Filesystem rule %s: Target directory: Failed to resolve full path: %s.", ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
         if (true == targetDirectoryFullPath.Overflow())
-            return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Target directory: Full path exceeds limit of %u characters.", ruleName.data(), targetDirectoryFullPath.Capacity()));
+            return Strings::FormatString(L"Filesystem rule %s: Target directory: Full path exceeds limit of %u characters.", ruleName.data(), targetDirectoryFullPath.Capacity());
         if (true == HasOriginDirectory(targetDirectoryFullPath))
-            return ValueOrError<FilesystemRule*, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Target directory is already in use as a target directory by another rule.", ruleName.data()));
+            return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Target directory is already in use as a target directory by another rule.", ruleName.data());
 
         std::wstring_view originDirectoryView = *originDirectories.emplace(originDirectoryFullPath).first;
         std::wstring_view targetDirectoryView = *targetDirectories.emplace(targetDirectoryFullPath).first;
-        return ValueOrError<FilesystemRule*, std::wstring>::MakeValue(&filesystemRules.emplace(std::wstring(ruleName), FilesystemRule(originDirectoryView, targetDirectoryView, std::move(filePatterns))).first->second);
+        return &filesystemRules.emplace(std::wstring(ruleName), FilesystemRule(originDirectoryView, targetDirectoryView, std::move(filePatterns))).first->second;
     }
 
     // --------
 
-    ValueOrError<unsigned int, std::wstring> FilesystemDirector::Finalize(void)
+    ValueOrError<size_t, TemporaryString> FilesystemDirector::Finalize(void)
     {
         if (true == filesystemRules.empty())
-            return ValueOrError<unsigned int, std::wstring>::MakeError(L"Filesystem rules: Internal error: Attempted to finalize an empty registry.");
+            return L"Filesystem rules: Internal error: Attempted to finalize an empty registry.";
 
         for (const auto& filesystemRuleRecord : filesystemRules)
         {
@@ -146,22 +146,22 @@ namespace Pathwinder
             const bool originDirectoryDoesNotExist = (INVALID_FILE_ATTRIBUTES == originDirectoryAttributes);
             const bool originDirectoryExistsAsRealDirectory = (INVALID_FILE_ATTRIBUTES != originDirectoryAttributes) && (0 != (originDirectoryAttributes & FILE_ATTRIBUTE_DIRECTORY));
             if (false == (originDirectoryDoesNotExist || originDirectoryExistsAsRealDirectory))
-                return ValueOrError<unsigned int, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory must either not exist at all or exist as a real directory.", filesystemRuleRecord.first.c_str()));
+                return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory must either not exist at all or exist as a real directory.", filesystemRuleRecord.first.c_str());
 
             if (true == filesystemRule.GetTargetDirectoryParent().empty())
-                return ValueOrError<unsigned int, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Target directory cannot be a filesystem root.", filesystemRuleRecord.first.c_str()));
+                return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Target directory cannot be a filesystem root.", filesystemRuleRecord.first.c_str());
 
             const TemporaryString originDirectoryParent = filesystemRule.GetOriginDirectoryParent();
             if (true == originDirectoryParent.Empty())
-                return ValueOrError<unsigned int, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory cannot be a filesystem root.", filesystemRuleRecord.first.c_str()));
+                return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory cannot be a filesystem root.", filesystemRuleRecord.first.c_str());
 
             const DWORD originDirectoryParentAttributes = GetFileAttributes(originDirectoryParent.AsCString());
             const bool originDirectoryParentExistsAsRealDirectory = (INVALID_FILE_ATTRIBUTES != originDirectoryParentAttributes) && (0 != (originDirectoryParentAttributes & FILE_ATTRIBUTE_DIRECTORY));
             if ((false == originDirectoryParentExistsAsRealDirectory) && (false == HasOriginDirectory(originDirectoryParent)))
-                return ValueOrError<unsigned int, std::wstring>::MakeError(Strings::FormatString(L"Filesystem rule %s: Constraint violation: Parent of origin directory must either exist as a real directory or be the origin directory of another filesystem rule.", filesystemRuleRecord.first.c_str()));
+                Strings::FormatString(L"Filesystem rule %s: Constraint violation: Parent of origin directory must either exist as a real directory or be the origin directory of another filesystem rule.", filesystemRuleRecord.first.c_str());
         }
 
         isFinalized = true;
-        return ValueOrError<unsigned int, std::wstring>::MakeValue((unsigned int)filesystemRules.size());
+        return filesystemRules.size();
     }
 }

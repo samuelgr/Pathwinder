@@ -381,7 +381,7 @@ namespace Pathwinder
                     const ResolvedStringViewOrError resolvedReferenceResult = ResolveSingleReference(strParts[i]);
 
                     if (true == resolvedReferenceResult.HasError())
-                        return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to resolve reference: %s", std::wstring(str).c_str(), resolvedReferenceResult.Error().c_str()));
+                        return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to resolve reference: %s", std::wstring(str).c_str(), resolvedReferenceResult.Error().AsCString()));
 
                     if (true == escapeCharacters.empty())
                     {

@@ -27,11 +27,11 @@ namespace Pathwinder
 
         /// Type alias for representing either the result of resolving references or an error message.
         /// This version fully contains and owns the resulting string.
-        typedef ValueOrError<std::wstring, std::wstring> ResolvedStringOrError;
+        typedef ValueOrError<std::wstring, TemporaryString> ResolvedStringOrError;
 
         /// Type alias for representing either the result of resolving references or an error message.
         /// This version provides the resulting string as a read-only view.
-        typedef ValueOrError<std::wstring_view, std::wstring> ResolvedStringViewOrError;
+        typedef ValueOrError<std::wstring_view, TemporaryString> ResolvedStringViewOrError;
 
 
         // -------- FUNCTIONS ---------------------------------------------- //

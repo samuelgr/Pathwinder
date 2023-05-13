@@ -89,7 +89,7 @@ namespace Pathwinder
         /// @param [in] targetDirectory Target directory for the new rule. May be relative and contain references to be resolved.
         /// @param [in] filePatterns File patterns to narrow the scope of the new rule. This parameter is optional. Default behavior is to match all files in the origin and target directories.
         /// @return Pointer to the new rule on success, error message on failure.
-        ValueOrError<FilesystemRule*, std::wstring> CreateRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring_view>&& filePatterns = std::vector<std::wstring_view>());
+        ValueOrError<const FilesystemRule*, TemporaryString> CreateRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring_view>&& filePatterns = std::vector<std::wstring_view>());
 
         /// Attempts to finalize this registry object. Rules cannot be added or modified after this registry object is successfully finalized.
         /// Some constraints that are enforced between rules, such as relationships between directories, cannot be checked until all rules have been added.
@@ -98,7 +98,7 @@ namespace Pathwinder
         /// (2) Origin directory either exists as a real directory or does not exist at all (i.e. it does not exist as a file or some other non-directory entity type).
         /// (3) Immediate parent of the origin directory either exists as a directory or serves as the origin directory for another rule.
         /// @return Number of rules contained in the registry on success, or an error message on failure.
-        ValueOrError<unsigned int, std::wstring> Finalize(void);
+        ValueOrError<size_t, TemporaryString> Finalize(void);
 
         /// Determines if any rule in this registry uses the specified directory as its origin or target directory.
         /// @param [in] directoryFullPath Full path of the directory to check.
