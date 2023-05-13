@@ -125,10 +125,12 @@
     <ClCompile Include="Source\Test\Case\ResolverTest.cpp" />
     <ClCompile Include="Source\Test\Case\StringsTest.cpp" />
     <ClCompile Include="Source\Test\Harness.cpp" />
+    <ClCompile Include="Source\Test\MockFilesystemOperations.cpp" />
     <ClCompile Include="Source\Test\TestCase.cpp" />
     <ClCompile Include="Source\Test\Utilities.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Include\Pathwinder\Internal\FilesystemOperations.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemRule.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirector.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
@@ -138,6 +140,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\TemporaryBuffer.h" />
     <ClInclude Include="Include\Pathwinder\Internal\ValueOrError.h" />
     <ClInclude Include="Include\Pathwinder\Test\Harness.h" />
+    <ClInclude Include="Include\Pathwinder\Test\MockFilesystemOperations.h" />
     <ClInclude Include="Include\Pathwinder\Test\TestCase.h" />
     <ClInclude Include="Include\Pathwinder\Test\Utilities.h" />
     <ClInclude Include="Resources\Pathwinder.h" />

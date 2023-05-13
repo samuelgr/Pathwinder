@@ -11,6 +11,7 @@
 
 #include "ApiWindows.h"
 #include "FilesystemDirector.h"
+#include "FilesystemOperations.h"
 #include "Resolver.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
@@ -142,10 +143,9 @@ namespace Pathwinder
         {
             const FilesystemRule& filesystemRule = filesystemRuleRecord.second;
 
-            const DWORD originDirectoryAttributes = GetFileAttributes(filesystemRule.GetOriginDirectoryFullPath().data());
-            const bool originDirectoryDoesNotExist = (INVALID_FILE_ATTRIBUTES == originDirectoryAttributes);
-            const bool originDirectoryExistsAsRealDirectory = (INVALID_FILE_ATTRIBUTES != originDirectoryAttributes) && (0 != (originDirectoryAttributes & FILE_ATTRIBUTE_DIRECTORY));
-            if (false == (originDirectoryDoesNotExist || originDirectoryExistsAsRealDirectory))
+            const bool originExists = FilesystemOperations::Exists(filesystemRule.GetOriginDirectoryFullPath().data());
+            const bool originIsDirectory = FilesystemOperations::IsDirectory(filesystemRule.GetOriginDirectoryFullPath().data());
+            if (false == (!originExists || originIsDirectory))
                 return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory must either not exist at all or exist as a real directory.", filesystemRuleRecord.first.c_str());
 
             if (true == filesystemRule.GetTargetDirectoryParent().empty())
@@ -155,9 +155,7 @@ namespace Pathwinder
             if (true == originDirectoryParent.Empty())
                 return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory cannot be a filesystem root.", filesystemRuleRecord.first.c_str());
 
-            const DWORD originDirectoryParentAttributes = GetFileAttributes(originDirectoryParent.AsCString());
-            const bool originDirectoryParentExistsAsRealDirectory = (INVALID_FILE_ATTRIBUTES != originDirectoryParentAttributes) && (0 != (originDirectoryParentAttributes & FILE_ATTRIBUTE_DIRECTORY));
-            if ((false == originDirectoryParentExistsAsRealDirectory) && (false == HasOriginDirectory(originDirectoryParent)))
+            if ((false == FilesystemOperations::IsDirectory(originDirectoryParent.AsCString())) && (false == HasOriginDirectory(originDirectoryParent)))
                 Strings::FormatString(L"Filesystem rule %s: Constraint violation: Parent of origin directory must either exist as a real directory or be the origin directory of another filesystem rule.", filesystemRuleRecord.first.c_str());
         }
 

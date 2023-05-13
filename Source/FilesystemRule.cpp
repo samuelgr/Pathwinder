@@ -9,12 +9,10 @@
  *   Implementation of filesystem redirection rule functionality.
  *****************************************************************************/
 
-#include "ApiWindows.h"
 #include "FilesystemRule.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
 
-#include <cwctype>
 #include <optional>
 #include <shlwapi.h>
 #include <string_view>
