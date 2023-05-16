@@ -159,15 +159,9 @@ namespace Pathwinder
             if (false == (!originExists || originIsDirectory))
                 return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory must either not exist at all or exist as a real directory.", filesystemRuleRecord.first.c_str());
 
-            if (true == filesystemRule.GetTargetDirectoryParent().empty())
-                return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Target directory cannot be a filesystem root.", filesystemRuleRecord.first.c_str());
-
             const TemporaryString originDirectoryParent = filesystemRule.GetOriginDirectoryParent();
-            if (true == originDirectoryParent.Empty())
-                return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory cannot be a filesystem root.", filesystemRuleRecord.first.c_str());
-
             if ((false == FilesystemOperations::IsDirectory(originDirectoryParent.AsCString())) && (false == HasOriginDirectory(originDirectoryParent)))
-                Strings::FormatString(L"Filesystem rule %s: Constraint violation: Parent of origin directory must either exist as a real directory or be the origin directory of another filesystem rule.", filesystemRuleRecord.first.c_str());
+                return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Parent of origin directory must either exist as a real directory or be the origin directory of another filesystem rule.", filesystemRuleRecord.first.c_str());
         }
 
         isFinalized = true;

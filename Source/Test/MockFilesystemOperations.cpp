@@ -48,8 +48,27 @@ namespace PathwinderTest
         std::wstring_view currentPathView = absolutePathLowerCase;
 
         size_t lastBackslashIndex = currentPathView.find_last_of(L'\\');
-        if (std::wstring_view::npos == lastBackslashIndex)
-            TEST_FAILED_BECAUSE(L"%s: Missing '\\' in absolute path \"%s\" when adding to a fake filesystem.", __FUNCTIONW__, absolutePathLowerCase.c_str());
+
+        switch (type)
+        {
+        case EFilesystemEntityType::File:
+            do {
+                if (std::wstring_view::npos == lastBackslashIndex)
+                    TEST_FAILED_BECAUSE(L"%s: Missing '\\' in absolute path \"%s\" when adding a file to a fake filesystem.", __FUNCTIONW__, absolutePathLowerCase.c_str());
+            } while (false);
+            break;
+
+        case EFilesystemEntityType::Directory:
+            do {
+                auto directoryIter = filesystemContents.find(currentPathView);
+                if (filesystemContents.end() == directoryIter)
+                    directoryIter = filesystemContents.insert({ std::wstring(currentPathView), std::map<std::wstring, SFilesystemEntity, std::less<>>() }).first;
+            } while (false);
+            break;
+
+        default:
+            TEST_FAILED_BECAUSE(L"%s: Internal error: Unknown filesystem entity type when adding to a fake filesystem.", __FUNCTIONW__);
+        }
 
         while (lastBackslashIndex != std::wstring_view::npos)
         {

@@ -95,7 +95,7 @@ namespace PathwinderTest
             TEST_ASSERT(false == FilesystemDirector::IsValidFilePatternString(kFilePatternString));
     }
 
-    // Verifies the nominal situation of creating rules that do not overlap and contain no file masks.
+    // Verifies the nominal situation of creating rules that do not overlap and contain no file patterns.
     TEST_CASE(FilesystemDirector_CreateRule_Success_Nominal)
     {
         FilesystemDirector director;
@@ -103,7 +103,7 @@ namespace PathwinderTest
         TEST_ASSERT(director.CreateRule(L"2", L"C:\\OriginDir2", L"C:\\TargetDir2").HasValue());
     }
 
-    // Verifies that non-overlapping filesystem rules can be created with file masks.
+    // Verifies that non-overlapping filesystem rules can be created with file patterns.
     TEST_CASE(FilesystemDirector_CreateRule_Success_WithFileMasks)
     {
         FilesystemDirector director;
@@ -154,5 +154,64 @@ namespace PathwinderTest
         FilesystemDirector director;
         TEST_ASSERT(director.CreateRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir").HasValue());
         TEST_ASSERT(director.CreateRule(L"2", L"C:\\OriginDir2", L"C:\\OriginDir1").HasError());
+    }
+
+    // Verifies that rule set finalization completes successfully in the nominal case of filesystem rules having origin directories that exist and whose parent directories also exist.
+    TEST_CASE(FilesystemDirector_Finalize_Success_Nominal)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:\\OriginDir1");
+        mockFilesystem.AddDirectory(L"E:\\OriginDir2");
+
+        FilesystemDirector director;
+        TEST_ASSERT(director.CreateRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir").HasValue());
+        TEST_ASSERT(director.CreateRule(L"2", L"E:\\OriginDir2", L"E:\\TargetDir2").HasValue());
+
+        auto finalizeResult = director.Finalize();
+        TEST_ASSERT(finalizeResult.HasValue());
+        TEST_ASSERT(finalizeResult.Value() == 2);
+    }
+
+    // Verifies that rule set finalization completes successfully where rules have origin directories whose parents do not exist but themselves are the origin directories of other rules.
+    // No rules have any file patterns.
+    TEST_CASE(FilesystemDirector_Finalize_Success_OriginHierarchy)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:\\OriginBase");
+
+        FilesystemDirector director;
+        TEST_ASSERT(director.CreateRule(L"1", L"C:\\OriginBase\\OriginSubdir\\Subdir1\\Subdir2", L"C:\\TargetBase\\Target2").HasValue());
+        TEST_ASSERT(director.CreateRule(L"2", L"C:\\OriginBase\\OriginSubdir\\Subdir1", L"C:\\TargetBase\\Target1").HasValue());
+        TEST_ASSERT(director.CreateRule(L"3", L"C:\\OriginBase\\OriginSubdir", L"C:\\TargetBase\\TargetBase").HasValue());
+
+        auto finalizeResult = director.Finalize();
+        TEST_ASSERT(finalizeResult.HasValue());
+        TEST_ASSERT(finalizeResult.Value() == 3);
+    }
+
+    // Verifies that rule set finalization fails when the origin directory path already exists but is not a directory.
+    TEST_CASE(FilesystemDirector_Finalize_Failure_OriginExistsNotAsDirectory)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddFile(L"C:\\OriginDir\\File");
+
+        FilesystemDirector director;
+        TEST_ASSERT(director.CreateRule(L"1", L"C:\\OriginDir\\File", L"C:\\TargetDir").HasValue());
+
+        auto finalizeResult = director.Finalize();
+        TEST_ASSERT(finalizeResult.HasError());
+    }
+
+    // Verifies that rule set finalization fails when the origin directory's parent does not exist in the filesystem or as another origin directory.
+    TEST_CASE(FilesystemDirector_Finalize_Failure_OriginParentMissing)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:");
+
+        FilesystemDirector director;
+        TEST_ASSERT(director.CreateRule(L"1", L"C:\\OriginDir\\Subdir1", L"C:\\TargetDir\\Subdir1").HasValue());
+
+        auto finalizeResult = director.Finalize();
+        TEST_ASSERT(finalizeResult.HasError());
     }
 }
