@@ -95,6 +95,7 @@ namespace Pathwinder
         // 2. Check for any invalid characters.
         // 3. Transform a possible relative path (possibly including "." and "..") into an absolute path.
         // 4. Verify that the resulting directory is not already in use as an origin or target directory for another filesystem rule.
+        // 5. Verify that the resulting directory is not a filesystem root (i.e. it has a parent directory).
         // If all operations succeed then the filesystem rule object can be created.
 
         Resolver::ResolvedStringOrError maybeOriginDirectoryResolvedString = Resolver::ResolveAllReferences(originDirectory);
@@ -105,6 +106,11 @@ namespace Pathwinder
 
         TemporaryString originDirectoryFullPath;
         originDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeOriginDirectoryResolvedString.Value().c_str(), originDirectoryFullPath.Capacity(), originDirectoryFullPath.Data(), nullptr));
+        while (true == originDirectoryFullPath.AsStringView().ends_with(L'\\'))
+            originDirectoryFullPath.RemoveSuffix(1);
+
+        if (false == originDirectoryFullPath.AsStringView().contains(L'\\'))
+            return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory cannot be a filesystem root.", ruleName.data());
         if (true == originDirectoryFullPath.Empty())
             return Strings::FormatString(L"Filesystem rule %s: Origin directory: Failed to resolve full path: %s.", ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
         if (true == originDirectoryFullPath.Overflow())
@@ -120,6 +126,11 @@ namespace Pathwinder
 
         TemporaryString targetDirectoryFullPath;
         targetDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeTargetDirectoryResolvedString.Value().c_str(), targetDirectoryFullPath.Capacity(), targetDirectoryFullPath.Data(), nullptr));
+        while (true == targetDirectoryFullPath.AsStringView().ends_with(L'\\'))
+            targetDirectoryFullPath.RemoveSuffix(1);
+
+        if (false == targetDirectoryFullPath.AsStringView().contains(L'\\'))
+            return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Target directory cannot be a filesystem root.", ruleName.data());
         if (true == targetDirectoryFullPath.Empty())
             return Strings::FormatString(L"Filesystem rule %s: Target directory: Failed to resolve full path: %s.", ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
         if (true == targetDirectoryFullPath.Overflow())

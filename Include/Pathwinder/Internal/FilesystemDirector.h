@@ -81,9 +81,10 @@ namespace Pathwinder
         }
 
         /// Attempts to create a new rule and insert it into this registry. All parameter strings must be null-terminated.
-        /// Two constraints are imposed on rules as they are added to this registry object:
-        /// (1) Origin directory must not already be an origin or target directory for another rule.
-        /// (2) Target directory must not already be an origin directory for another rule.
+        /// Three constraints are imposed on rules as they are added to this registry object:
+        /// (1) Origin and target directories are not filesystem root directories (i.e. they both have parent directories).
+        /// (2) Origin directory must not already be an origin or target directory for another rule.
+        /// (3) Target directory must not already be an origin directory for another rule.
         /// @param [in] ruleName Name of the new rule. Must be unique among rules.
         /// @param [in] originDirectory Origin directory for the new rule. May be relative and contain references to be resolved.
         /// @param [in] targetDirectory Target directory for the new rule. May be relative and contain references to be resolved.
@@ -93,10 +94,9 @@ namespace Pathwinder
 
         /// Attempts to finalize this registry object. Rules cannot be added or modified after this registry object is successfully finalized.
         /// Some constraints that are enforced between rules, such as relationships between directories, cannot be checked until all rules have been added.
-        /// Three constraints are imposed on each filesystem rule:
-        /// (1) Origin and target directories are not root directories (i.e. they both have parent directories).
-        /// (2) Origin directory either exists as a real directory or does not exist at all (i.e. it does not exist as a file or some other non-directory entity type).
-        /// (3) Immediate parent of the origin directory either exists as a directory or serves as the origin directory for another rule.
+        /// Two constraints are imposed on each filesystem rule:
+        /// (1) Origin directory either exists as a real directory or does not exist at all (i.e. it does not exist as a file or some other non-directory entity type).
+        /// (2) Immediate parent of the origin directory either exists as a directory or serves as the origin directory for another rule.
         /// @return Number of rules contained in the registry on success, or an error message on failure.
         ValueOrError<size_t, TemporaryString> Finalize(void);
 
