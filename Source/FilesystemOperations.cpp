@@ -37,14 +37,5 @@ namespace Pathwinder
             const DWORD pathAttributes = GetFileAttributes(path);
             return ((INVALID_FILE_ATTRIBUTES != pathAttributes) && (0 != (kDirectoryAttributeMask & pathAttributes)));
         }
-
-        // --------
-
-        bool IsFile(const wchar_t* path)
-        {
-            constexpr DWORD kNotFileAttributeMask = (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_DEVICE | FILE_ATTRIBUTE_REPARSE_POINT);
-            const DWORD pathAttributes = GetFileAttributes(path);
-            return ((INVALID_FILE_ATTRIBUTES != pathAttributes) && (0 == (kNotFileAttributeMask & pathAttributes)));
-        }
     }
 }

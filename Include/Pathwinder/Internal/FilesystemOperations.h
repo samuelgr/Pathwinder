@@ -28,10 +28,5 @@ namespace Pathwinder
         /// @param path [in] Path to check. Must be null-terminated.
         /// @return `true` if the path exists as a directory, `false` otherwise.
         bool IsDirectory(const wchar_t* path);
-
-        /// Checks if the specified path exists in the filesystem as a file.
-        /// @param path [in] Path to check. Must be null-terminated.
-        /// @return `true` if the path exists as a directory, `false` otherwise.
-        bool IsFile(const wchar_t* path);
     }
 }

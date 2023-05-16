@@ -141,6 +141,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\ValueOrError.h" />
     <ClInclude Include="Include\Pathwinder\Test\Harness.h" />
     <ClInclude Include="Include\Pathwinder\Test\MockFilesystemOperations.h" />
+    <ClInclude Include="Include\Pathwinder\Test\MockFreeFunctionContext.h" />
     <ClInclude Include="Include\Pathwinder\Test\TestCase.h" />
     <ClInclude Include="Include\Pathwinder\Test\Utilities.h" />
     <ClInclude Include="Resources\Pathwinder.h" />

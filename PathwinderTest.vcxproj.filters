@@ -104,6 +104,9 @@
     <ClInclude Include="Include\Pathwinder\Test\MockFilesystemOperations.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Include\Pathwinder\Test\MockFreeFunctionContext.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources\Pathwinder.rc">

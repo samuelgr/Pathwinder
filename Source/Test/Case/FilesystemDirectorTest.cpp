@@ -10,6 +10,8 @@
  *****************************************************************************/
 
 #include "FilesystemDirector.h"
+#include "FilesystemOperations.h"
+#include "MockFilesystemOperations.h"
 #include "TestCase.h"
 
 #include <string_view>
