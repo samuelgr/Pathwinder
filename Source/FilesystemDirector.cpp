@@ -87,7 +87,7 @@ namespace Pathwinder
         for (std::wstring_view filePattern : filePatterns)
         {
             if (false == IsValidFilePatternString(filePattern))
-                return Strings::FormatString(L"Filesystem rule %s: File pattern: %s: Either empty or contains disallowed characters", ruleName.data(), filePattern.data());
+                return Strings::FormatString(L"Filesystem rule %s: File pattern: %s: Either empty or contains disallowed characters.", ruleName.data(), filePattern.data());
         }
 
         // For each of the origin and target directories:
@@ -136,7 +136,7 @@ namespace Pathwinder
         if (true == targetDirectoryFullPath.Overflow())
             return Strings::FormatString(L"Filesystem rule %s: Target directory: Full path exceeds limit of %u characters.", ruleName.data(), targetDirectoryFullPath.Capacity());
         if (true == HasOriginDirectory(targetDirectoryFullPath))
-            return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Target directory is already in use as a target directory by another rule.", ruleName.data());
+            return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Target directory is already in use as an origin directory by another rule.", ruleName.data());
 
         std::wstring_view originDirectoryView = *originDirectories.emplace(originDirectoryFullPath).first;
         std::wstring_view targetDirectoryView = *targetDirectories.emplace(targetDirectoryFullPath).first;

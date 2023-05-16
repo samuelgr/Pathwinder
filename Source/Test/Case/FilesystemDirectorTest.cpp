@@ -121,6 +121,14 @@ namespace PathwinderTest
         TEST_ASSERT(director.CreateRule(L"3", L"C:\\Level1\\Level2\\Level3", L"C:\\TargetDir3").HasValue());
     }
 
+    // Verifies that rule creation fails when multiple rules have the same name.
+    TEST_CASE(FilesystemDirector_CreateRule_Failure_DuplicateRuleName)
+    {
+        FilesystemDirector director;
+        TEST_ASSERT(director.CreateRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir1").HasValue());
+        TEST_ASSERT(director.CreateRule(L"1", L"C:\\OriginDir2", L"C:\\TargetDir2").HasError());
+    }
+
     // Verifies that rule creation fails if either the origin directory or the target directory is a filesystem root.
     TEST_CASE(FilesystemDirector_CreateRule_Failure_FilesystemRoot)
     {

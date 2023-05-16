@@ -81,10 +81,11 @@ namespace Pathwinder
         }
 
         /// Attempts to create a new rule and insert it into this registry. All parameter strings must be null-terminated.
-        /// Three constraints are imposed on rules as they are added to this registry object:
-        /// (1) Origin and target directories are not filesystem root directories (i.e. they both have parent directories).
-        /// (2) Origin directory must not already be an origin or target directory for another rule.
-        /// (3) Target directory must not already be an origin directory for another rule.
+        /// Four constraints are imposed on rules as they are added to this registry object:
+        /// (1) Rule name must be unique. It cannot match another existing rule in the registry object.
+        /// (2) Origin and target directories are not filesystem root directories (i.e. they both have parent directories).
+        /// (3) Origin directory must not already be an origin or target directory for another rule.
+        /// (4) Target directory must not already be an origin directory for another rule.
         /// @param [in] ruleName Name of the new rule. Must be unique among rules.
         /// @param [in] originDirectory Origin directory for the new rule. May be relative and contain references to be resolved.
         /// @param [in] targetDirectory Target directory for the new rule. May be relative and contain references to be resolved.
