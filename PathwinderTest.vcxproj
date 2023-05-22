@@ -130,6 +130,7 @@
     <ClCompile Include="Source\Test\Utilities.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Include\Pathwinder\Internal\DebugAssert.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemOperations.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemRule.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirector.h" />

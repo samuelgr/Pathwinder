@@ -133,6 +133,7 @@
   <ItemGroup>
     <ClInclude Include="Include\Pathwinder\Internal\ApiWindows.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Configuration.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\DebugAssert.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirector.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemOperations.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemRule.h" />
