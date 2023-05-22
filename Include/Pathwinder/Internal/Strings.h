@@ -15,6 +15,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <sal.h>
 #include <string_view>
 
@@ -114,10 +115,20 @@ namespace Pathwinder
         /// Splits a string using the specified delimiter character and returns a list of views each corresponding to a part of the input string.
         /// If there are too many delimiters present such that not all of the pieces can fit into the returned container type then the returned container will be empty.
         /// Otherwise the returned container will contain at least one element.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
         /// @param [in] stringToSplit Input string to be split.
         /// @param [in] delimiter Delimiter character sequence that identifies boundaries between pieces of the input string.
         /// @return Container that holds views referring to pieces of the input string split using the specified delimiter.
-        TemporaryVector<std::wstring_view> SplitString(std::wstring_view stringToSplit, std::wstring_view delimiter);
+        template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(std::basic_string_view<CharType> stringToSplit, std::basic_string_view<CharType> delimiter);
+
+        /// Splits a string using the specified delimiter strings and returns a list of views each corresponding to a part of the input string.
+        /// If there are too many delimiters present such that not all of the pieces can fit into the returned container type then the returned container will be empty.
+        /// Otherwise the returned container will contain at least one element.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
+        /// @param [in] stringToSplit Input string to be split.
+        /// @param [in] delimiters Delimiter character sequences each of which identifies a boundary between pieces of the input string.
+        /// @return Container that holds views referring to pieces of the input string split using the specified delimiter.
+        template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(std::basic_string_view<CharType> stringToSplit, std::initializer_list<std::basic_string_view<CharType>> delimiters);
 
         /// Checks if one string is a prefix of another without regard for the case of each individual character.
         /// @tparam CharType Type of character in each string, either narrow or wide.
@@ -125,6 +136,15 @@ namespace Pathwinder
         /// @param [in] maybePrefix Candidate prefix to compare with the beginning of the string.
         /// @return `true` if the strings compare equal, `false` otherwise.
         template <typename CharType> bool StartsWithCaseInsensitive(std::basic_string_view<CharType> str, std::basic_string_view<CharType> maybePrefix);
+
+        /// Tokenizes a string, one token at a time, using the specified delimiter. Returns the next token found and updates the state variable for subsequent calls.
+        /// Each invocation returns the next token found in the input string.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
+        /// @param [in] stringToTokenize String to be tokenized.
+        /// @param [in] delimiter Delimiter, which can consist of multiple characters, that separates tokens in the input string. Can additionally vary between invocations.
+        /// @param [in, out] tokenizeState Opaque state variable that tracks tokenizing progress. Must be 0 on first invocation and preserved between invocations on the same input string.
+        /// @return Next token found in the input string, if it exists.
+        template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(std::basic_string_view<CharType> stringToTokenize, std::basic_string_view<CharType> delimiter, size_t& tokenizeState);
 
         /// Generates a string representation of a system error code.
         /// @param [in] systemErrorCode System error code for which to generate a string.
