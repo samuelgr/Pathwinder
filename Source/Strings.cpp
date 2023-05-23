@@ -355,7 +355,7 @@ namespace Pathwinder
 
         template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(std::basic_string_view<CharType> stringToSplit, std::basic_string_view<CharType> delimiter)
         {
-            return SplitString(stringToSplit, {delimiter});
+            return SplitString(stringToSplit, &delimiter, 1);
         }
 
         template TemporaryVector<std::string_view> SplitString<char>(std::string_view, std::string_view);
@@ -363,7 +363,7 @@ namespace Pathwinder
 
         // --------
 
-        template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(std::basic_string_view<CharType> stringToSplit, std::initializer_list<std::basic_string_view<CharType>> delimiters)
+        template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(std::basic_string_view<CharType> stringToSplit, const std::basic_string_view<CharType>* delimiters, unsigned int numDelimiters)
         {
             TemporaryVector<std::basic_string_view<CharType>> stringPieces;
 
@@ -374,8 +374,11 @@ namespace Pathwinder
             {
                 bool delimiterFound = false;
                 std::basic_string_view<CharType> remainingStringToSplit(endIter, stringToSplit.cend());
-                for (const auto& delimiter : delimiters)
+
+                for (unsigned int i = 0; i < numDelimiters; ++i)
                 {
+                    auto delimiter = delimiters[i];
+
                     if (true == delimiter.empty())
                         continue;
 
@@ -390,9 +393,7 @@ namespace Pathwinder
                 }
 
                 if (false == delimiterFound)
-                {
                     endIter += 1;
-                }
             }
 
             if (stringPieces.Size() < stringPieces.Capacity())
@@ -403,8 +404,8 @@ namespace Pathwinder
             return stringPieces;
         }
 
-        template TemporaryVector<std::string_view> SplitString<char>(std::string_view, std::initializer_list<std::string_view>);
-        template TemporaryVector<std::wstring_view> SplitString<wchar_t>(std::wstring_view, std::initializer_list<std::wstring_view>);
+        template TemporaryVector<std::string_view> SplitString<char>(std::string_view, const std::string_view*, unsigned int);
+        template TemporaryVector<std::wstring_view> SplitString<wchar_t>(std::wstring_view, const std::wstring_view*, unsigned int);
 
         // --------
 
@@ -448,23 +449,44 @@ namespace Pathwinder
 
         // --------
 
-        template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(std::basic_string_view<CharType> stringToTokenize, std::basic_string_view<CharType> delimiter, size_t& tokenizeState)
+        template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(size_t& tokenizeState, std::basic_string_view<CharType> stringToTokenize, std::basic_string_view<CharType> delimiter)
+        {
+            return TokenizeString(tokenizeState, stringToTokenize, &delimiter, 1);
+        }
+
+        template std::optional<std::string_view> TokenizeString<char>(size_t&, std::string_view, std::string_view);
+        template std::optional<std::wstring_view> TokenizeString<wchar_t>(size_t&, std::wstring_view, std::wstring_view);
+
+        // --------
+
+        template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(size_t& tokenizeState, std::basic_string_view<CharType> stringToTokenize, const std::basic_string_view<CharType>* delimiters, unsigned int numDelimiters)
         {
             if (stringToTokenize.length() < tokenizeState)
                 return std::nullopt;
 
             auto beginIter = stringToTokenize.cbegin() + tokenizeState;
-            auto endIter = ((false == delimiter.empty()) ? beginIter : stringToTokenize.cend());
+            auto endIter = beginIter;
 
             while (stringToTokenize.cend() != endIter)
             {
+                bool delimiterFound = false;
                 std::basic_string_view<CharType> remainingStringToTokenize(endIter, stringToTokenize.cend());
-                if (true == remainingStringToTokenize.starts_with(delimiter))
+
+                for (unsigned int i = 0; i < numDelimiters; ++i)
                 {
-                    tokenizeState += delimiter.length();
-                    return std::basic_string_view<CharType>(beginIter, endIter);
+                    auto delimiter = delimiters[i];
+
+                    if (true == delimiter.empty())
+                        continue;
+
+                    if (true == remainingStringToTokenize.starts_with(delimiter))
+                    {
+                        tokenizeState += delimiter.length();
+                        return std::basic_string_view<CharType>(beginIter, endIter);
+                    }
                 }
-                else
+
+                if (false == delimiterFound)
                 {
                     tokenizeState += 1;
                     endIter += 1;
@@ -475,7 +497,7 @@ namespace Pathwinder
             return std::basic_string_view<CharType>(beginIter, endIter);
         }
 
-        template std::optional<std::string_view> TokenizeString<char>(std::string_view, std::string_view, size_t& tokenizeState);
-        template std::optional<std::wstring_view> TokenizeString<wchar_t>(std::wstring_view, std::wstring_view, size_t& tokenizeState);
+        template std::optional<std::string_view> TokenizeString<char>(size_t&, std::string_view, const std::string_view*, unsigned int);
+        template std::optional<std::wstring_view> TokenizeString<wchar_t>(size_t&, std::wstring_view, const std::wstring_view*, unsigned int);
     }
 }

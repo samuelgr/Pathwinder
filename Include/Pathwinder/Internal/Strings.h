@@ -126,9 +126,10 @@ namespace Pathwinder
         /// Otherwise the returned container will contain at least one element.
         /// @tparam CharType Type of character in each string, either narrow or wide.
         /// @param [in] stringToSplit Input string to be split.
-        /// @param [in] delimiters Delimiter character sequences each of which identifies a boundary between pieces of the input string.
+        /// @param [in] delimiters Pointer to an array of delimiter character sequences each of which identifies a boundary between pieces of the input string.
+        /// @param [in] numDelimiters Number of delimiters contained in the delimiter array.
         /// @return Container that holds views referring to pieces of the input string split using the specified delimiter.
-        template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(std::basic_string_view<CharType> stringToSplit, std::initializer_list<std::basic_string_view<CharType>> delimiters);
+        template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(std::basic_string_view<CharType> stringToSplit, const std::basic_string_view<CharType>* delimiters, unsigned int numDelimiters);
 
         /// Checks if one string is a prefix of another without regard for the case of each individual character.
         /// @tparam CharType Type of character in each string, either narrow or wide.
@@ -140,11 +141,21 @@ namespace Pathwinder
         /// Tokenizes a string, one token at a time, using the specified delimiter. Returns the next token found and updates the state variable for subsequent calls.
         /// Each invocation returns the next token found in the input string.
         /// @tparam CharType Type of character in each string, either narrow or wide.
+        /// @param [in, out] tokenizeState Opaque state variable that tracks tokenizing progress. Must be 0 on first invocation and preserved between invocations on the same input string.
         /// @param [in] stringToTokenize String to be tokenized.
         /// @param [in] delimiter Delimiter, which can consist of multiple characters, that separates tokens in the input string. Can additionally vary between invocations.
-        /// @param [in, out] tokenizeState Opaque state variable that tracks tokenizing progress. Must be 0 on first invocation and preserved between invocations on the same input string.
         /// @return Next token found in the input string, if it exists.
-        template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(std::basic_string_view<CharType> stringToTokenize, std::basic_string_view<CharType> delimiter, size_t& tokenizeState);
+        template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(size_t& tokenizeState, std::basic_string_view<CharType> stringToTokenize, std::basic_string_view<CharType> delimiter);
+
+        /// Tokenizes a string, one token at a time, using the specified delimiter strings. Returns the next token found and updates the state variable for subsequent calls.
+        /// Each invocation returns the next token found in the input string.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
+        /// @param [in, out] tokenizeState Opaque state variable that tracks tokenizing progress. Must be 0 on first invocation and preserved between invocations on the same input string.
+        /// @param [in] stringToTokenize String to be tokenized.
+        /// @param [in] delimiters Pointer to an array of delimiter character sequences each of which identifies a boundary between pieces of the input string.
+        /// @param [in] numDelimiters Number of delimiters contained in the delimiter array.
+        /// @return Next token found in the input string, if it exists.
+        template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(size_t& tokenizeState, std::basic_string_view<CharType> stringToTokenize, const std::basic_string_view<CharType>* delimiters, unsigned int numDelimiters);
 
         /// Generates a string representation of a system error code.
         /// @param [in] systemErrorCode System error code for which to generate a string.

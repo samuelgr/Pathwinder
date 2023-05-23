@@ -28,14 +28,14 @@ namespace PathwinderTest
     // Nominal case of a string with delimiters being tokenized.
     TEST_CASE(Strings_Tokenize_Nominal)
     {
-        constexpr std::wstring_view kSplitDelimiter = L"%";
+        constexpr std::wstring_view kTokenDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"ABCD%EFGH%IJKL%MNOP%QRSTUV WX Y  % Z  ";
         
         const TemporaryVector<std::wstring_view> expectedPieces = {L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV WX Y  ", L" Z  "};
         TemporaryVector<std::wstring_view> actualPieces;
 
         size_t tokenizeState = 0;
-        for (std::optional<std::wstring_view> maybeNextPiece = Strings::TokenizeString(kInputString, kSplitDelimiter, tokenizeState); true == maybeNextPiece.has_value(); maybeNextPiece = Strings::TokenizeString(kInputString, kSplitDelimiter, tokenizeState))
+        for (std::optional<std::wstring_view> maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, kTokenDelimiter); true == maybeNextPiece.has_value(); maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, kTokenDelimiter))
             actualPieces.PushBack(maybeNextPiece.value());
 
         TEST_ASSERT(actualPieces == expectedPieces);
@@ -44,14 +44,30 @@ namespace PathwinderTest
     // Same as the nominal case but with a multi-character delimiter.
     TEST_CASE(Strings_Tokenize_MultiCharacterDelimiter)
     {
-        constexpr std::wstring_view kSplitDelimiter = L":::";
+        constexpr std::wstring_view kTokenDelimiter = L":::";
         constexpr std::wstring_view kInputString = L"ABCD:::EFGH:::IJKL:::MNOP:::QRSTUV WX Y  ::: Z  ";
 
         const TemporaryVector<std::wstring_view> expectedPieces = {L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV WX Y  ", L" Z  "};
         TemporaryVector<std::wstring_view> actualPieces;
 
         size_t tokenizeState = 0;
-        for (std::optional<std::wstring_view> maybeNextPiece = Strings::TokenizeString(kInputString, kSplitDelimiter, tokenizeState); true == maybeNextPiece.has_value(); maybeNextPiece = Strings::TokenizeString(kInputString, kSplitDelimiter, tokenizeState))
+        for (std::optional<std::wstring_view> maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, kTokenDelimiter); true == maybeNextPiece.has_value(); maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, kTokenDelimiter))
+            actualPieces.PushBack(maybeNextPiece.value());
+
+        TEST_ASSERT(actualPieces == expectedPieces);
+    }
+
+    // Same as the nominal case but with multiple delimiters supplied simultaneously.
+    TEST_CASE(Strings_Tokenize_MultipleDelimiters)
+    {
+        constexpr std::wstring_view kTokenDelimiters[] = {L"%%%%%%%%%%", L"//", L"----", L"+++++", L"_", L":::"};
+        constexpr std::wstring_view kInputString = L"ABCD:::EFGH//IJKL+++++MNOP%%%%%%%%%%QRSTUV WX Y  _ Z  ";
+
+        const TemporaryVector<std::wstring_view> expectedPieces = {L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV WX Y  ", L" Z  "};
+        TemporaryVector<std::wstring_view> actualPieces;
+
+        size_t tokenizeState = 0;
+        for (std::optional<std::wstring_view> maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, kTokenDelimiters, _countof(kTokenDelimiters)); true == maybeNextPiece.has_value(); maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, kTokenDelimiters, _countof(kTokenDelimiters)))
             actualPieces.PushBack(maybeNextPiece.value());
 
         TEST_ASSERT(actualPieces == expectedPieces);
@@ -60,14 +76,14 @@ namespace PathwinderTest
     // Same as the nominal case but with a trailing delimiter at the end of the input string.
     TEST_CASE(Strings_Tokenize_TerminalDelimiter)
     {
-        constexpr std::wstring_view kSplitDelimiter = L"%";
+        constexpr std::wstring_view kTokenDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"ABCD%EFGH%IJKL%MNOP%QRSTUV WX Y  % Z  %";
         
         const TemporaryVector<std::wstring_view> expectedPieces = {L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV WX Y  ", L" Z  ", L""};
         TemporaryVector<std::wstring_view> actualPieces;
 
         size_t tokenizeState = 0;
-        for (std::optional<std::wstring_view> maybeNextPiece = Strings::TokenizeString(kInputString, kSplitDelimiter, tokenizeState); true == maybeNextPiece.has_value(); maybeNextPiece = Strings::TokenizeString(kInputString, kSplitDelimiter, tokenizeState))
+        for (std::optional<std::wstring_view> maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, kTokenDelimiter); true == maybeNextPiece.has_value(); maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, kTokenDelimiter))
             actualPieces.PushBack(maybeNextPiece.value());
 
         TEST_ASSERT(actualPieces == expectedPieces);
@@ -76,14 +92,14 @@ namespace PathwinderTest
     // Input string consists of delimiter characters exclusively.
     TEST_CASE(Strings_Tokenize_ExclusivelyDelimiters)
     {
-        constexpr std::wstring_view kSplitDelimiter = L"%";
+        constexpr std::wstring_view kTokenDelimiter = L"%";
         constexpr std::wstring_view kInputString = L"%%%%%";
         
         const TemporaryVector<std::wstring_view> expectedPieces = {L"", L"", L"", L"", L"", L""};
         TemporaryVector<std::wstring_view> actualPieces;
 
         size_t tokenizeState = 0;
-        for (std::optional<std::wstring_view> maybeNextPiece = Strings::TokenizeString(kInputString, kSplitDelimiter, tokenizeState); true == maybeNextPiece.has_value(); maybeNextPiece = Strings::TokenizeString(kInputString, kSplitDelimiter, tokenizeState))
+        for (std::optional<std::wstring_view> maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, kTokenDelimiter); true == maybeNextPiece.has_value(); maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, kTokenDelimiter))
             actualPieces.PushBack(maybeNextPiece.value());
 
         TEST_ASSERT(actualPieces == expectedPieces);
@@ -100,19 +116,19 @@ namespace PathwinderTest
         // First two delimiter inputs must match the input string.
         // Since there is no delimiter after "Part 3" the specific delimiter passed does not matter and can be empty.
 
-        maybeNextPiece = Strings::TokenizeString(kInputString, std::wstring_view(L":::"), tokenizeState);
+        maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, std::wstring_view(L":::"));
         TEST_ASSERT(true == maybeNextPiece.has_value());
         TEST_ASSERT(maybeNextPiece.value() == L"Part 1");
 
-        maybeNextPiece = Strings::TokenizeString(kInputString, std::wstring_view(L"!!"), tokenizeState);
+        maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, std::wstring_view(L"!!"));
         TEST_ASSERT(true == maybeNextPiece.has_value());
         TEST_ASSERT(maybeNextPiece.value() == L"Part 2");
 
-        maybeNextPiece = Strings::TokenizeString(kInputString, std::wstring_view(L""), tokenizeState);
+        maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, std::wstring_view(L""));
         TEST_ASSERT(true == maybeNextPiece.has_value());
         TEST_ASSERT(maybeNextPiece.value() == L"Part 3");
 
-        maybeNextPiece = Strings::TokenizeString(kInputString, std::wstring_view(L""), tokenizeState);
+        maybeNextPiece = Strings::TokenizeString(tokenizeState, kInputString, std::wstring_view(L""));
         TEST_ASSERT(false == maybeNextPiece.has_value());
     }
 
@@ -142,9 +158,10 @@ namespace PathwinderTest
     // Same as the nominal case but with multiple delimiters of varying lengths.
     TEST_CASE(Strings_Split_MultipleDelimiters)
     {
+        constexpr std::wstring_view kSplitDelimiters[] = {L":::", L"%", L"!!!", L"//"};
         constexpr std::wstring_view kInputString = L"ABCD%EFGH//IJKL:::MNOP!!!QRSTUV%WX:::YZ";
         const TemporaryVector<std::wstring_view> expectedPieces = {L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV", L"WX", L"YZ"};
-        const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString<wchar_t>(kInputString, {L":::", L"%", L"!!!", L"//"});
+        const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString<wchar_t>(kInputString, kSplitDelimiters, _countof(kSplitDelimiters));
         TEST_ASSERT(actualPieces == expectedPieces);
     }
 

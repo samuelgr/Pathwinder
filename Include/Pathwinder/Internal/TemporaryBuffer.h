@@ -213,6 +213,13 @@ namespace Pathwinder
                 return buffer[index];
             }
 
+            /// Member access operator.
+            /// Allows the underlying data to be accessed directly via the iterator.
+            constexpr inline DataType* operator->(void) const
+            {
+                return &buffer[index];
+            }
+
             /// Pre-increment operator.
             constexpr inline Iterator& operator++(void)
             {
