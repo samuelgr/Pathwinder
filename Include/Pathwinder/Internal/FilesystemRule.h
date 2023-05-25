@@ -15,6 +15,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -43,31 +44,42 @@ namespace Pathwinder
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
-        /// Absolute path to the origin directory.
-        const std::wstring_view kOriginDirectoryFullPath;
-
         /// Position within the origin directory absolute path of the final separator between name and parent path.
+        /// Initialized using the contents of the origin directory path string and must be declared before it.
         const size_t kOriginDirectorySeparator;
 
-        /// Absolute path to the target directory.
-        const std::wstring_view kTargetDirectoryFullPath;
-
         /// Position within the target directory absolute path of the final separator between name and parent path.
+        /// Initialized using the contents of the target directory path string and must be declared before it.
         const size_t kTargetDirectorySeparator;
+
+        /// Absolute path to the origin directory.
+        const std::wstring kOriginDirectoryFullPath;
+
+        /// Absolute path to the target directory.
+        const std::wstring kTargetDirectoryFullPath;
 
         /// Pattern that specifies which files within the origin and target directories are affected by this rule.
         /// Can be used to filter this rule to apply to only specific named files.
         /// If empty, it is assumed that there is no filter and therefore the rule applies to all files in the origin and target directories.
-        const std::vector<std::wstring_view> kFilePatterns;
+        const std::vector<std::wstring> kFilePatterns;
 
 
     public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
         /// Initialization constructor.
-        /// Requires all instance variables be set at construction time.
+        /// Uses move semantics and requires all instance variables be set at construction time.
         /// File patterns are optional, with default behavior equivalent to supplying "*" as the only file pattern.
-        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring_view>&& filePatterns = std::vector<std::wstring_view>());
+        FilesystemRule(std::wstring&& originDirectoryFullPath, std::wstring&& targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>());
+
+        /// Initialization constructor.
+        /// Uses copy semantics for paths but move semantics for file patterns. Requires all instance variables be set at construction time.
+        /// File patterns are optional, with default behavior equivalent to supplying "*" as the only file pattern.
+        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>());
+
+        /// Initialization constructor.
+        /// Uses copy semantics and requires all instance variables be set at construction time.
+        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, const std::vector<std::wstring>& filePatterns);
 
 
         // -------- OPERATORS ---------------------------------------------- //

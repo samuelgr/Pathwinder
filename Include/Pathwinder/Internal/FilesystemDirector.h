@@ -15,9 +15,9 @@
 #include "ValueOrError.h"
 
 #include <map>
-#include <set>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 
@@ -35,10 +35,10 @@ namespace Pathwinder
         bool isFinalized;
 
         /// Stores all absolute paths to origin directories used by the filesystem rules contained in this registry.
-        std::set<std::wstring, std::less<>> originDirectories;
+        std::unordered_set<std::wstring_view> originDirectories;
 
         /// Stores all absolute paths to target directories used by the filesystem rules contained by this registry.
-        std::set<std::wstring, std::less<>> targetDirectories;
+        std::unordered_set<std::wstring_view> targetDirectories;
 
         /// Holds all filesystem rules contained within this registry. Maps from rule name to rule object.
         std::map<std::wstring, FilesystemRule, std::less<>> filesystemRules;
@@ -91,7 +91,7 @@ namespace Pathwinder
         /// @param [in] targetDirectory Target directory for the new rule. May be relative and contain references to be resolved.
         /// @param [in] filePatterns File patterns to narrow the scope of the new rule. This parameter is optional. Default behavior is to match all files in the origin and target directories.
         /// @return Pointer to the new rule on success, error message on failure.
-        ValueOrError<const FilesystemRule*, TemporaryString> CreateRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring_view>&& filePatterns = std::vector<std::wstring_view>());
+        ValueOrError<const FilesystemRule*, TemporaryString> CreateRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>());
 
         /// Attempts to finalize this registry object. Rules cannot be added or modified after this registry object is successfully finalized.
         /// Some constraints that are enforced between rules, such as relationships between directories, cannot be checked until all rules have been added.

@@ -62,7 +62,7 @@ namespace PathwinderTest
             do {
                 auto directoryIter = filesystemContents.find(currentPathView);
                 if (filesystemContents.end() == directoryIter)
-                    directoryIter = filesystemContents.insert({ std::wstring(currentPathView), std::map<std::wstring, SFilesystemEntity, std::less<>>() }).first;
+                    directoryIter = filesystemContents.insert({std::wstring(currentPathView), std::map<std::wstring, SFilesystemEntity, std::less<>>()}).first;
             } while (false);
             break;
 

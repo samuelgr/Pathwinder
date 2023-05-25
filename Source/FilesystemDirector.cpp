@@ -76,7 +76,7 @@ namespace Pathwinder
     // -------- INSTANCE METHODS ------------------------------------------- //
     // See "FilesystemDirector.h" for documentation.
 
-    ValueOrError<const FilesystemRule*, TemporaryString> FilesystemDirector::CreateRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring_view>&& filePatterns)
+    ValueOrError<const FilesystemRule*, TemporaryString> FilesystemDirector::CreateRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring>&& filePatterns)
     {
         if (true == IsFinalized())
             return Strings::FormatString(L"Filesystem rule %s: Internal error: Attempted to create a new rule in a finalized registry.", ruleName.data());
@@ -138,9 +138,11 @@ namespace Pathwinder
         if (true == HasOriginDirectory(targetDirectoryFullPath))
             return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Target directory is already in use as an origin directory by another rule.", ruleName.data());
 
-        std::wstring_view originDirectoryView = *originDirectories.emplace(originDirectoryFullPath).first;
-        std::wstring_view targetDirectoryView = *targetDirectories.emplace(targetDirectoryFullPath).first;
-        return &filesystemRules.emplace(std::wstring(ruleName), FilesystemRule(originDirectoryView, targetDirectoryView, std::move(filePatterns))).first->second;
+        const FilesystemRule* const newRule = &filesystemRules.emplace(std::wstring(ruleName), FilesystemRule(originDirectoryFullPath.AsStringView(), targetDirectoryFullPath.AsStringView(), std::move(filePatterns))).first->second;
+        originDirectories.emplace(newRule->GetOriginDirectoryFullPath());
+        targetDirectories.emplace(newRule->GetTargetDirectoryFullPath());
+
+        return newRule;
     }
 
     // --------

@@ -193,6 +193,7 @@ namespace Pathwinder
             /// Index within the temporary vector data buffer.
             int index;
 
+
         public:
             // -------- CONSTRUCTION AND DESTRUCTION ----------------------- //
 

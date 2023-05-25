@@ -123,7 +123,7 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
         constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
-        std::vector<std::wstring_view> filePatterns = {L"A*F*", L"?gh.jkl"};
+        std::vector<std::wstring> filePatterns = {L"A*F*", L"?gh.jkl"};
 
         constexpr std::wstring_view kTestFilesMatching[] = {
             L"ASDF",
@@ -182,7 +182,7 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
         constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
-        std::vector<std::wstring_view> filePatterns = {L"f*"};
+        std::vector<std::wstring> filePatterns = {L"f*"};
 
         constexpr std::wstring_view kInputDirectory = L"C:\\Directory\\Origin\\Subdir1\\Subdir2";
         constexpr std::wstring_view kInputFile = L"file.txt";

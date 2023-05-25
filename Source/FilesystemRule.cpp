@@ -83,7 +83,7 @@ namespace Pathwinder
     /// @param [in] candidateFileName File name to check for matches with any file pattern. Must be null-terminated.
     /// @param [in] filePatterns Patterns against which to compare the candidate file name. Must be null-terminated.
     /// @return `true` if any file pattern produces a match, `false` otherwise.
-    static bool FileNameMatchesAnyPatternInternal(std::wstring_view candidateFileName, const std::vector<std::wstring_view>& filePatterns)
+    static bool FileNameMatchesAnyPatternInternal(std::wstring_view candidateFileName, const std::vector<std::wstring>& filePatterns)
     {
         if (true == filePatterns.empty())
             return true;
@@ -106,7 +106,7 @@ namespace Pathwinder
     /// @param [in] fromDirectory Origin directory of the redirection. Typically this comes from a filesystem rule.
     /// @param [in] toDirectory Target directory of the redirection. Typically this comes from a filesystem rule.
     /// @return Redirected location as an absolute path, if redirection occurred successfully.
-    static std::optional<TemporaryString> RedirectPathInternal(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart, std::wstring_view fromDirectory, std::wstring_view toDirectory, const std::vector<std::wstring_view>& kFilePatterns)
+    static std::optional<TemporaryString> RedirectPathInternal(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart, std::wstring_view fromDirectory, std::wstring_view toDirectory, const std::vector<std::wstring>& kFilePatterns)
     {
         switch (DirectoryCompareInternal(candidatePathDirectoryPart, fromDirectory))
         {
@@ -154,7 +154,21 @@ namespace Pathwinder
     // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
     // See "FilesystemRule.h" for documentation.
 
-    FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring_view>&& filePatterns) : kOriginDirectoryFullPath(originDirectoryFullPath), kOriginDirectorySeparator(FinalSeparatorPosition(originDirectoryFullPath)), kTargetDirectoryFullPath(targetDirectoryFullPath), kTargetDirectorySeparator(FinalSeparatorPosition(targetDirectoryFullPath)), kFilePatterns(std::move(filePatterns))
+    FilesystemRule::FilesystemRule(std::wstring&& originDirectoryFullPath, std::wstring&& targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns) : kOriginDirectorySeparator(FinalSeparatorPosition(originDirectoryFullPath)), kTargetDirectorySeparator(FinalSeparatorPosition(targetDirectoryFullPath)), kOriginDirectoryFullPath(std::move(originDirectoryFullPath)), kTargetDirectoryFullPath(std::move(targetDirectoryFullPath)), kFilePatterns(std::move(filePatterns))
+    {
+        // Nothing to do here.
+    }
+
+    // --------
+
+    FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns) : FilesystemRule(std::wstring(originDirectoryFullPath), std::wstring(targetDirectoryFullPath), std::move(filePatterns))
+    {
+        // Nothing to do here.
+    }
+
+    // --------
+
+    FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, const std::vector<std::wstring>& filePatterns) : FilesystemRule(std::wstring(originDirectoryFullPath), std::wstring(targetDirectoryFullPath), std::vector<std::wstring>(filePatterns))
     {
         // Nothing to do here.
     }
