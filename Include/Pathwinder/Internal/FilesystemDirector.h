@@ -12,6 +12,7 @@
 #pragma once
 
 #include "FilesystemRule.h"
+#include "PrefixIndex.h"
 #include "ValueOrError.h"
 
 #include <map>
@@ -34,8 +35,9 @@ namespace Pathwinder
         /// Once finalized, rules can no longer be added.
         bool isFinalized;
 
-        /// Stores all absolute paths to origin directories used by the filesystem rules contained in this registry.
-        std::unordered_set<std::wstring_view> originDirectories;
+        /// Indexes all filesystem rules by origin directory prefix.
+        /// Does not own filesystem rules or directory strings but rather acts as an efficient index into the filesystem rules map.
+        PrefixIndex<wchar_t, FilesystemRule> originDirectories;
 
         /// Stores all absolute paths to target directories used by the filesystem rules contained by this registry.
         std::unordered_set<std::wstring_view> targetDirectories;
@@ -45,6 +47,12 @@ namespace Pathwinder
 
 
     public:
+        // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
+
+        /// Default constructor.
+        FilesystemDirector(void);
+
+
         // -------- OPERATORS ---------------------------------------------- //
 
         /// Simple check for equality.
@@ -114,7 +122,7 @@ namespace Pathwinder
         /// @return `true` if so, `false` if not.
         inline bool HasOriginDirectory(std::wstring_view directoryFullPath) const
         {
-            return originDirectories.contains(directoryFullPath);
+            return originDirectories.Contains(directoryFullPath);
         }
 
         /// Determines if any rule in this registry uses the specified directory as its target directory.

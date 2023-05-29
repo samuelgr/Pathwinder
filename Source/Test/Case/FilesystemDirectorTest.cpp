@@ -164,6 +164,46 @@ namespace PathwinderTest
         TEST_ASSERT(director.CreateRule(L"2", L"C:\\OriginDir2", L"C:\\OriginDir1").HasError());
     }
 
+    // Verifies that directory presence is successfully reported when rules exist and is correctly categorized by origin or target.
+    TEST_CASE(FilesystemDirector_HasDirectory_Nominal)
+    {
+        FilesystemDirector director;
+
+        TEST_ASSERT(director.CreateRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir1").HasValue());
+        TEST_ASSERT(director.CreateRule(L"2", L"C:\\OriginDir2", L"C:\\TargetDir2").HasValue());
+
+        TEST_ASSERT(true == director.HasDirectory(L"C:\\OriginDir1"));
+        TEST_ASSERT(true == director.HasDirectory(L"C:\\OriginDir2"));
+        TEST_ASSERT(true == director.HasDirectory(L"C:\\TargetDir1"));
+        TEST_ASSERT(true == director.HasDirectory(L"C:\\TargetDir2"));
+
+        TEST_ASSERT(true == director.HasOriginDirectory(L"C:\\OriginDir1"));
+        TEST_ASSERT(true == director.HasOriginDirectory(L"C:\\OriginDir2"));
+        TEST_ASSERT(false == director.HasTargetDirectory(L"C:\\OriginDir1"));
+        TEST_ASSERT(false == director.HasTargetDirectory(L"C:\\OriginDir2"));
+
+        TEST_ASSERT(true == director.HasTargetDirectory(L"C:\\TargetDir1"));
+        TEST_ASSERT(true == director.HasTargetDirectory(L"C:\\TargetDir2"));
+        TEST_ASSERT(false == director.HasOriginDirectory(L"C:\\TargetDir1"));
+        TEST_ASSERT(false == director.HasOriginDirectory(L"C:\\TargetDir2"));
+    }
+
+    // Verifies that directory presence is correctly reported for those directories explicitly in a hierarchy.
+    // This test uses origin directories for that purpose.
+    TEST_CASE(FilesystemDirector_HasDirectory_Hierarchy)
+    {
+        FilesystemDirector director;
+
+        TEST_ASSERT(director.CreateRule(L"1", L"C:\\Level1\\Level2\\Level3\\Level4\\Level5", L"C:\\Target1").HasValue());
+        TEST_ASSERT(director.CreateRule(L"2", L"C:\\Level1\\Level2", L"C:\\Target2").HasValue());
+
+        TEST_ASSERT(false == director.HasOriginDirectory(L"C:\\Level1"));
+        TEST_ASSERT(true  == director.HasOriginDirectory(L"C:\\Level1\\Level2"));
+        TEST_ASSERT(false == director.HasOriginDirectory(L"C:\\Level1\\Level2\\Level3"));
+        TEST_ASSERT(false == director.HasOriginDirectory(L"C:\\Level1\\Level2\\Level3\\Level4"));
+        TEST_ASSERT(true  == director.HasOriginDirectory(L"C:\\Level1\\Level2\\Level3\\Level4\\Level5"));
+    }
+
     // Verifies that rule set finalization completes successfully in the nominal case of filesystem rules having origin directories that exist and whose parent directories also exist.
     TEST_CASE(FilesystemDirector_Finalize_Success_Nominal)
     {

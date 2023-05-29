@@ -154,21 +154,7 @@ namespace Pathwinder
     // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
     // See "FilesystemRule.h" for documentation.
 
-    FilesystemRule::FilesystemRule(std::wstring&& originDirectoryFullPath, std::wstring&& targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns) : kOriginDirectorySeparator(FinalSeparatorPosition(originDirectoryFullPath)), kTargetDirectorySeparator(FinalSeparatorPosition(targetDirectoryFullPath)), kOriginDirectoryFullPath(std::move(originDirectoryFullPath)), kTargetDirectoryFullPath(std::move(targetDirectoryFullPath)), kFilePatterns(std::move(filePatterns))
-    {
-        // Nothing to do here.
-    }
-
-    // --------
-
-    FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns) : FilesystemRule(std::wstring(originDirectoryFullPath), std::wstring(targetDirectoryFullPath), std::move(filePatterns))
-    {
-        // Nothing to do here.
-    }
-
-    // --------
-
-    FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, const std::vector<std::wstring>& filePatterns) : FilesystemRule(std::wstring(originDirectoryFullPath), std::wstring(targetDirectoryFullPath), std::vector<std::wstring>(filePatterns))
+    FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns) : kOriginDirectorySeparator(FinalSeparatorPosition(originDirectoryFullPath)), kTargetDirectorySeparator(FinalSeparatorPosition(targetDirectoryFullPath)), kOriginDirectoryFullPath(originDirectoryFullPath), kTargetDirectoryFullPath(targetDirectoryFullPath), kFilePatterns(std::move(filePatterns))
     {
         // Nothing to do here.
     }

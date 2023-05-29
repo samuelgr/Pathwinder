@@ -10,6 +10,7 @@
  *****************************************************************************/
 
 #include "ApiWindows.h"
+#include "DebugAssert.h"
 #include "FilesystemDirector.h"
 #include "FilesystemOperations.h"
 #include "Resolver.h"
@@ -24,6 +25,15 @@
 
 namespace Pathwinder
 {
+    // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
+    // See "FilesystemDirector.h" for documentation.
+
+    FilesystemDirector::FilesystemDirector(void) : isFinalized(), originDirectories({L"\\"}), targetDirectories(), filesystemRules()
+    {
+        // Nothing to do here.
+    }
+
+
     // -------- CLASS METHODS ---------------------------------------------- //
     // See "FilesystemDirector.h" for documentation.
 
@@ -138,8 +148,13 @@ namespace Pathwinder
         if (true == HasOriginDirectory(targetDirectoryFullPath))
             return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Target directory is already in use as an origin directory by another rule.", ruleName.data());
 
-        const FilesystemRule* const newRule = &filesystemRules.emplace(std::wstring(ruleName), FilesystemRule(originDirectoryFullPath.AsStringView(), targetDirectoryFullPath.AsStringView(), std::move(filePatterns))).first->second;
-        originDirectories.emplace(newRule->GetOriginDirectoryFullPath());
+        const auto createResult = filesystemRules.emplace(std::wstring(ruleName), FilesystemRule(originDirectoryFullPath.AsStringView(), targetDirectoryFullPath.AsStringView(), std::move(filePatterns)));
+        DebugAssert(createResult.second, "FilesystemDirector consistency check failed due to unsuccessful creation of a supposedly-unique filesystem rule.");
+
+        const std::wstring_view newRuleName = createResult.first->first;
+        const FilesystemRule* const newRule = &createResult.first->second;
+
+        originDirectories.Insert(newRule->GetOriginDirectoryFullPath(), *newRule);
         targetDirectories.emplace(newRule->GetTargetDirectoryFullPath());
 
         return newRule;

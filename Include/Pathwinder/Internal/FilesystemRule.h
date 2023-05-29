@@ -68,18 +68,9 @@ namespace Pathwinder
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
         /// Initialization constructor.
-        /// Uses move semantics and requires all instance variables be set at construction time.
-        /// File patterns are optional, with default behavior equivalent to supplying "*" as the only file pattern.
-        FilesystemRule(std::wstring&& originDirectoryFullPath, std::wstring&& targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>());
-
-        /// Initialization constructor.
-        /// Uses copy semantics for paths but move semantics for file patterns. Requires all instance variables be set at construction time.
+        /// Requires all instance variables be set at construction time.
         /// File patterns are optional, with default behavior equivalent to supplying "*" as the only file pattern.
         FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>());
-
-        /// Initialization constructor.
-        /// Uses copy semantics and requires all instance variables be set at construction time.
-        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, const std::vector<std::wstring>& filePatterns);
 
 
         // -------- OPERATORS ---------------------------------------------- //

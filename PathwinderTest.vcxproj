@@ -122,6 +122,7 @@
     <ClCompile Include="Source\TemporaryBuffer.cpp" />
     <ClCompile Include="Source\Test\Case\FilesystemDirectorTest.cpp" />
     <ClCompile Include="Source\Test\Case\FilesystemRuleTest.cpp" />
+    <ClCompile Include="Source\Test\Case\PrefixIndexTest.cpp" />
     <ClCompile Include="Source\Test\Case\ResolverTest.cpp" />
     <ClCompile Include="Source\Test\Case\StringsTest.cpp" />
     <ClCompile Include="Source\Test\Harness.cpp" />
@@ -136,6 +137,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirector.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\PrefixIndex.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Resolver.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Strings.h" />
     <ClInclude Include="Include\Pathwinder\Internal\TemporaryBuffer.h" />

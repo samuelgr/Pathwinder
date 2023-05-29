@@ -60,6 +60,9 @@
     <ClCompile Include="Source\Test\MockFilesystemOperations.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Test\Case\PrefixIndexTest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Include\Pathwinder\Test\Harness.h">
@@ -108,6 +111,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\DebugAssert.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Pathwinder\Internal\PrefixIndex.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
