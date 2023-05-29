@@ -176,4 +176,76 @@ namespace PathwinderTest
         TEST_ASSERT(nullptr != level4Node);
         TEST_ASSERT(level4Node->GetData() == &kTestData[14]);
     }
+
+    // Attempts to locate the longest matching prefix in the nominal situation in which such a prefix exists.
+    // Verifies that the correct node is returned from the longest prefix query.
+    TEST_CASE(PrefixIndex_LongestMatchingPrefix_Nominal)
+    {
+        TTestPrefixIndex index(L"\\");
+
+        TEST_ASSERT(true == index.Insert(L"Level1\\Level2\\Level3\\Level4", kTestData[14]).second);
+
+        auto level4Node = index.Find(L"Level1\\Level2\\Level3\\Level4");
+        TEST_ASSERT(nullptr != level4Node);
+
+        auto longestMatchingPrefixNode = index.LongestMatchingPrefix(L"Level1\\Level2\\Level3\\Level4\\Level5\\Level6\\Level7\\Level8\\Level9\\Level10");
+        TEST_ASSERT(level4Node == longestMatchingPrefixNode);
+    }
+
+    // Attempts to locate the longest matching prefix when no match exists in the index.
+    // Verifies that no node is returned from the longest prefix query.
+    TEST_CASE(PrefixIndex_LongestMatchingPrefix_NoMatch)
+    {
+        TTestPrefixIndex index(L"\\");
+
+        TEST_ASSERT(true == index.Insert(L"Level1\\Level2\\Level3\\Level4", kTestData[14]).second);
+
+        auto longestMatchingPrefixNode = index.LongestMatchingPrefix(L"A\\B\\C\\D");
+        TEST_ASSERT(nullptr == longestMatchingPrefixNode);
+    }
+
+    // Attempts to locate the longest matching prefix in the special situation in which the query string exactly matches a string in the index.
+    // Verifies that the correct node is returned from the longest prefix query.
+    TEST_CASE(PrefixIndex_LongestMatchingPrefix_ExactMatch)
+    {
+        TTestPrefixIndex index(L"\\");
+
+        TEST_ASSERT(true == index.Insert(L"Level1\\Level2\\Level3\\Level4", kTestData[14]).second);
+
+        auto level4Node = index.Find(L"Level1\\Level2\\Level3\\Level4");
+        TEST_ASSERT(nullptr != level4Node);
+
+        auto longestMatchingPrefixNode = index.LongestMatchingPrefix(L"Level1\\Level2\\Level3\\Level4");
+        TEST_ASSERT(level4Node == longestMatchingPrefixNode);
+    }
+
+    // Attempts to locate the longest matching prefix when a branch exists in the tree such that the branch point is contained in the index.
+    // The node for the branch point, also the actual longest matching prefix, should be returned.
+    TEST_CASE(PrefixIndex_LongestMatchingPrefix_BranchContained)
+    {
+        TTestPrefixIndex index(L"\\");
+
+        TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", kTestData[14]).second);
+        TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", kTestData[15]).second);
+        TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch", kTestData[0]).second);
+
+        auto branchNode = index.Find(L"Root\\Level1\\Level2\\Branch");
+        TEST_ASSERT(nullptr != branchNode);
+        
+        auto longestMatchingPrefixNode = index.LongestMatchingPrefix(L"Root\\Level1\\Level2\\Branch\\Level7\\Level8");
+        TEST_ASSERT(branchNode == longestMatchingPrefixNode);
+    }
+
+    // Attempts to locate the longest matching prefix when a branch exists in the tree such that the branch point is not contained in the index.
+    // The node for the branch point should not be returned because it is not contained in the index, even though a node for it exists in the index tree.
+    TEST_CASE(PrefixIndex_LongestMatchingPrefix_BranchNotContained)
+    {
+        TTestPrefixIndex index(L"\\");
+
+        TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", kTestData[14]).second);
+        TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", kTestData[15]).second);
+
+        auto longestMatchingPrefixNode = index.LongestMatchingPrefix(L"Root\\Level1\\Level2\\Branch\\Level7\\Level8");
+        TEST_ASSERT(nullptr == longestMatchingPrefixNode);
+    }
 }
