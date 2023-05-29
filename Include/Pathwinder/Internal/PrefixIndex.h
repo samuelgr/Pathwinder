@@ -78,17 +78,13 @@ namespace Pathwinder
             /// Removes a child of this node.
             /// This will delete not only the child but also all of its children.
             /// @param [in] childKey Path prefix portion to use as a search key for a child node.
-            /// @return Read-only pointer to optional node data from the node that was erased, or `nullptr` if either no erasure took place or no data exist.
-            const DataType* EraseChild(std::basic_string_view<CharType> childKey)
+            void EraseChild(std::basic_string_view<CharType> childKey)
             {
                 auto childIter = children.find(childKey);
                 if (children.end() == childIter)
-                    return nullptr;
+                    return;
 
-                const void* erasedData = childIter->second.GetData();
                 children.erase(childIter);
-
-                return erasedData;
             }
 
             /// Locates and returns a pointer to the child node corresponding to the given path prefix portion.
@@ -220,7 +216,7 @@ namespace Pathwinder
         /// @return Pointer to the node if it exists and contains data, `nullptr` otherwise.
         inline Node* MutableFindInternal(std::basic_string_view<CharType> prefix)
         {
-            // It is safe to use const_cast here because `this` points to a non-const object by virtue of this method being invoked.
+            // It is safe to use const_cast here because `this` points to a non-const object.
             return const_cast<Node*>(Find(prefix));
         }
 
@@ -281,7 +277,7 @@ namespace Pathwinder
 
             node->ClearData();
 
-            while ((false == node->HasChildren()) && (true == node->HasParent()))
+            while ((false == node->HasData()) && (false == node->HasChildren()) && (true == node->HasParent()))
             {
                 std::basic_string_view<CharType> childKeyToErase = node->GetParentKey();
                 node = node->GetParent();
