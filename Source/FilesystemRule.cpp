@@ -154,7 +154,7 @@ namespace Pathwinder
     // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
     // See "FilesystemRule.h" for documentation.
 
-    FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns) : kOriginDirectorySeparator(FinalSeparatorPosition(originDirectoryFullPath)), kTargetDirectorySeparator(FinalSeparatorPosition(targetDirectoryFullPath)), kOriginDirectoryFullPath(originDirectoryFullPath), kTargetDirectoryFullPath(targetDirectoryFullPath), kFilePatterns(std::move(filePatterns))
+    FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns) : kOriginDirectorySeparator(FinalSeparatorPosition(originDirectoryFullPath)), kTargetDirectorySeparator(FinalSeparatorPosition(targetDirectoryFullPath)), kOriginDirectoryFullPath(originDirectoryFullPath), kTargetDirectoryFullPath(targetDirectoryFullPath), kFilePatterns(std::move(filePatterns)), name()
     {
         // Nothing to do here.
     }

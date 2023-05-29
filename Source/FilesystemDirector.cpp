@@ -151,9 +151,10 @@ namespace Pathwinder
         const auto createResult = filesystemRules.emplace(std::wstring(ruleName), FilesystemRule(originDirectoryFullPath.AsStringView(), targetDirectoryFullPath.AsStringView(), std::move(filePatterns)));
         DebugAssert(createResult.second, "FilesystemDirector consistency check failed due to unsuccessful creation of a supposedly-unique filesystem rule.");
 
-        const std::wstring_view newRuleName = createResult.first->first;
-        const FilesystemRule* const newRule = &createResult.first->second;
+        std::wstring_view newRuleName = createResult.first->first;
+        FilesystemRule* newRule = &createResult.first->second;
 
+        newRule->SetName(newRuleName);
         originDirectories.Insert(newRule->GetOriginDirectoryFullPath(), *newRule);
         targetDirectories.emplace(newRule->GetTargetDirectoryFullPath());
 

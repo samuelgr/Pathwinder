@@ -63,6 +63,10 @@ namespace Pathwinder
         /// If empty, it is assumed that there is no filter and therefore the rule applies to all files in the origin and target directories.
         const std::vector<std::wstring> kFilePatterns;
 
+        /// Name of this filesystem rule.
+        /// Not used internally for any specific purpose but rather intended as a convenience for rules that are contained in a data structure that identifies them by name.
+        std::wstring_view name;
+
 
     public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
@@ -99,6 +103,13 @@ namespace Pathwinder
         /// @param [in] candidateFileName File name to check for matches with any file pattern. Must be null-terminated.
         /// @return `true` if any file pattern produces a match, `false` otherwise.
         bool FileNameMatchesAnyPattern(std::wstring_view candidateFileName) const;
+
+        /// Retrieves and returns the name of this filesystem rule.
+        /// @return Name of this filesystem rule, or an empty view if no name has been set.
+        inline std::wstring_view GetName(void) const
+        {
+            return name;
+        }
 
         /// Retrieves and returns the full path of the origin directory associated with this rule.
         /// @return Full path of the origin directory.
@@ -183,5 +194,12 @@ namespace Pathwinder
         /// @param [in] candidatePathFilePart File portion of the candidate path without any leading backslash. Must be null-terminated.
         /// @return Redirected location as an absolute path, if redirection occurred successfully.
         std::optional<TemporaryString> RedirectPathTargetToOrigin(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart) const;
+
+        /// Sets the name of this rule.
+        /// param [in] newName New name for this rule.
+        inline void SetName(std::wstring_view newName)
+        {
+            name = newName;
+        }
     };
 }
