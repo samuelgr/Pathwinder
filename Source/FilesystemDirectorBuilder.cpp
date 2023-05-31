@@ -112,7 +112,7 @@ namespace Pathwinder
         if (false == originDirectoryFullPath.AsStringView().contains(L'\\'))
             return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Origin directory cannot be a filesystem root.", ruleName.data());
         if (true == originDirectoryFullPath.Empty())
-            return Strings::FormatString(L"Filesystem rule %s: Origin directory: Failed to resolve full path: %s.", ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
+            return Strings::FormatString(L"Filesystem rule %s: Origin directory: Failed to resolve full path: %s", ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
         if (true == originDirectoryFullPath.Overflow())
             return Strings::FormatString(L"Filesystem rule %s: Origin directory: Full path exceeds limit of %u characters.", ruleName.data(), originDirectoryFullPath.Capacity());
         if (true == HasDirectory(originDirectoryFullPath))
@@ -132,7 +132,7 @@ namespace Pathwinder
         if (false == targetDirectoryFullPath.AsStringView().contains(L'\\'))
             return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Target directory cannot be a filesystem root.", ruleName.data());
         if (true == targetDirectoryFullPath.Empty())
-            return Strings::FormatString(L"Filesystem rule %s: Target directory: Failed to resolve full path: %s.", ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
+            return Strings::FormatString(L"Filesystem rule %s: Target directory: Failed to resolve full path: %s", ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
         if (true == targetDirectoryFullPath.Overflow())
             return Strings::FormatString(L"Filesystem rule %s: Target directory: Full path exceeds limit of %u characters.", ruleName.data(), targetDirectoryFullPath.Capacity());
         if (true == HasOriginDirectory(targetDirectoryFullPath))

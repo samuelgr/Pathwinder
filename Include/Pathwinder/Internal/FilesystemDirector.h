@@ -83,7 +83,7 @@ namespace Pathwinder
         /// Redirects a single file by selecting an appropriate rule and then using it to change the file's full path.
         /// This operation is useful for those filesystem functions that directly operate on a single absolute path.
         /// @param [in] filePath Path of the file being queried for possible redirection. Typically supplied by an application and need not be absolute. Must be null-terminated.
-        /// @return String containing the full path of the result of the redirection. If no redirection occurred then the returned string is the absolute full path equivalent of the input string.
+        /// @return String containing the full path of the result of the redirection. If no redirection occurred then the returned string is the absolute full path equivalent of the input string, unless it failed to resolve to a full path in which case the return value is a copy of the input string.
         TemporaryString RedirectSingleFile(std::wstring_view filePath) const;
     };
 }

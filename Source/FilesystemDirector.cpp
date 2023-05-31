@@ -45,8 +45,14 @@ namespace Pathwinder
     {
         TemporaryString fileFullPath;
         fileFullPath.UnsafeSetSize(GetFullPathName(filePath.data(), fileFullPath.Capacity(), fileFullPath.Data(), nullptr));
+        if (true == fileFullPath.Empty())
+        {
+            fileFullPath = filePath;
+            Message::OutputFormatted(Message::ESeverity::Error, L"Filesystem redirection query for path \"%s\" failed to resolve full path: %s", fileFullPath.AsCString(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
+            return fileFullPath;
+        }
 
-        const FilesystemRule* const selectedRule = SelectRuleForSingleFile(filePath);
+        const FilesystemRule* const selectedRule = SelectRuleForSingleFile(fileFullPath);
         if (nullptr == selectedRule)
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Filesystem redirection query for path \"%s\" resolved to \"%s\" but did not match any rules.", filePath.data(), fileFullPath.AsCString());
