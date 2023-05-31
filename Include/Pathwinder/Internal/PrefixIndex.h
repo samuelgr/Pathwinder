@@ -229,7 +229,12 @@ namespace Pathwinder
             Node* currentNode = &rootNode;
 
             for (std::optional<std::basic_string_view<CharType>> maybeNextPathComponent = Strings::TokenizeString<CharType>(tokenizeState, prefix, pathDelimiters.data(), pathDelimiterCount); true == maybeNextPathComponent.has_value(); maybeNextPathComponent = Strings::TokenizeString<CharType>(tokenizeState, prefix, pathDelimiters.data(), pathDelimiterCount))
+            {
+                if (0 == maybeNextPathComponent.value().length())
+                    continue;
+
                 currentNode = currentNode->FindOrEmplaceChild(maybeNextPathComponent.value());
+            }
 
             return currentNode;
         }
@@ -246,6 +251,9 @@ namespace Pathwinder
 
             for (std::optional<std::basic_string_view<CharType>> maybeNextPathComponent = Strings::TokenizeString<CharType>(tokenizeState, prefix, pathDelimiters.data(), pathDelimiterCount); true == maybeNextPathComponent.has_value(); maybeNextPathComponent = Strings::TokenizeString<CharType>(tokenizeState, prefix, pathDelimiters.data(), pathDelimiterCount))
             {
+                if (0 == maybeNextPathComponent.value().length())
+                    continue;
+
                 const Node* nextPathChildNode = currentNode->FindChild(maybeNextPathComponent.value());
                 if (nullptr == nextPathChildNode)
                     return nullptr;
@@ -327,6 +335,9 @@ namespace Pathwinder
 
             for (std::optional<std::basic_string_view<CharType>> maybeNextPathComponent = Strings::TokenizeString<CharType>(tokenizeState, stringToMatch, pathDelimiters.data(), pathDelimiterCount); true == maybeNextPathComponent.has_value(); maybeNextPathComponent = Strings::TokenizeString<CharType>(tokenizeState, stringToMatch, pathDelimiters.data(), pathDelimiterCount))
             {
+                if (0 == maybeNextPathComponent.value().length())
+                    continue;
+
                 if (true == currentNode->HasData())
                     longestMatchingPrefixNode = currentNode;
 

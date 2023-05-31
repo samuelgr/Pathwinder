@@ -80,6 +80,53 @@ namespace PathwinderTest
         TEST_ASSERT(true  == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7\\Level8"));
     }
 
+    // Inserts a few strings into the prefix index, as with the nominal test case but this time with consecutive delimiters.
+    // Verifies that only the strings specifically inserted are seen as being contained in the index and that the correct data reference is returned accordingly for queries.
+    TEST_CASE(PrefixIndex_QueryContents_ConsecutiveDelimiters)
+    {
+        TTestPrefixIndex index(L"\\");
+
+        index.Insert(L"Level1\\Level2\\\\Level3\\\\\\Level4\\\\\\\\Level5", kTestData[5]);
+        index.Insert(L"Level1\\\\\\\\\\Level2", kTestData[2]);
+
+        TEST_ASSERT(false == index.Contains(L"Level1"));
+        TEST_ASSERT(true  == index.Contains(L"Level1\\Level2"));
+        TEST_ASSERT(false == index.Contains(L"Level1\\Level2\\Level3"));
+        TEST_ASSERT(false == index.Contains(L"Level1\\Level2\\Level3\\Level4"));
+        TEST_ASSERT(true  == index.Contains(L"Level1\\Level2\\Level3\\Level4\\Level5"));
+
+        TEST_ASSERT(nullptr == index.Find(L"Level1"));
+        TEST_ASSERT(nullptr == index.Find(L"Level1\\Level2\\Level3"));
+        TEST_ASSERT(nullptr == index.Find(L"Level1\\Level2\\Level3\\Level4"));
+
+        auto level2Node = index.Find(L"Level1\\Level2");
+        TEST_ASSERT(nullptr != level2Node);
+        TEST_ASSERT(level2Node->GetData() == &kTestData[2]);
+
+        auto level5Node = index.Find(L"Level1\\Level2\\Level3\\Level4\\Level5");
+        TEST_ASSERT(nullptr != level5Node);
+        TEST_ASSERT(level5Node->GetData() == &kTestData[5]);
+    }
+
+    // Inserts a few strings into the prefix index using multiple delimters, as with the multiple delimiter test case but this time with consecutive delimiters of different types.
+    // Verifies that only the strings specifically inserted are seen as being contained in the index and uses multiple different delimiters when querying.
+    TEST_CASE(PrefixIndex_QueryContents_ConsecutiveAndMultipleDelimiters)
+    {
+        TTestPrefixIndex index({L"\\", L"/"});
+
+        index.Insert(L"Level1\\/\\////\\Level2///\\Level3\\Level4", kTestData[4]);
+        index.Insert(L"Level1/Level2\\\\Level3\\/\\\\Level4////\\Level5/\\\\\\Level6\\Level7//Level8", kTestData[8]);
+
+        TEST_ASSERT(false == index.Contains(L"Level1"));
+        TEST_ASSERT(false == index.Contains(L"Level1/Level2"));
+        TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3"));
+        TEST_ASSERT(true  == index.Contains(L"Level1/Level2\\Level3\\Level4"));
+        TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5"));
+        TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6"));
+        TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7"));
+        TEST_ASSERT(true  == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7\\Level8"));
+    }
+
     // Inserts the same string into the prefix index multiple times.
     // Verifies that the data value is not overwritten and all subsequent insertion attempts fail.
     TEST_CASE(PrefixIndex_InsertDuplicate)

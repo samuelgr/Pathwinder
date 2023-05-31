@@ -44,6 +44,10 @@ namespace Pathwinder
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
+        /// Name of this filesystem rule.
+        /// Not used internally for any specific purpose but rather intended as a convenience for rules that are contained in a data structure that identifies them by name.
+        std::wstring_view name;
+
         /// Position within the origin directory absolute path of the final separator between name and parent path.
         /// Initialized using the contents of the origin directory path string and must be declared before it.
         const size_t kOriginDirectorySeparator;
@@ -62,10 +66,6 @@ namespace Pathwinder
         /// Can be used to filter this rule to apply to only specific named files.
         /// If empty, it is assumed that there is no filter and therefore the rule applies to all files in the origin and target directories.
         const std::vector<std::wstring> kFilePatterns;
-
-        /// Name of this filesystem rule.
-        /// Not used internally for any specific purpose but rather intended as a convenience for rules that are contained in a data structure that identifies them by name.
-        std::wstring_view name;
 
 
     public:

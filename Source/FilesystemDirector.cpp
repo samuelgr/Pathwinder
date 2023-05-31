@@ -9,6 +9,8 @@
  *   Implementation of filesystem manipulation and application functionality.
  *****************************************************************************/
 
+#include "ApiWindows.h"
+#include "DebugAssert.h"
 #include "FilesystemDirector.h"
 #include "FilesystemRule.h"
 #include "Message.h"
@@ -39,33 +41,36 @@ namespace Pathwinder
 
     // --------
 
-    FilesystemDirector::PathRedirectResultString FilesystemDirector::RedirectSingleFile(std::wstring_view fileFullPath) const
+    TemporaryString FilesystemDirector::RedirectSingleFile(std::wstring_view filePath) const
     {
-        const FilesystemRule* const selectedRule = SelectRuleForSingleFile(fileFullPath);
+        TemporaryString fileFullPath;
+        fileFullPath.UnsafeSetSize(GetFullPathName(filePath.data(), fileFullPath.Capacity(), fileFullPath.Data(), nullptr));
+
+        const FilesystemRule* const selectedRule = SelectRuleForSingleFile(filePath);
         if (nullptr == selectedRule)
         {
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Filesystem redirection query for path \"%s\" did not match any rules.", fileFullPath.data());
+            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Filesystem redirection query for path \"%s\" resolved to \"%s\" but did not match any rules.", filePath.data(), fileFullPath.AsCString());
             return fileFullPath;
         }
 
-        const size_t lastSeparatorPos = fileFullPath.find_last_of(L'\\');
+        const size_t lastSeparatorPos = fileFullPath.AsStringView().find_last_of(L'\\');
         if (std::wstring_view::npos == lastSeparatorPos)
         {
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Filesystem redirection query for path \"%s\" matched rule \"%s\" but failed due to an internal error while finding the last path separator.", fileFullPath.data(), selectedRule->GetName().data());
+            Message::OutputFormatted(Message::ESeverity::Error, L"Filesystem redirection query for path \"%s\" resolved to \"%s\" and matched rule \"%s\" but failed due to an internal error while finding the last path separator.", filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data());
             return fileFullPath;
         }
 
-        const std::wstring_view directoryPart = fileFullPath.substr(0, lastSeparatorPos);
-        const std::wstring_view filePart = ((L'\\' == fileFullPath.back()) ? L"" : fileFullPath.substr(1 + lastSeparatorPos));
+        const std::wstring_view directoryPart = fileFullPath.AsStringView().substr(0, lastSeparatorPos);
+        const std::wstring_view filePart = ((L'\\' == fileFullPath.AsStringView().back()) ? L"" : fileFullPath.AsStringView().substr(1 + lastSeparatorPos));
 
         std::optional<TemporaryString> maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(directoryPart, filePart);
         if (false == maybeRedirectedFilePath.has_value())
         {
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Filesystem redirection query for path \"%s\" matched rule \"%s\" but failed due to an internal error while synthesizing the redirect result.", fileFullPath.data(), selectedRule->GetName().data());
+            Message::OutputFormatted(Message::ESeverity::Error, L"Filesystem redirection query for path \"%s\" resolved to \"%s\" and matched rule \"%s\" but failed due to an internal error while synthesizing the redirect result.", filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data());
             return fileFullPath;
         }
 
-        Message::OutputFormatted(Message::ESeverity::Debug, L"Filesystem redirection query for path \"%s\" matched rule \"%s\" and successfully resulted in redirection to \"%s\".", fileFullPath.data(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());
+        Message::OutputFormatted(Message::ESeverity::Debug, L"Filesystem redirection query for path \"%s\" resolved to \"%s\", matched rule \"%s\", and was redirected to \"%s\".", filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());
         return std::move(maybeRedirectedFilePath.value());
     }
 }

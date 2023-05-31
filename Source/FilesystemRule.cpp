@@ -126,7 +126,7 @@ namespace Pathwinder
             // Candidate directory is a descendent of the origin directory. This case is slightly more complicated.
             // Since an entire directory hierarchy could be involved, we need to extract the part of the candidate directory that represents the immediate child of the origin directory.
             // If that immediate child matches a redirection file pattern (here we ignore the candidate path file part) then the redirection can occur.
-            // For example, if we are asked to redirect "C:\Dir1\Dir2\file.txt" from "C:\Dir1" to "C:\Dir5000" then the result would be "C:\Dir5000\Dir2\file.txt" but only if "Dir2" matches the file patterns for redirection.
+            // For example, if we are asked to redirect "C:\Dir1\Dir2\file.txt" from "C:\Dir1" to "C:\Dir5000" then the result would be "C:\Dir5000\Dir2\file.txt" but only if "Dir2" matches any of this rule's file patterns.
 
             do {
                 std::wstring_view immediateChildOfFromDirectory(candidatePathDirectoryPart);

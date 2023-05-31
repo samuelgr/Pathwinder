@@ -469,7 +469,6 @@ namespace Pathwinder
 
             while (stringToTokenize.cend() != endIter)
             {
-                bool delimiterFound = false;
                 std::basic_string_view<CharType> remainingStringToTokenize(endIter, stringToTokenize.cend());
 
                 for (unsigned int i = 0; i < numDelimiters; ++i)
@@ -486,11 +485,8 @@ namespace Pathwinder
                     }
                 }
 
-                if (false == delimiterFound)
-                {
-                    tokenizeState += 1;
-                    endIter += 1;
-                }
+                tokenizeState += 1;
+                endIter += 1;
             }
 
             tokenizeState = (1 + stringToTokenize.length());
