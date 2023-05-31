@@ -184,8 +184,7 @@ namespace Pathwinder
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
         /// Initialization constructor.
-        /// Fills path delimiters using an array and a count.
-        /// An array-out-of-bounds error will occur if the number of delimiters is too high.
+        /// Fills path delimiters using an array and a count. An array-out-of-bounds error will occur if the number of delimiters is too high.
         PrefixIndex(const std::basic_string_view<CharType>* pathDelimiterArray, unsigned int pathDelimiterArrayCount) : rootNode(nullptr, std::basic_string_view<CharType>()), pathDelimiters(), pathDelimiterCount(pathDelimiterArrayCount)
         {
             for (unsigned int i = 0; i < pathDelimiterArrayCount; ++i)

@@ -135,7 +135,7 @@ namespace Pathwinder
         /// @tparam CharType Type of character in each string, either narrow or wide.
         /// @param [in] str String to be checked for a possible prefix.
         /// @param [in] maybePrefix Candidate prefix to compare with the beginning of the string.
-        /// @return `true` if the strings compare equal, `false` otherwise.
+        /// @return `true` if the candidate prefix is a prefix of the specified string, `false` otherwise.
         template <typename CharType> bool StartsWithCaseInsensitive(std::basic_string_view<CharType> str, std::basic_string_view<CharType> maybePrefix);
 
         /// Tokenizes a string, one token at a time, using the specified delimiter. Returns the next token found and updates the state variable for subsequent calls.

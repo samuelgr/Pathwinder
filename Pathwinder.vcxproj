@@ -120,6 +120,7 @@
     <ClCompile Include="Source\ApiWindows.cpp" />
     <ClCompile Include="Source\Configuration.cpp" />
     <ClCompile Include="Source\FilesystemDirector.cpp" />
+    <ClCompile Include="Source\FilesystemDirectorBuilder.cpp" />
     <ClCompile Include="Source\FilesystemOperations.cpp" />
     <ClCompile Include="Source\FilesystemRule.cpp" />
     <ClCompile Include="Source\Globals.cpp" />
@@ -135,6 +136,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\Configuration.h" />
     <ClInclude Include="Include\Pathwinder\Internal\DebugAssert.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirector.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirectorBuilder.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemOperations.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemRule.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
