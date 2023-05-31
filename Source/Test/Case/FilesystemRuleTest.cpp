@@ -118,6 +118,24 @@ namespace PathwinderTest
         }
     }
 
+    // Verifies that paths are successfully redirected when the input path is a descendent of the origin directory.
+    // Only the matching prefix part should be replaced with the target directory.
+    TEST_CASE(FilesystemRule_RedirectPath_WithSubdirectoryHierarchy)
+    {
+        constexpr std::wstring_view kOriginDirectory = L"C:\\Origin";
+        constexpr std::wstring_view kTargetDirectory = L"D:\\Target";
+
+        constexpr std::wstring_view kInputPathDirectory = L"C:\\Origin\\Subdir2";
+        constexpr std::wstring_view kInputPathFile = L"file2.txt";
+        constexpr std::wstring_view kExpectedOutputPath = L"D:\\Target\\Subdir2\\file2.txt";
+
+        const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
+
+        std::optional<TemporaryString> actualOutputPath = filesystemRule.RedirectPathOriginToTarget(kInputPathDirectory, kInputPathFile);
+        TEST_ASSERT(true == actualOutputPath.has_value());
+        TEST_ASSERT(actualOutputPath.value() == kExpectedOutputPath);
+    }
+
     // Verifies that paths are successfully redirected when the file part matches a pattern and left alone when the file part does not match a pattern.
     TEST_CASE(FilesystemRule_RedirectPath_FilePattern)
     {

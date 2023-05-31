@@ -131,7 +131,10 @@ namespace Pathwinder
             do {
                 std::wstring_view immediateChildOfFromDirectory(candidatePathDirectoryPart);
                 immediateChildOfFromDirectory.remove_prefix(1 + fromDirectory.length());
-                immediateChildOfFromDirectory.remove_suffix(immediateChildOfFromDirectory.length() - immediateChildOfFromDirectory.find_first_of(L'\\'));
+
+                const size_t lastBackslashPos = immediateChildOfFromDirectory.find_first_of(L'\\');
+                if (std::wstring_view::npos != lastBackslashPos)
+                    immediateChildOfFromDirectory.remove_suffix(immediateChildOfFromDirectory.length() - immediateChildOfFromDirectory.find_first_of(L'\\'));
 
                 if (false == FileNameMatchesAnyPatternInternal(immediateChildOfFromDirectory, kFilePatterns))
                     return std::nullopt;

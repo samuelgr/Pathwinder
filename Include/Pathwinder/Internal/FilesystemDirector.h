@@ -16,6 +16,7 @@
 #include "PrefixIndex.h"
 
 #include <map>
+#include <variant>
 
 
 namespace Pathwinder
@@ -26,6 +27,85 @@ namespace Pathwinder
     class FilesystemDirector
     {
     private:
+        // -------- TYPE DEFINITIONS --------------------------------------- //
+
+        /// Holds the result of redirecting a path. Immutable once created.
+        /// Enables conditional redirection operations based on filesystem rules to avoid unconditionally making copies of strings. However, the original input string used to query for path redirection must outlive its corresponding instance of this object.
+        /// This optimization is useful because redirection is in the performance critical path and the expected common case is that no redirection would take place, since redirection is expected to be applied very selectively.
+        class PathRedirectResultString
+        {
+        private:
+            // -------- INSTANCE VARIABLES --------------------------------- //
+
+            /// Result string itself, either a temporary buffer due to needing to synthesize a new path or a read-only view if no redirection occurred.
+            std::variant<TemporaryString, std::wstring_view> resultString;
+
+
+        public:
+            // -------- CONSTRUCTION AND DESTRUCTION ----------------------- //
+
+            /// Initialization constructor.
+            /// Creates a path redirection result string from a temporary buffer, which is subsequently owned by this object.
+            inline PathRedirectResultString(TemporaryString&& redirectResult) : resultString(std::move(redirectResult))
+            {
+                // Nothing to do here.
+            }
+
+            /// Initialization constructor.
+            /// Creates a path redirection result string from a read-only string view, which is subsequently not owned by this object.
+            inline PathRedirectResultString(std::wstring_view redirectResult) : resultString(redirectResult)
+            {
+                // Nothing to do here.
+            }
+
+
+            // -------- OPERATORS ------------------------------------------ //
+
+            /// Equality check with temporary strings.
+            inline bool operator==(const TemporaryString& other) const
+            {
+                return (other.AsStringView() == AsStringView());
+            }
+
+            /// Equality check with C strings.
+            inline bool operator==(const wchar_t* other) const
+            {
+                return (std::wstring_view(other) == AsStringView());
+            }
+
+            /// Equality check with strings.
+            inline bool operator==(const std::wstring& other) const
+            {
+                return (other == AsStringView());
+            }
+
+            /// Equality check with string views.
+            inline bool operator==(std::wstring_view other) const
+            {
+                return (other == AsStringView());
+            }
+
+            /// Implicit conversion to a string view.
+            inline operator std::wstring_view(void) const
+            {
+                return AsStringView();
+            }
+
+
+            // -------- INSTANCE METHODS ----------------------------------- //
+
+            /// Represents this object as a string view.
+            /// @return String view representation.
+            inline std::wstring_view AsStringView(void) const
+            {
+                if (0 == resultString.index())
+                    return std::get<0>(resultString).AsStringView();
+                else
+                    return std::get<1>(resultString);
+            }
+        };
+
+
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
         /// Holds all filesystem rules contained within the candidate filesystem director object. Maps from rule name to rule object.
@@ -75,14 +155,14 @@ namespace Pathwinder
         /// Determines which rule from among those held by this object should be used to redirect a single filename.
         /// This operation is useful for those filesystem functions that directly operate on a single absolute path.
         /// Primarily intended for internal use but exposed for tests.
-        /// @param [in] fileFullPath Full path of the file being queried for possible redirection.
+        /// @param [in] fileFullPath Full path of the file being queried for possible redirection. Must be null-terminated.
         /// @return Pointer to the rule object that should be used to process the redirection, or `nullptr` if no redirection should occur at all.
         const FilesystemRule* SelectRuleForSingleFile(std::wstring_view fileFullPath) const;
 
         /// Redirects a single file by selecting an appropriate rule and then using it to change the file's full path.
         /// This operation is useful for those filesystem functions that directly operate on a single absolute path.
-        /// @param [in] fileFullPath Full path of the file being queried for possible redirection.
+        /// @param [in] fileFullPath Full path of the file being queried for possible redirection. Must be null-terminated.
         /// @return String containing the result of the redirection. If no redirection occurred then the returned string is equal to the input string.
-        TemporaryString RedirectSingleFile(std::wstring_view fileFullPath) const;
+        PathRedirectResultString RedirectSingleFile(std::wstring_view fileFullPath) const;
     };
 }

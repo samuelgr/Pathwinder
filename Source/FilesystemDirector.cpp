@@ -11,6 +11,7 @@
 
 #include "FilesystemDirector.h"
 #include "FilesystemRule.h"
+#include "Message.h"
 #include "PrefixIndex.h"
 
 #include <optional>
@@ -38,25 +39,33 @@ namespace Pathwinder
 
     // --------
 
-    TemporaryString FilesystemDirector::RedirectSingleFile(std::wstring_view fileFullPath) const
+    FilesystemDirector::PathRedirectResultString FilesystemDirector::RedirectSingleFile(std::wstring_view fileFullPath) const
     {
         const FilesystemRule* const selectedRule = SelectRuleForSingleFile(fileFullPath);
         if (nullptr == selectedRule)
+        {
+            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Filesystem redirection query for path \"%s\" did not match any rules.", fileFullPath.data());
             return fileFullPath;
+        }
 
         const size_t lastSeparatorPos = fileFullPath.find_last_of(L'\\');
         if (std::wstring_view::npos == lastSeparatorPos)
+        {
+            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Filesystem redirection query for path \"%s\" matched rule \"%s\" but failed due to an internal error while finding the last path separator.", fileFullPath.data(), selectedRule->GetName().data());
             return fileFullPath;
+        }
 
         const std::wstring_view directoryPart = fileFullPath.substr(0, lastSeparatorPos);
         const std::wstring_view filePart = ((L'\\' == fileFullPath.back()) ? L"" : fileFullPath.substr(1 + lastSeparatorPos));
 
         std::optional<TemporaryString> maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(directoryPart, filePart);
         if (false == maybeRedirectedFilePath.has_value())
+        {
+            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Filesystem redirection query for path \"%s\" matched rule \"%s\" but failed due to an internal error while synthesizing the redirect result.", fileFullPath.data(), selectedRule->GetName().data());
             return fileFullPath;
+        }
 
-        TemporaryString redirectedFilePath = std::move(maybeRedirectedFilePath.value());
-        redirectedFilePath << L'\\' << filePart;
-        return redirectedFilePath;
+        Message::OutputFormatted(Message::ESeverity::Debug, L"Filesystem redirection query for path \"%s\" matched rule \"%s\" and successfully resulted in redirection to \"%s\".", fileFullPath.data(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());
+        return std::move(maybeRedirectedFilePath.value());
     }
 }
