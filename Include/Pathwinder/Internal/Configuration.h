@@ -79,6 +79,9 @@ namespace Pathwinder
         private:
             // -------- INSTANCE VARIABLES --------------------------------- //
 
+            /// Line number within the configuration file on which this value was located.
+            int lineNumber;
+
             /// Indicates the value type.
             EValueType type;
 
@@ -95,43 +98,43 @@ namespace Pathwinder
             // -------- CONSTRUCTION AND DESTRUCTION ----------------------- //
 
             /// Initialization constructor. Creates an integer-typed value by copying it.
-            inline Value(const TIntegerValue& value) : type(EValueType::Integer), intValue(value)
+            inline Value(int lineNumber, const TIntegerValue& value) : lineNumber(lineNumber), type(EValueType::Integer), intValue(value)
             {
                 // Nothing to do here.
             }
 
             /// Initialization constructor. Creates an integer-typed value by moving it.
-            inline Value(TIntegerValue&& value) : type(EValueType::Integer), intValue(std::move(value))
+            inline Value(int lineNumber, TIntegerValue&& value) : lineNumber(lineNumber), type(EValueType::Integer), intValue(std::move(value))
             {
                 // Nothing to do here.
             }
 
             /// Initialization constructor. Creates a Boolean-typed value by copying it.
-            inline Value(const TBooleanValue& value) : type(EValueType::Boolean), boolValue(value)
+            inline Value(int lineNumber, const TBooleanValue& value) : lineNumber(lineNumber), type(EValueType::Boolean), boolValue(value)
             {
                 // Nothing to do here.
             }
 
             /// Initialization constructor. Creates a Boolean-typed value by moving it.
-            inline Value(TBooleanValue&& value) : type(EValueType::Boolean), boolValue(std::move(value))
+            inline Value(int lineNumber, TBooleanValue&& value) : lineNumber(lineNumber), type(EValueType::Boolean), boolValue(std::move(value))
             {
                 // Nothing to do here.
             }
 
             /// Initialization constructor. Creates a string-typed value by copying it.
-            inline Value(const TStringValue& value) : type(EValueType::String), stringValue(value)
+            inline Value(int lineNumber, const TStringValue& value) : lineNumber(lineNumber), type(EValueType::String), stringValue(value)
             {
                 // Nothing to do here.
             }
 
             /// Initialization constructor. Creates a string-typed value by moving it.
-            inline Value(TStringValue&& value) : type(EValueType::String), stringValue(std::move(value))
+            inline Value(int lineNumber, TStringValue&& value) : lineNumber(lineNumber), type(EValueType::String), stringValue(std::move(value))
             {
                 // Nothing to do here.
             }
 
             /// Copy constructor.
-            inline Value(const Value& other) : type(other.type)
+            inline Value(const Value& other) : lineNumber(other.lineNumber), type(other.type)
             {
                 switch (other.type)
                 {
@@ -153,7 +156,7 @@ namespace Pathwinder
             }
 
             /// Move constructor.
-            inline Value(Value&& other) : type(std::move(other.type))
+            inline Value(Value&& other) : lineNumber(std::move(other.lineNumber)), type(std::move(other.type))
             {
                 switch (other.type)
                 {
@@ -251,6 +254,13 @@ namespace Pathwinder
 
 
             // -------- INSTANCE METHODS ----------------------------------- //
+
+            /// Retrieves and returns the line number within the configuration file on which this value was located.
+            /// @return Line number that corresponds to this value.
+            inline int GetLineNumber(void) const
+            {
+                return lineNumber;
+            }
 
             /// Retrieves and returns the type of the stored value.
             /// @return Type of the stored value.
@@ -551,6 +561,15 @@ namespace Pathwinder
 
             // -------- INSTANCE METHODS ----------------------------------- //
 
+            /// Erases the specified section from this configuration data object.
+            /// Useful for freeing up memory after post-processing of the configuration data.
+            /// @param [in] section Section name to erase.
+            /// @return `true` if the section was located and successfully erased, `false` otherwise.
+            inline bool EraseSection(std::wstring_view section)
+            {
+                return (0 != sections.erase(section));
+            }
+
             /// Stores a new value for the specified configuration setting in the specified section by copying the input parameter.
             /// Will fail if the value already exists.
             /// @tparam ValueType Type of value to insert.
@@ -714,6 +733,12 @@ namespace Pathwinder
             /// @return Configuration data object filled based on the contents of the configuration file.
             ConfigurationData ReadConfigurationFile(std::wstring_view configFileName);
 
+            /// Reads and parses a configuration file held in memory, storing the settings in the supplied configuration object.
+            /// Intended to be invoked externally, primarily by tests. Subclasses should not override this method.
+            /// @param [in] configFileName Name of the configuration file to read.
+            /// @return Configuration data object filled based on the contents of the configuration file.
+            ConfigurationData ReadInMemoryConfigurationFile(std::wstring_view configBuffer);
+
         protected:
             /// Sets a semantically-rich error message to be presented to the user in response to a subclass returning an error when asked what action to take.
             /// If a subclass does not set a semantically-rich error message then the default error message is used instead.
@@ -752,6 +777,12 @@ namespace Pathwinder
             {
                 return !(lastErrorMessage.empty());
             }
+
+            /// Internal implementation of reading and parsing configuration files from any source.
+            /// @tparam ReadHandleType Handle that implements the functions required to read one line at a time from an input source.
+            /// @param [in] readHandle Mutable reference to a handle that controls the reading process.
+            /// @param [in] configSourceName Name associated with the source of the configuration file data that can be used to identify it in logs and error messages.
+            template <typename ReadHandleType> ConfigurationData ReadConfiguration(ReadHandleType& readHandle, std::wstring_view configSourceName);
 
 
         protected:

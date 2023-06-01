@@ -28,12 +28,6 @@ namespace Pathwinder
         // Can safely be used at any time, including to perform static initialization.
         // Views are guaranteed to be null-terminated.
 
-        /// Configuration file section for defining variables.
-        inline constexpr std::wstring_view kStrConfigurationSectionDefinitions = L"Definitions";
-
-        /// Configuration file setting for enabling and specifying the verbosity of output to the log file.
-        inline constexpr std::wstring_view kStrConfigurationSettingLogLevel = L"LogLevel";
-
         /// Delimiter used to separate portions of a string that are to be taken as literals versus to be taken as named references.
         inline constexpr std::wstring_view kStrDelimiterReferenceVsLiteral = L"%";
 
@@ -51,6 +45,27 @@ namespace Pathwinder
 
         /// Domain part of a named reference that identifies the domain as being a shell "known folder" identifier.
         inline constexpr std::wstring_view kStrReferenceDomainKnownFolderIdentifier = L"FOLDERID";
+
+
+        /// Configuration file setting for enabling and specifying the verbosity of output to the log file.
+        inline constexpr std::wstring_view kStrConfigurationSettingLogLevel = L"LogLevel";
+
+
+        /// Configuration file section for defining variables.
+        inline constexpr std::wstring_view kStrConfigurationSectionDefinitions = L"Definitions";
+
+
+        /// Prefix for configuration file sections that define filesystem rules.
+        inline constexpr std::wstring_view kStrConfigurationSectionFilesystemRulePrefix = L"FilesystemRule:";
+
+        /// Configuration file setting for identifying the origin directory of a filesystem rule.
+        inline constexpr std::wstring_view kStrConfigurationSettingFilesystemRuleOriginDirectory = L"OriginDirectory";
+
+        /// Configuration file setting for identifying the target directory of a filesystem rule.
+        inline constexpr std::wstring_view kStrConfigurationSettingFilesystemRuleTargetDirectory = L"TargetDirectory";
+
+        /// Configuration file setting for specifying a file pattern for a filesystem rule.
+        inline constexpr std::wstring_view kStrConfigurationSettingFilesystemRuleFilePattern = L"FilePattern";
 
 
         // -------- RUN-TIME CONSTANTS ------------------------------------- //

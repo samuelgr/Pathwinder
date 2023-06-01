@@ -55,6 +55,8 @@ namespace Pathwinder
                 _wfopen_s(&fileHandle, filename, mode);
             }
 
+            FileHandle(const FileHandle& other) = delete;
+
             inline ~FileHandle(void)
             {
                 if (nullptr != fileHandle)
@@ -70,23 +72,41 @@ namespace Pathwinder
             {
                 return &fileHandle;
             }
+
+            inline bool IsEndOfInput(void)
+            {
+                return feof(fileHandle);
+            }
+
+            inline bool IsError(void)
+            {
+                return ferror(fileHandle);
+            }
+        };
+
+        /// Wrapper that emulates a file handle but for in-memory buffers.
+        struct MemoryBufferHandle
+        {
+            std::wstring_view remainingBuffer;
+
+            inline MemoryBufferHandle(std::wstring_view configBuffer) : remainingBuffer(configBuffer)
+            {
+                // Nothing to do here.
+            }
+            
+            inline bool IsEndOfInput(void)
+            {
+                return remainingBuffer.empty();
+            }
+
+            inline bool IsError(void)
+            {
+                return false;
+            }
         };
 
 
         // -------- INTERNAL FUNCTIONS ------------------------------------- //
-
-        /// Compares two strings for equality without regard for character case.
-        /// @param [in] a First string to compare.
-        /// @param [in] b Second string to compare.
-        /// @return `true` if the strings are equal without regard for character case, `false` otherwise.
-        static inline bool CaseInsensitiveStringCompare(std::wstring_view a, std::wstring_view b)
-        {
-            return std::equal(a.cbegin(), a.cend(), b.cbegin(), b.cend(), [](wchar_t a, wchar_t b) -> bool
-                {
-                    return (towlower(a) == towlower(b));
-                }
-            );
-        }
 
         /// Tests if the supplied character is allowed as a configuration setting name (the part before the '=' sign in the configuration file).
         /// @param [in] charToTest Character to test.
@@ -170,6 +190,8 @@ namespace Pathwinder
             case L'&':
             case L'(':
             case L')':
+            case L'*':
+            case L'?':
                 return true;
 
             default:
@@ -276,7 +298,7 @@ namespace Pathwinder
             // Check if the string represents a value of TRUE.
             for (auto& trueString : kTrueStrings)
             {
-                if (true == CaseInsensitiveStringCompare(trueString, source))
+                if (true == Strings::EqualsCaseInsensitive(trueString, source))
                 {
                     dest = (TBooleanValue)true;
                     return true;
@@ -286,7 +308,7 @@ namespace Pathwinder
             // Check if the string represents a value of FALSE.
             for (auto& falseString : kFalseStrings)
             {
-                if (true == CaseInsensitiveStringCompare(falseString, source))
+                if (true == Strings::EqualsCaseInsensitive(falseString, source))
                 {
                     dest = (TBooleanValue)false;
                     return true;
@@ -382,12 +404,78 @@ namespace Pathwinder
             return std::wstring_view(section, sectionLength);
         }
 
-        /// Reads a single line from the specified file handle, verifies that it fits within the specified buffer, and removes trailing whitespace.
-        /// @param [in] filehandle Handle to the file from which to read.
+        /// Reads a single line from the specified handle, verifies that it fits within the specified buffer, and removes trailing whitespace.
+        /// Default implementation does nothing and always returns an error.
+        /// @tparam ReadHandleType Handle that implements the functions required to read one line at a time from an input source.
+        /// @param [in] readHandle Handle to the configuration file data from which to read.
         /// @param [out] lineBuffer Filled with text read from the specified file.
         /// @param [in] lineBufferCount Length, in character units, of the line buffer.
         /// @return Length of the string that was read, with -1 indicating an error condition.
-        static int ReadAndTrimLine(FILE* const filehandle, wchar_t* const lineBuffer, const int lineBufferCount)
+        template <typename ReadHandleType> static int ReadAndTrimLine(ReadHandleType& readHandle, wchar_t* const lineBuffer, const int lineBufferCount)
+        {
+            return -1;
+        }
+
+        /// Reads a single line from the specified file handle, verifies that it fits within the specified buffer, and removes trailing whitespace.
+        /// This is a template specialization for reading from files.
+        /// @param [in] fileHandle File handle for the configuration file.
+        /// @param [out] lineBuffer Filled with text read from the specified file.
+        /// @param [in] lineBufferCount Length, in character units, of the line buffer.
+        /// @return Length of the string that was read, with -1 indicating an error condition.
+        template <> static int ReadAndTrimLine<FileHandle>(FileHandle& fileHandle, wchar_t* const lineBuffer, const int lineBufferCount)
+        {
+            // Results in a null-terminated string guaranteed, but might not be the whole line if the buffer is too small.
+            if (lineBuffer != fgetws(lineBuffer, lineBufferCount, fileHandle))
+                return -1;
+
+            // If the line fits in the buffer, then either its detected length is small by comparison to the buffer size or, if it perfectly fits in the buffer, then the last character is a newline.
+            int lineLength = (int)wcsnlen(lineBuffer, lineBufferCount);
+            if (((lineBufferCount - 1) == lineLength) && (L'\n' != lineBuffer[lineLength - 1]))
+                return -1;
+
+            // Trim off any whitespace on the end of the line.
+            while (iswspace(lineBuffer[lineLength - 1]))
+                lineLength -= 1;
+
+            lineBuffer[lineLength] = L'\0';
+
+            return lineLength;
+        }
+
+        /// Reads a single line from the specified in-memory configuration file data, verifies that it fits within the specified buffer, and removes trailing whitespace.
+        /// This is a template specialization for reading from an in-memory buffer.
+        /// @param [in] memoryBufferHandle Handle object for reading from the in-memory buffer.
+        /// @param [out] lineBuffer Filled with text read from the specified file.
+        /// @param [in] lineBufferCount Length, in character units, of the line buffer.
+        /// @return Length of the string that was read, with -1 indicating an error condition.
+        template <> static int ReadAndTrimLine<MemoryBufferHandle>(MemoryBufferHandle& memoryBufferHandle, wchar_t* const lineBuffer, const int lineBufferCount)
+        {
+            if (memoryBufferHandle.IsEndOfInput())
+                return -1;
+
+            int nextLineLength = (int)memoryBufferHandle.remainingBuffer.find_first_of(L'\n');
+
+            if (std::wstring_view::npos == nextLineLength)
+                nextLineLength = (int)memoryBufferHandle.remainingBuffer.length();
+            else
+                nextLineLength += 1;
+
+            int numCharsWritten = 0;
+            for (; numCharsWritten < std::min(nextLineLength, (lineBufferCount - 1)); ++numCharsWritten)
+                lineBuffer[numCharsWritten] = memoryBufferHandle.remainingBuffer[numCharsWritten];
+
+            memoryBufferHandle.remainingBuffer.remove_prefix(numCharsWritten);
+
+            // Trim off any whitespace on the end of the line.
+            while (iswspace(lineBuffer[numCharsWritten - 1]))
+                numCharsWritten -= 1;
+
+            lineBuffer[numCharsWritten] = L'\0';
+
+            return numCharsWritten;
+        }
+
+        static int OldReadAndTrimLine(FILE* const filehandle, wchar_t* const lineBuffer, const int lineBufferCount)
         {
             // Results in a null-terminated string guaranteed, but might not be the whole line if the buffer is too small.
             if (lineBuffer != fgetws(lineBuffer, lineBufferCount, filehandle))
@@ -413,14 +501,26 @@ namespace Pathwinder
 
         ConfigurationData ConfigurationFileReader::ReadConfigurationFile(std::wstring_view configFileName)
         {
-            ConfigurationData configToFill;
-
             FileHandle configFileHandle(configFileName.data(), L"r");
             if (nullptr == configFileHandle)
             {
-                configToFill.SetError();
-                return configToFill;
+                ConfigurationData configDataWithError;
+                configDataWithError.SetError();
+                return configDataWithError;
             }
+
+            return ReadConfiguration(configFileHandle, configFileName);
+        }
+
+        ConfigurationData ConfigurationFileReader::ReadInMemoryConfigurationFile(std::wstring_view configBuffer)
+        {
+            MemoryBufferHandle configBufferHandle(configBuffer);
+            return ReadConfiguration(configBufferHandle, Strings::FormatString(L"[0x%0.*zx]", (2 * sizeof(size_t)), (size_t)configBuffer.data()));
+        }
+
+        template <typename ReadHandleType> ConfigurationData ConfigurationFileReader::ReadConfiguration(ReadHandleType& readHandle, std::wstring_view configSourceName)
+        {
+            ConfigurationData configToFill;
 
             BeginRead();
 
@@ -430,7 +530,7 @@ namespace Pathwinder
 
             int configLineNumber = 1;
             TemporaryBuffer<wchar_t> configLineBuffer;
-            int configLineLength = ReadAndTrimLine(configFileHandle, configLineBuffer.Data(), configLineBuffer.Capacity());
+            int configLineLength = ReadAndTrimLine(readHandle, configLineBuffer.Data(), configLineBuffer.Capacity());
             bool skipValueLines = false;
 
             while (configLineLength >= 0)
@@ -438,7 +538,7 @@ namespace Pathwinder
                 switch (ClassifyConfigurationFileLine(configLineBuffer.Data(), configLineLength))
                 {
                 case ELineClassification::Error:
-                    readErrors.emplace_back(Strings::FormatString(L"%s(%d): Unable to parse line.", configFileName.data(), configLineNumber));
+                    readErrors.emplace_back(Strings::FormatString(L"%s(%d): Unable to parse line.", configSourceName.data(), configLineNumber));
                     break;
 
                 case ELineClassification::Ignore:
@@ -450,7 +550,7 @@ namespace Pathwinder
 
                         if (0 != seenSections.count(section))
                         {
-                            readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Duplicated section name.", configFileName.data(), configLineNumber, section.data()));
+                            readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Duplicated section name.", configSourceName.data(), configLineNumber, section.data()));
                             skipValueLines = true;
                             break;
                         }
@@ -460,9 +560,9 @@ namespace Pathwinder
                         {
                         case EAction::Error:
                             if (true == HasLastErrorMessage())
-                                readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s", configFileName.data(), configLineNumber, GetLastErrorMessage().c_str()));
+                                readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s", configSourceName.data(), configLineNumber, GetLastErrorMessage().c_str()));
                             else
-                                readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Unrecognized section name.", configFileName.data(), configLineNumber, section.data()));
+                                readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Unrecognized section name.", configSourceName.data(), configLineNumber, section.data()));
                             skipValueLines = true;
                             break;
 
@@ -476,7 +576,7 @@ namespace Pathwinder
                             break;
 
                         default:
-                            readErrors.emplace_back(Strings::FormatString(L"%s(%d): Internal error while processing section name.", configFileName.data(), configLineNumber));
+                            readErrors.emplace_back(Strings::FormatString(L"%s(%d): Internal error while processing section name.", configSourceName.data(), configLineNumber));
                             skipValueLines = true;
                             break;
                         }
@@ -501,7 +601,7 @@ namespace Pathwinder
                         case EValueType::String:
                             if (configToFill.SectionNamePairExists(thisSection, name))
                             {
-                                readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Only a single value is allowed for this setting.", configFileName.data(), configLineNumber, name.data()));
+                                readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Only a single value is allowed for this setting.", configSourceName.data(), configLineNumber, name.data()));
                                 shouldParseValue = false;
                             }
                             break;
@@ -517,7 +617,7 @@ namespace Pathwinder
                         switch (valueType)
                         {
                         case EValueType::Error:
-                            readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Unrecognized configuration setting.", configFileName.data(), configLineNumber, name.data()));
+                            readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Unrecognized configuration setting.", configSourceName.data(), configLineNumber, name.data()));
                             break;
 
                         case EValueType::Integer:
@@ -527,7 +627,7 @@ namespace Pathwinder
 
                                 if (false == ParseInteger(value, intValue))
                                 {
-                                    readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Failed to parse integer value.", configFileName.data(), configLineNumber, value.data()));
+                                    readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Failed to parse integer value.", configSourceName.data(), configLineNumber, value.data()));
                                     break;
                                 }
 
@@ -535,14 +635,14 @@ namespace Pathwinder
                                 {
                                 case EAction::Error:
                                     if (true == HasLastErrorMessage())
-                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s", configFileName.data(), configLineNumber, GetLastErrorMessage().c_str()));
+                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s", configSourceName.data(), configLineNumber, GetLastErrorMessage().c_str()));
                                     else
-                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Invalid value for configuration setting %s.", configFileName.data(), configLineNumber, value.data(), name.data()));
+                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Invalid value for configuration setting %s.", configSourceName.data(), configLineNumber, value.data(), name.data()));
                                     break;
 
                                 case EAction::Process:
-                                    if (false == configToFill.Insert(thisSection, name, TIntegerValue(intValue)))
-                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Duplicated value for configuration setting %s.", configFileName.data(), configLineNumber, value.data(), name.data()));
+                                    if (false == configToFill.Insert(thisSection, name, Value(configLineNumber, TIntegerValue(intValue))))
+                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Duplicated value for configuration setting %s.", configSourceName.data(), configLineNumber, value.data(), name.data()));
                                     break;
                                 }
                             } while (false);
@@ -555,7 +655,7 @@ namespace Pathwinder
 
                                 if (false == ParseBoolean(value, boolValue))
                                 {
-                                    readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Failed to parse Boolean value.", configFileName.data(), configLineNumber, value.data()));
+                                    readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Failed to parse Boolean value.", configSourceName.data(), configLineNumber, value.data()));
                                     break;
                                 }
 
@@ -563,14 +663,14 @@ namespace Pathwinder
                                 {
                                 case EAction::Error:
                                     if (true == HasLastErrorMessage())
-                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s", configFileName.data(), configLineNumber, GetLastErrorMessage().c_str()));
+                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s", configSourceName.data(), configLineNumber, GetLastErrorMessage().c_str()));
                                     else
-                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Invalid value for configuration setting %s.", configFileName.data(), configLineNumber, value.data(), name.data()));
+                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Invalid value for configuration setting %s.", configSourceName.data(), configLineNumber, value.data(), name.data()));
                                     break;
 
                                 case EAction::Process:
-                                    if (false == configToFill.Insert(thisSection, name, TBooleanValue(boolValue)))
-                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Duplicated value for configuration setting %s.", configFileName.data(), configLineNumber, value.data(), name.data()));
+                                    if (false == configToFill.Insert(thisSection, name, Value(configLineNumber, TBooleanValue(boolValue))))
+                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Duplicated value for configuration setting %s.", configSourceName.data(), configLineNumber, value.data(), name.data()));
                                     break;
                                 }
                             } while (false);
@@ -583,50 +683,50 @@ namespace Pathwinder
                                 {
                                 case EAction::Error:
                                     if (true == HasLastErrorMessage())
-                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s", configFileName.data(), configLineNumber, GetLastErrorMessage().c_str()));
+                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s", configSourceName.data(), configLineNumber, GetLastErrorMessage().c_str()));
                                     else
-                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Invalid value for configuration setting %s.", configFileName.data(), configLineNumber, value.data(), name.data()));
+                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Invalid value for configuration setting %s.", configSourceName.data(), configLineNumber, value.data(), name.data()));
                                     break;
 
                                 case EAction::Process:
-                                    if (false == configToFill.Insert(thisSection, name, TStringValue(value)))
-                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Duplicated value for configuration setting %s.", configFileName.data(), configLineNumber, value.data(), name.data()));
+                                    if (false == configToFill.Insert(thisSection, name, Value(configLineNumber, TStringValue(value))))
+                                        readErrors.emplace_back(Strings::FormatString(L"%s(%d): %s: Duplicated value for configuration setting %s.", configSourceName.data(), configLineNumber, value.data(), name.data()));
                                     break;
                                 }
                             } while (false);
                             break;
 
                         default:
-                            readErrors.emplace_back(Strings::FormatString(L"%s(%d): Internal error while processing configuration setting.", configFileName.data(), configLineNumber));
+                            readErrors.emplace_back(Strings::FormatString(L"%s(%d): Internal error while processing configuration setting.", configSourceName.data(), configLineNumber));
                             break;
                         }
                     }
                     break;
 
                 default:
-                    readErrors.emplace_back(Strings::FormatString(L"%s(%d): Internal error while processing line.", configFileName.data(), configLineNumber));
+                    readErrors.emplace_back(Strings::FormatString(L"%s(%d): Internal error while processing line.", configSourceName.data(), configLineNumber));
                     break;
                 }
 
-                configLineLength = ReadAndTrimLine(configFileHandle, configLineBuffer.Data(), configLineBuffer.Capacity());
+                configLineLength = ReadAndTrimLine(readHandle, configLineBuffer.Data(), configLineBuffer.Capacity());
                 configLineNumber += 1;
             }
 
-            if (!feof(configFileHandle))
+            if (!readHandle.IsEndOfInput())
             {
                 // Stopped reading the configuration file early due to some condition other than end-of-file.
                 // This indicates an error.
 
-                if (ferror(configFileHandle))
+                if (readHandle.IsError())
                 {
-                    readErrors.emplace_back(Strings::FormatString(L"%s(%d): I/O error while reading.", configFileName.data(), configLineNumber));
+                    readErrors.emplace_back(Strings::FormatString(L"%s(%d): I/O error while reading.", configSourceName.data(), configLineNumber));
                     configToFill.SetError();
                     return configToFill;
 
                 }
                 else if (configLineLength < 0)
                 {
-                    readErrors.emplace_back(Strings::FormatString(L"%s(%d): Line is too long.", configFileName.data(), configLineNumber));
+                    readErrors.emplace_back(Strings::FormatString(L"%s(%d): Line is too long.", configSourceName.data(), configLineNumber));
                     configToFill.SetError();
                     return configToFill;
                 }
