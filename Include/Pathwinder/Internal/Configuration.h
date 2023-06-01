@@ -543,8 +543,8 @@ namespace Pathwinder
             /// Holds configuration data at the level of entire sections, one element per section.
             TSections sections;
 
-            /// Specifies if errors were encountered while generating the data contained within this object.
-            bool hasErrors;
+            /// Holds the error messages that describes any errors that occurred during configuration file read.
+            std::optional<std::vector<std::wstring>> readErrors;
 
 
         public:
@@ -561,6 +561,14 @@ namespace Pathwinder
 
             // -------- INSTANCE METHODS ----------------------------------- //
 
+            /// Clears all of the stored read error messages and frees up all of the memory space they occupy. This method does not affect the return value of #HasReadErrors.
+            /// Read error messages indicate a problem that occurred while the configuration file that produced this object was being read.
+            inline void ClearReadErrorMessages(void)
+            {
+                if (true == readErrors.has_value())
+                    readErrors.value().clear();
+            }
+
             /// Erases the specified section from this configuration data object.
             /// Useful for freeing up memory after post-processing of the configuration data.
             /// @param [in] section Section name to erase.
@@ -568,38 +576,6 @@ namespace Pathwinder
             inline bool EraseSection(std::wstring_view section)
             {
                 return (0 != sections.erase(section));
-            }
-
-            /// Stores a new value for the specified configuration setting in the specified section by copying the input parameter.
-            /// Will fail if the value already exists.
-            /// @tparam ValueType Type of value to insert.
-            /// @param [in] section Section into which to insert the configuration setting.
-            /// @param [in] name Name of the configuration setting into which to insert the value.
-            /// @param [in] value Value to insert.
-            /// @return `true` on success, `false` on failure.
-            template <typename ValueType> bool Insert(std::wstring_view section, std::wstring_view name, const ValueType& value)
-            {
-                return Insert(ValueType(value));
-            }
-
-            /// Stores a new value for the specified configuration setting in the specified section by moving the input parameter.
-            /// Will fail if the value already exists.
-            /// @tparam ValueType Type of value to insert.
-            /// @param [in] section Section into which to insert the configuration setting.
-            /// @param [in] name Name of the configuration setting into which to insert the value.
-            /// @param [in] value Value to insert.
-            /// @return `true` on success, `false` on failure.
-            template <typename ValueType> bool Insert(std::wstring_view section, std::wstring_view name, ValueType&& value)
-            {
-                auto sectionIterator = sections.find(section);
-
-                if (sections.end() == sectionIterator)
-                {
-                    sections.emplace(section, Section());
-                    sectionIterator = sections.find(section);
-                }
-
-                return sectionIterator->second.Insert(name, std::move(value));
             }
 
             /// Convenience wrapper for quickly attempting to obtain a single Boolean-typed configuration value.
@@ -638,11 +614,62 @@ namespace Pathwinder
                 return (*this)[section].GetFirstStringValue(name);
             }
 
-            /// Specifies if one or more errors were encountered while generating the data contained in this object.
-            /// @return `true` if so, `false` if not.
-            inline bool HasErrors(void) const
+            /// Retrieves and returns the error messages that arose during the configuration file read attempt that produced this object.
+            /// Does not check that read error messages actually exist.
+            /// @return Error messages from last configuration file read attempt.
+            inline const std::vector<std::wstring>& GetReadErrorMessages(void) const
             {
-                return hasErrors;
+                return readErrors.value();
+            }
+
+            /// Specifies whether or not any errors arose during the configuration file read attempt that produced this object.
+            /// More details on any errors that arose are available by examining the error messages, unless they have already been cleared
+            /// @return `true` if so, `false` if not.
+            inline bool HasReadErrors(void) const
+            {
+                return readErrors.has_value();
+            }
+
+            /// Stores a new value for the specified configuration setting in the specified section by copying the input parameter.
+            /// Will fail if the value already exists.
+            /// @tparam ValueType Type of value to insert.
+            /// @param [in] section Section into which to insert the configuration setting.
+            /// @param [in] name Name of the configuration setting into which to insert the value.
+            /// @param [in] value Value to insert.
+            /// @return `true` on success, `false` on failure.
+            template <typename ValueType> bool InsertValue(std::wstring_view section, std::wstring_view name, const ValueType& value)
+            {
+                return Insert(ValueType(value));
+            }
+
+            /// Stores a new value for the specified configuration setting in the specified section by moving the input parameter.
+            /// Will fail if the value already exists.
+            /// @tparam ValueType Type of value to insert.
+            /// @param [in] section Section into which to insert the configuration setting.
+            /// @param [in] name Name of the configuration setting into which to insert the value.
+            /// @param [in] value Value to insert.
+            /// @return `true` on success, `false` on failure.
+            template <typename ValueType> bool InsertValue(std::wstring_view section, std::wstring_view name, ValueType&& value)
+            {
+                auto sectionIterator = sections.find(section);
+
+                if (sections.end() == sectionIterator)
+                {
+                    sections.emplace(section, Section());
+                    sectionIterator = sections.find(section);
+                }
+
+                return sectionIterator->second.Insert(name, std::move(value));
+            }
+
+            /// Inserts an error message into the list of error messages.
+            /// Each such error message is a semantically-rich description of an error that occurred during the configuration file read attempt that fills this object.
+            inline void InsertReadErrorMessage(std::wstring_view errorMessage)
+            {
+                if (false == readErrors.has_value())
+                    readErrors.emplace();
+
+                readErrors.value().emplace_back(errorMessage);
             }
 
             /// Retrieves the number of sections present in the configuration represented by this object.
@@ -680,13 +707,6 @@ namespace Pathwinder
             {
                 return sections;
             }
-
-            /// Marks this object as having errors associated with the process of inserting data.
-            /// For use by whatever function is generating the configuration data to be contained within this object.
-            inline void SetError(void)
-            {
-                hasErrors = true;
-            }
         };
 
         /// Interface for reading and parsing INI-formatted configuration files.
@@ -697,10 +717,8 @@ namespace Pathwinder
         private:
             // -------- INSTANCE VARIABLES --------------------------------- //
 
-            /// Holds the error messages that describes any errors that occurred during configuration file read.
-            std::vector<std::wstring> readErrors;
-
             /// Holds a semantically-rich error message to be presented to the user whenever there is an error processing a configuration value.
+            /// Used for temporary internal state only. These messages are subsequently stored in the configuration data object into which a configuration file is being read.
             std::wstring lastErrorMessage;
 
 
@@ -712,20 +730,6 @@ namespace Pathwinder
 
 
             // -------- INSTANCE METHODS ----------------------------------- //
-
-            /// Retrieves and returns the error messages that arose during the last attempt at reading a configuration file.
-            /// @return Error messages from last configuration file read attempt.
-            inline const std::vector<std::wstring>& GetReadErrors(void) const
-            {
-                return readErrors;
-            }
-
-            /// Specifies whether or not any errors arose during the last attempt at reading a configuration files.
-            /// @return `true` if so, `false` if not.
-            inline bool HasReadErrors(void) const
-            {
-                return !(readErrors.empty());
-            }
 
             /// Reads and parses a configuration file, storing the settings in the supplied configuration object.
             /// Intended to be invoked externally. Subclasses should not override this method.
@@ -744,23 +748,23 @@ namespace Pathwinder
             /// If a subclass does not set a semantically-rich error message then the default error message is used instead.
             /// Intended to be invoked optionally by subclasses during any method calls that return #EAction but only when #EAction::Error is being returned.
             /// @param [in] errorMessage String that is consumed to provide a semantically-rich error message.
-            inline void SetErrorMessage(std::wstring&& errorMessage)
+            inline void SetLastErrorMessage(std::wstring&& errorMessage)
             {
                 lastErrorMessage = std::move(errorMessage);
             }
 
             /// Convenience wrapper that sets a semantically-rich error message using a string view.
             /// @param [in] errorMessage String view that is copied to provide a semantically-rich error message.
-            inline void SetErrorMessage(std::wstring_view errorMessage)
+            inline void SetLastErrorMessage(std::wstring_view errorMessage)
             {
-                SetErrorMessage(std::wstring(errorMessage));
+                SetLastErrorMessage(std::wstring(errorMessage));
             }
 
             /// Convenience wrapper that sets a semantically-rich error message using a null-terminated C-style string.
             /// @param [in] errorMessage Temporary buffer containing a null-terminated string that is copied to provide a semantically-rich error message.
-            inline void SetErrorMessage(const wchar_t* errorMessage)
+            inline void SetLastErrorMessage(const wchar_t* errorMessage)
             {
-                SetErrorMessage(std::wstring(errorMessage));
+                SetLastErrorMessage(std::wstring(errorMessage));
             }
 
         private:

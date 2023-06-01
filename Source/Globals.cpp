@@ -129,13 +129,15 @@ namespace Pathwinder
 
                     configData = configReader.ReadConfigurationFile(Strings::kStrConfigurationFilename);
 
-                    if (true == configReader.HasReadErrors())
+                    if (true == configData.HasReadErrors())
                     {
                         EnableLog(Message::ESeverity::Error);
 
                         Message::Output(Message::ESeverity::Error, L"Errors were encountered during configuration file reading.");
-                        for (const auto& readError : configReader.GetReadErrors())
-                            Message::OutputFormatted(Message::ESeverity::Error, L"    %s", readError.c_str());
+                        for (const auto& readErrorMessage : configData.GetReadErrorMessages())
+                            Message::OutputFormatted(Message::ESeverity::Error, L"    %s", readErrorMessage.c_str());
+
+                        configData.ClearReadErrorMessages();
 
                         Message::Output(Message::ESeverity::ForcedInteractiveWarning, L"Errors were encountered during configuration file reading. See log file on the Desktop for more information.");
                     }
