@@ -74,7 +74,7 @@ namespace Pathwinder
 
             return ResolvedStringOrError::MakeValue(builtinStringsIter->second);
         }
-        
+
         /// Resolves a definition contained in the configuration file.
         /// @param [in] name Name of the configuration file variable to resolve.
         /// @return Resolved value on success, error message on failure.
