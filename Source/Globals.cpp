@@ -13,6 +13,7 @@
 #include "GitVersionInfo.h"
 #include "Globals.h"
 #include "Message.h"
+#include "Resolver.h"
 #include "Strings.h"
 
 #ifndef PATHWINDER_SKIP_CONFIG
@@ -111,6 +112,16 @@ namespace Pathwinder
                 EnableLog(configuredSeverity);
             }
         }
+
+        /// Reads configured definitions from the configuration file, if specified, and submits them to the reference resolution subsystem.
+        static void SetResolverConfiguredDefinitions(void)
+        {
+            const ConfigurationData& configData = GetConfigurationData();
+
+            const auto configuredDefinitionsSectionIter = configData.Sections().find(Strings::kStrConfigurationSectionDefinitions);
+            if (configData.Sections().cend() != configuredDefinitionsSectionIter)
+                Resolver::SetConfiguredDefinitionsFromSection(configuredDefinitionsSectionIter->second);
+        }
 #endif
 
 
@@ -192,6 +203,7 @@ namespace Pathwinder
         {
 #ifndef PATHWINDER_SKIP_CONFIG
             EnableLogIfConfigured();
+            SetResolverConfiguredDefinitions();
 #endif
         }
     }

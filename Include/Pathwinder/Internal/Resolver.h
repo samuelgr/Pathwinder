@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "Configuration.h"
 #include "TemporaryBuffer.h"
 #include "ValueOrError.h"
 
@@ -33,6 +34,10 @@ namespace Pathwinder
         /// This version provides the resulting string as a read-only view.
         typedef ValueOrError<std::wstring_view, TemporaryString> ResolvedStringViewOrError;
 
+        /// Type alias for representing all the definitions of values that correspond to the CONF domain.
+        /// Typically these would be located in a configuration file.
+        typedef std::map<std::wstring_view, std::wstring_view> TConfiguredDefinitions;
+
 
         // -------- FUNCTIONS ---------------------------------------------- //
 
@@ -54,11 +59,21 @@ namespace Pathwinder
         /// @return Input string with all references resolved or an error message if the resolution failed.
         ResolvedStringOrError ResolveAllReferences(std::wstring_view str, std::wstring_view escapeCharacters = L"", std::wstring_view escapeSequenceStart = L"\\", std::wstring_view escapeSequenceEnd = L"");
 
-#ifdef PATHWINDER_SKIP_CONFIG
-        /// Sets the configuration file definitions map contents.
-        /// Intended primarily for testing.
-        /// @param [in] newConfigurationFileDefinitions Map containing new contents.
-        void SetConfigurationFileDefinitions(std::map<std::wstring_view, std::wstring_view>&& newConfigurationFileDefinitions);
-#endif
+        /// Clears the configured definitions.
+        /// This operation is primarily intended for tests.
+        /// Invoking this function also clears the internal reference resolution cache.
+        void ClearConfiguredDefinitions(void);
+
+        /// Sets the configured definitions, which correspond to the CONF domain for reference resolution.
+        /// Typically these would be supplied in a configuration file but may be overridden for testing.
+        /// Invoking this function also clears the internal reference resolution cache.
+        /// @param [in] newConfiguredDefinitions Map containing new contents.
+        void SetConfiguredDefinitions(TConfiguredDefinitions&& newConfiguredDefinitions);
+
+        /// Examines the supplied configuration section object and uses it to build a map of configured definitions, which are then set by invoking #SetConfiguredDefinitions.
+        /// Section data supplied this way is expected to contain string values.
+        /// This is the expected entry point for using a configuration file to set configured definitions.
+        /// @param [in] configuredDefinitionsSection Configuration data section containing definitions.
+        void SetConfiguredDefinitionsFromSection(const Configuration::Section& configuredDefinitionsSection);
     }
 }

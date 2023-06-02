@@ -9,6 +9,7 @@
  *   Unit tests for resolution of named references contained within a string.
  *****************************************************************************/
 
+#include "Configuration.h"
 #include "Resolver.h"
 #include "Strings.h"
 #include "TestCase.h"
@@ -26,6 +27,37 @@ namespace PathwinderTest
 {
     using namespace ::Pathwinder;
     using namespace ::Pathwinder::Resolver;
+
+
+    // -------- INTERNAL TYPES --------------------------------------------- //
+
+    /// Convenience class for setting and clearing configured definitions (these correspond to the CONF domain) in reference resolution test cases.
+    /// On construction, sets the configured definitions to whatever is passed as input.
+    /// On destruction, clears the configured definitions.
+    class TemporaryConfiguredDefinitions
+    {
+    public:
+        /// Initialization constructor.
+        /// Requires a map of configured definitions.
+        inline TemporaryConfiguredDefinitions(TConfiguredDefinitions&& configuredDefinitions)
+        {
+            SetConfiguredDefinitions(std::move(configuredDefinitions));
+        }
+
+        /// Initialization constructor.
+        /// Requires a configuration data section containing definitions.
+        inline TemporaryConfiguredDefinitions(const Configuration::Section& configuredDefinitionsSection)
+        {
+            SetConfiguredDefinitionsFromSection(configuredDefinitionsSection);
+        }
+
+        /// Default destructor.
+        /// Clears the configured definitions.
+        inline ~TemporaryConfiguredDefinitions(void)
+        {
+            ClearConfiguredDefinitions();
+        }
+    };
 
 
     // -------- INTERNAL FUNCTIONS ----------------------------------------- //
@@ -178,9 +210,29 @@ namespace PathwinderTest
         constexpr std::wstring_view kVariableName = L"W";
         constexpr std::wstring_view kVariableValue = L"This is the evaluated value of W.";
 
-        SetConfigurationFileDefinitions({
+        TemporaryConfiguredDefinitions testDefinitions({
             {kVariableName, kVariableValue}
         });
+
+        const std::wstring_view expectedResolveResult = kVariableValue;
+        const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName));
+
+        TEST_ASSERT(true == actualResolveResult.HasValue());
+        TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
+    }
+
+    // Verifies that a configured definition can be resolved correctly in the nominal case of no embedded references.
+    // Same as the nominal case but uses a configuration data section instead of a directly-supplied definition map.
+    TEST_CASE(Resolver_SingleReference_ConfiguredDefinition_NominalFromConfigSection)
+    {
+        constexpr std::wstring_view kVariableName = L"W";
+        constexpr std::wstring_view kVariableValue = L"This is the evaluated value of W.";
+
+        Configuration::Section testDefinitionSection({
+            {std::wstring(kVariableName), kVariableValue}
+        });
+
+        TemporaryConfiguredDefinitions testDefinitions(testDefinitionSection);
 
         const std::wstring_view expectedResolveResult = kVariableValue;
         const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName));
@@ -192,11 +244,30 @@ namespace PathwinderTest
     // Verifies that a configured definition can be resolved correctly in the more complex case of embedded references.
     TEST_CASE(Resolver_SingleReference_ConfiguredDefinition_Embedded)
     {
-        SetConfigurationFileDefinitions({
+        TemporaryConfiguredDefinitions testDefinitions({
             {L"X", L"Value of X"},
             {L"Y", L"Value of Y incorporates value of X: (%CONF::X%)"},
             {L"Z", L"Value of Z incorporates value of Y: (%CONF::Y%)"}
         });
+
+        const std::wstring_view expectedResolveResult = L"Value of Z incorporates value of Y: (Value of Y incorporates value of X: (Value of X))";
+        const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"Z");
+
+        TEST_ASSERT(true == actualResolveResult.HasValue());
+        TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
+    }
+
+    // Verifies that a configured definition can be resolved correctly in the more complex case of embedded references.
+    // Same as the embedded test case but uses a configuration data section instead of a directly-supplied definition map.
+    TEST_CASE(Resolver_SingleReference_ConfiguredDefinition_EmbeddedFromConfigSection)
+    {
+        Configuration::Section testDefinitionSection({
+            {L"X", L"Value of X"},
+            {L"Y", L"Value of Y incorporates value of X: (%CONF::X%)"},
+            {L"Z", L"Value of Z incorporates value of Y: (%CONF::Y%)"}
+        });
+
+        TemporaryConfiguredDefinitions testDefinitions(testDefinitionSection);
 
         const std::wstring_view expectedResolveResult = L"Value of Z incorporates value of Y: (Value of Y incorporates value of X: (Value of X))";
         const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(std::wstring(Strings::kStrReferenceDomainConfigDefinition) + std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"Z");
@@ -211,7 +282,7 @@ namespace PathwinderTest
         constexpr std::wstring_view kVariableName = L"Invalid";
         constexpr std::wstring_view kVariableValue = L"This is the evaluated value of %CONF::Invalid%.";
 
-        SetConfigurationFileDefinitions({
+        TemporaryConfiguredDefinitions testDefinitions({
             {kVariableName, kVariableValue}
         });
 
@@ -222,7 +293,7 @@ namespace PathwinderTest
     // Verifies that a configured definition fails to resolve when there is a cycle across multiple references.
     TEST_CASE(Resolver_SingleReference_ConfiguredDefinition_EmbeddedCircularMultiple)
     {
-        SetConfigurationFileDefinitions({
+        TemporaryConfiguredDefinitions testDefinitions({
             {L"Invalid1", L"Value of %CONF::Invalid2%"},
             {L"Invalid2", L"Value of Invalid2 incorporates %CONF::Invalid3%"},
             {L"Invalid3", L"Value of Invalid3 incorporates %CONF::Invalid1%"}
@@ -278,7 +349,7 @@ namespace PathwinderTest
     // No escape characters are supplied.
     TEST_CASE(Resolver_AllReferences_Nominal)
     {
-        SetConfigurationFileDefinitions({
+        TemporaryConfiguredDefinitions testDefinitions({
             {L"BaseDir", L"%FOLDERID::SavedGames%"},
             {L"PercentageComplete", L"56.789"}
         });
@@ -316,7 +387,7 @@ namespace PathwinderTest
     // Multiple escape characters are supplied and the default escape sequence is used.
     TEST_CASE(Resolver_AllReferences_EscapeSequenceDefault)
     {
-        SetConfigurationFileDefinitions({
+        TemporaryConfiguredDefinitions testDefinitions({
             {L"Variable1", L"abcdef"},
             {L"Variable2", L"ABCDEF"},
             {L"Variable3", L"This is a NICE test for real!"},
@@ -360,7 +431,7 @@ namespace PathwinderTest
     // Multiple escape characters are supplied along with special sequences for the start and end of escape sequences.
     TEST_CASE(Resolver_AllReferences_EscapeSequenceStartAndEnd)
     {
-        SetConfigurationFileDefinitions({
+        TemporaryConfiguredDefinitions testDefinitions({
             {L"Variable5", L"abcdef"},
             {L"Variable6", L"ABCDEF"},
             {L"Variable7", L"This is a NICE test for real!"},
@@ -405,7 +476,7 @@ namespace PathwinderTest
     // Verifies that invalid inputs for all-reference resolution cause the resolution to fail.
     TEST_CASE(Resolver_AllReferences_Invalid)
     {
-        SetConfigurationFileDefinitions({
+        TemporaryConfiguredDefinitions testDefinitions({
             {L"BaseDir", L"%FOLDERID::TotallyUnrecognizedFolderIdentifier%"}
         });
 

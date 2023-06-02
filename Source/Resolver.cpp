@@ -10,14 +10,11 @@
  *****************************************************************************/
 
 #include "ApiWindows.h"
+#include "Configuration.h"
+#include "DebugAssert.h"
 #include "Resolver.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
-
-#ifndef PATHWINDER_SKIP_CONFIG
-#include "Configuration.h"
-#include "Globals.h"
-#endif
 
 #include <map>
 #include <optional>
@@ -47,10 +44,11 @@ namespace Pathwinder
 
         // -------- INTERNAL VARIABLES ------------------------------------- //
 
-#ifdef PATHWINDER_SKIP_CONFIG
-        /// Holds configuration file definitions to be used when a real configuration file is not available.
-        std::map<std::wstring_view, std::wstring_view> configurationFileDefinitions;
-#endif
+        /// Holds configured definitions, which correspond to the CONF domain.
+        static TConfiguredDefinitions configuredDefinitions;
+
+        /// Internal cache of the result of resolving a single reference.
+        static std::map<std::wstring, std::wstring, std::less<void>> resolvedSingleReferenceCache;
 
 
         // -------- INTERNAL FUNCTIONS ------------------------------------- //
@@ -84,30 +82,15 @@ namespace Pathwinder
         {
             static std::unordered_set<std::wstring_view> resolutionsInProgress;
 
-            bool variableNameIsRecognized = false;
-
-#ifndef PATHWINDER_SKIP_CONFIG
-            const Configuration::ConfigurationData& configData = Globals::GetConfigurationData();
-            variableNameIsRecognized = configData.SectionNamePairExists(Strings::kStrConfigurationSectionDefinitions, name);
-#else
-            const auto fakeConfigurationFileDefinitionIter = configurationFileDefinitions.find(name);
-            variableNameIsRecognized = (configurationFileDefinitions.cend() != fakeConfigurationFileDefinitionIter);
-#endif
-
-            if (false == variableNameIsRecognized)
+            const auto configuredDefinitionIter = configuredDefinitions.find(name);
+            if (configuredDefinitions.cend() == configuredDefinitionIter)
                 return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Unrecognized variable name", std::wstring(name).c_str()));
-
-#ifndef PATHWINDER_SKIP_CONFIG
-            std::wstring_view unresolvedConfigDefinition = configData[Strings::kStrConfigurationSectionDefinitions][name].FirstValue().GetStringValue();
-#else
-            std::wstring_view unresolvedConfigDefinition = fakeConfigurationFileDefinitionIter->second;
-#endif
 
             std::pair resolutionInProgress = resolutionsInProgress.emplace(name);
             if (false == resolutionInProgress.second)
                 return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Circular reference", std::wstring(name).c_str()));
 
-            ResolvedStringOrError resolvedDefinition = ResolveAllReferences(unresolvedConfigDefinition);
+            ResolvedStringOrError resolvedDefinition = ResolveAllReferences(configuredDefinitionIter->second);
             resolutionsInProgress.erase(resolutionInProgress.first);
 
             return resolvedDefinition;
@@ -320,10 +303,8 @@ namespace Pathwinder
                 {Strings::kStrReferenceDomainKnownFolderIdentifier, &ResolveKnownFolderIdentifier}
             };
 
-            static std::map<std::wstring, std::wstring, std::less<void>> previouslyResolvedReferences;
-
-            const auto previouslyResolvedIter = previouslyResolvedReferences.find(str);
-            if (previouslyResolvedReferences.cend() != previouslyResolvedIter)
+            const auto previouslyResolvedIter = resolvedSingleReferenceCache.find(str);
+            if (resolvedSingleReferenceCache.cend() != previouslyResolvedIter)
                 return ResolvedStringViewOrError::MakeValue(previouslyResolvedIter->second);
 
             TemporaryVector<std::wstring_view> strParts = Strings::SplitString(str, Strings::kStrDelimterReferenceDomainVsName);
@@ -353,7 +334,7 @@ namespace Pathwinder
             ResolvedStringOrError resolveResult = resolverByDomainIter->second(strPartReferenceName);
 
             if (true == resolveResult.HasValue())
-                return ResolvedStringViewOrError::MakeValue(previouslyResolvedReferences.emplace(str, resolveResult.Value()).first->second);
+                return ResolvedStringViewOrError::MakeValue(resolvedSingleReferenceCache.emplace(str, resolveResult.Value()).first->second);
             else
                 return ResolvedStringViewOrError::MakeError(std::move(resolveResult.Error()));
         }
@@ -416,11 +397,37 @@ namespace Pathwinder
 
         // --------
 
-#ifdef PATHWINDER_SKIP_CONFIG
-        void SetConfigurationFileDefinitions(std::map<std::wstring_view, std::wstring_view>&& newConfigurationFileDefinitions)
+        void ClearConfiguredDefinitions(void)
         {
-            configurationFileDefinitions = std::move(newConfigurationFileDefinitions);
+            configuredDefinitions.clear();
+            resolvedSingleReferenceCache.clear();
         }
-#endif
+
+        // --------
+
+        void SetConfiguredDefinitions(TConfiguredDefinitions&& newConfiguredDefinitions)
+        {
+            configuredDefinitions = std::move(newConfiguredDefinitions);
+            resolvedSingleReferenceCache.clear();
+        }
+
+        // --------
+
+        void SetConfiguredDefinitionsFromSection(const Configuration::Section& configuredDefinitionsSection)
+        {
+            TConfiguredDefinitions configuredDefinitions;
+
+            for (const auto& definitionRecord : configuredDefinitionsSection.Names())
+            {
+                DebugAssert(Configuration::EValueType::String == definitionRecord.second.FirstValue().GetType(), "Configured definitions section contains a non-string value.");
+
+                std::wstring_view definitionName = definitionRecord.first;
+                std::wstring_view definitionValue = definitionRecord.second.FirstValue().GetStringValue();
+
+                configuredDefinitions.emplace(definitionName, definitionValue);
+            }
+
+            SetConfiguredDefinitions(std::move(configuredDefinitions));
+        }
     }
 }
