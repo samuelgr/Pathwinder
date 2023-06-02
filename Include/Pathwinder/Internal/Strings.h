@@ -47,6 +47,9 @@ namespace Pathwinder
         inline constexpr std::wstring_view kStrReferenceDomainKnownFolderIdentifier = L"FOLDERID";
 
 
+        /// Configuration file setting for enabling or disabling "dry run" mode.
+        inline constexpr std::wstring_view kStrConfigurationSettingDryRun = L"DryRun";
+
         /// Configuration file setting for enabling and specifying the verbosity of output to the log file.
         inline constexpr std::wstring_view kStrConfigurationSettingLogLevel = L"LogLevel";
 

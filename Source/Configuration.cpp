@@ -116,6 +116,8 @@ namespace Pathwinder
             switch (charToTest)
             {
             case L'.':
+            case L'-':
+            case L'_':
                 return true;
 
             default:
@@ -646,7 +648,7 @@ namespace Pathwinder
                                     break;
 
                                 case EAction::Process:
-                                    if (false == configToFill.InsertValue(thisSection, name, Value(configLineNumber, TIntegerValue(intValue))))
+                                    if (false == configToFill.InsertValue(thisSection, name, Value(TIntegerValue(intValue), configLineNumber)))
                                         configToFill.InsertReadErrorMessage(Strings::FormatString(L"%s(%d): %s: Duplicated value for configuration setting %s.", configSourceName.data(), configLineNumber, value.data(), name.data()));
                                     break;
                                 }
@@ -674,7 +676,7 @@ namespace Pathwinder
                                     break;
 
                                 case EAction::Process:
-                                    if (false == configToFill.InsertValue(thisSection, name, Value(configLineNumber, TBooleanValue(boolValue))))
+                                    if (false == configToFill.InsertValue(thisSection, name, Value(TBooleanValue(boolValue), configLineNumber)))
                                         configToFill.InsertReadErrorMessage(Strings::FormatString(L"%s(%d): %s: Duplicated value for configuration setting %s.", configSourceName.data(), configLineNumber, value.data(), name.data()));
                                     break;
                                 }
@@ -694,7 +696,7 @@ namespace Pathwinder
                                     break;
 
                                 case EAction::Process:
-                                    if (false == configToFill.InsertValue(thisSection, name, Value(configLineNumber, TStringValue(value))))
+                                    if (false == configToFill.InsertValue(thisSection, name, Value(TStringValue(value), configLineNumber)))
                                         configToFill.InsertReadErrorMessage(Strings::FormatString(L"%s(%d): %s: Duplicated value for configuration setting %s.", configSourceName.data(), configLineNumber, value.data(), name.data()));
                                     break;
                                 }
@@ -738,6 +740,49 @@ namespace Pathwinder
             EndRead();
 
             return configToFill;
+        }
+
+        // --------
+
+        TemporaryString ConfigurationData::ToConfigurationFileString(void) const
+        {
+            TemporaryString configurationFileString;
+
+            for (const auto& sectionRecord : sections)
+            {
+                std::wstring_view section = sectionRecord.first;
+
+                if (false == section.empty())
+                    configurationFileString << L'[' << sectionRecord.first << L']' << L'\n';
+
+                for (const auto& nameRecord : sectionRecord.second.Names())
+                {
+                    std::wstring_view name = nameRecord.first;
+
+                    for (const auto& valueRecord : nameRecord.second.Values())
+                    {
+                        switch (valueRecord.GetType())
+                        {
+                        case EValueType::Integer:
+                        case EValueType::IntegerMultiValue:
+                            configurationFileString << name << L" = " << valueRecord.GetIntegerValue() << L'\n';
+                            break;
+
+                        case EValueType::Boolean:
+                        case EValueType::BooleanMultiValue:
+                            configurationFileString << name << L" = " << valueRecord.GetBooleanValue() << L'\n';
+                            break;
+
+                        case EValueType::String:
+                        case EValueType::StringMultiValue:
+                            configurationFileString << name << L" = " << valueRecord.GetStringValue() << L'\n';
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return configurationFileString;
         }
 
 

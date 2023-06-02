@@ -11,14 +11,17 @@
 
 #pragma once
 
+#include "TemporaryBuffer.h"
+
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <map>
-#include <memory>
 #include <optional>
 #include <set>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 
@@ -98,37 +101,37 @@ namespace Pathwinder
             // -------- CONSTRUCTION AND DESTRUCTION ----------------------- //
 
             /// Initialization constructor. Creates an integer-typed value by copying it.
-            inline Value(int lineNumber, const TIntegerValue& value) : lineNumber(lineNumber), type(EValueType::Integer), intValue(value)
+            inline Value(const TIntegerView& value, int lineNumber = 0) : lineNumber(lineNumber), type(EValueType::Integer), intValue(value)
             {
                 // Nothing to do here.
             }
 
             /// Initialization constructor. Creates an integer-typed value by moving it.
-            inline Value(int lineNumber, TIntegerValue&& value) : lineNumber(lineNumber), type(EValueType::Integer), intValue(std::move(value))
+            inline Value(TIntegerValue&& value, int lineNumber = 0) : lineNumber(lineNumber), type(EValueType::Integer), intValue(std::move(value))
             {
                 // Nothing to do here.
             }
 
             /// Initialization constructor. Creates a Boolean-typed value by copying it.
-            inline Value(int lineNumber, const TBooleanValue& value) : lineNumber(lineNumber), type(EValueType::Boolean), boolValue(value)
+            inline Value(const TBooleanView& value, int lineNumber = 0) : lineNumber(lineNumber), type(EValueType::Boolean), boolValue(value)
             {
                 // Nothing to do here.
             }
 
             /// Initialization constructor. Creates a Boolean-typed value by moving it.
-            inline Value(int lineNumber, TBooleanValue&& value) : lineNumber(lineNumber), type(EValueType::Boolean), boolValue(std::move(value))
+            inline Value(TBooleanValue&& value, int lineNumber = 0) : lineNumber(lineNumber), type(EValueType::Boolean), boolValue(std::move(value))
             {
                 // Nothing to do here.
             }
 
             /// Initialization constructor. Creates a string-typed value by copying it.
-            inline Value(int lineNumber, const TStringValue& value) : lineNumber(lineNumber), type(EValueType::String), stringValue(value)
+            inline Value(const TStringView& value, int lineNumber = 0) : lineNumber(lineNumber), type(EValueType::String), stringValue(value)
             {
                 // Nothing to do here.
             }
 
             /// Initialization constructor. Creates a string-typed value by moving it.
-            inline Value(int lineNumber, TStringValue&& value) : lineNumber(lineNumber), type(EValueType::String), stringValue(std::move(value))
+            inline Value(TStringValue&& value, int lineNumber = 0) : lineNumber(lineNumber), type(EValueType::String), stringValue(std::move(value))
             {
                 // Nothing to do here.
             }
@@ -314,25 +317,67 @@ namespace Pathwinder
         public:
             // -------- CONSTRUCTION AND DESTRUCTION ----------------------- //
 
+            /// Default constructor.
+            inline Name(void) = default;
+
             /// Initialization constructor.
-            /// Inserts an initial value by copying it.
-            /// All objects are required to contain at least one value.
-            /// @tparam ValueType Type of value to insert.
-            /// @param [in] value Value to insert.
-            template <typename ValueType> inline Name(const ValueType& firstValue) : values()
+            /// Allows contents to be specified directly using multiple integer literals.
+            /// Intended for use by tests.
+            template <typename IntegerType, std::enable_if_t<std::conjunction_v<std::is_integral<IntegerType>, std::negation<std::is_same<IntegerType, bool>>>, bool> = true> inline Name(std::initializer_list<IntegerType> values) : Name()
             {
-                Insert(firstValue);
+                for (const auto& value : values)
+                    InsertValue(Value((TIntegerView)value));
             }
 
             /// Initialization constructor.
-            /// Inserts an initial value by moving it.
-            /// All objects are required to contain at least one value.
-            /// @tparam ValueType Type of value to insert.
-            /// @param [in] value Value to insert.
-            template <typename ValueType> inline Name(ValueType&& firstValue) : values()
+            /// Allows contents to be specified directly using a single integer literal.
+            /// Intended for use by tests.
+            template <typename IntegerType, std::enable_if_t<std::conjunction_v<std::is_integral<IntegerType>, std::negation<std::is_same<IntegerType, bool>>>, bool> = true> inline Name(IntegerType value) : Name({value})
             {
-                Insert(std::move(firstValue));
+                // Nothing to do here.
             }
+
+            /// Initialization constructor.
+            /// Allows contents to be specified directly using multiple Boolean literals.
+            /// Intended for use by tests.
+            template <typename BooleanType, std::enable_if_t<std::is_same_v<BooleanType, bool>, bool> = true> inline Name(std::initializer_list<BooleanType> values) : Name()
+            {
+                for (const auto& value : values)
+                    InsertValue(Value((TBooleanView)value));
+            }
+
+            /// Initialization constructor.
+            /// Allows contents to be specified directly using a single Boolean literal.
+            /// Intended for use by tests.
+            template <typename BooleanType, std::enable_if_t<std::is_same_v<BooleanType, bool>, bool> = true> inline Name(BooleanType value) : Name({value})
+            {
+                // Nothing to do here.
+            }
+
+            /// Initialization constructor.
+            /// Allows contents to be specified directly using multiple string literals.
+            /// Intended for use by tests.
+            template <typename StringType, std::enable_if_t<std::negation_v<std::is_integral<StringType>>, bool> = true> inline Name(std::initializer_list<StringType> values) : Name()
+            {
+                for (const auto& value : values)
+                    InsertValue(Value(TStringView(value)));
+            }
+
+            /// Initialization constructor.
+            /// Allows contents to be specified directly using a single string literal.
+            /// Intended for use by tests.
+            template <typename StringType, std::enable_if_t<std::negation_v<std::is_integral<StringType>>, bool> = true> inline Name(StringType value) : Name({value})
+            {
+                // Nothing to do here.
+            }
+
+
+            // -------- OPERATORS ------------------------------------------ //
+
+            /// Equality check.
+            /// @param [in] rhs Right-hand side of the binary operator.
+            /// @return `true` if this object (lhs) is equal to the other object (rhs), `false` otherwise.
+            inline bool operator==(const Name& rhs) const = default;
 
 
             // -------- INSTANCE METHODS ----------------------------------- //
@@ -345,22 +390,12 @@ namespace Pathwinder
                 return *(values.begin());
             }
 
-            /// Stores a new value for the configuration setting represented by this object by copying the input parameter.
-            /// Will fail if the value already exists.
-            /// @tparam ValueType Type of value to insert.
-            /// @param [in] value Value to insert.
-            /// @return `true` on success, `false` on failure.
-            template <typename ValueType> bool Insert(const ValueType& value)
-            {
-                return Insert(ValueType(value));
-            }
-
             /// Stores a new value for the configuration setting represented by this object by moving the input parameter.
             /// Will fail if the value already exists.
             /// @tparam ValueType Type of value to insert.
             /// @param [in] value Value to insert.
             /// @return `true` on success, `false` on failure.
-            template <typename ValueType> bool Insert(ValueType&& value)
+            bool InsertValue(Value&& value)
             {
                 return values.emplace(std::move(value)).second;
             }
@@ -398,7 +433,26 @@ namespace Pathwinder
 
 
         public:
+            // -------- CONSTRUCTION AND DESTRUCTION ----------------------- //
+
+            /// Default constructor.
+            inline Section(void) = default;
+
+            /// Initialization constructor.
+            /// Allows contents to be specified directly. Intended for use by tests.
+            inline Section(std::initializer_list<std::pair<std::wstring, Name>> contents) : Section()
+            {
+                for (const auto& name : contents)
+                    names.emplace(name);
+            }
+
+
             // -------- OPERATORS ------------------------------------------ //
+
+            /// Equality check.
+            /// @param [in] rhs Right-hand side of the binary operator.
+            /// @return `true` if this object (lhs) is equal to the other object (rhs), `false` otherwise.
+            inline bool operator==(const Section& rhs) const = default;
 
             /// Allows read-only access to individual configuration settings by name, without bounds checking.
             /// @param [in] name Name of the configuration setting to retrieve.
@@ -416,10 +470,11 @@ namespace Pathwinder
             /// @return First value associated with the section and name, if it exists.
             inline std::optional<TBooleanView> GetFirstBooleanValue(std::wstring_view name) const
             {
-                if (false == NameExists(name))
+                const auto nameIter = names.find(name);
+                if (names.cend() == nameIter)
                     return std::nullopt;
 
-                switch ((*this)[name].FirstValue().GetType())
+                switch (nameIter->second.FirstValue().GetType())
                 {
                 case EValueType::Boolean:
                 case EValueType::BooleanMultiValue:
@@ -429,7 +484,7 @@ namespace Pathwinder
                     return std::nullopt;
                 }
 
-                return (*this)[name].FirstValue().GetBooleanValue();
+                return nameIter->second.FirstValue().GetBooleanValue();
             }
 
             /// Convenience wrapper for quickly attempting to obtain a single Integer-typed configuration value.
@@ -437,10 +492,11 @@ namespace Pathwinder
             /// @return First value associated with the section and name, if it exists.
             inline std::optional<TIntegerView> GetFirstIntegerValue(std::wstring_view name) const
             {
-                if (false == NameExists(name))
+                const auto nameIter = names.find(name);
+                if (names.cend() == nameIter)
                     return std::nullopt;
 
-                switch ((*this)[name].FirstValue().GetType())
+                switch (nameIter->second.FirstValue().GetType())
                 {
                 case EValueType::Integer:
                 case EValueType::IntegerMultiValue:
@@ -450,7 +506,7 @@ namespace Pathwinder
                     return std::nullopt;
                 }
 
-                return (*this)[name].FirstValue().GetIntegerValue();
+                return nameIter->second.FirstValue().GetIntegerValue();
             }
 
             /// Convenience wrapper for quickly attempting to obtain a single string-typed configuration value.
@@ -458,10 +514,11 @@ namespace Pathwinder
             /// @return First value associated with the section and name, if it exists.
             inline std::optional<TStringView> GetFirstStringValue(std::wstring_view name) const
             {
-                if (false == NameExists(name))
+                const auto nameIter = names.find(name);
+                if (names.cend() == nameIter)
                     return std::nullopt;
 
-                switch ((*this)[name].FirstValue().GetType())
+                switch (nameIter->second.FirstValue().GetType())
                 {
                 case EValueType::String:
                 case EValueType::StringMultiValue:
@@ -471,37 +528,22 @@ namespace Pathwinder
                     return std::nullopt;
                 }
 
-                return (*this)[name].FirstValue().GetStringValue();
-            }
-
-            /// Stores a new value for the specified configuration setting in the section represented by this object by copying the input parameter.
-            /// Will fail if the value already exists.
-            /// @tparam ValueType Type of value to insert.
-            /// @param [in] name Name of the configuration setting into which to insert the value.
-            /// @param [in] value Value to insert.
-            /// @return `true` on success, `false` on failure.
-            template <typename ValueType> inline bool Insert(std::wstring_view name, const ValueType& value)
-            {
-                return Insert(name, ValueType(value));
+                return nameIter->second.FirstValue().GetStringValue();
             }
 
             /// Stores a new value for the specified configuration setting in the section represented by this object by moving the input parameter.
             /// Will fail if the value already exists.
-            /// @tparam ValueType Type of value to insert.
             /// @param [in] name Name of the configuration setting into which to insert the value.
             /// @param [in] value Value to insert.
             /// @return `true` on success, `false` on failure.
-            template <typename ValueType> inline bool Insert(std::wstring_view name, ValueType&& value)
+            inline bool InsertValue(std::wstring_view name, Value&& value)
             {
                 auto nameIterator = names.find(name);
 
                 if (names.end() == nameIterator)
-                {
-                    names.emplace(name, value);
-                    return true;
-                }
+                    nameIterator = names.emplace(std::wstring(name), Name()).first;
 
-                return nameIterator->second.Insert(value);
+                return nameIterator->second.InsertValue(std::move(value));
             }
 
             /// Retrieves the number of configuration settings present for the section represented by this object.
@@ -548,6 +590,20 @@ namespace Pathwinder
 
 
         public:
+            // -------- CONSTRUCTION AND DESTRUCTION ----------------------- //
+
+            /// Default constructor.
+            inline ConfigurationData(void) = default;
+
+            /// Initialization constructor.
+            /// Allows contents to be specified directly. Intended for use by tests.
+            inline ConfigurationData(std::initializer_list<std::pair<std::wstring, Section>> contents) : ConfigurationData()
+            {
+                for (const auto& section : contents)
+                    sections.insert(section);
+            }
+
+
             // -------- OPERATORS ------------------------------------------ //
 
             /// Allows read-only access to individual sections by name, without bounds checking.
@@ -559,6 +615,17 @@ namespace Pathwinder
             }
 
 
+            // -------- CONSTRUCTION AND DESTRUCTION ----------------------- //
+
+            /// Equality check. Compares data contents and presence or absence of errors only, ignoring error messages themselves.
+            /// @param [in] rhs Right-hand side of the binary operator.
+            /// @return `true` if this object (lhs) is equal to the other object (rhs), `false` otherwise.
+            inline bool operator==(const ConfigurationData& rhs) const
+            {
+                return ((sections == rhs.sections) && (HasReadErrors() == rhs.HasReadErrors()));
+            }
+
+
             // -------- INSTANCE METHODS ----------------------------------- //
 
             /// Clears all of the stored read error messages and frees up all of the memory space they occupy. This method does not affect the return value of #HasReadErrors.
@@ -567,6 +634,12 @@ namespace Pathwinder
             {
                 if (true == readErrors.has_value())
                     readErrors.value().clear();
+            }
+
+            /// Clears all of the stored configuration data. Does not affect error messages.
+            inline void Clear(void)
+            {
+                sections.clear();
             }
 
             /// Erases the specified section from this configuration data object.
@@ -584,10 +657,11 @@ namespace Pathwinder
             /// @return First value associated with the section and name, if it exists.
             inline std::optional<TBooleanView> GetFirstBooleanValue(std::wstring_view section, std::wstring_view name) const
             {
-                if (false == SectionExists(section))
+                const auto sectionIterator = sections.find(section);
+                if (sections.cend() == sectionIterator)
                     return std::nullopt;
 
-                return (*this)[section].GetFirstBooleanValue(name);
+                return sectionIterator->second.GetFirstBooleanValue(name);
             }
 
             /// Convenience wrapper for quickly attempting to obtain a single Integer-typed configuration value.
@@ -596,10 +670,11 @@ namespace Pathwinder
             /// @return First value associated with the section and name, if it exists.
             inline std::optional<TIntegerView> GetFirstIntegerValue(std::wstring_view section, std::wstring_view name) const
             {
-                if (false == SectionExists(section))
+                const auto sectionIterator = sections.find(section);
+                if (sections.cend() == sectionIterator)
                     return std::nullopt;
 
-                return (*this)[section].GetFirstIntegerValue(name);
+                return sectionIterator->second.GetFirstIntegerValue(name);
             }
 
             /// Convenience wrapper for quickly attempting to obtain a single string-typed configuration value.
@@ -608,10 +683,20 @@ namespace Pathwinder
             /// @return First value associated with the section and name, if it exists.
             inline std::optional<TStringView> GetFirstStringValue(std::wstring_view section, std::wstring_view name) const
             {
-                if (false == SectionExists(section))
+                const auto sectionIterator = sections.find(section);
+                if (sections.cend() == sectionIterator)
                     return std::nullopt;
 
-                return (*this)[section].GetFirstStringValue(name);
+                return sectionIterator->second.GetFirstStringValue(name);
+            }
+
+            inline TStringView GetTest(std::wstring_view section, std::wstring_view name) const
+            {
+                const auto sectionIterator = sections.find(section);
+                if (sections.cend() == sectionIterator)
+                    return std::wstring_view();
+
+                return sectionIterator->second.GetFirstStringValue(name).value();
             }
 
             /// Retrieves and returns the error messages that arose during the configuration file read attempt that produced this object.
@@ -630,36 +715,20 @@ namespace Pathwinder
                 return readErrors.has_value();
             }
 
-            /// Stores a new value for the specified configuration setting in the specified section by copying the input parameter.
-            /// Will fail if the value already exists.
-            /// @tparam ValueType Type of value to insert.
-            /// @param [in] section Section into which to insert the configuration setting.
-            /// @param [in] name Name of the configuration setting into which to insert the value.
-            /// @param [in] value Value to insert.
-            /// @return `true` on success, `false` on failure.
-            template <typename ValueType> bool InsertValue(std::wstring_view section, std::wstring_view name, const ValueType& value)
-            {
-                return Insert(ValueType(value));
-            }
-
             /// Stores a new value for the specified configuration setting in the specified section by moving the input parameter.
             /// Will fail if the value already exists.
-            /// @tparam ValueType Type of value to insert.
             /// @param [in] section Section into which to insert the configuration setting.
             /// @param [in] name Name of the configuration setting into which to insert the value.
             /// @param [in] value Value to insert.
             /// @return `true` on success, `false` on failure.
-            template <typename ValueType> bool InsertValue(std::wstring_view section, std::wstring_view name, ValueType&& value)
+            bool InsertValue(std::wstring_view section, std::wstring_view name, Value&& value)
             {
                 auto sectionIterator = sections.find(section);
 
                 if (sections.end() == sectionIterator)
-                {
-                    sections.emplace(section, Section());
-                    sectionIterator = sections.find(section);
-                }
+                    sectionIterator = sections.emplace(section, Section()).first;
 
-                return sectionIterator->second.Insert(name, std::move(value));
+                return sectionIterator->second.InsertValue(name, std::move(value));
             }
 
             /// Inserts an error message into the list of error messages.
@@ -684,7 +753,7 @@ namespace Pathwinder
             /// @return `true` if the setting exists, `false` otherwise.
             inline bool SectionExists(std::wstring_view section) const
             {
-                return (0 != sections.count(section));
+                return sections.contains(section);
             }
 
             /// Determines if a configuration setting of the specified name exists in the specified section.
@@ -707,6 +776,10 @@ namespace Pathwinder
             {
                 return sections;
             }
+
+            /// Converts the entire contents of this object into a configuration file string.
+            /// @return String that contains a configuration file representation of the data held by this object.
+            TemporaryString ToConfigurationFileString(void) const;
         };
 
         /// Interface for reading and parsing INI-formatted configuration files.

@@ -3,12 +3,12 @@
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
 
     <Type Name="::Pathwinder::Configuration::Value">
-        <DisplayString Condition="type == EValueType::Error">error</DisplayString>
-        <DisplayString Condition="type == EValueType::Boolean || type == EValueType::BooleanMultiValue">Line {lineNumber}: {{ Boolean, {boolValue} }}</DisplayString>
-        <DisplayString Condition="type == EValueType::Integer || type == EValueType::IntegerMultiValue">Line {lineNumber}: {{ Integer, {intValue} }}</DisplayString>
-        <DisplayString Condition="type == EValueType::String || type == EValueType::StringMultiValue">Line {lineNumber}: {{ String, {stringValue} }}</DisplayString>
+        <DisplayString Condition="type == EValueType::Error">{{ Error }}</DisplayString>
+        <DisplayString Condition="type == EValueType::Boolean || type == EValueType::BooleanMultiValue">{boolValue}</DisplayString>
+        <DisplayString Condition="type == EValueType::Integer || type == EValueType::IntegerMultiValue">{intValue}</DisplayString>
+        <DisplayString Condition="type == EValueType::String || type == EValueType::StringMultiValue">{stringValue}</DisplayString>
         <Expand>
-            <Item Name="lineNumber">lineNumber</Item>
+            <Item Name="lineNumber" Condition="lineNumber &gt; 0">lineNumber</Item>
             <Item Name="type">type</Item>
             <Item Name="value" Condition="type == EValueType::Boolean || type == EValueType::BooleanMultiValue" >boolValue</Item>
             <Item Name="value" Condition="type == EValueType::Integer || type == EValueType::IntegerMultiValue" >intValue</Item>

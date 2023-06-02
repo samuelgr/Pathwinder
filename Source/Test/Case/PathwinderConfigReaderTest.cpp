@@ -1,0 +1,90 @@
+/*****************************************************************************
+ * Pathwinder
+ *   Path redirection for files, directories, and registry entries.
+ *****************************************************************************
+ * Authored by Samuel Grossman
+ * Copyright (c) 2022-2023
+ *************************************************************************//**
+ * @file PathwinderConfigReaderTest.cpp
+ *   Unit tests for configuration file reading and parsing functionality.
+ *****************************************************************************/
+
+#include "Configuration.h"
+#include "PathwinderConfigReader.h"
+#include "TemporaryBuffer.h"
+#include "TestCase.h"
+
+#include <string_view>
+
+
+namespace PathwinderTest
+{
+    using namespace ::Pathwinder;
+
+
+    // -------- INTERNAL FUNCTIONS ----------------------------------------- //
+
+    /// Converts the specified configuration data object into a configuration file and then passes it through a reader object for parsing.
+    /// Upon completion, verifies that the contents and error state of the resulting configuration data matches the input object.
+    static void TestConfigurationFileRead(const ConfigurationData& expectedConfigurationData)
+    {
+        TemporaryString configurationFile = expectedConfigurationData.ToConfigurationFileString();
+        ConfigurationData actualConfigurationData = PathwinderConfigReader().ReadInMemoryConfigurationFile(configurationFile);
+        TEST_ASSERT(actualConfigurationData == expectedConfigurationData);
+    }
+
+
+    // -------- TEST CASES ------------------------------------------------- //
+
+    // Verifies that global section values can be successfully parsed.
+    TEST_CASE(PathwinderConfigReader_GlobalSection)
+    {
+        const ConfigurationData configurationData({
+            {L"", {
+                {L"LogLevel", 4},
+                {L"DryRun", false},
+            }}
+        });
+
+        TestConfigurationFileRead(configurationData);
+    }
+
+    // Verifies that variable definitions can be successfully parsed.
+    // The definition section accepts arbitrary variable names and string values.
+    TEST_CASE(PathwinderConfigReader_VariableDefinitions)
+    {
+        const ConfigurationData configurationData({
+            {L"Definitions", {
+                {L"MyUserName", L"%USERNAME%"},
+                {L"MyUserProfileDirectory", L"%HOMEDRIVE%%HOMEPATH%"},
+                {L"ArbitraryDirectory", L"C:\\SomePath\\ToADirectory\\UsefulAsAVariable"},
+                {L"__Another.Variable-value", L"Val?+ue(1[23]4).*"}
+            }}
+        });
+
+        TestConfigurationFileRead(configurationData);
+    }
+
+    // Verifies that multiple filesystem rules can be successfully parsed.
+    TEST_CASE(PathwinderConfigReader_FilesystemRules)
+    {
+        const ConfigurationData configurationData({
+            {L"FilesystemRule:NoFilePatterns", {
+                {L"OriginDirectory", L"C:\\OriginDirectory1"},
+                {L"TargetDirectory", L"C:\\TargetDirectory1"}
+            }},
+            {L"FilesystemRule:OneFilePattern", {
+                {L"OriginDirectory", L"C:\\OriginDirectory2"},
+                {L"TargetDirectory", L"C:\\TargetDirectory2"},
+                {L"FilePattern", L"*.txt"}
+            }},
+            {L"FilesystemRule:MultipleFilePatterns", {
+                {L"OriginDirectory", L"C:\\OriginDirectory3"},
+                {L"TargetDirectory", L"C:\\TargetDirectory3"},
+                {L"FilePattern", {L"*.txt", L"*.bin", L"*.log", L"savedata???.sav"}}
+            }}
+        });
+
+        TestConfigurationFileRead(configurationData);
+    }
+}
