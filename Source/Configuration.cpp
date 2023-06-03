@@ -565,9 +565,23 @@ namespace Pathwinder
 
         // --------
 
+        template <typename ValueType> std::optional<ValueType> Name::ExtractFirstValue(void)
+        {
+            if (false == TypeIs<ValueType>())
+                return std::nullopt;
+
+            return values.extract(values.begin()).value().ExtractValue<ValueType>();
+        }
+
+        template std::optional<TBooleanValue> Name::ExtractFirstValue(void);
+        template std::optional<TIntegerValue> Name::ExtractFirstValue(void);
+        template std::optional<TStringValue> Name::ExtractFirstValue(void);
+
+        // --------
+
         template <typename ValueType> std::optional<std::vector<ValueType>> Name::ExtractValues(void)
         {
-            if (false == GetFirstValue().TypeIs<ValueType>())
+            if (false == TypeIs<ValueType>())
                 return std::nullopt;
 
             std::vector<ValueType> extractedValues;
@@ -588,22 +602,48 @@ namespace Pathwinder
 
         // --------
 
-        template <typename ValueType> std::optional<std::pair<std::wstring, std::vector<ValueType>>> Section::ExtractValues(std::wstring_view name)
+        template <typename ValueType> std::optional<ValueType> Section::ExtractFirstValue(std::wstring_view name)
         {
             auto nameIterator = names.find(name);
             if (names.end() == nameIterator)
                 return std::nullopt;
 
-            if (false == nameIterator->second.GetFirstValue().TypeIs<ValueType>())
+            if (false == nameIterator->second.TypeIs<ValueType>())
+                return std::nullopt;
+
+            if (1 == nameIterator->second.ValueCount())
+            {
+                auto extractedName = names.extract(nameIterator);
+                return extractedName.mapped().ExtractFirstValue<ValueType>();
+            }
+            else
+            {
+                return nameIterator->second.ExtractFirstValue<ValueType>();
+            }
+        }
+
+        template std::optional<TBooleanValue> Section::ExtractFirstValue(std::wstring_view);
+        template std::optional<TIntegerValue> Section::ExtractFirstValue(std::wstring_view);
+        template std::optional<TStringValue> Section::ExtractFirstValue(std::wstring_view);
+
+        // --------
+
+        template <typename ValueType> std::optional<std::vector<ValueType>> Section::ExtractValues(std::wstring_view name)
+        {
+            auto nameIterator = names.find(name);
+            if (names.end() == nameIterator)
+                return std::nullopt;
+
+            if (false == nameIterator->second.TypeIs<ValueType>())
                 return std::nullopt;
 
             auto extractedName = names.extract(nameIterator);
-            return std::make_pair(std::move(extractedName.key()), extractedName.mapped().ExtractValues<ValueType>().value());
+            return extractedName.mapped().ExtractValues<ValueType>().value();
         }
 
-        template std::optional<std::pair<std::wstring, std::vector<TBooleanValue>>> Section::ExtractValues<TBooleanValue>(std::wstring_view name);
-        template std::optional<std::pair<std::wstring, std::vector<TIntegerValue>>> Section::ExtractValues<TIntegerValue>(std::wstring_view name);
-        template std::optional<std::pair<std::wstring, std::vector<TStringValue>>> Section::ExtractValues<TStringValue>(std::wstring_view name);
+        template std::optional<std::vector<TBooleanValue>> Section::ExtractValues<TBooleanValue>(std::wstring_view name);
+        template std::optional<std::vector<TIntegerValue>> Section::ExtractValues<TIntegerValue>(std::wstring_view name);
+        template std::optional<std::vector<TStringValue>> Section::ExtractValues<TStringValue>(std::wstring_view name);
 
         // --------
 
@@ -613,7 +653,7 @@ namespace Pathwinder
             if (names.cend() == nameIter)
                 return std::nullopt;
 
-            switch (nameIter->second.GetFirstValue().GetType())
+            switch (nameIter->second.GetType())
             {
             case EValueType::Boolean:
             case EValueType::BooleanMultiValue:
@@ -634,7 +674,7 @@ namespace Pathwinder
             if (names.cend() == nameIter)
                 return std::nullopt;
 
-            switch (nameIter->second.GetFirstValue().GetType())
+            switch (nameIter->second.GetType())
             {
             case EValueType::Integer:
             case EValueType::IntegerMultiValue:
@@ -655,7 +695,7 @@ namespace Pathwinder
             if (names.cend() == nameIter)
                 return std::nullopt;
 
-            switch (nameIter->second.GetFirstValue().GetType())
+            switch (nameIter->second.GetType())
             {
             case EValueType::String:
             case EValueType::StringMultiValue:
@@ -670,14 +710,14 @@ namespace Pathwinder
 
         // --------
 
-        std::optional<std::pair<std::wstring, Section>> ConfigurationData::ExtractSection(std::wstring_view section)
+        std::optional<Section> ConfigurationData::ExtractSection(std::wstring_view section)
         {
             auto sectionIterator = sections.find(section);
             if (sections.end() == sectionIterator)
                 return std::nullopt;
 
             auto extractedSection = sections.extract(sectionIterator);
-            return std::make_pair(std::move(extractedSection.key()), std::move(extractedSection.mapped()));
+            return std::move(extractedSection.mapped());
         }
 
         // --------

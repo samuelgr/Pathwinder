@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include "Configuration.h"
 #include "FilesystemDirector.h"
 #include "FilesystemRule.h"
 #include "ValueOrError.h"
@@ -83,6 +84,13 @@ namespace Pathwinder
         /// @param [in] filePatterns File patterns to narrow the scope of the new rule. This parameter is optional. Default behavior is to match all files in the origin and target directories.
         /// @return Pointer to the new rule on success, error message on failure.
         ValueOrError<const FilesystemRule*, TemporaryString> AddRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>());
+
+        /// Attempts to create a new rule and insert it into the candidate filesystem director, reading settings from a configuration data section.
+        /// The same constraints are imposed as when adding a rule by supplying its components manually. Internally this method extracts the rule components and adds the rule using #AddRule.
+        /// @param [in] ruleName Name of the new rule. Must be unique among rulse.
+        /// @param [in] configSection Configuration section data object that contains the settings that define the new rule.
+        /// @return Pointer to the new rule on success, error message on failure.
+        ValueOrError<const FilesystemRule*, TemporaryString> AddRuleFromConfigurationSection(std::wstring_view ruleName, Configuration::Section& configSection);
 
         /// Attempts to build a real filesystem director object using all of the rules added so far. Built filesystem director objects are immutable.
         /// Some constraints that are enforced between rules, such as relationships between directories, cannot be checked until all rules have been added.
