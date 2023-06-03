@@ -565,7 +565,7 @@ namespace Pathwinder
 
         // --------
 
-        template <typename ValueType> std::optional<std::vector<ValueType>> Name::ExtractValuesInternal(void)
+        template <typename ValueType> std::optional<std::vector<ValueType>> Name::ExtractValues(void)
         {
             if (false == GetFirstValue().TypeIs<ValueType>())
                 return std::nullopt;
@@ -582,71 +582,28 @@ namespace Pathwinder
             return std::move(extractedValues);
         }
 
-        // --------
-
-        std::optional<std::vector<TBooleanValue>> Name::ExtractBooleanValues(void)
-        {
-            return ExtractValuesInternal<TBooleanValue>();
-        }
+        template std::optional<std::vector<TBooleanValue>> Name::ExtractValues<TBooleanValue>(void);
+        template std::optional<std::vector<TIntegerValue>> Name::ExtractValues<TIntegerValue>(void);
+        template std::optional<std::vector<TStringValue>> Name::ExtractValues<TStringValue>(void);
 
         // --------
 
-        std::optional<std::vector<TIntegerValue>> Name::ExtractIntegerValues(void)
-        {
-            return ExtractValuesInternal<TIntegerValue>();
-        }
-
-        // --------
-
-        std::optional<std::vector<TStringValue>> Name::ExtractStringValues(void)
-        {
-            return ExtractValuesInternal<TStringValue>();
-        }
-
-        // --------
-
-        std::optional<std::pair<std::wstring, std::vector<TBooleanValue>>> Section::ExtractBooleanValues(std::wstring_view name)
+        template <typename ValueType> std::optional<std::pair<std::wstring, std::vector<ValueType>>> Section::ExtractValues(std::wstring_view name)
         {
             auto nameIterator = names.find(name);
             if (names.end() == nameIterator)
                 return std::nullopt;
 
-            if (false == nameIterator->second.GetFirstValue().TypeIs<TBooleanValue>())
+            if (false == nameIterator->second.GetFirstValue().TypeIs<ValueType>())
                 return std::nullopt;
 
             auto extractedName = names.extract(nameIterator);
-            return std::make_pair(std::move(extractedName.key()), extractedName.mapped().ExtractBooleanValues().value());
+            return std::make_pair(std::move(extractedName.key()), extractedName.mapped().ExtractValues<ValueType>().value());
         }
 
-        // --------
-
-        std::optional<std::pair<std::wstring, std::vector<TIntegerValue>>> Section::ExtractIntegerValues(std::wstring_view name)
-        {
-            auto nameIterator = names.find(name);
-            if (names.end() == nameIterator)
-                return std::nullopt;
-
-            if (false == nameIterator->second.GetFirstValue().TypeIs<TIntegerValue>())
-                return std::nullopt;
-
-            auto extractedName = names.extract(nameIterator);
-            return std::make_pair(std::move(extractedName.key()), extractedName.mapped().ExtractIntegerValues().value());
-        }
-
-        // --------
-
-        std::optional<std::pair<std::wstring, std::vector<TStringValue>>> Section::ExtractStringValues(std::wstring_view name)
-        {
-            auto nameIterator = names.find(name);
-            if (names.end() == nameIterator)
-                return std::nullopt;
-
-            if (false == nameIterator->second.GetFirstValue().TypeIs<TStringValue>())
-                return std::nullopt;
-
-            auto extractedName = names.extract(nameIterator);
-            return std::make_pair(std::move(extractedName.key()), extractedName.mapped().ExtractStringValues().value());
-        }
+        template std::optional<std::pair<std::wstring, std::vector<TBooleanValue>>> Section::ExtractValues<TBooleanValue>(std::wstring_view name);
+        template std::optional<std::pair<std::wstring, std::vector<TIntegerValue>>> Section::ExtractValues<TIntegerValue>(std::wstring_view name);
+        template std::optional<std::pair<std::wstring, std::vector<TStringValue>>> Section::ExtractValues<TStringValue>(std::wstring_view name);
 
         // --------
 

@@ -390,32 +390,37 @@ namespace Pathwinder
             inline bool operator==(const Name& rhs) const = default;
 
 
-        private:
+        public:
             // -------- INSTANCE METHODS ----------------------------------- //
 
-            /// For internal use only.
             /// Extracts all values from this configuration setting and returns them all as a vector using move semantics.
             /// @tparam ValueType Expected value type of the configuration setting to extract.
-            /// @tparam kSingleValueEnumerator Enumerator value for single values of the expected value type.
-            /// @tparam kMultiValuEnumerator Enumerator value for multiple values of the expected value type.
             /// @return Vector of extracted values if the value type matches the template parameters.
-            template <typename ValueType> std::optional<std::vector<ValueType>> ExtractValuesInternal(void);
+            template <typename ValueType> std::optional<std::vector<ValueType>> ExtractValues(void);
 
-        public:
             /// Extracts all Boolean values from the specified configuration setting, erasing the entire setting from this section data object and returning all the values as a vector using move semantics.
             /// @param [in] name Name of the configuration setting to extract.
             /// @return Vector of extracted Boolean values if the they are of type Boolean.
-            std::optional<std::vector<TBooleanValue>> ExtractBooleanValues(void);
+            inline std::optional<std::vector<TBooleanValue>> ExtractBooleanValues(void)
+            {
+                return ExtractValues<TBooleanValue>();
+            }
 
             /// Extracts all intger values from the specified configuration setting, erasing the entire setting from this section data object and returning all the values as a vector using move semantics.
             /// @param [in] name Name of the configuration setting to extract.
             /// @return Vector of extracted Boolean values if the they are of type integer.
-            std::optional<std::vector<TIntegerValue>> ExtractIntegerValues(void);
+            inline std::optional<std::vector<TIntegerValue>> ExtractIntegerValues(void)
+            {
+                return ExtractValues<TIntegerValue>();
+            }
 
             /// Extracts all string values from the specified configuration setting, erasing the entire setting from this section data object and returning all the values as a vector using move semantics.
             /// @param [in] name Name of the configuration setting to extract.
             /// @return Vector of extracted Boolean values if the they are of type string.
-            std::optional<std::vector<TStringValue>> ExtractStringValues(void);
+            inline std::optional<std::vector<TStringValue>> ExtractStringValues(void)
+            {
+                return ExtractValues<TStringValue>();
+            }
 
             /// Allows read-only access to the first stored value, which is guaranteed to exist.
             /// Useful for single-valued settings.
@@ -427,7 +432,6 @@ namespace Pathwinder
 
             /// Stores a new value for the configuration setting represented by this object by moving the input parameter.
             /// Will fail if the value already exists.
-            /// @tparam ValueType Type of value to insert.
             /// @param [in] value Value to insert.
             /// @return `true` on success, `false` on failure.
             bool InsertValue(Value&& value)
@@ -501,20 +505,35 @@ namespace Pathwinder
             // -------- INSTANCE METHODS ----------------------------------- //
 
         public:
+            /// Extracts all values from this configuration setting and returns them all as a vector using move semantics.
+            /// @tparam ValueType Expected value type of the configuration setting to extract.
+            /// @param [in] name Name of the configuration setting to extract.
+            /// @return Vector of extracted values if the name exists in this section and is of the correct type as identified by the template parameter.
+            template <typename ValueType> std::optional<std::pair<std::wstring, std::vector<ValueType>>> ExtractValues(std::wstring_view name);
+
             /// Extracts all Boolean values from the specified configuration setting, erasing the entire setting from this section data object and returning all the values as a vector using move semantics.
             /// @param [in] name Name of the configuration setting to extract.
-            /// @return Vector of extracted Boolean values if the name exists in this section and is of type Boolean.
-            std::optional<std::pair<std::wstring, std::vector<TBooleanValue>>> ExtractBooleanValues(std::wstring_view name);
+            /// @return Pair containing setting name and vector of extracted values, if the name was successfully located and values are of type Boolean.
+            inline std::optional<std::pair<std::wstring, std::vector<TBooleanValue>>> ExtractBooleanValues(std::wstring_view name)
+            {
+                return ExtractValues<TBooleanValue>(name);
+            }
 
             /// Extracts all intger values from the specified configuration setting, erasing the entire setting from this section data object and returning all the values as a vector using move semantics.
             /// @param [in] name Name of the configuration setting to extract.
-            /// @return Vector of extracted integer values if the name exists in this section and is of type integer.
-            std::optional<std::pair<std::wstring, std::vector<TIntegerValue>>> ExtractIntegerValues(std::wstring_view name);
+            /// @return Pair containing setting name and vector of extracted values, if the name was successfully located and values are of type integer.
+            inline std::optional<std::pair<std::wstring, std::vector<TIntegerValue>>> ExtractIntegerValues(std::wstring_view name)
+            {
+                return ExtractValues<TIntegerValue>(name);
+            }
 
             /// Extracts all string values from the specified configuration setting, erasing the entire setting from this section data object and returning all the values as a vector using move semantics.
             /// @param [in] name Name of the configuration setting to extract.
-            /// @return Vector of extracted string values if the name exists in this section and is of type string.
-            std::optional<std::pair<std::wstring, std::vector<TStringValue>>> ExtractStringValues(std::wstring_view name);
+            /// @return Pair containing setting name and vector of extracted values, if the name was successfully located and values are of type string.
+            inline std::optional<std::pair<std::wstring, std::vector<TStringValue>>> ExtractStringValues(std::wstring_view name)
+            {
+                return ExtractValues<TStringValue>(name);
+            }
 
             /// Convenience wrapper for quickly attempting to obtain a single Boolean-typed configuration value.
             /// @param [in] name Name of the value for which to search within this section.
