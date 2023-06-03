@@ -3,7 +3,7 @@
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
 
     <Type Name="::Pathwinder::Configuration::Value">
-        <DisplayString Condition="type == EValueType::Error">{{ Error }}</DisplayString>
+        <DisplayString Condition="type == EValueType::Error">{{ error }}</DisplayString>
         <DisplayString Condition="type == EValueType::Boolean || type == EValueType::BooleanMultiValue">{boolValue}</DisplayString>
         <DisplayString Condition="type == EValueType::Integer || type == EValueType::IntegerMultiValue">{intValue}</DisplayString>
         <DisplayString Condition="type == EValueType::String || type == EValueType::StringMultiValue">{stringValue}</DisplayString>

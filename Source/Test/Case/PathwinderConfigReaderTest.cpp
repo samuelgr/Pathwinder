@@ -68,7 +68,7 @@ namespace PathwinderTest
     // Verifies that multiple filesystem rules can be successfully parsed.
     TEST_CASE(PathwinderConfigReader_FilesystemRules)
     {
-        const ConfigurationData configurationData({
+        ConfigurationData configurationData({
             {L"FilesystemRule:NoFilePatterns", {
                 {L"OriginDirectory", L"C:\\OriginDirectory1"},
                 {L"TargetDirectory", L"C:\\TargetDirectory1"}

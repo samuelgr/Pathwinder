@@ -256,7 +256,18 @@ namespace Pathwinder
             }
 
 
+        public:
             // -------- INSTANCE METHODS ----------------------------------- //
+
+            /// Determines whether the type held by this value matches the template parameter.
+            /// @tparam ValueType Type of value to check against what is held by this object.
+            /// @return `true` if the template parameter value matche the actual value type held by this object, `false` otherwise.
+            template <typename ValueType> bool TypeIs(void) const;
+
+            /// Extracts the value held by this object without checking for type-correctness and returns it using move semantics.
+            /// @tparam ValueType Type of value to extract from this object.
+            /// @return Value extracted from this object.
+            template <typename ValueType> ValueType ExtractValue(void);
 
             /// Retrieves and returns the line number within the configuration file on which this value was located.
             /// @return Line number that corresponds to this value.
@@ -295,7 +306,6 @@ namespace Pathwinder
             {
                 return stringValue;
             }
-
         };
 
         /// Third-level object used to represent a single configuration setting within one section of a configuration file.
@@ -380,12 +390,37 @@ namespace Pathwinder
             inline bool operator==(const Name& rhs) const = default;
 
 
+        private:
             // -------- INSTANCE METHODS ----------------------------------- //
+
+            /// For internal use only.
+            /// Extracts all values from this configuration setting and returns them all as a vector using move semantics.
+            /// @tparam ValueType Expected value type of the configuration setting to extract.
+            /// @tparam kSingleValueEnumerator Enumerator value for single values of the expected value type.
+            /// @tparam kMultiValuEnumerator Enumerator value for multiple values of the expected value type.
+            /// @return Vector of extracted values if the value type matches the template parameters.
+            template <typename ValueType> std::optional<std::vector<ValueType>> ExtractValuesInternal(void);
+
+        public:
+            /// Extracts all Boolean values from the specified configuration setting, erasing the entire setting from this section data object and returning all the values as a vector using move semantics.
+            /// @param [in] name Name of the configuration setting to extract.
+            /// @return Vector of extracted Boolean values if the they are of type Boolean.
+            std::optional<std::vector<TBooleanValue>> ExtractBooleanValues(void);
+
+            /// Extracts all intger values from the specified configuration setting, erasing the entire setting from this section data object and returning all the values as a vector using move semantics.
+            /// @param [in] name Name of the configuration setting to extract.
+            /// @return Vector of extracted Boolean values if the they are of type integer.
+            std::optional<std::vector<TIntegerValue>> ExtractIntegerValues(void);
+
+            /// Extracts all string values from the specified configuration setting, erasing the entire setting from this section data object and returning all the values as a vector using move semantics.
+            /// @param [in] name Name of the configuration setting to extract.
+            /// @return Vector of extracted Boolean values if the they are of type string.
+            std::optional<std::vector<TStringValue>> ExtractStringValues(void);
 
             /// Allows read-only access to the first stored value, which is guaranteed to exist.
             /// Useful for single-valued settings.
             /// @return First stored value.
-            inline const Value& FirstValue(void) const
+            inline const Value& GetFirstValue(void) const
             {
                 return *(values.begin());
             }
@@ -465,71 +500,36 @@ namespace Pathwinder
 
             // -------- INSTANCE METHODS ----------------------------------- //
 
+        public:
+            /// Extracts all Boolean values from the specified configuration setting, erasing the entire setting from this section data object and returning all the values as a vector using move semantics.
+            /// @param [in] name Name of the configuration setting to extract.
+            /// @return Vector of extracted Boolean values if the name exists in this section and is of type Boolean.
+            std::optional<std::pair<std::wstring, std::vector<TBooleanValue>>> ExtractBooleanValues(std::wstring_view name);
+
+            /// Extracts all intger values from the specified configuration setting, erasing the entire setting from this section data object and returning all the values as a vector using move semantics.
+            /// @param [in] name Name of the configuration setting to extract.
+            /// @return Vector of extracted integer values if the name exists in this section and is of type integer.
+            std::optional<std::pair<std::wstring, std::vector<TIntegerValue>>> ExtractIntegerValues(std::wstring_view name);
+
+            /// Extracts all string values from the specified configuration setting, erasing the entire setting from this section data object and returning all the values as a vector using move semantics.
+            /// @param [in] name Name of the configuration setting to extract.
+            /// @return Vector of extracted string values if the name exists in this section and is of type string.
+            std::optional<std::pair<std::wstring, std::vector<TStringValue>>> ExtractStringValues(std::wstring_view name);
+
             /// Convenience wrapper for quickly attempting to obtain a single Boolean-typed configuration value.
             /// @param [in] name Name of the value for which to search within this section.
             /// @return First value associated with the section and name, if it exists.
-            inline std::optional<TBooleanView> GetFirstBooleanValue(std::wstring_view name) const
-            {
-                const auto nameIter = names.find(name);
-                if (names.cend() == nameIter)
-                    return std::nullopt;
-
-                switch (nameIter->second.FirstValue().GetType())
-                {
-                case EValueType::Boolean:
-                case EValueType::BooleanMultiValue:
-                    break;
-
-                default:
-                    return std::nullopt;
-                }
-
-                return nameIter->second.FirstValue().GetBooleanValue();
-            }
+            std::optional<TBooleanView> GetFirstBooleanValue(std::wstring_view name) const;
 
             /// Convenience wrapper for quickly attempting to obtain a single Integer-typed configuration value.
             /// @param [in] name Name of the value for which to search within this section.
             /// @return First value associated with the section and name, if it exists.
-            inline std::optional<TIntegerView> GetFirstIntegerValue(std::wstring_view name) const
-            {
-                const auto nameIter = names.find(name);
-                if (names.cend() == nameIter)
-                    return std::nullopt;
-
-                switch (nameIter->second.FirstValue().GetType())
-                {
-                case EValueType::Integer:
-                case EValueType::IntegerMultiValue:
-                    break;
-
-                default:
-                    return std::nullopt;
-                }
-
-                return nameIter->second.FirstValue().GetIntegerValue();
-            }
+            std::optional<TIntegerView> GetFirstIntegerValue(std::wstring_view name) const;
 
             /// Convenience wrapper for quickly attempting to obtain a single string-typed configuration value.
             /// @param [in] name Name of the value for which to search within this section.
             /// @return First value associated with the section and name, if it exists.
-            inline std::optional<TStringView> GetFirstStringValue(std::wstring_view name) const
-            {
-                const auto nameIter = names.find(name);
-                if (names.cend() == nameIter)
-                    return std::nullopt;
-
-                switch (nameIter->second.FirstValue().GetType())
-                {
-                case EValueType::String:
-                case EValueType::StringMultiValue:
-                    break;
-
-                default:
-                    return std::nullopt;
-                }
-
-                return nameIter->second.FirstValue().GetStringValue();
-            }
+            std::optional<TStringView> GetFirstStringValue(std::wstring_view name) const;
 
             /// Stores a new value for the specified configuration setting in the section represented by this object by moving the input parameter.
             /// Will fail if the value already exists.
@@ -642,14 +642,10 @@ namespace Pathwinder
                 sections.clear();
             }
 
-            /// Erases the specified section from this configuration data object.
-            /// Useful for freeing up memory after post-processing of the configuration data.
-            /// @param [in] section Section name to erase.
-            /// @return `true` if the section was located and successfully erased, `false` otherwise.
-            inline bool EraseSection(std::wstring_view section)
-            {
-                return (0 != sections.erase(section));
-            }
+            /// Extracts the specified section from this configuration data object, erasing it from the configuration data object and returning it using move semantics.
+            /// @param [in] section Section name to extract.
+            /// @return Pair containing section name and extracted section object, if the section was successfully located.
+            std::optional<std::pair<std::wstring, Section>> ExtractSection(std::wstring_view section);
 
             /// Convenience wrapper for quickly attempting to obtain a single Boolean-typed configuration value.
             /// @param [in] section Section name to search for the value.
@@ -688,15 +684,6 @@ namespace Pathwinder
                     return std::nullopt;
 
                 return sectionIterator->second.GetFirstStringValue(name);
-            }
-
-            inline TStringView GetTest(std::wstring_view section, std::wstring_view name) const
-            {
-                const auto sectionIterator = sections.find(section);
-                if (sections.cend() == sectionIterator)
-                    return std::wstring_view();
-
-                return sectionIterator->second.GetFirstStringValue(name).value();
             }
 
             /// Retrieves and returns the error messages that arose during the configuration file read attempt that produced this object.

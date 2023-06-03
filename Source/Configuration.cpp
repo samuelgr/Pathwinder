@@ -15,17 +15,15 @@
 
 #include <algorithm>
 #include <climits>
-#include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
-#include <memory>
-#include <sal.h>
+#include <optional>
 #include <string>
 #include <string_view>
-#include <unordered_set>
+#include <vector>
 
 
 namespace Pathwinder
@@ -33,7 +31,7 @@ namespace Pathwinder
     namespace Configuration
     {
         // -------- INTERNAL TYPES ----------------------------------------- //
-
+        
         /// Enumerates all possible classifications of configuration file lines.
         /// Used during parsing to classify each line encountered.
         enum class ELineClassification
@@ -500,6 +498,232 @@ namespace Pathwinder
 
         // -------- INSTANCE METHODS --------------------------------------- //
         // See "Configuration.h" for documentation.
+
+        template <> bool Value::TypeIs<TBooleanValue>(void) const
+        {
+            switch (GetType())
+            {
+            case EValueType::Boolean:
+            case EValueType::BooleanMultiValue:
+                return true;
+
+            default:
+                return false;
+            }
+        }
+
+        // --------
+
+        template <> bool Value::TypeIs<TIntegerValue>(void) const
+        {
+            switch (GetType())
+            {
+            case EValueType::Integer:
+            case EValueType::IntegerMultiValue:
+                return true;
+
+            default:
+                return false;
+            }
+        }
+
+        // --------
+
+        template <> bool Value::TypeIs<TStringValue>(void) const
+        {
+            switch (GetType())
+            {
+            case EValueType::String:
+            case EValueType::StringMultiValue:
+                return true;
+
+            default:
+                return false;
+            }
+        }
+
+        // --------
+
+        template <> TBooleanValue Value::ExtractValue(void)
+        {
+            return std::move(boolValue);
+        }
+
+        // --------
+
+        template <> TIntegerValue Value::ExtractValue(void)
+        {
+            return std::move(intValue);
+        }
+
+        // --------
+
+        template <> TStringValue Value::ExtractValue(void)
+        {
+            return std::move(stringValue);
+        }
+
+        // --------
+
+        template <typename ValueType> std::optional<std::vector<ValueType>> Name::ExtractValuesInternal(void)
+        {
+            if (false == GetFirstValue().TypeIs<ValueType>())
+                return std::nullopt;
+
+            std::vector<ValueType> extractedValues;
+            extractedValues.reserve(values.size());
+
+            while (false == values.empty())
+            {
+                Value extractedValue = std::move(values.extract(values.begin()).value());
+                extractedValues.emplace_back(extractedValue.ExtractValue<ValueType>());
+            }
+
+            return std::move(extractedValues);
+        }
+
+        // --------
+
+        std::optional<std::vector<TBooleanValue>> Name::ExtractBooleanValues(void)
+        {
+            return ExtractValuesInternal<TBooleanValue>();
+        }
+
+        // --------
+
+        std::optional<std::vector<TIntegerValue>> Name::ExtractIntegerValues(void)
+        {
+            return ExtractValuesInternal<TIntegerValue>();
+        }
+
+        // --------
+
+        std::optional<std::vector<TStringValue>> Name::ExtractStringValues(void)
+        {
+            return ExtractValuesInternal<TStringValue>();
+        }
+
+        // --------
+
+        std::optional<std::pair<std::wstring, std::vector<TBooleanValue>>> Section::ExtractBooleanValues(std::wstring_view name)
+        {
+            auto nameIterator = names.find(name);
+            if (names.end() == nameIterator)
+                return std::nullopt;
+
+            if (false == nameIterator->second.GetFirstValue().TypeIs<TBooleanValue>())
+                return std::nullopt;
+
+            auto extractedName = names.extract(nameIterator);
+            return std::make_pair(std::move(extractedName.key()), extractedName.mapped().ExtractBooleanValues().value());
+        }
+
+        // --------
+
+        std::optional<std::pair<std::wstring, std::vector<TIntegerValue>>> Section::ExtractIntegerValues(std::wstring_view name)
+        {
+            auto nameIterator = names.find(name);
+            if (names.end() == nameIterator)
+                return std::nullopt;
+
+            if (false == nameIterator->second.GetFirstValue().TypeIs<TIntegerValue>())
+                return std::nullopt;
+
+            auto extractedName = names.extract(nameIterator);
+            return std::make_pair(std::move(extractedName.key()), extractedName.mapped().ExtractIntegerValues().value());
+        }
+
+        // --------
+
+        std::optional<std::pair<std::wstring, std::vector<TStringValue>>> Section::ExtractStringValues(std::wstring_view name)
+        {
+            auto nameIterator = names.find(name);
+            if (names.end() == nameIterator)
+                return std::nullopt;
+
+            if (false == nameIterator->second.GetFirstValue().TypeIs<TStringValue>())
+                return std::nullopt;
+
+            auto extractedName = names.extract(nameIterator);
+            return std::make_pair(std::move(extractedName.key()), extractedName.mapped().ExtractStringValues().value());
+        }
+
+        // --------
+
+        std::optional<TBooleanView> Section::GetFirstBooleanValue(std::wstring_view name) const
+        {
+            const auto nameIter = names.find(name);
+            if (names.cend() == nameIter)
+                return std::nullopt;
+
+            switch (nameIter->second.GetFirstValue().GetType())
+            {
+            case EValueType::Boolean:
+            case EValueType::BooleanMultiValue:
+                break;
+
+            default:
+                return std::nullopt;
+            }
+
+            return nameIter->second.GetFirstValue().GetBooleanValue();
+        }
+
+        // --------
+
+        std::optional<TIntegerView> Section::GetFirstIntegerValue(std::wstring_view name) const
+        {
+            const auto nameIter = names.find(name);
+            if (names.cend() == nameIter)
+                return std::nullopt;
+
+            switch (nameIter->second.GetFirstValue().GetType())
+            {
+            case EValueType::Integer:
+            case EValueType::IntegerMultiValue:
+                break;
+
+            default:
+                return std::nullopt;
+            }
+
+            return nameIter->second.GetFirstValue().GetIntegerValue();
+        }
+
+        // --------
+
+        std::optional<TStringView> Section::GetFirstStringValue(std::wstring_view name) const
+        {
+            const auto nameIter = names.find(name);
+            if (names.cend() == nameIter)
+                return std::nullopt;
+
+            switch (nameIter->second.GetFirstValue().GetType())
+            {
+            case EValueType::String:
+            case EValueType::StringMultiValue:
+                break;
+
+            default:
+                return std::nullopt;
+            }
+
+            return nameIter->second.GetFirstValue().GetStringValue();
+        }
+
+        // --------
+
+        std::optional<std::pair<std::wstring, Section>> ConfigurationData::ExtractSection(std::wstring_view section)
+        {
+            auto sectionIterator = sections.find(section);
+            if (sections.end() == sectionIterator)
+                return std::nullopt;
+
+            auto extractedSection = sections.extract(sectionIterator);
+            return std::make_pair(std::move(extractedSection.key()), std::move(extractedSection.mapped()));
+        }
+
+        // --------
 
         ConfigurationData ConfigurationFileReader::ReadConfigurationFile(std::wstring_view configFileName)
         {
