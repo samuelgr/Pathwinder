@@ -97,19 +97,42 @@ namespace PathwinderTest
     }
 
     // Verifies the nominal situation of creating rules that do not overlap and contain no file patterns.
+    // Additionally verifies the resulting contents of the filesystem rules that are created.
     TEST_CASE(FilesystemDirectorBuilder_AddRule_Success_Nominal)
     {
         FilesystemDirectorBuilder directorBuilder;
-        TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir1").HasValue());
-        TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\OriginDir2", L"C:\\TargetDir2").HasValue());
+
+        auto maybeConfigRule1 = directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir1");
+        TEST_ASSERT(maybeConfigRule1.HasValue());
+        TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
+        TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
+
+        auto maybeConfigRule2 = directorBuilder.AddRule(L"2", L"C:\\OriginDir2", L"C:\\TargetDir2");
+        TEST_ASSERT(maybeConfigRule2.HasValue());
+        TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
+        TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
     }
 
     // Verifies that non-overlapping filesystem rules can be created with file patterns.
-    TEST_CASE(FilesystemDirectorBuilder_AddRule_Success_WithFileMasks)
+    // Additionally verifies the resulting contents, including some file pattern checks, of the filesystem rules that are created.
+    TEST_CASE(FilesystemDirectorBuilder_AddRule_Success_WithFilePatterns)
     {
         FilesystemDirectorBuilder directorBuilder;
-        TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir1", {L"file*.txt", L"*.bin"}).HasValue());
-        TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\OriginDir2", L"C:\\TargetDir2", {L"log*", L"file???.dat"}).HasValue());
+
+        auto maybeConfigRule1 = directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir1", {L"file*.txt", L"*.bin"});
+        TEST_ASSERT(maybeConfigRule1.HasValue());
+        TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
+        TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
+        TEST_ASSERT(true == maybeConfigRule1.Value()->FileNameMatchesAnyPattern(L"file1.txt"));
+        TEST_ASSERT(false == maybeConfigRule1.Value()->FileNameMatchesAnyPattern(L"asdf.txt"));
+
+        auto maybeConfigRule2 = directorBuilder.AddRule(L"2", L"C:\\OriginDir2", L"C:\\TargetDir2", {L"log*", L"file???.dat"});
+        TEST_ASSERT(maybeConfigRule2.HasValue());
+        TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
+        TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
+        TEST_ASSERT(true == maybeConfigRule2.Value()->FileNameMatchesAnyPattern(L"fileasd.dat"));
+        TEST_ASSERT(false == maybeConfigRule2.Value()->FileNameMatchesAnyPattern(L"asdf.txt"));
+
     }
 
     // Verifies that non-overlapping filesystem rules can be created but one of the origin directories is a subdirectory of the other.
@@ -163,6 +186,89 @@ namespace PathwinderTest
         FilesystemDirectorBuilder directorBuilder;
         TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir").HasValue());
         TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\OriginDir2", L"C:\\OriginDir1").HasError());
+    }
+
+    // Verifies the nominal situation of creating rules that do not overlap and contain no file patterns, but from a configuration data section.
+    // Additionally verifies the resulting contents of the filesystem rules that are created.
+    TEST_CASE(FilesystemDirectorBuilder_AddRuleFromConfigurationSection_Success_Nominal)
+    {
+        Configuration::Section configSection1 = {
+            {L"OriginDirectory", L"C:\\OriginDir1"},
+            {L"TargetDirectory", L"C:\\TargetDir1"}
+        };
+
+        Configuration::Section configSection2 = {
+            {L"OriginDirectory", L"C:\\OriginDir2"},
+            {L"TargetDirectory", L"C:\\TargetDir2"}
+        };
+
+        FilesystemDirectorBuilder directorBuilder;
+
+        auto maybeConfigRule1 = directorBuilder.AddRuleFromConfigurationSection(L"1", configSection1);
+        TEST_ASSERT(maybeConfigRule1.HasValue());
+        TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
+        TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
+
+        auto maybeConfigRule2 = directorBuilder.AddRuleFromConfigurationSection(L"2", configSection2);
+        TEST_ASSERT(maybeConfigRule2.HasValue());
+        TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
+        TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
+    }
+
+    // Verifies that non-overlapping filesystem rules can be created with file patterns.
+    // Additionally verifies the resulting contents, including some file pattern checks, of the filesystem rules that are created.
+    TEST_CASE(FilesystemDirectorBuilder_AddRuleFromConfigurationSection_Success_WithFilePatterns)
+    {
+        Configuration::Section configSection1 = {
+            {L"OriginDirectory", L"C:\\OriginDir1"},
+            {L"TargetDirectory", L"C:\\TargetDir1"},
+            {L"FilePattern", {L"file*.txt", L"*.bin"}}
+        };
+
+        Configuration::Section configSection2 = {
+            {L"OriginDirectory", L"C:\\OriginDir2"},
+            {L"TargetDirectory", L"C:\\TargetDir2"},
+            {L"FilePattern", {L"log*", L"file???.dat"}}
+        };
+
+        FilesystemDirectorBuilder directorBuilder;
+
+        auto maybeConfigRule1 = directorBuilder.AddRuleFromConfigurationSection(L"1", configSection1);
+        TEST_ASSERT(maybeConfigRule1.HasValue());
+        TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
+        TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
+        TEST_ASSERT(true == maybeConfigRule1.Value()->FileNameMatchesAnyPattern(L"file1.txt"));
+        TEST_ASSERT(false == maybeConfigRule1.Value()->FileNameMatchesAnyPattern(L"asdf.txt"));
+
+        auto maybeConfigRule2 = directorBuilder.AddRuleFromConfigurationSection(L"2", configSection2);
+        TEST_ASSERT(maybeConfigRule2.HasValue());
+        TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
+        TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
+        TEST_ASSERT(true == maybeConfigRule2.Value()->FileNameMatchesAnyPattern(L"fileasd.dat"));
+        TEST_ASSERT(false == maybeConfigRule2.Value()->FileNameMatchesAnyPattern(L"asdf.txt"));
+    }
+
+    // Verifies that filesystem rules cannot be created from configuration sections that are missing either an origin or a target directory.
+    TEST_CASE(FilesystemDirectorBuilder_AddRuleFromConfigurationSection_Failure_MissingDirectory)
+    {
+        Configuration::Section configSectionMissingOriginDirectory = {
+            {L"TargetDirectory", L"C:\\TargetDir1"},
+        };
+
+        Configuration::Section configSectionMissingTargetDirectory = {
+            {L"OriginDirectory", L"C:\\OriginDir2"},
+            {L"FilePattern", {L"log*", L"file???.dat"}}
+        };
+
+        FilesystemDirectorBuilder directorBuilder;
+
+        auto maybeConfigRuleMissingOriginDirectory = directorBuilder.AddRuleFromConfigurationSection(L"1", configSectionMissingOriginDirectory);
+        TEST_ASSERT(maybeConfigRuleMissingOriginDirectory.HasError());
+        TEST_ASSERT(maybeConfigRuleMissingOriginDirectory.Error().AsStringView().contains(L"origin directory"));
+
+        auto maybeConfigRuleMissingTargetDirectory = directorBuilder.AddRuleFromConfigurationSection(L"2", configSectionMissingTargetDirectory);
+        TEST_ASSERT(maybeConfigRuleMissingTargetDirectory.HasError());
+        TEST_ASSERT(maybeConfigRuleMissingTargetDirectory.Error().AsStringView().contains(L"target directory"));
     }
 
     // Verifies that directory presence is successfully reported when rules exist and is correctly categorized by origin or target.

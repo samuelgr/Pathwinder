@@ -164,7 +164,9 @@ namespace Pathwinder
         if (false == maybeTargetDirectory.has_value())
             return Strings::FormatString(L"Filesystem rule %.*s: Missing target directory.", (int)ruleName.length(), ruleName.data());
 
-        return AddRule(ruleName, std::move(maybeOriginDirectory).value(), std::move(maybeTargetDirectory).value(), configSection.ExtractStringValues(Strings::kStrConfigurationSettingFilesystemRuleFilePattern).value_or(std::vector<std::wstring>()));
+        auto filePatterns = configSection.ExtractStringValues(Strings::kStrConfigurationSettingFilesystemRuleFilePattern).value_or(std::vector<std::wstring>());
+
+        return AddRule(ruleName, std::move(maybeOriginDirectory).value(), std::move(maybeTargetDirectory).value(), std::move(filePatterns));
     }
 
     // --------
