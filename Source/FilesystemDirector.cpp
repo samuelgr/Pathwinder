@@ -22,6 +22,12 @@
 
 namespace Pathwinder
 {
+    FilesystemDirector& FilesystemDirector::Singleton(void)
+    {
+        static FilesystemDirector singleton;
+        return singleton;
+    }
+
     // -------- INSTANCE METHODS ------------------------------------------- //
     // See "FilesystemDirector.h" for documentation.
 

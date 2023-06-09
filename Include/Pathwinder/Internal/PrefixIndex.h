@@ -47,17 +47,17 @@ namespace Pathwinder
             const DataType* data;
 
             /// Parent node, one level up in the tree. Cannot be used to modify the tree.
-            Node* const parent;
+            Node* parent;
 
             /// Key within the parent node's child map that is associated with this node.
-            const std::basic_string_view<CharType> parentKey;
+            std::basic_string_view<CharType> parentKey;
 
             /// Child nodes, stored associatively by path prefix string.
             std::unordered_map<std::basic_string_view<CharType>, Node> children;
 
 
         public:
-            // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
+            // -------- CONSTRUCTION AND DESTRUCTION ----------------------- //
 
             /// Initialization constructor.
             /// Requires information about this node's parent.
@@ -65,6 +65,24 @@ namespace Pathwinder
             {
                 // Nothing to do here.
             }
+
+            /// Copy constructor. Should never be invoked.
+            Node(const Node&) = delete;
+
+            /// Move constructor.
+            inline Node(Node&& other) : data(other.data), parent(other.parent), parentKey(other.parentKey), children(std::move(other.children))
+            {
+                // Nothing to do here.
+            }
+
+
+            // --------- OPERATORS ----------------------------------------- //
+
+            /// Copy assignment operator. Should never be invoked.
+            Node& operator=(const Node&) = delete;
+
+            /// Move assignment operator.
+            inline Node& operator=(Node&& other) = default;
 
 
             // -------- INSTANCE METHODS ----------------------------------- //
@@ -183,6 +201,13 @@ namespace Pathwinder
     public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
+        /// Default constructor.
+        /// Assumes that the only path delimiter that should be used is the backslash character.
+        inline PrefixIndex(void) : PrefixIndex(L"\\")
+        {
+            // Nothing to do here.
+        }
+
         /// Initialization constructor.
         /// Fills path delimiters using an array and a count. An array-out-of-bounds error will occur if the number of delimiters is too high.
         PrefixIndex(const std::basic_string_view<CharType>* pathDelimiterArray, unsigned int pathDelimiterArrayCount) : rootNode(nullptr, std::basic_string_view<CharType>()), pathDelimiters(), pathDelimiterCount(pathDelimiterArrayCount)
@@ -204,6 +229,21 @@ namespace Pathwinder
         {
             // Nothing to do here.
         }
+
+        /// Copy constructor. Should never be invoked.
+        PrefixIndex(const PrefixIndex&) = delete;
+
+        /// Move constructor.
+        inline PrefixIndex(PrefixIndex&& other) = default;
+
+
+        // --------- OPERATORS ----------------------------------------- //
+
+        /// Copy assignment operator. Should never be invoked.
+        PrefixIndex& operator=(const PrefixIndex&) = delete;
+
+        /// Move assignment operator.
+        inline PrefixIndex& operator=(PrefixIndex&& other) = default;
 
 
     private:

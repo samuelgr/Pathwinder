@@ -30,14 +30,18 @@ namespace Pathwinder
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
         /// Holds all filesystem rules contained within the candidate filesystem director object. Maps from rule name to rule object.
-        const std::map<std::wstring, FilesystemRule, std::less<>> filesystemRules;
+        std::map<std::wstring, FilesystemRule, std::less<>> filesystemRules;
 
         /// Indexes all absolute paths of origin directories used by filesystem rules.
-        const PrefixIndex<wchar_t, FilesystemRule> originDirectoryIndex;
+        PrefixIndex<wchar_t, FilesystemRule> originDirectoryIndex;
 
 
     public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
+
+        /// Default constructor.
+        inline FilesystemDirector(void) = default;
+
 
         /// Initialization constructor.
         /// Move-constructs each individual instance variable. Intended to be invoked either by a filesystem director builder or by tests.
@@ -45,6 +49,29 @@ namespace Pathwinder
         {
             // Nothing to do here.
         }
+
+        /// Copy constructor. Should never be invoked.
+        FilesystemDirector(const FilesystemDirector&) = delete;
+
+        /// Move constructor.
+        inline FilesystemDirector(FilesystemDirector&& other) = default;
+
+
+        // --------- OPERATORS --------------------------------------------- //
+
+        /// Copy assignment operator. Should never be invoked.
+        FilesystemDirector& operator=(const FilesystemDirector&) = delete;
+
+        /// Move assignment operator.
+        inline FilesystemDirector& operator=(FilesystemDirector&& other) = default;
+
+
+        // -------- CLASS METHODS ------------------------------------------ //
+
+        /// Returns a mutable reference to a singleton instance of this class.
+        /// Not useful for tests, which instead create their own local instances of filesystem director objects.
+        /// @return Mutable reference to a globally-shared filesystem director object.
+        static FilesystemDirector& Singleton(void);
 
 
         // -------- INSTANCE METHODS --------------------------------------- //
