@@ -76,6 +76,13 @@ namespace Pathwinder
 
         // -------- INSTANCE METHODS --------------------------------------- //
 
+        /// Retrieves and returns the number of filesystem rules held by this object.
+        /// @return Number of filesystem rules.
+        inline unsigned int CountOfRules(void) const
+        {
+            return static_cast<unsigned int>(filesystemRules.size());
+        }
+
         /// Searches for the specified rule by name and returns a pointer to the corresponding object, if found.
         /// @param [in] ruleName Name of the rule for which to search.
         /// @return Pointer to the rule, or `nullptr` if no matching rule is found.

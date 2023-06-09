@@ -326,17 +326,17 @@ namespace PathwinderTest
         auto buildResult = directorBuilder.Build();
         TEST_ASSERT(buildResult.HasValue());
 
-        auto& director = buildResult.Value();
+        FilesystemDirector director = std::move(buildResult.Value());
 
-        TEST_ASSERT(nullptr != director->FindRuleByName(L"1"));
-        TEST_ASSERT(director->FindRuleByName(L"1")->GetName() == L"1");
-        TEST_ASSERT(director->FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
-        TEST_ASSERT(director->FindRuleByName(L"1") == director->FindRuleByOriginDirectory(L"C:\\OriginDir1"));
+        TEST_ASSERT(nullptr != director.FindRuleByName(L"1"));
+        TEST_ASSERT(director.FindRuleByName(L"1")->GetName() == L"1");
+        TEST_ASSERT(director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
+        TEST_ASSERT(director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1"));
 
-        TEST_ASSERT(nullptr != director->FindRuleByName(L"2"));
-        TEST_ASSERT(director->FindRuleByName(L"2")->GetName() == L"2");
-        TEST_ASSERT(director->FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2");
-        TEST_ASSERT(director->FindRuleByName(L"2") == director->FindRuleByOriginDirectory(L"E:\\OriginDir2"));
+        TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
+        TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
+        TEST_ASSERT(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2");
+        TEST_ASSERT(director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2"));
     }
 
     // Verifies that rule set finalization completes successfully where rules have origin directories whose parents do not exist but themselves are the origin directories of other rules.

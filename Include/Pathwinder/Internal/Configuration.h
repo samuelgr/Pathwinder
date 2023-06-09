@@ -742,6 +742,12 @@ namespace Pathwinder
 
             /// Extracts the specified section from this configuration data object using move semantics.
             /// This has the additional effect of erasing it from this configuration data object.
+            /// @param [in] position Iterator that corresponds to the specific section object to be extracted.
+            /// @return Extracted section object.
+            Section ExtractSection(TSections::const_iterator position);
+
+            /// Extracts the specified section from this configuration data object using move semantics.
+            /// This has the additional effect of erasing it from this configuration data object.
             /// @param [in] section Section name to extract.
             /// @return Extracted section object, if the section was successfully located.
             std::optional<Section> ExtractSection(std::wstring_view section);

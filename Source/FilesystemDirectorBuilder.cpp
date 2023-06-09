@@ -15,12 +15,13 @@
 #include "DebugAssert.h"
 #include "FilesystemDirectorBuilder.h"
 #include "FilesystemOperations.h"
+#include "Message.h"
 #include "Resolver.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
 
 #include <map>
-#include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <string_view>
@@ -30,6 +31,55 @@ namespace Pathwinder
 {
     // -------- CLASS METHODS ---------------------------------------------- //
     // See "FilesystemDirectorBuilder.h" for documentation.
+
+    std::optional<FilesystemDirector> FilesystemDirectorBuilder::BuildFromConfigurationData(Configuration::ConfigurationData& configData)
+    {
+        FilesystemDirectorBuilder builder;
+
+        bool builderHasRuleErrors = false;
+
+        // All sections whose names begin with "FilesystemRule:" contain filesystem rule data.
+        // The rule name is the part of the section name that comes after the prefix, and the section content defines the rule itself.
+
+        for (auto filesystemRuleIter = configData.Sections().lower_bound(Strings::kStrConfigurationSectionFilesystemRulePrefix); ((filesystemRuleIter != configData.Sections().end()) && (filesystemRuleIter->first.starts_with(Strings::kStrConfigurationSectionFilesystemRulePrefix))); )
+        {
+            auto nextFilesystemRuleIter = filesystemRuleIter;
+            ++nextFilesystemRuleIter;
+
+            std::wstring_view filesystemRuleName = static_cast<std::wstring_view>(filesystemRuleIter->first);
+            filesystemRuleName.remove_prefix(Strings::kStrConfigurationSectionFilesystemRulePrefix.length());
+
+            Configuration::Section filesystemRuleContents = configData.ExtractSection(filesystemRuleIter);
+
+            auto addFilesystemRuleResult = builder.AddRuleFromConfigurationSection(filesystemRuleName, filesystemRuleContents);
+            if (addFilesystemRuleResult.HasValue())
+            {
+                Message::OutputFormatted(Message::ESeverity::Info, L"Successfully created filesystem rule %.*s.", (int)filesystemRuleName.length(), filesystemRuleName.data());
+            }
+            else
+            {
+                Message::OutputFormatted(Message::ESeverity::Error, L"Error during creation: %s", addFilesystemRuleResult.Error().AsCString());
+                builderHasRuleErrors = true;
+            }
+        }
+
+        if (true == builderHasRuleErrors)
+            return std::nullopt;
+
+        auto buildResult = builder.Build();
+        if (buildResult.HasValue())
+        {
+            Message::OutputFormatted(Message::ESeverity::Info, L"Successfully built a filesystem director with %u rules(s).", buildResult.Value().CountOfRules());
+            return std::move(buildResult.Value());
+        }
+        else
+        {
+            Message::OutputFormatted(Message::ESeverity::Error, L"Error during building: %s", buildResult.Error().AsCString());
+            return std::nullopt;
+        }
+    }
+
+    // --------
 
     bool FilesystemDirectorBuilder::IsValidDirectoryString(std::wstring_view candidateDirectory)
     {
@@ -171,7 +221,7 @@ namespace Pathwinder
 
     // --------
 
-    ValueOrError<std::unique_ptr<const FilesystemDirector>, TemporaryString> FilesystemDirectorBuilder::Build(void)
+    ValueOrError<FilesystemDirector, TemporaryString> FilesystemDirectorBuilder::Build(void)
     {
         if (true == filesystemRules.empty())
             return L"Filesystem rules: Internal error: Attempted to finalize an empty registry.";
@@ -190,6 +240,6 @@ namespace Pathwinder
                 return Strings::FormatString(L"Filesystem rule %s: Constraint violation: Parent of origin directory must either exist as a real directory or be the origin directory of another filesystem rule.", filesystemRuleRecord.first.c_str());
         }
 
-        return std::make_unique<FilesystemDirector>(std::move(filesystemRules), std::move(originDirectories));
+        return FilesystemDirector(std::move(filesystemRules), std::move(originDirectories));
     }
 }

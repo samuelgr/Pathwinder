@@ -18,7 +18,7 @@
 #include "ValueOrError.h"
 
 #include <map>
-#include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -54,6 +54,13 @@ namespace Pathwinder
 
 
         // -------- CLASS METHODS ------------------------------------------ //
+
+        /// Attempts to build a filesystem director object using a configuration data object.
+        /// Extracts filesystem rules from the specified configuration data object, one rule per section identified by prefix.
+        /// If any errors are encountered then log messages are generated.
+        /// @param [in] Mutable reference to a configuration data object containing sections that define filesystem rules.
+        /// @return Newly-created filesystem director object if successful.
+        static std::optional<FilesystemDirector> BuildFromConfigurationData(Configuration::ConfigurationData& configData);
 
         /// Checks if the specified candidate directory string is valid for use as an origin or a target directory.
         /// It must not be empty, must not contain any disallowed characters, and must not end in a backslash.
@@ -99,7 +106,7 @@ namespace Pathwinder
         /// (1) Origin directory either exists as a real directory or does not exist at all (i.e. it does not exist as a file or some other non-directory entity type).
         /// (2) Immediate parent of the origin directory either exists as a directory or serves as the origin directory for another rule.
         /// @return Newly-built filesystem director object on success, or an error message on failure.
-        ValueOrError<std::unique_ptr<const FilesystemDirector>, TemporaryString> Build(void);
+        ValueOrError<FilesystemDirector, TemporaryString> Build(void);
 
         /// Determines if any rule in this registry uses the specified directory as its origin or target directory.
         /// @param [in] directoryFullPath Full path of the directory to check.
