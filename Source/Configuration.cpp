@@ -710,14 +710,15 @@ namespace Pathwinder
 
         // --------
 
-        Section ConfigurationData::ExtractSection(TSections::const_iterator position)
+        std::pair<std::wstring, Section> ConfigurationData::ExtractSection(TSections::const_iterator position)
         {
-            return std::move(sections.extract(position).mapped());
+            auto extractedSection = sections.extract(position);
+            return std::make_pair(std::move(extractedSection.key()), std::move(extractedSection.mapped()));
         }
 
         // --------
 
-        std::optional<Section> ConfigurationData::ExtractSection(std::wstring_view section)
+        std::optional<std::pair<std::wstring, Section>> ConfigurationData::ExtractSection(std::wstring_view section)
         {
             auto sectionIterator = sections.find(section);
             if (sections.end() == sectionIterator)

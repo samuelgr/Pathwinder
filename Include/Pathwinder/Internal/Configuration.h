@@ -476,6 +476,13 @@ namespace Pathwinder
                 return values.emplace(std::move(value)).second;
             }
 
+            /// Determines if this configuration setting object is empty (i.e. contains no configuration data).
+            /// @return `true` if so, `false` otherwise.
+            inline bool IsEmpty(void) const
+            {
+                return values.empty();
+            }
+
             /// Determines whether the type of value held in this configuration setting matches the template parameter.
             /// If this configuration setting is empty by virtue of all values being extracted then it is considered typeless, so this method always returns `false`.
             /// @tparam ValueType Type of value to check against what is held by this configuration setting.
@@ -644,6 +651,13 @@ namespace Pathwinder
                 return nameIterator->second.InsertValue(std::move(value));
             }
 
+            /// Determines if this configuration section data object is empty (i.e. contains no configuration data).
+            /// @return `true` if so, `false` otherwise.
+            inline bool IsEmpty(void) const
+            {
+                return names.empty();
+            }
+
             /// Retrieves the number of configuration settings present for the section represented by this object.
             /// @return Number of configuration settings present.
             inline size_t NameCount(void) const
@@ -743,14 +757,14 @@ namespace Pathwinder
             /// Extracts the specified section from this configuration data object using move semantics.
             /// This has the additional effect of erasing it from this configuration data object.
             /// @param [in] position Iterator that corresponds to the specific section object to be extracted.
-            /// @return Extracted section object.
-            Section ExtractSection(TSections::const_iterator position);
+            /// @return Pair containing the extracted section name and extracted section object.
+            std::pair<std::wstring, Section> ExtractSection(TSections::const_iterator position);
 
             /// Extracts the specified section from this configuration data object using move semantics.
             /// This has the additional effect of erasing it from this configuration data object.
             /// @param [in] section Section name to extract.
-            /// @return Extracted section object, if the section was successfully located.
-            std::optional<Section> ExtractSection(std::wstring_view section);
+            /// @return Pair containing the extracted section name and extracted section object, if the section was successfully located.
+            std::optional<std::pair<std::wstring, Section>> ExtractSection(std::wstring_view section);
 
             /// Convenience wrapper for quickly attempting to obtain a single Boolean-typed configuration value.
             /// @param [in] section Section name to search for the value.
@@ -831,6 +845,13 @@ namespace Pathwinder
                     readErrors.emplace();
 
                 readErrors.value().emplace_back(errorMessage);
+            }
+
+            /// Determines if this configuration data object is empty (i.e. contains no configuration data).
+            /// @return `true` if so, `false` otherwise.
+            inline bool IsEmpty(void) const
+            {
+                return sections.empty();
             }
 
             /// Retrieves the number of sections present in the configuration represented by this object.

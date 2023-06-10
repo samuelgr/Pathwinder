@@ -10,6 +10,7 @@
  *   objects and ensuring consistency between filesystem rules.
  *****************************************************************************/
 
+#include "Configuration.h"
 #include "FilesystemDirectorBuilder.h"
 #include "FilesystemOperations.h"
 #include "MockFilesystemOperations.h"
@@ -379,5 +380,90 @@ namespace PathwinderTest
 
         auto buildResult = directorBuilder.Build();
         TEST_ASSERT(buildResult.HasError());
+    }
+
+    // Verifies that a filesystem director object can be built from a configuration file in the nominal case of filesystem rules having origin directories that exist and whose parent directories also exist.
+    // Performs a few data structure consistency checks on the new filesystem director object to ensure it was build correctly.
+    // This test case uses a configuration data object instead of calling builder methods directly.
+    TEST_CASE(FilesystemDirectorBuilder_BuildFromConfigurationData_Success_Nominal)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:\\OriginDir1");
+        mockFilesystem.AddDirectory(L"E:\\OriginDir2");
+
+        Configuration::ConfigurationData configData = {
+            {L"FilesystemRule:1", {
+                {L"OriginDirectory", L"C:\\OriginDir1"},
+                {L"TargetDirectory", L"C:\\TargetDir"}
+            }},
+            {L"FilesystemRule:2", {
+                {L"OriginDirectory", L"E:\\OriginDir2"},
+                {L"TargetDirectory", L"E:\\TargetDir2"}
+            }},
+        };
+
+        auto buildResult = FilesystemDirectorBuilder::BuildFromConfigurationData(configData);
+        TEST_ASSERT(true == buildResult.has_value());
+        TEST_ASSERT(true == configData.IsEmpty());
+
+        FilesystemDirector director = std::move(buildResult.value());
+
+        TEST_ASSERT(nullptr != director.FindRuleByName(L"1"));
+        TEST_ASSERT(director.FindRuleByName(L"1")->GetName() == L"1");
+        TEST_ASSERT(director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
+        TEST_ASSERT(director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1"));
+
+        TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
+        TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
+        TEST_ASSERT(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2");
+        TEST_ASSERT(director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2"));
+    }
+
+    // Verifies that rule set finalization fails when the origin directory's parent does not exist in the filesystem or as another origin directory.
+    // This test case uses a configuration data object instead of calling builder methods directly.
+    TEST_CASE(FilesystemDirectorBuilder_BuildFromConfigurationData_Failure_OriginParentMissing)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:");
+
+        Configuration::ConfigurationData configData = {
+            {L"FilesystemRule:1", {
+                {L"OriginDirectory", L"C:\\OriginDir\\Subdir1"},
+                {L"TargetDirectory", L"C:\\TargetDir\\Subdir1"}
+            }}
+        };
+
+        auto buildResult = FilesystemDirectorBuilder::BuildFromConfigurationData(configData);
+        TEST_ASSERT(false == buildResult.has_value());
+        TEST_ASSERT(true == configData.IsEmpty());
+    }
+
+    // Verifies that filesystem rules cannot be created from configuration sections that are missing either an origin or a target directory.
+    // This test case uses a configuration data object instead of calling builder methods directly.
+    TEST_CASE(FilesystemDirectorBuilder_BuildFromConfigurationData_Failure_RuleMissingDirectory)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:\\OriginDir2");
+
+        Configuration::ConfigurationData configDataArray[] = {
+            {
+                {L"FilesystemRule:1", {
+                    {L"TargetDirectory", L"C:\\TargetDir1"}
+                }}
+            },
+            {
+                {L"FilesystemRule:2", {
+                    {L"OriginDirectory", L"C:\\OriginDirectory2"},
+                    {L"FilePattern", {L"log*", L"file???.dat"}}
+                }}
+            }
+        };
+
+        for (auto& configData : configDataArray)
+        {
+            auto buildResult = FilesystemDirectorBuilder::BuildFromConfigurationData(configData);
+            TEST_ASSERT(false == buildResult.has_value());
+            TEST_ASSERT(true == configData.IsEmpty());
+        }
     }
 }
