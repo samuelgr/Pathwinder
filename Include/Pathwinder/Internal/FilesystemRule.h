@@ -50,22 +50,22 @@ namespace Pathwinder
 
         /// Position within the origin directory absolute path of the final separator between name and parent path.
         /// Initialized using the contents of the origin directory path string and must be declared before it.
-        const size_t kOriginDirectorySeparator;
+        size_t originDirectorySeparator;
 
         /// Position within the target directory absolute path of the final separator between name and parent path.
         /// Initialized using the contents of the target directory path string and must be declared before it.
-        const size_t kTargetDirectorySeparator;
+        size_t targetDirectorySeparator;
 
         /// Absolute path to the origin directory.
-        const std::wstring kOriginDirectoryFullPath;
+        std::wstring originDirectoryFullPath;
 
         /// Absolute path to the target directory.
-        const std::wstring kTargetDirectoryFullPath;
+        std::wstring targetDirectoryFullPath;
 
         /// Pattern that specifies which files within the origin and target directories are affected by this rule.
         /// Can be used to filter this rule to apply to only specific named files.
         /// If empty, it is assumed that there is no filter and therefore the rule applies to all files in the origin and target directories.
-        const std::vector<std::wstring> kFilePatterns;
+        std::vector<std::wstring> filePatterns;
 
 
     public:
@@ -74,7 +74,7 @@ namespace Pathwinder
         /// Initialization constructor.
         /// Requires all instance variables be set at construction time.
         /// File patterns are optional, with default behavior equivalent to supplying "*" as the only file pattern.
-        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>());
+        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns = {L"*"});
 
 
         // -------- OPERATORS ---------------------------------------------- //
@@ -111,11 +111,18 @@ namespace Pathwinder
             return name;
         }
 
+        /// Provides read-only access to the file patterns associated with this rule object.
+        /// @return Read-only reference to the file patterns data structure.
+        inline const std::vector<std::wstring>& GetFilePatterns(void) const
+        {
+            return filePatterns;
+        }
+
         /// Retrieves and returns the full path of the origin directory associated with this rule.
         /// @return Full path of the origin directory.
         inline std::wstring_view GetOriginDirectoryFullPath(void) const
         {
-            return kOriginDirectoryFullPath;
+            return originDirectoryFullPath;
         }
 
         /// Retrieves and returns the name of the origin directory associated with this rule.
@@ -123,10 +130,10 @@ namespace Pathwinder
         /// @return Name of the origin directory.
         inline std::wstring_view GetOriginDirectoryName(void) const
         {
-            std::wstring_view originDirectoryName = kOriginDirectoryFullPath;
+            std::wstring_view originDirectoryName = originDirectoryFullPath;
 
-            if (std::wstring_view::npos != kOriginDirectorySeparator)
-                originDirectoryName.remove_prefix(1 + kOriginDirectorySeparator);
+            if (std::wstring_view::npos != originDirectorySeparator)
+                originDirectoryName.remove_prefix(1 + originDirectorySeparator);
 
             return originDirectoryName;
         }
@@ -135,11 +142,11 @@ namespace Pathwinder
         /// @return Parent of the origin directory.
         inline std::wstring_view GetOriginDirectoryParent(void) const
         {
-            if (std::wstring_view::npos == kOriginDirectorySeparator)
+            if (std::wstring_view::npos == originDirectorySeparator)
                 return std::wstring_view();
 
-            std::wstring_view originDirectoryParent = kOriginDirectoryFullPath;
-            originDirectoryParent.remove_suffix(originDirectoryParent.length() - kOriginDirectorySeparator);
+            std::wstring_view originDirectoryParent = originDirectoryFullPath;
+            originDirectoryParent.remove_suffix(originDirectoryParent.length() - originDirectorySeparator);
 
             return originDirectoryParent;
         }
@@ -148,7 +155,7 @@ namespace Pathwinder
         /// @return Full path of the target directory.
         inline std::wstring_view GetTargetDirectoryFullPath(void) const
         {
-            return kTargetDirectoryFullPath;
+            return targetDirectoryFullPath;
         }
 
         /// Retrieves and returns the name of the target directory associated with this rule.
@@ -156,10 +163,10 @@ namespace Pathwinder
         /// @return Name of the target directory.
         inline std::wstring_view GetTargetDirectoryName(void) const
         {
-            std::wstring_view targetDirectoryName = kTargetDirectoryFullPath;
+            std::wstring_view targetDirectoryName = targetDirectoryFullPath;
 
-            if (std::wstring_view::npos != kTargetDirectorySeparator)
-                targetDirectoryName.remove_prefix(1 + kTargetDirectorySeparator);
+            if (std::wstring_view::npos != targetDirectorySeparator)
+                targetDirectoryName.remove_prefix(1 + targetDirectorySeparator);
 
             return targetDirectoryName;
         }
@@ -168,11 +175,11 @@ namespace Pathwinder
         /// @return Parent of the target directory.
         inline std::wstring_view GetTargetDirectoryParent(void) const
         {
-            if (std::wstring_view::npos == kOriginDirectorySeparator)
+            if (std::wstring_view::npos == originDirectorySeparator)
                 return std::wstring_view();
 
-            std::wstring_view targetDirectoryParent = kTargetDirectoryFullPath;
-            targetDirectoryParent.remove_suffix(targetDirectoryParent.length() - kTargetDirectorySeparator);
+            std::wstring_view targetDirectoryParent = targetDirectoryFullPath;
+            targetDirectoryParent.remove_suffix(targetDirectoryParent.length() - targetDirectorySeparator);
 
             return targetDirectoryParent;
         }
