@@ -561,6 +561,10 @@ namespace Pathwinder
             // -------- INSTANCE METHODS ----------------------------------- //
 
         public:
+            /// Extracts the entire first configuration setting from this section using move semantics.
+            /// @return Pair consisting of the configuration setting name and configuration setting object if this section is non-empty.
+            std::optional<std::pair<std::wstring, Name>> ExtractFirstName(void);
+
             /// Extracts the first value from the specified configruation setting using move semantics.
             /// If the configuration setting is single-valued then it is destroyed.
             /// @tparam ValueType Expected value type of the configuration setting to extract.

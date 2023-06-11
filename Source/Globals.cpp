@@ -85,6 +85,14 @@ namespace Pathwinder
         // -------- INTERNAL FUNCTIONS ------------------------------------- //
 
 #ifndef PATHWINDER_SKIP_CONFIG
+        /// Holds and returns a mutable reference to the parsed configuration data object.
+        /// @return Mutable reference to parsed configuration data.
+        static SConfigurationData& MutableParsedConfigurationData(void)
+        {
+            static SConfigurationData configData;
+            return configData;
+        }
+
         /// Enables the log if it is not already enabled.
         /// Regardless, the minimum severity for output is set based on the parameter.
         /// @param [in] logLevel Logging level to configure as the minimum severity for output.
@@ -100,10 +108,11 @@ namespace Pathwinder
             Message::SetMinimumSeverityForOutput(logLevel);
         }
 
-        /// Enables the log, if it is configured in the configuration file.
-        static void EnableLogIfConfigured(void)
+        /// Enables the log, if it is configured in the specified configuration data object.
+        /// @param [in] configData Read-only reference to a configuration data object.
+        static void EnableLogIfConfigured(const Configuration::ConfigurationData& configData)
         {
-            const int64_t logLevel = GetConfigurationData().GetFirstIntegerValue(Configuration::kSectionNameGlobal, Strings::kStrConfigurationSettingLogLevel).value_or(0);
+            const int64_t logLevel = configData.GetFirstIntegerValue(Configuration::kSectionNameGlobal, Strings::kStrConfigurationSettingLogLevel).value_or(0);
 
             if (logLevel > 0)
             {
@@ -113,14 +122,46 @@ namespace Pathwinder
             }
         }
 
-        /// Reads configured definitions from the configuration file, if specified, and submits them to the reference resolution subsystem.
-        static void SetResolverConfiguredDefinitions(void)
+        /// Fills the parsed global configuration data object using the contents of the provided configuration data object as read from a configuration file.
+        /// @param [in] configData Read-only reference to a configuration data object.
+        static void FillParsedConfigurationData(const Configuration::ConfigurationData& unparsedConfigData)
         {
-            const ConfigurationData& configData = GetConfigurationData();
+            MutableParsedConfigurationData() = {
+                .isDryRunMode = unparsedConfigData.GetFirstBooleanValue(Configuration::kSectionNameGlobal, Strings::kStrConfigurationSettingDryRun).value_or(false)
+            };
+        }
 
-            const auto configuredDefinitionsSectionIter = configData.Sections().find(Strings::kStrConfigurationSectionDefinitions);
-            if (configData.Sections().cend() != configuredDefinitionsSectionIter)
-                Resolver::SetConfiguredDefinitionsFromSection(configuredDefinitionsSectionIter->second);
+        /// Reads configuration data from the configuration file and returns the resulting configuration data object.
+        /// Enables logging and outputs read errors if any are encountered.
+        /// @return Filled configuration data object.
+        static Configuration::ConfigurationData ReadConfigurationFile(void)
+        {
+            PathwinderConfigReader configReader;
+            Configuration::ConfigurationData configData = configReader.ReadConfigurationFile(Strings::kStrConfigurationFilename);
+
+            if (true == configData.HasReadErrors())
+            {
+                EnableLog(Message::ESeverity::Error);
+
+                Message::Output(Message::ESeverity::Error, L"Errors were encountered during configuration file reading.");
+                for (const auto& readErrorMessage : configData.GetReadErrorMessages())
+                    Message::OutputFormatted(Message::ESeverity::Error, L"    %s", readErrorMessage.c_str());
+
+                configData.ClearReadErrorMessages();
+
+                Message::Output(Message::ESeverity::ForcedInteractiveWarning, L"Errors were encountered during configuration file reading. See log file on the Desktop for more information.");
+            }
+
+            return configData;
+        }
+
+        /// Reads configured definitions from the configuration file, if specified, and submits them to the reference resolution subsystem.
+        /// @param [in] configData Read-only reference to a configuration data object.
+        static void SetResolverConfiguredDefinitions(Configuration::ConfigurationData& configData)
+        {
+            auto configuredDefinitionsSectionIter = configData.Sections().find(Strings::kStrConfigurationSectionDefinitions);
+            if (configData.Sections().end() != configuredDefinitionsSectionIter)
+                Resolver::SetConfiguredDefinitionsFromSection(configData.ExtractSection(configuredDefinitionsSectionIter).second);
         }
 #endif
 
@@ -129,33 +170,9 @@ namespace Pathwinder
         // See "Globals.h" for documentation.
 
 #ifndef PATHWINDER_SKIP_CONFIG
-        const Configuration::ConfigurationData& GetConfigurationData(void)
+        const SConfigurationData& GetConfigurationData(void)
         {
-            static Configuration::ConfigurationData configData;
-
-            static std::once_flag readConfigFlag;
-            std::call_once(readConfigFlag, []() -> void
-                {
-                    PathwinderConfigReader configReader;
-
-                    configData = configReader.ReadConfigurationFile(Strings::kStrConfigurationFilename);
-
-                    if (true == configData.HasReadErrors())
-                    {
-                        EnableLog(Message::ESeverity::Error);
-
-                        Message::Output(Message::ESeverity::Error, L"Errors were encountered during configuration file reading.");
-                        for (const auto& readErrorMessage : configData.GetReadErrorMessages())
-                            Message::OutputFormatted(Message::ESeverity::Error, L"    %s", readErrorMessage.c_str());
-
-                        configData.ClearReadErrorMessages();
-
-                        Message::Output(Message::ESeverity::ForcedInteractiveWarning, L"Errors were encountered during configuration file reading. See log file on the Desktop for more information.");
-                    }
-                }
-            );
-
-            return configData;
+            return MutableParsedConfigurationData();
         }
 #endif
 
@@ -202,8 +219,10 @@ namespace Pathwinder
         void Initialize(void)
         {
 #ifndef PATHWINDER_SKIP_CONFIG
-            EnableLogIfConfigured();
-            SetResolverConfiguredDefinitions();
+            Configuration::ConfigurationData configData = ReadConfigurationFile();
+
+            EnableLogIfConfigured(configData);
+            SetResolverConfiguredDefinitions(configData);
 #endif
         }
     }

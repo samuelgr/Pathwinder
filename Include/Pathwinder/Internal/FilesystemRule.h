@@ -73,8 +73,8 @@ namespace Pathwinder
 
         /// Initialization constructor.
         /// Requires all instance variables be set at construction time.
-        /// File patterns are optional, with default behavior equivalent to supplying "*" as the only file pattern.
-        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns = {L"*"});
+        /// File patterns are optional, with default behavior matching all files. This is preferred over a single-element vector containing "*" because file pattern match checking can be skipped entirely.
+        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>());
 
 
         // -------- OPERATORS ---------------------------------------------- //

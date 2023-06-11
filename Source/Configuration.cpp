@@ -602,6 +602,18 @@ namespace Pathwinder
 
         // --------
 
+        std::optional<std::pair<std::wstring, Name>> Section::ExtractFirstName(void)
+        {
+            auto nameIterator = names.begin();
+            if (names.end() == nameIterator)
+                return std::nullopt;
+
+            auto extractedName = names.extract(nameIterator);
+            return std::make_pair(std::move(extractedName.key()), std::move(extractedName.mapped()));
+        }
+
+        // --------
+
         template <typename ValueType> std::optional<ValueType> Section::ExtractFirstValue(std::wstring_view name)
         {
             auto nameIterator = names.find(name);

@@ -413,18 +413,18 @@ namespace Pathwinder
 
         // --------
 
-        void SetConfiguredDefinitionsFromSection(const Configuration::Section& configuredDefinitionsSection)
+        void SetConfiguredDefinitionsFromSection(Configuration::Section&& configuredDefinitionsSection)
         {
             TConfiguredDefinitions configuredDefinitions;
 
-            for (const auto& definitionRecord : configuredDefinitionsSection.Names())
+            for (auto definitionRecord = configuredDefinitionsSection.ExtractFirstName(); definitionRecord.has_value(); definitionRecord = configuredDefinitionsSection.ExtractFirstName())
             {
-                DebugAssert(Configuration::EValueType::String == definitionRecord.second.GetFirstValue().GetType(), "Configured definitions section contains a non-string value.");
+                DebugAssert(Configuration::EValueType::String == definitionRecord.value().second.GetType(), "Configured definitions section contains a non-string value.");
 
-                std::wstring_view definitionName = definitionRecord.first;
-                std::wstring_view definitionValue = definitionRecord.second.GetFirstValue().GetStringValue();
+                std::wstring definitionName = std::move(definitionRecord.value().first);
+                std::wstring definitionValue = definitionRecord.value().second.ExtractFirstStringValue().value();
 
-                configuredDefinitions.emplace(definitionName, definitionValue);
+                configuredDefinitions.emplace(std::move(definitionName), std::move(definitionValue));
             }
 
             SetConfiguredDefinitions(std::move(configuredDefinitions));

@@ -53,13 +53,19 @@ namespace Pathwinder
         };
         static_assert(sizeof(SVersionInfo) == ((4 * sizeof(uint16_t)) + sizeof(std::wstring_view)), "Version information structure size constraint violation.");
 
+        /// Configuration data parsed from a configuration file.
+        struct SConfigurationData
+        {
+            bool isDryRunMode;                                          ///< Whether or not "dry run" mode is enabled. If so, redirection queries are logged but not actuated.
+        };
+
 
         // -------- FUNCTIONS ---------------------------------------------- //
 
 #ifndef PATHWINDER_SKIP_CONFIG
-        /// Retrieves the configuration object that represents the data read from a configuration file.
+        /// Retrieves the configuration data after being parsed from a configuration file.
         /// @return Read-only configuration object reference.
-        const Configuration::ConfigurationData& GetConfigurationData(void);
+        const SConfigurationData& GetConfigurationData(void);
 #endif
 
         /// Retrieves a pseudohandle to the current process.

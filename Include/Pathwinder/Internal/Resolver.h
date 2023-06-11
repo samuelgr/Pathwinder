@@ -36,7 +36,7 @@ namespace Pathwinder
 
         /// Type alias for representing all the definitions of values that correspond to the CONF domain.
         /// Typically these would be located in a configuration file.
-        typedef std::map<std::wstring_view, std::wstring_view> TConfiguredDefinitions;
+        typedef std::map<std::wstring, std::wstring, std::less<>> TConfiguredDefinitions;
 
 
         // -------- FUNCTIONS ---------------------------------------------- //
@@ -74,6 +74,6 @@ namespace Pathwinder
         /// Section data supplied this way is expected to contain string values.
         /// This is the expected entry point for using a configuration file to set configured definitions.
         /// @param [in] configuredDefinitionsSection Configuration data section containing definitions.
-        void SetConfiguredDefinitionsFromSection(const Configuration::Section& configuredDefinitionsSection);
+        void SetConfiguredDefinitionsFromSection(Configuration::Section&& configuredDefinitionsSection);
     }
 }
