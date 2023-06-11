@@ -122,19 +122,11 @@ namespace Pathwinder
             }
         }
 
-        /// Fills the parsed global configuration data object using the contents of the provided configuration data object as read from a configuration file.
-        /// @param [in] configData Read-only reference to a configuration data object.
-        static void FillParsedConfigurationData(const Configuration::ConfigurationData& unparsedConfigData)
-        {
-            MutableParsedConfigurationData() = {
-                .isDryRunMode = unparsedConfigData.GetFirstBooleanValue(Configuration::kSectionNameGlobal, Strings::kStrConfigurationSettingDryRun).value_or(false)
-            };
-        }
-
         /// Reads configuration data from the configuration file and returns the resulting configuration data object.
+        /// Additionally parses the resulting configuration data into the structured form that is exposed outside this module.
         /// Enables logging and outputs read errors if any are encountered.
         /// @return Filled configuration data object.
-        static Configuration::ConfigurationData ReadConfigurationFile(void)
+        static Configuration::ConfigurationData ReadAndParseConfigurationFile(void)
         {
             PathwinderConfigReader configReader;
             Configuration::ConfigurationData configData = configReader.ReadConfigurationFile(Strings::kStrConfigurationFilename);
@@ -151,6 +143,10 @@ namespace Pathwinder
 
                 Message::Output(Message::ESeverity::ForcedInteractiveWarning, L"Errors were encountered during configuration file reading. See log file on the Desktop for more information.");
             }
+
+            MutableParsedConfigurationData() = {
+                .isDryRunMode = configData.GetFirstBooleanValue(Configuration::kSectionNameGlobal, Strings::kStrConfigurationSettingDryRun).value_or(false)
+            };
 
             return configData;
         }
@@ -219,7 +215,7 @@ namespace Pathwinder
         void Initialize(void)
         {
 #ifndef PATHWINDER_SKIP_CONFIG
-            Configuration::ConfigurationData configData = ReadConfigurationFile();
+            Configuration::ConfigurationData configData = ReadAndParseConfigurationFile();
 
             EnableLogIfConfigured(configData);
             SetResolverConfiguredDefinitions(configData);
