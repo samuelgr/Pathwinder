@@ -77,6 +77,15 @@ namespace Pathwinder
         if (true == builderHasRuleErrors)
             return std::nullopt;
 
+        if (0 == builder.CountOfRules())
+        {
+            // It is not an error for a configuration data object to contain no filesystem rules.
+            // The resulting filesystem director object will simply do nothing.
+
+            Message::Output(Message::ESeverity::Warning, L"Successfully built a filesystem director configuration, but it contains no filesystem rules.");
+            return FilesystemDirector();
+        }
+
         auto buildResult = builder.Build();
         if (buildResult.HasValue())
         {

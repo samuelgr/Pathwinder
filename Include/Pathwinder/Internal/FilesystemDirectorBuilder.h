@@ -108,7 +108,14 @@ namespace Pathwinder
         /// @return Newly-built filesystem director object on success, or an error message on failure.
         ValueOrError<FilesystemDirector, TemporaryString> Build(void);
 
-        /// Determines if any rule in this registry uses the specified directory as its origin or target directory.
+        /// Retrieves and returns the number of filesystem rules successfully added to this object.
+        /// @return Number of filesystem rules.
+        inline unsigned int CountOfRules(void) const
+        {
+            return static_cast<unsigned int>(filesystemRules.size());
+        }
+
+        /// Determines if any rule added to this object uses the specified directory as its origin or target directory.
         /// @param [in] directoryFullPath Full path of the directory to check.
         /// @return `true` if so, `false` if not.
         inline bool HasDirectory(std::wstring_view directoryFullPath) const
@@ -116,7 +123,7 @@ namespace Pathwinder
             return (HasOriginDirectory(directoryFullPath) || HasTargetDirectory(directoryFullPath));
         }
 
-        /// Determines if any rule in this registry uses the specified directory as its origin directory.
+        /// Determines if any rule added to this object uses the specified directory as its origin directory.
         /// @param [in] directoryFullPath Full path of the directory to check.
         /// @return `true` if so, `false` if not.
         inline bool HasOriginDirectory(std::wstring_view directoryFullPath) const
@@ -124,7 +131,7 @@ namespace Pathwinder
             return originDirectories.Contains(directoryFullPath);
         }
 
-        /// Determines if any rule in this registry uses the specified directory as its target directory.
+        /// Determines if any rule added to this object uses the specified directory as its target directory.
         /// @param [in] directoryFullPath Full path of the directory to check.
         /// @return `true` if so, `false` if not.
         inline bool HasTargetDirectory(std::wstring_view directoryFullPath) const

@@ -10,6 +10,8 @@
  *   Intended for miscellaneous data elements with no other suitable place.
  *****************************************************************************/
 
+#include "FilesystemDirector.h"
+#include "FilesystemDirectorBuilder.h"
 #include "GitVersionInfo.h"
 #include "Globals.h"
 #include "Message.h"
@@ -85,12 +87,32 @@ namespace Pathwinder
         // -------- INTERNAL FUNCTIONS ------------------------------------- //
 
 #ifndef PATHWINDER_SKIP_CONFIG
-        /// Holds and returns a mutable reference to the parsed configuration data object.
-        /// @return Mutable reference to parsed configuration data.
-        static SConfigurationData& MutableParsedConfigurationData(void)
+        /// Reads all filesystem rules from a configuration file and attempts to create all the required filesystem rule objects and build them into a filesystem director object.
+        /// Afterwards, on success, the global singleton filesystem director object is initialized with the newly-built filesystem director object.
+        /// This function uses move semantics, so all sections in the configuration data object that define filesystem rules are extracted out of it.
+        /// This has the effect of using the filesystem rules defined in the configuration file to govern the behavior of file operations globally.
+        /// @param [in] configData Read-only reference to a configuration data object.
+        static void BuildFilesystemRules(Configuration::ConfigurationData& configData)
         {
-            static SConfigurationData configData;
-            return configData;
+            if (true == configData.HasReadErrors())
+                return;
+
+            auto maybeFilesystemDirector = FilesystemDirectorBuilder::BuildFromConfigurationData(configData);
+
+            if (true == maybeFilesystemDirector.has_value())
+            {
+                FilesystemDirector::Singleton() = std::move(maybeFilesystemDirector.value());
+            }
+            else
+            {
+                // Errors encountered when creating filesystem rules or building the final filesystem director result in no filesystem director being created at all.
+                // Therefore it is unnecessary to take any corrective action, such as automatically enabling dry-run mode. Reporting the error is sufficient.
+
+                if (true == Message::IsLogFileEnabled())
+                    Message::Output(Message::ESeverity::ForcedInteractiveWarning, L"Errors were encountered during filesystem rule creation. See log file for more information.");
+                else
+                    Message::Output(Message::ESeverity::ForcedInteractiveWarning, L"Errors were encountered during filesystem rule creation. Enable logging and see log file for more information.");
+            }
         }
 
         /// Enables the log if it is not already enabled.
@@ -122,11 +144,28 @@ namespace Pathwinder
             }
         }
 
+        /// Holds and returns a mutable reference to the parsed configuration data object.
+        /// @return Mutable reference to parsed configuration data.
+        static SConfigurationData& MutableParsedConfigurationData(void)
+        {
+            static SConfigurationData configData;
+            return configData;
+        }
+
+        /// Generates and returns a parsed configuration data structure given the configuration data object read from a configuration file.
+        /// @param [in] configData Read-only reference to a configuration data object.
+        /// @return Resulting parsed configuration data structure.
+        static SConfigurationData ParseConfigurationData(const Configuration::ConfigurationData& configData)
+        {
+            return {
+                .isDryRunMode = configData.GetFirstBooleanValue(Configuration::kSectionNameGlobal, Strings::kStrConfigurationSettingDryRun).value_or(false)
+            };
+        }
+
         /// Reads configuration data from the configuration file and returns the resulting configuration data object.
-        /// Additionally parses the resulting configuration data into the structured form that is exposed outside this module.
         /// Enables logging and outputs read errors if any are encountered.
         /// @return Filled configuration data object.
-        static Configuration::ConfigurationData ReadAndParseConfigurationFile(void)
+        static Configuration::ConfigurationData ReadConfigurationFile(void)
         {
             PathwinderConfigReader configReader;
             Configuration::ConfigurationData configData = configReader.ReadConfigurationFile(Strings::kStrConfigurationFilename);
@@ -143,10 +182,6 @@ namespace Pathwinder
 
                 Message::Output(Message::ESeverity::ForcedInteractiveWarning, L"Errors were encountered during configuration file reading. See log file on the Desktop for more information.");
             }
-
-            MutableParsedConfigurationData() = {
-                .isDryRunMode = configData.GetFirstBooleanValue(Configuration::kSectionNameGlobal, Strings::kStrConfigurationSettingDryRun).value_or(false)
-            };
 
             return configData;
         }
@@ -215,10 +250,12 @@ namespace Pathwinder
         void Initialize(void)
         {
 #ifndef PATHWINDER_SKIP_CONFIG
-            Configuration::ConfigurationData configData = ReadAndParseConfigurationFile();
+            Configuration::ConfigurationData configData = ReadConfigurationFile();
+            MutableParsedConfigurationData() = ParseConfigurationData(configData);
 
             EnableLogIfConfigured(configData);
             SetResolverConfiguredDefinitions(configData);
+            BuildFilesystemRules(configData);
 #endif
         }
     }

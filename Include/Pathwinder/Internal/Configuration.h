@@ -924,8 +924,9 @@ namespace Pathwinder
             /// Reads and parses a configuration file, storing the settings in the supplied configuration object.
             /// Intended to be invoked externally. Subclasses should not override this method.
             /// @param [in] configFileName Name of the configuration file to read.
+            /// @param [in] mustExist Indicates that it is an error for the configuration file not to exist. This requirement is unusual, so the default behavior is not to require it.
             /// @return Configuration data object filled based on the contents of the configuration file.
-            ConfigurationData ReadConfigurationFile(std::wstring_view configFileName);
+            ConfigurationData ReadConfigurationFile(std::wstring_view configFileName, bool mustExist = false);
 
             /// Reads and parses a configuration file held in memory, storing the settings in the supplied configuration object.
             /// Intended to be invoked externally, primarily by tests. Subclasses should not override this method.

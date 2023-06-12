@@ -741,15 +741,17 @@ namespace Pathwinder
 
         // --------
 
-        ConfigurationData ConfigurationFileReader::ReadConfigurationFile(std::wstring_view configFileName)
+        ConfigurationData ConfigurationFileReader::ReadConfigurationFile(std::wstring_view configFileName, bool mustExist)
         {
             FileHandle configFileHandle(configFileName.data(), L"r");
             if (nullptr == configFileHandle)
             {
-                ConfigurationData configDataWithError;
-                configDataWithError.InsertReadErrorMessage(Strings::FormatString(L"%s: Unable to open file.", configFileName.data()));
+                ConfigurationData configDataFromNonExistentFile;
 
-                return configDataWithError;
+                if (true == mustExist)
+                    configDataFromNonExistentFile.InsertReadErrorMessage(Strings::FormatString(L"%s: Unable to open file.", configFileName.data()));
+
+                return configDataFromNonExistentFile;
             }
 
             return ReadConfiguration(configFileHandle, configFileName);
