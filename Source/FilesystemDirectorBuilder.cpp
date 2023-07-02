@@ -60,7 +60,7 @@ namespace Pathwinder
             {
                 const FilesystemRule& newFilesystemRule = *(addFilesystemRuleResult.Value());
 
-                Message::OutputFormatted(Message::ESeverity::Info, L"Successfully created Filesystem rule \"%.*s\".", (int)newFilesystemRule.GetName().length(), newFilesystemRule.GetName().data());
+                Message::OutputFormatted(Message::ESeverity::Info, L"Successfully created filesystem rule \"%.*s\".", (int)newFilesystemRule.GetName().length(), newFilesystemRule.GetName().data());
                 Message::OutputFormatted(Message::ESeverity::Debug, L"  Origin directory = \"%.*s\"", (int)newFilesystemRule.GetOriginDirectoryFullPath().length(), newFilesystemRule.GetOriginDirectoryFullPath().data());
                 Message::OutputFormatted(Message::ESeverity::Debug, L"  Target directory = \"%.*s\"", (int)newFilesystemRule.GetTargetDirectoryFullPath().length(), newFilesystemRule.GetTargetDirectoryFullPath().data());
 

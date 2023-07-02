@@ -140,6 +140,9 @@
     <ClInclude Include="Include\Pathwinder\Internal\Configuration.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Include\Pathwinder\Internal\ApiWindows.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources\Pathwinder.rc">

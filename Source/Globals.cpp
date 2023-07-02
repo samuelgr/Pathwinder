@@ -255,6 +255,10 @@ namespace Pathwinder
 
             EnableLogIfConfigured(configData);
             SetResolverConfiguredDefinitions(configData);
+
+            if (true == GetConfigurationData().isDryRunMode)
+                Message::OutputFormatted(Message::ESeverity::Warning, L"%s is set to DRY RUN mode. All redirection queries will be logged, but no redirection will actually occur.", Strings::kStrProductName.data());
+
             BuildFilesystemRules(configData);
 #endif
         }
