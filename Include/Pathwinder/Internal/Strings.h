@@ -175,6 +175,26 @@ namespace Pathwinder
         /// @return Next token found in the input string, if it exists.
         template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(size_t& tokenizeState, std::basic_string_view<CharType> stringToTokenize, const std::basic_string_view<CharType>* delimiters, unsigned int numDelimiters);
 
+        /// Copies the specified string and changes its case to lowercase.
+        /// @param [in] str String to be changed to lowercase.
+        /// @return Input string changed to lowercase.
+        inline TemporaryString ToLowercase(std::wstring_view str)
+        {
+            TemporaryString lowercaseStr = str;
+            lowercaseStr.ToLowercase();
+            return lowercaseStr;
+        }
+
+        /// Copies the specified string and changes its case to uppercase.
+        /// @param [in] str String to be changed to uppercase.
+        /// @return Input string changed to uppercase.
+        inline TemporaryString ToUppercase(std::wstring_view str)
+        {
+            TemporaryString uppercaseStr = str;
+            uppercaseStr.ToUppercase();
+            return uppercaseStr;
+        }
+
         /// Generates a string representation of a system error code.
         /// @param [in] systemErrorCode System error code for which to generate a string.
         /// @return String representation of the system error code.

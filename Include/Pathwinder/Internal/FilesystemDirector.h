@@ -14,6 +14,7 @@
 
 #include "FilesystemRule.h"
 #include "PrefixIndex.h"
+#include "Strings.h"
 
 #include <map>
 #include <variant>
@@ -100,7 +101,7 @@ namespace Pathwinder
         /// @return Pointer to the rule, or `nullptr` if no matching rule is found.
         inline const FilesystemRule* FindRuleByOriginDirectory(std::wstring_view ruleOriginDirectoryFullPath) const
         {
-            const auto ruleNode = originDirectoryIndex.Find(ruleOriginDirectoryFullPath);
+            const auto ruleNode = originDirectoryIndex.Find(Strings::ToLowercase(ruleOriginDirectoryFullPath));
             if (nullptr == ruleNode)
                 return nullptr;
 

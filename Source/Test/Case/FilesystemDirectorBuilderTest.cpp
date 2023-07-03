@@ -14,6 +14,7 @@
 #include "FilesystemDirectorBuilder.h"
 #include "FilesystemOperations.h"
 #include "MockFilesystemOperations.h"
+#include "Strings.h"
 #include "TemporaryBuffer.h"
 #include "TestCase.h"
 #include "ValueOrError.h"
@@ -105,13 +106,13 @@ namespace PathwinderTest
 
         auto maybeConfigRule1 = directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir1");
         TEST_ASSERT(maybeConfigRule1.HasValue());
-        TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
-        TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule1.Value()->GetOriginDirectoryFullPath(), L"C:\\OriginDir1"));
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule1.Value()->GetTargetDirectoryFullPath(), L"C:\\TargetDir1"));
 
         auto maybeConfigRule2 = directorBuilder.AddRule(L"2", L"C:\\OriginDir2", L"C:\\TargetDir2");
         TEST_ASSERT(maybeConfigRule2.HasValue());
-        TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
-        TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule2.Value()->GetOriginDirectoryFullPath(), L"C:\\OriginDir2"));
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule2.Value()->GetTargetDirectoryFullPath(), L"C:\\TargetDir2"));
     }
 
     // Verifies that non-overlapping filesystem rules can be created with file patterns.
@@ -122,15 +123,15 @@ namespace PathwinderTest
 
         auto maybeConfigRule1 = directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir1", {L"file*.txt", L"*.bin"});
         TEST_ASSERT(maybeConfigRule1.HasValue());
-        TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
-        TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule1.Value()->GetOriginDirectoryFullPath(), L"C:\\OriginDir1"));
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule1.Value()->GetTargetDirectoryFullPath(), L"C:\\TargetDir1"));
         TEST_ASSERT(true == maybeConfigRule1.Value()->FileNameMatchesAnyPattern(L"file1.txt"));
         TEST_ASSERT(false == maybeConfigRule1.Value()->FileNameMatchesAnyPattern(L"asdf.txt"));
 
         auto maybeConfigRule2 = directorBuilder.AddRule(L"2", L"C:\\OriginDir2", L"C:\\TargetDir2", {L"log*", L"file???.dat"});
         TEST_ASSERT(maybeConfigRule2.HasValue());
-        TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
-        TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule2.Value()->GetOriginDirectoryFullPath(), L"C:\\OriginDir2"));
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule2.Value()->GetTargetDirectoryFullPath(), L"C:\\TargetDir2"));
         TEST_ASSERT(true == maybeConfigRule2.Value()->FileNameMatchesAnyPattern(L"fileasd.dat"));
         TEST_ASSERT(false == maybeConfigRule2.Value()->FileNameMatchesAnyPattern(L"asdf.txt"));
 
@@ -181,12 +182,31 @@ namespace PathwinderTest
         TEST_ASSERT(directorBuilder.AddRule(L"3", L"C:\\OriginDir3", L"C:\\OriginDir").HasError());
     }
 
+    // Verifies that rule creation fails if the origin directory is the same as another rule's origin or target directory.
+    // This variation exercises case insensitivity by changing the case of the origin directory used in various situations.
+    TEST_CASE(FilesystemDirectorBuilder_AddRule_Failure_OverlappingOriginDifferentCase)
+    {
+        FilesystemDirectorBuilder directorBuilder;
+        TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir", L"C:\\TargetDir1").HasValue());
+        TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\ORIGINDIR", L"C:\\TargetDir2").HasError());
+        TEST_ASSERT(directorBuilder.AddRule(L"3", L"C:\\OriginDir3", L"C:\\origindir").HasError());
+    }
+
     // Verifies that rule creation fails if the target directory is the same as another rule's origin directory.
     TEST_CASE(FilesystemDirectorBuilder_AddRule_Failure_OverlappingTarget)
     {
         FilesystemDirectorBuilder directorBuilder;
         TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir").HasValue());
         TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\OriginDir2", L"C:\\OriginDir1").HasError());
+    }
+
+    // Verifies that rule creation fails if the target directory is the same as another rule's origin directory.
+    // This variation exercises case insensitivy by changing the case of the overlapping target directory.
+    TEST_CASE(FilesystemDirectorBuilder_AddRule_Failure_OverlappingTargetDifferentCase)
+    {
+        FilesystemDirectorBuilder directorBuilder;
+        TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir").HasValue());
+        TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\OriginDir2", L"C:\\ORIGINDIR1").HasError());
     }
 
     // Verifies the nominal situation of creating rules that do not overlap and contain no file patterns, but from a configuration data section.
@@ -207,13 +227,13 @@ namespace PathwinderTest
 
         auto maybeConfigRule1 = directorBuilder.AddRuleFromConfigurationSection(L"1", configSection1);
         TEST_ASSERT(maybeConfigRule1.HasValue());
-        TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
-        TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule1.Value()->GetOriginDirectoryFullPath(), L"C:\\OriginDir1"));
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule1.Value()->GetTargetDirectoryFullPath(), L"C:\\TargetDir1"));
 
         auto maybeConfigRule2 = directorBuilder.AddRuleFromConfigurationSection(L"2", configSection2);
         TEST_ASSERT(maybeConfigRule2.HasValue());
-        TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
-        TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule2.Value()->GetOriginDirectoryFullPath(), L"C:\\OriginDir2"));
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule2.Value()->GetTargetDirectoryFullPath(), L"C:\\TargetDir2"));
     }
 
     // Verifies that non-overlapping filesystem rules can be created with file patterns.
@@ -236,15 +256,15 @@ namespace PathwinderTest
 
         auto maybeConfigRule1 = directorBuilder.AddRuleFromConfigurationSection(L"1", configSection1);
         TEST_ASSERT(maybeConfigRule1.HasValue());
-        TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
-        TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule1.Value()->GetOriginDirectoryFullPath(), L"C:\\OriginDir1"));
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule1.Value()->GetTargetDirectoryFullPath(), L"C:\\TargetDir1"));
         TEST_ASSERT(true == maybeConfigRule1.Value()->FileNameMatchesAnyPattern(L"file1.txt"));
         TEST_ASSERT(false == maybeConfigRule1.Value()->FileNameMatchesAnyPattern(L"asdf.txt"));
 
         auto maybeConfigRule2 = directorBuilder.AddRuleFromConfigurationSection(L"2", configSection2);
         TEST_ASSERT(maybeConfigRule2.HasValue());
-        TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
-        TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule2.Value()->GetOriginDirectoryFullPath(), L"C:\\OriginDir2"));
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(maybeConfigRule2.Value()->GetTargetDirectoryFullPath(), L"C:\\TargetDir2"));
         TEST_ASSERT(true == maybeConfigRule2.Value()->FileNameMatchesAnyPattern(L"fileasd.dat"));
         TEST_ASSERT(false == maybeConfigRule2.Value()->FileNameMatchesAnyPattern(L"asdf.txt"));
     }
@@ -331,12 +351,12 @@ namespace PathwinderTest
 
         TEST_ASSERT(nullptr != director.FindRuleByName(L"1"));
         TEST_ASSERT(director.FindRuleByName(L"1")->GetName() == L"1");
-        TEST_ASSERT(director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(director.FindRuleByName(L"1")->GetOriginDirectoryFullPath(), L"C:\\OriginDir1"));
         TEST_ASSERT(director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1"));
 
         TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
         TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
-        TEST_ASSERT(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath(), L"E:\\OriginDir2"));
         TEST_ASSERT(director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2"));
     }
 
@@ -410,12 +430,12 @@ namespace PathwinderTest
 
         TEST_ASSERT(nullptr != director.FindRuleByName(L"1"));
         TEST_ASSERT(director.FindRuleByName(L"1")->GetName() == L"1");
-        TEST_ASSERT(director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(director.FindRuleByName(L"1")->GetOriginDirectoryFullPath(), L"C:\\OriginDir1"));
         TEST_ASSERT(director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1"));
 
         TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
         TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
-        TEST_ASSERT(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath(), L"E:\\OriginDir2"));
         TEST_ASSERT(director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2"));
     }
 
@@ -449,12 +469,12 @@ namespace PathwinderTest
 
         TEST_ASSERT(nullptr != director.FindRuleByName(L"1"));
         TEST_ASSERT(director.FindRuleByName(L"1")->GetName() == L"1");
-        TEST_ASSERT(director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(director.FindRuleByName(L"1")->GetOriginDirectoryFullPath(), L"C:\\OriginDir1"));
         TEST_ASSERT(director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1"));
 
         TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
         TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
-        TEST_ASSERT(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2");
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath(), L"E:\\OriginDir2"));
         TEST_ASSERT(director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2"));
     }
 

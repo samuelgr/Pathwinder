@@ -6,8 +6,8 @@
  * Copyright (c) 2022-2023
  *************************************************************************//**
  * @file PrefixIndex.h
- *   Declaration of an index data structure efficiently traversable using
- *   prefixes in delimited strings.
+ *   Declaration and implementation of an index data structure efficiently
+ *   traversable using prefixes in delimited strings.
  *****************************************************************************/
 
 #pragma once

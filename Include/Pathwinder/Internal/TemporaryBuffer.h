@@ -15,6 +15,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cwctype>
 #include <initializer_list>
 #include <limits>
 #include <string_view>
@@ -767,6 +768,20 @@ namespace Pathwinder
                 size -= count;
                 (*this)[size] = L'\0';
             }
+        }
+
+        /// Changes this string's characters to lowercase.
+        inline void ToLowercase(void)
+        {
+            for (int i = 0; i < size; ++i)
+                (*this)[i] = std::towlower((*this)[i]);
+        }
+
+        /// Changes this string's characters to uppercase.
+        inline void ToUppercase(void)
+        {
+            for (int i = 0; i < size; ++i)
+                (*this)[i] = std::towupper((*this)[i]);
         }
 
         /// Changes this object's knowledge of its own size.
