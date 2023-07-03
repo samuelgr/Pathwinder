@@ -142,8 +142,7 @@ namespace PathwinderTest
         constexpr std::pair<std::wstring_view, std::wstring_view> kTestInputsAndExpectedOutputs[] = {
             {L"C:\\Origin1\\file1.txt", L"C:\\Target1\\file1.txt"},
             {L"C:\\Origin2\\Subdir2\\file2.txt", L"C:\\Target2\\Subdir2\\file2.txt"},
-            {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt", L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt"},
-            {L"D:\\NonRedirectedFile\\Subdir\\file.log", L"D:\\NonRedirectedFile\\Subdir\\file.log"}
+            {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt", L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt"}
         };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -152,7 +151,28 @@ namespace PathwinderTest
             const std::wstring_view expectedOutput = testRecord.second;
 
             auto actualOutput = director.RedirectSingleFile(testInput);
-            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput, expectedOutput));
+            TEST_ASSERT(true == actualOutput.has_value());
+            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput.value(), expectedOutput));
+        }
+    }
+
+    // Creates a filesystem director with a few non-overlapping rules and queries it with inputs that should not be redirected due to no match.
+    TEST_CASE(FilesystemDirector_RedirectSingleFile_NonRedirectedInputPath)
+    {
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", MakeFilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+            {L"2", MakeFilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
+            {L"3", MakeFilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+        }));
+
+        constexpr std::wstring_view kTestInputs[] = {
+            L"D:\\NonRedirectedFile\\Subdir\\file.log"
+        };
+
+        for (const auto& testInput : kTestInputs)
+        {
+            auto actualOutput = director.RedirectSingleFile(testInput);
+            TEST_ASSERT(false == actualOutput.has_value());
         }
     }
 
@@ -174,7 +194,8 @@ namespace PathwinderTest
             const std::wstring_view expectedOutput = testRecord.second;
 
             auto actualOutput = director.RedirectSingleFile(testInput);
-            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput, expectedOutput));
+            TEST_ASSERT(true == actualOutput.has_value());
+            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput.value(), expectedOutput));
         }
     }
 
@@ -192,8 +213,7 @@ namespace PathwinderTest
         constexpr std::pair<std::wstring_view, std::wstring_view> kTestInputsAndExpectedOutputs[] = {
             {L"C:\\\\Origin1\\\\\\file1.txt", L"C:\\Target1\\file1.txt"},
             {L"C:\\\\\\Origin2\\\\\\\\\\Subdir2\\\\file2.txt", L"C:\\Target2\\Subdir2\\file2.txt"},
-            {L"C:\\\\\\\\\\Origin3\\\\\\Subdir3\\\\Subdir3B\\\\Subdir3C\\\\file3.txt", L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt"},
-            {L"D:\\\\NonRedirectedFile\\Subdir\\\\\\\\file.log", L"D:\\NonRedirectedFile\\Subdir\\file.log"}
+            {L"C:\\\\\\\\\\Origin3\\\\\\Subdir3\\\\Subdir3B\\\\Subdir3C\\\\file3.txt", L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt"}
         };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -202,7 +222,8 @@ namespace PathwinderTest
             const std::wstring_view expectedOutput = testRecord.second;
 
             auto actualOutput = director.RedirectSingleFile(testInput);
-            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput, expectedOutput));
+            TEST_ASSERT(true == actualOutput.has_value());
+            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput.value(), expectedOutput));
         }
     }
 
@@ -219,8 +240,7 @@ namespace PathwinderTest
         constexpr std::pair<std::wstring_view, std::wstring_view> kTestInputsAndExpectedOutputs[] = {
             {L"C:\\Origin1\\Subdir1\\..\\..\\Origin1\\file1.txt", L"C:\\Target1\\file1.txt"},
             {L"C:\\Origin2\\.\\.\\..\\Origin2\\Subdir2\\file2.txt", L"C:\\Target2\\Subdir2\\file2.txt"},
-            {L"C:\\.\\.\\.\\.\\Origin3\\Subdir3\\Subdir3B\\Subdir3D\\..\\Subdir3C\\file3.txt", L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt"},
-            {L"D:\\.\\.\\NonRedirectedFile\\SubdirX\\..\\.\\Subdir\\file.log", L"D:\\NonRedirectedFile\\Subdir\\file.log"}
+            {L"C:\\.\\.\\.\\.\\Origin3\\Subdir3\\Subdir3B\\Subdir3D\\..\\Subdir3C\\file3.txt", L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt"}
         };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -229,12 +249,13 @@ namespace PathwinderTest
             const std::wstring_view expectedOutput = testRecord.second;
 
             auto actualOutput = director.RedirectSingleFile(testInput);
-            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput, expectedOutput));
+            TEST_ASSERT(true == actualOutput.has_value());
+            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput.value(), expectedOutput));
         }
     }
 
     // Creates a filesystem director with a few non-overlapping rules and queries it for redirectin with file inputs that are invalid.
-    // Verifies that each time the resulting returned path is equal to the input string.
+    // Verifies that each time the resulting returned path is not present.
     TEST_CASE(FilesystemDirector_RedirectSingleFile_InvalidInputPath)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
@@ -243,17 +264,14 @@ namespace PathwinderTest
             {L"3", MakeFilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
         }));
 
-        constexpr std::wstring_view kTestInputsAndExpectedOutputs[] = {
+        constexpr std::wstring_view kTestInputs[] = {
             L""
         };
 
-        for (const auto& testRecord : kTestInputsAndExpectedOutputs)
+        for (const auto& testInput : kTestInputs)
         {
-            const std::wstring_view testInput = testRecord;
-            const std::wstring_view expectedOutput = testRecord;
-
             auto actualOutput = director.RedirectSingleFile(testInput);
-            TEST_ASSERT(actualOutput == expectedOutput);
+            TEST_ASSERT(false == actualOutput.has_value());
         }
     }
 }

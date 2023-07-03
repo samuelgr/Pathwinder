@@ -9,14 +9,7 @@
  *   Implementation of the hook function for CreateFile2.
  *****************************************************************************/
 
-#include "ApiWindows.h"
-#include "FilesystemDirector.h"
-#include "Globals.h"
-#include "Message.h"
 #include "Hooks.h"
-#include "TemporaryBuffer.h"
-
-#include <Hookshot/DynamicHook.h>
 
 
 using namespace Pathwinder;
@@ -27,12 +20,6 @@ using namespace Pathwinder;
 
 HANDLE Pathwinder::Hooks::DynamicHook_CreateFile2::Hook(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, DWORD dwCreationDisposition, LPCREATEFILE2_EXTENDED_PARAMETERS pCreateExParams)
 {
-    Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s: Invoked with path \"%s\".", GetFunctionName(), lpFileName);
-
-    TemporaryString redirectedFileName = FilesystemDirector::Singleton().RedirectSingleFile(lpFileName);
-
-    if (false == Globals::GetConfigurationData().isDryRunMode)
-        lpFileName = redirectedFileName.AsCString();
-
+    HOOK_FUNCTION_BODY_LOG_AND_REDIRECT_PARAM_WIDE(lpFileName);
     return Original(lpFileName, dwDesiredAccess, dwShareMode, dwCreationDisposition, pCreateExParams);
 }

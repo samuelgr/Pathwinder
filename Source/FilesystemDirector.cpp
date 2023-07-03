@@ -64,15 +64,14 @@ namespace Pathwinder
 
     // --------
 
-    TemporaryString FilesystemDirector::RedirectSingleFile(std::wstring_view filePath) const
+    std::optional<TemporaryString> FilesystemDirector::RedirectSingleFile(std::wstring_view filePath) const
     {
         TemporaryString fileFullPath;
         fileFullPath.UnsafeSetSize(GetFullPathName(filePath.data(), fileFullPath.Capacity(), fileFullPath.Data(), nullptr));
         if (true == fileFullPath.Empty())
         {
-            fileFullPath = filePath;
-            Message::OutputFormatted(Message::ESeverity::Error, L"Filesystem redirection query for path \"%s\" failed to resolve full path: %s", fileFullPath.AsCString(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
-            return fileFullPath;
+            Message::OutputFormatted(Message::ESeverity::Error, L"Filesystem redirection query for path \"%.*s\" failed to resolve full path: %s", (int)filePath.length(), filePath.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
+            return std::nullopt;
         }
 
         fileFullPath.ToLowercase();
@@ -80,15 +79,15 @@ namespace Pathwinder
         const FilesystemRule* const selectedRule = SelectRuleForSingleFileInternal(originDirectoryIndex, fileFullPath);
         if (nullptr == selectedRule)
         {
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Filesystem redirection query for path \"%s\" resolved to \"%s\" but did not match any rules.", filePath.data(), fileFullPath.AsCString());
-            return fileFullPath;
+            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Filesystem redirection query for path \"%.*s\" resolved to \"%s\" but did not match any rules.", (int)filePath.length(), filePath.data(), fileFullPath.AsCString());
+            return std::nullopt;
         }
 
         const size_t lastSeparatorPos = fileFullPath.AsStringView().find_last_of(L'\\');
         if (std::wstring_view::npos == lastSeparatorPos)
         {
-            Message::OutputFormatted(Message::ESeverity::Error, L"Filesystem redirection query for path \"%s\" resolved to \"%s\" and matched rule \"%s\" but failed due to an internal error while finding the last path separator.", filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data());
-            return fileFullPath;
+            Message::OutputFormatted(Message::ESeverity::Error, L"Filesystem redirection query for path \"%.*s\" resolved to \"%s\" and matched rule \"%s\" but failed due to an internal error while finding the last path separator.", (int)filePath.length(), filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data());
+            return std::nullopt;
         }
 
         const std::wstring_view directoryPart = fileFullPath.AsStringView().substr(0, lastSeparatorPos);
@@ -117,11 +116,11 @@ namespace Pathwinder
         
         if (false == maybeRedirectedFilePath.has_value())
         {
-            Message::OutputFormatted(Message::ESeverity::Error, L"Filesystem redirection query for path \"%s\" resolved to \"%s\" and matched rule \"%s\" but failed due to an internal error while synthesizing the redirect result.", filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data());
-            return fileFullPath;
+            Message::OutputFormatted(Message::ESeverity::Error, L"Filesystem redirection query for path \"%.*s\" resolved to \"%s\" and matched rule \"%s\" but failed due to an internal error while synthesizing the redirect result.", (int)filePath.length(), filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data());
+            return std::nullopt;
         }
 
-        Message::OutputFormatted(Message::ESeverity::Debug, L"Filesystem redirection query for path \"%s\" resolved to \"%s\", matched rule \"%s\", and was redirected to \"%s\".", filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());
+        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Filesystem redirection query for path \"%s\" resolved to \"%s\", matched rule \"%s\", and was redirected to \"%s\".", filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());
         return std::move(maybeRedirectedFilePath.value());
     }
 }

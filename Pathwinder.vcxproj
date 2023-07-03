@@ -127,7 +127,15 @@
     <ClCompile Include="Source\HookModuleMain.cpp" />
     <ClCompile Include="Source\Hooks\CreateFile2.cpp" />
     <ClCompile Include="Source\Hooks\CreateFileA.cpp" />
+    <ClCompile Include="Source\Hooks\CreateFileTransactedA.cpp" />
+    <ClCompile Include="Source\Hooks\CreateFileTransactedW.cpp" />
     <ClCompile Include="Source\Hooks\CreateFileW.cpp" />
+    <ClCompile Include="Source\Hooks\GetFileAttributesA.cpp" />
+    <ClCompile Include="Source\Hooks\GetFileAttributesExA.cpp" />
+    <ClCompile Include="Source\Hooks\GetFileAttributesExW.cpp" />
+    <ClCompile Include="Source\Hooks\GetFileAttributesTransactedA.cpp" />
+    <ClCompile Include="Source\Hooks\GetFileAttributesTransactedW.cpp" />
+    <ClCompile Include="Source\Hooks\GetFileAttributesW.cpp" />
     <ClCompile Include="Source\Message.cpp" />
     <ClCompile Include="Source\PathwinderConfigReader.cpp" />
     <ClCompile Include="Source\Resolver.cpp" />

@@ -5,8 +5,8 @@
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
  *************************************************************************//**
- * @file CreateFileW.cpp
- *   Implementation of the hook function for CreateFileW.
+ * @file GetFileAttributesW.cpp
+ *   Implementation of the hook function for GetFileAttributesW.
  *****************************************************************************/
 
 #include "Hooks.h"
@@ -18,8 +18,8 @@ using namespace Pathwinder;
 // -------- HOOK FUNCTION -------------------------------------------------- //
 // See original function and Hookshot documentation for details.
 
-HANDLE Pathwinder::Hooks::DynamicHook_CreateFileW::Hook(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)
+DWORD Pathwinder::Hooks::DynamicHook_GetFileAttributesW::Hook(LPCWSTR lpFileName)
 {
     HOOK_FUNCTION_BODY_LOG_AND_REDIRECT_PARAM_WIDE(lpFileName);
-    return Original(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    return Original(lpFileName);
 }

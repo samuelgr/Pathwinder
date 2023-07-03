@@ -53,7 +53,15 @@ namespace Pathwinder
             const DynamicHookRecord hookRecords[] = {
                 HOOK_RECORD(CreateFile2),
                 HOOK_RECORD(CreateFileA),
-                HOOK_RECORD(CreateFileW)
+                HOOK_RECORD(CreateFileW),
+                HOOK_RECORD(CreateFileTransactedA),
+                HOOK_RECORD(CreateFileTransactedW),
+                HOOK_RECORD(GetFileAttributesA),
+                HOOK_RECORD(GetFileAttributesW),
+                HOOK_RECORD(GetFileAttributesExA),
+                HOOK_RECORD(GetFileAttributesExW),
+                HOOK_RECORD(GetFileAttributesTransactedA),
+                HOOK_RECORD(GetFileAttributesTransactedW)
             };
 
             Message::OutputFormatted(Message::ESeverity::Debug, L"Attempting to hook %u Windows API function(s).", (unsigned int)_countof(hookRecords));
