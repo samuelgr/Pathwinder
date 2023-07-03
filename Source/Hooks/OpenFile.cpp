@@ -5,21 +5,23 @@
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
  *************************************************************************//**
- * @file GetFileAttributesTransactedA.cpp
- *   Implementation of the hook function for GetFileAttributesTransactedA.
+ * @file OpenFile.cpp
+ *   Implementation of hook function for the OpenFile family of Windows API
+ *   functions.
  *****************************************************************************/
 
+#include "ApiWindows.h"
 #include "Hooks.h"
 
 
 using namespace Pathwinder;
 
 
-// -------- HOOK FUNCTION -------------------------------------------------- //
+// -------- HOOK FUNCTIONS ------------------------------------------------- //
 // See original function and Hookshot documentation for details.
 
-BOOL Pathwinder::Hooks::DynamicHook_GetFileAttributesTransactedA::Hook(LPCSTR lpFileName, GET_FILEEX_INFO_LEVELS fInfoLevelId, LPVOID lpFileInformation, HANDLE hTransaction)
+HFILE Pathwinder::Hooks::DynamicHook_OpenFile::Hook(LPCSTR lpFileName, LPOFSTRUCT lpReOpenBuff, UINT uStyle)
 {
     HOOK_FUNCTION_BODY_LOG_AND_REDIRECT_PARAM_NARROW(lpFileName);
-    return Original(lpFileName, fInfoLevelId, lpFileInformation, hTransaction);
+    return Original(lpFileName, lpReOpenBuff, uStyle);
 }

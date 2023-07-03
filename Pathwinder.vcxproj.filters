@@ -54,37 +54,22 @@
     <ClCompile Include="Source\FilesystemDirectorBuilder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Hooks\CreateFile2.cpp">
+    <ClCompile Include="Source\Hooks\CreateFile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Hooks\CreateFileA.cpp">
+    <ClCompile Include="Source\Hooks\GetFileAttributes.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Hooks\CreateFileW.cpp">
+    <ClCompile Include="Source\Hooks\OpenFile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Hooks\CreateFileTransactedA.cpp">
+    <ClCompile Include="Source\Hooks\SetFileAttributes.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Hooks\CreateFileTransactedW.cpp">
+    <ClCompile Include="Source\Hooks\FindFile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Hooks\GetFileAttributesA.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Hooks\GetFileAttributesW.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Hooks\GetFileAttributesExA.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Hooks\GetFileAttributesExW.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Hooks\GetFileAttributesTransactedA.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Hooks\GetFileAttributesTransactedW.cpp">
+    <ClCompile Include="Source\Hooks\CreateDirectory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

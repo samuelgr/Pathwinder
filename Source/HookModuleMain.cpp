@@ -44,24 +44,46 @@ namespace Pathwinder
             }
         };
 
-        // -------- INTERNAL INTERNAL FUNCTIONS ---------------------------- //
+        // -------- INTERNAL FUNCTIONS ------------------------------------- //
 
         /// Attempts to set all required Hookshot hooks.
         /// Terminates this process if any hook fails to be set.
         static void SetAllHooksOrDie(Hookshot::IHookshot* hookshot)
         {
+            // References the hooks declared in "Hooks.h" and must contain all of them.
             const DynamicHookRecord hookRecords[] = {
                 HOOK_RECORD(CreateFile2),
                 HOOK_RECORD(CreateFileA),
                 HOOK_RECORD(CreateFileW),
                 HOOK_RECORD(CreateFileTransactedA),
                 HOOK_RECORD(CreateFileTransactedW),
+
+                HOOK_RECORD(CreateDirectoryA),
+                HOOK_RECORD(CreateDirectoryW),
+
+                HOOK_RECORD(FindFirstFileA),
+                HOOK_RECORD(FindFirstFileW),
+                HOOK_RECORD(FindFirstFileExA),
+                HOOK_RECORD(FindFirstFileExW),
+                HOOK_RECORD(FindFirstFileTransactedA),
+                HOOK_RECORD(FindFirstFileTransactedW),
+                HOOK_RECORD(FindNextFileA),
+                HOOK_RECORD(FindNextFileW),
+                HOOK_RECORD(FindClose),
+
                 HOOK_RECORD(GetFileAttributesA),
                 HOOK_RECORD(GetFileAttributesW),
                 HOOK_RECORD(GetFileAttributesExA),
                 HOOK_RECORD(GetFileAttributesExW),
                 HOOK_RECORD(GetFileAttributesTransactedA),
-                HOOK_RECORD(GetFileAttributesTransactedW)
+                HOOK_RECORD(GetFileAttributesTransactedW),
+
+                HOOK_RECORD(OpenFile),
+
+                HOOK_RECORD(SetFileAttributesA),
+                HOOK_RECORD(SetFileAttributesW),
+                HOOK_RECORD(SetFileAttributesTransactedA),
+                HOOK_RECORD(SetFileAttributesTransactedW)
             };
 
             Message::OutputFormatted(Message::ESeverity::Debug, L"Attempting to hook %u Windows API function(s).", (unsigned int)_countof(hookRecords));
