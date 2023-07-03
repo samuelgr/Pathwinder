@@ -94,7 +94,27 @@ namespace Pathwinder
         const std::wstring_view directoryPart = fileFullPath.AsStringView().substr(0, lastSeparatorPos);
         const std::wstring_view filePart = ((L'\\' == fileFullPath.AsStringView().back()) ? L"" : fileFullPath.AsStringView().substr(1 + lastSeparatorPos));
 
-        std::optional<TemporaryString> maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(directoryPart, filePart);
+        std::optional<TemporaryString> maybeRedirectedFilePath;
+
+        switch (selectedRule->DirectoryCompareWithOrigin(directoryPart))
+        {
+        case FilesystemRule::EDirectoryCompareResult::CandidateIsParent:
+
+            // Redirecton query is for the origin directory itself.
+            // There is no file part, so the redirection will occur to the target directory itself.
+
+            maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(fileFullPath, L"");
+            break;
+
+        default:
+
+            // Redirection query prefix-matched the origin directory.
+            // There is a file part present.
+
+            maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(directoryPart, filePart);
+            break;
+        }
+        
         if (false == maybeRedirectedFilePath.has_value())
         {
             Message::OutputFormatted(Message::ESeverity::Error, L"Filesystem redirection query for path \"%s\" resolved to \"%s\" and matched rule \"%s\" but failed due to an internal error while synthesizing the redirect result.", filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data());

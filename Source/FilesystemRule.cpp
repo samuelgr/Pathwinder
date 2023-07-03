@@ -148,7 +148,9 @@ namespace Pathwinder
         candidatePathDirectoryPart.remove_prefix(fromDirectory.length());
 
         TemporaryString redirectedPath;
-        redirectedPath << toDirectory << candidatePathDirectoryPart << L'\\' << candidatePathFilePart;
+        redirectedPath << toDirectory << candidatePathDirectoryPart;
+        if (false == candidatePathFilePart.empty())
+            redirectedPath << L'\\' << candidatePathFilePart;
 
         return redirectedPath;
     }

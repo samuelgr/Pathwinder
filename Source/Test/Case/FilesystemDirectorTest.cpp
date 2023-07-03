@@ -156,6 +156,28 @@ namespace PathwinderTest
         }
     }
 
+    // Creates a filesystem director with a single filesystem rule and queries it for redirection with an input path exactly equal to the origin directory.
+    // Verifies that the redirection correctly occurs to the target directory.
+    TEST_CASE(FilesystemDirector_RedirectSingleFile_EqualsOriginDirectory)
+    {
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", MakeFilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+        }));
+
+        constexpr std::pair<std::wstring_view, std::wstring_view> kTestInputsAndExpectedOutputs[] = {
+            {L"C:\\Origin1", L"C:\\Target1"},
+        };
+
+        for (const auto& testRecord : kTestInputsAndExpectedOutputs)
+        {
+            const std::wstring_view testInput = testRecord.first;
+            const std::wstring_view expectedOutput = testRecord.second;
+
+            auto actualOutput = director.RedirectSingleFile(testInput);
+            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput, expectedOutput));
+        }
+    }
+
     // Creates a filesystem director with a few non-overlapping rules and queries it for redirection with a few file inputs.
     // Similar to the nominal test case except the file inputs this time have multiple consecutive path separators in their paths.
     // Verifies that each time the resulting redirected path is correct.
