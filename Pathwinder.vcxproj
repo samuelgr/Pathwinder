@@ -125,12 +125,7 @@
     <ClCompile Include="Source\FilesystemRule.cpp" />
     <ClCompile Include="Source\Globals.cpp" />
     <ClCompile Include="Source\HookModuleMain.cpp" />
-    <ClCompile Include="Source\Hooks\CreateDirectory.cpp" />
-    <ClCompile Include="Source\Hooks\CreateFile.cpp" />
-    <ClCompile Include="Source\Hooks\FindFile.cpp" />
-    <ClCompile Include="Source\Hooks\GetFileAttributes.cpp" />
-    <ClCompile Include="Source\Hooks\OpenFile.cpp" />
-    <ClCompile Include="Source\Hooks\SetFileAttributes.cpp" />
+    <ClCompile Include="Source\Hooks.cpp" />
     <ClCompile Include="Source\Message.cpp" />
     <ClCompile Include="Source\PathwinderConfigReader.cpp" />
     <ClCompile Include="Source\Resolver.cpp" />

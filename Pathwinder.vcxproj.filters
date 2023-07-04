@@ -54,22 +54,7 @@
     <ClCompile Include="Source\FilesystemDirectorBuilder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Hooks\CreateFile.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Hooks\GetFileAttributes.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Hooks\OpenFile.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Hooks\SetFileAttributes.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Hooks\FindFile.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Hooks\CreateDirectory.cpp">
+    <ClCompile Include="Source\Hooks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

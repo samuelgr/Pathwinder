@@ -21,7 +21,7 @@
 // -------- MACROS --------------------------------------------------------- //
 
 /// Convenience wrapper for instantiating a hook record structure for the given named Windows API function.
-#define HOOK_RECORD(windowsApiFunctionName)                                 {.functionName = #windowsApiFunctionName, .staticFunctionAddress = (void*)&windowsApiFunctionName, .hookProxy = DynamicHook_##windowsApiFunctionName::GetProxy()}
+#define HOOK_RECORD(windowsApiFunctionName)                                 {.functionName = #windowsApiFunctionName, .hookProxy = DynamicHook_##windowsApiFunctionName::GetProxy()}
 
 
 namespace Pathwinder
@@ -34,13 +34,12 @@ namespace Pathwinder
         struct DynamicHookRecord
         {
             const char* functionName;                                       ///< Name of the Windows API function being hooked, using narrow-character format.
-            void* staticFunctionAddress;                                    ///< Static address of the Windows API function, as determined at compile and link time.
             Hookshot::DynamicHookProxy hookProxy;                           ///< Dynamic hook proxy object.
 
             /// Convenience method for attempting to set the Hookshot dynamic hook represented by this record.
             inline Hookshot::EResult TrySetHook(Hookshot::IHookshot* hookshot) const
             {
-                return hookProxy.SetHook(hookshot, GetWindowsApiFunctionAddress(functionName, staticFunctionAddress));
+                return hookProxy.SetHook(hookshot, GetInternalWindowsApiFunctionAddress(functionName));
             }
         };
 
@@ -52,38 +51,12 @@ namespace Pathwinder
         {
             // References the hooks declared in "Hooks.h" and must contain all of them.
             const DynamicHookRecord hookRecords[] = {
-                HOOK_RECORD(CreateFile2),
-                HOOK_RECORD(CreateFileA),
-                HOOK_RECORD(CreateFileW),
-                HOOK_RECORD(CreateFileTransactedA),
-                HOOK_RECORD(CreateFileTransactedW),
-
-                HOOK_RECORD(CreateDirectoryA),
-                HOOK_RECORD(CreateDirectoryW),
-
-                HOOK_RECORD(FindFirstFileA),
-                HOOK_RECORD(FindFirstFileW),
-                HOOK_RECORD(FindFirstFileExA),
-                HOOK_RECORD(FindFirstFileExW),
-                HOOK_RECORD(FindFirstFileTransactedA),
-                HOOK_RECORD(FindFirstFileTransactedW),
-                HOOK_RECORD(FindNextFileA),
-                HOOK_RECORD(FindNextFileW),
-                HOOK_RECORD(FindClose),
-
-                HOOK_RECORD(GetFileAttributesA),
-                HOOK_RECORD(GetFileAttributesW),
-                HOOK_RECORD(GetFileAttributesExA),
-                HOOK_RECORD(GetFileAttributesExW),
-                HOOK_RECORD(GetFileAttributesTransactedA),
-                HOOK_RECORD(GetFileAttributesTransactedW),
-
-                HOOK_RECORD(OpenFile),
-
-                HOOK_RECORD(SetFileAttributesA),
-                HOOK_RECORD(SetFileAttributesW),
-                HOOK_RECORD(SetFileAttributesTransactedA),
-                HOOK_RECORD(SetFileAttributesTransactedW)
+                HOOK_RECORD(NtClose),
+                HOOK_RECORD(NtCreateFile),
+                HOOK_RECORD(NtOpenFile),
+                HOOK_RECORD(NtQueryDirectoryFile),
+                HOOK_RECORD(NtQueryDirectoryFileEx),
+                HOOK_RECORD(NtQueryInformationByName)
             };
 
             Message::OutputFormatted(Message::ESeverity::Debug, L"Attempting to hook %u Windows API function(s).", (unsigned int)_countof(hookRecords));
