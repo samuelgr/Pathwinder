@@ -81,7 +81,7 @@ namespace PathwinderTest
         // -------- MOCK INSTANCE METHODS ---------------------------------- //
         // See "FilesystemOperations.h" for documentation.
 
-        bool Exists(const wchar_t* path);
-        bool IsDirectory(const wchar_t* path);
+        bool Exists(std::wstring_view absolutePath);
+        bool IsDirectory(std::wstring_view absolutePath);
     };
 }

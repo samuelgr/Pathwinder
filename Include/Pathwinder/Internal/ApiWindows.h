@@ -16,7 +16,6 @@
 
 #include <sdkddkver.h>
 #include <windows.h>
-#include <winternl.h>
 
 
 namespace Pathwinder

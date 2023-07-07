@@ -95,9 +95,9 @@ namespace PathwinderTest
     // -------- MOCK INSTANCE METHODS -------------------------------------- //
     // See "FilesystemOperations.h" for documentation.
     
-    bool MockFilesystemOperations::Exists(const wchar_t* path)
+    bool MockFilesystemOperations::Exists(std::wstring_view absolutePath)
     {
-        const std::wstring pathLowerCase = ConvertToLowerCase(path);
+        const std::wstring pathLowerCase = ConvertToLowerCase(absolutePath);
         const std::wstring_view pathLowerCaseView = pathLowerCase;
 
         size_t lastBackslashIndex = pathLowerCaseView.find_last_of(L'\\');
@@ -116,9 +116,9 @@ namespace PathwinderTest
 
     // --------
 
-    bool MockFilesystemOperations::IsDirectory(const wchar_t* path)
+    bool MockFilesystemOperations::IsDirectory(std::wstring_view absolutePath)
     {
-        return filesystemContents.contains(ConvertToLowerCase(path));
+        return filesystemContents.contains(ConvertToLowerCase(absolutePath));
     }
 }
 
@@ -133,16 +133,16 @@ namespace Pathwinder
         // -------- MOCK FUNCTIONS ----------------------------------------- //
         // Invocations are forwarded to mock instance methods.
 
-        bool Exists(const wchar_t* path)
+        bool Exists(std::wstring_view absolutePath)
         {
-            MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, Exists, path);
+            MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, Exists, absolutePath);
         }
 
         // --------
 
-        bool IsDirectory(const wchar_t* path)
+        bool IsDirectory(std::wstring_view absolutePath)
         {
-            MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, IsDirectory, path);
+            MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, IsDirectory, absolutePath);
         }
     }
 }

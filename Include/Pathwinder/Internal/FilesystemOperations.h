@@ -12,6 +12,8 @@
 
 #pragma once
 
+#include <string_view>
+
 
 namespace Pathwinder
 {
@@ -20,13 +22,13 @@ namespace Pathwinder
         // -------- FUNCTIONS ---------------------------------------------- //
 
         /// Checks if the specified filesystem entity (file, directory, or otherwise) exists.
-        /// @param path [in] Path of the entity to check. Must be null-terminated.
+        /// @param path [in] Absolute path of the entity to check.
         /// @return `true` if the entity exists, `false` otherwise.
-        bool Exists(const wchar_t* path);
+        bool Exists(std::wstring_view absolutePath);
 
         /// Checks if the specified path exists in the filesystem as a directory.
-        /// @param path [in] Path to check. Must be null-terminated.
+        /// @param path [in] Absolute path to check.
         /// @return `true` if the path exists as a directory, `false` otherwise.
-        bool IsDirectory(const wchar_t* path);
+        bool IsDirectory(std::wstring_view absolutePath);
     }
 }
