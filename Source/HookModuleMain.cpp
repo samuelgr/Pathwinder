@@ -21,7 +21,7 @@
 // -------- MACROS --------------------------------------------------------- //
 
 /// Convenience wrapper for instantiating a hook record structure for the given named Windows API function.
-#define HOOK_RECORD(windowsApiFunctionName)                                 {.functionName = #windowsApiFunctionName, .hookProxy = DynamicHook_##windowsApiFunctionName::GetProxy()}
+#define HOOK_RECORD(windowsApiFunctionName)                                 {.setHookFunc = ::Pathwinder::Hooks::ProtectedDependency::##windowsApiFunctionName::SetHook, .hookProxy = DynamicHook_##windowsApiFunctionName::GetProxy()}
 
 
 namespace Pathwinder
@@ -33,14 +33,8 @@ namespace Pathwinder
         /// Holds together all of the information needed to attempt to set a Hookshot dynamic hook.
         struct DynamicHookRecord
         {
-            const char* functionName;                                       ///< Name of the Windows API function being hooked, using narrow-character format.
-            Hookshot::DynamicHookProxy hookProxy;                           ///< Dynamic hook proxy object.
-
-            /// Convenience method for attempting to set the Hookshot dynamic hook represented by this record.
-            inline Hookshot::EResult TrySetHook(Hookshot::IHookshot* hookshot) const
-            {
-                return hookProxy.SetHook(hookshot, GetInternalWindowsApiFunctionAddress(functionName));
-            }
+            Hookshot::EResult(*setHookFunc)(Hookshot::IHookshot*);          ///< Address of the function that will be invoked to set the hook.
+            Hookshot::DynamicHookProxy hookProxy;                           ///< Proxy object for the dynamic hook object itself.
         };
 
         // -------- INTERNAL FUNCTIONS ------------------------------------- //
@@ -63,7 +57,7 @@ namespace Pathwinder
 
             for (const auto& hookRecord : hookRecords)
             {
-                const Hookshot::EResult setHookResult = hookRecord.TrySetHook(hookshot);
+                const Hookshot::EResult setHookResult = hookRecord.setHookFunc(hookshot);
 
                 if (false == Hookshot::SuccessfulResult(setHookResult))
                 {
