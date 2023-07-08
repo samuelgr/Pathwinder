@@ -19,7 +19,7 @@
 #include <Hookshot/DynamicHook.h>
 
 
-// -------- HOOK FUNCTIONS ------------------------------------------------- //
+// -------- PROTECTED HOOK FUNCTIONS --------------------------------------- //
 // See original function and Hookshot documentation for details.
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtClose::Hook(HANDLE Handle)
@@ -66,4 +66,14 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(POBJECT_A
 {
     Pathwinder::Message::OutputFormatted(Pathwinder::Message::ESeverity::Debug, L"%s: Invoked with root directory = 0x%016llx and object name = \"%.*s\"", GetFunctionName(), (long long)ObjectAttributes->RootDirectory, (int)ObjectAttributes->ObjectName->Length, ObjectAttributes->ObjectName->Buffer);
     return Original(ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
+}
+
+
+// -------- UNPROTECTED HOOK FUNCTIONS ------------------------------------- //
+// See original function and Hookshot documentation for details.
+
+NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(POBJECT_ATTRIBUTES ObjectAttributes, PFILE_BASIC_INFO FileInformation)
+{
+    Pathwinder::Message::OutputFormatted(Pathwinder::Message::ESeverity::Debug, L"%s: Invoked with root directory = 0x%016llx and object name = \"%.*s\"", GetFunctionName(), (long long)ObjectAttributes->RootDirectory, (int)ObjectAttributes->ObjectName->Length, ObjectAttributes->ObjectName->Buffer);
+    return Original(ObjectAttributes, FileInformation);
 }

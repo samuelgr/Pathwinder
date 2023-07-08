@@ -78,10 +78,12 @@ namespace Pathwinder
 
 namespace Pathwinder
 {
-    // -------- HOOKS ------------------------------------------------------ //
-
     namespace Hooks
     {
+        // -------- PROTECTED HOOKS ---------------------------------------- //
+        // Pathwinder requires these hooks to be set in order to function correctly and may invoke their original versions.
+        // These functions are documented parts of Windows, though they may be internal or part of the driver development kit (WDK).
+
         // See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntclose for more information.
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(NtClose, NTSTATUS(__stdcall)(HANDLE));
 
@@ -99,5 +101,13 @@ namespace Pathwinder
 
         // See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntqueryinformationbyname for more information.
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(NtQueryInformationByName, NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES, PIO_STATUS_BLOCK, PVOID, ULONG, FILE_INFORMATION_CLASS));
+
+
+        // -------- UNPROTECTED HOOKS -------------------------------------- //
+        // Pathwinder does not require these hooks to be set in order to function correctly, nor does it ever invoke their original versions.
+        // These functions are internal to Windows, potentially undocumented, and not guaranteed to exist in future versions.
+
+        // See https://learn.microsoft.com/en-us/windows/win32/devnotes/ntqueryattributesfile for more information.
+        HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(NtQueryAttributesFile, NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES, PFILE_BASIC_INFO));
     }
 }
