@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include "MutexWrapper.h"
 #include "TestCase.h"
 
 #include <array>
@@ -40,7 +41,7 @@ namespace PathwinderTest
 
         /// Concurrency control mutexes, one per possible context.
         /// A shared lock is taken whenever a free function is invoked, and a unique lock is taken whenever the array of current contexts is to be updated.
-        static inline std::array<std::shared_mutex, kNumContexts> contextGuards;
+        static inline std::array<Pathwinder::SharedMutex, kNumContexts> contextGuards;
 
 
         // -------- INSTANCE VARIABLES ------------------------------------- //
@@ -109,7 +110,7 @@ namespace PathwinderTest
         /// Locks the context at the specified index so that the associated object can be accessed.
         /// @param [in] index Index of the desired context. Defaults to 0.
         /// @return Shared lock that is held for the corresponding context object.
-        static std::shared_lock<std::shared_mutex> LockContext(size_t index = 0)
+        static std::shared_lock<Pathwinder::SharedMutex> LockContext(size_t index = 0)
         {
             if (index > contexts.size())
                 TEST_FAILED_BECAUSE(L"Out-of-bounds lock attempt for instance %z of mock free function context object %s.", index, kMockObjectTypeName);

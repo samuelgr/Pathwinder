@@ -12,6 +12,7 @@
 #include "ApiWindows.h"
 #include "Globals.h"
 #include "Message.h"
+#include "MutexWrapper.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
 
@@ -244,8 +245,8 @@ namespace Pathwinder
             // This mutex needs to be recursive specifically for Pathwinder because it hooks the `NtClose` system function, and the hook function itself might produce message output.
             // Internally, at least one of the message output functions (for example, graphical message box) use system objects and subsequently free them using `NtClose`.
             // As a result, this function may be called more than once by the same thread, so a non-recursive mutex would lead to deadlock.
-            static std::recursive_mutex outputGuard;
-            
+            static RecursiveMutex outputGuard;
+
             EOutputMode outputModes[(int)EOutputMode::UpperBoundValue];
             const int numOutputModes = DetermineOutputModes(severity, outputModes);
 

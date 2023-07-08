@@ -9,6 +9,7 @@
  *   Partial implementation of temporary buffer management functionality.
  *****************************************************************************/
 
+#include "MutexWrapper.h"
 #include "TemporaryBuffer.h"
 
 #include <cstdint>
@@ -41,7 +42,7 @@ namespace Pathwinder
         bool isInitialized = false;
 
         /// Mutex used to ensure concurrency control over temporary buffer allocation and deallocation.
-        std::mutex allocationMutex;
+        Mutex allocationMutex;
 
 
     private:
