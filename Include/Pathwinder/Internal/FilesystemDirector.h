@@ -109,6 +109,19 @@ namespace Pathwinder
             return ruleNode->GetData();
         }
 
+        /// Determines if the specified file path, which is already absolute and lowercase, exists as a valid prefix for any filesystem rule.
+        /// @param [in] fileFullPathLowercase Absolute lowercase path to check.
+        /// @return `true` if a rule exists either at or as a descendent in the filesystem hierarchy of the specified path, `false` otherwise.
+        inline bool IsPrefixForAnyRule(std::wstring_view fileFullPathLowercase) const
+        {
+            fileFullPathLowercase.remove_prefix(Strings::PathGetWindowsNamespacePrefix(fileFullPathLowercase).length());
+
+            while (fileFullPathLowercase.ends_with(L'\\'))
+                fileFullPathLowercase.remove_suffix(1);
+
+            return originDirectoryIndex.HasPathForPrefix(fileFullPathLowercase);
+        }
+
         /// Determines which rule from among those held by this object should be used to redirect a single filename.
         /// This operation is useful for those filesystem functions that directly operate on a single absolute path.
         /// Primarily intended for internal use but exposed for tests.

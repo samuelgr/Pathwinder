@@ -347,6 +347,15 @@ namespace Pathwinder
             return node;
         }
 
+        /// Determines if the specified prefix exists as a valid path in the prefix index.
+        /// If this method returns `true` then objects exist in this index beginning with, but not necessarily existing exactly at, the specified prefix.
+        /// @param [in] prefix Prefix string for which to search.
+        /// @return `true` if a path exists with the specified prefix, `false` otherwise.
+        inline bool HasPathForPrefix(std::basic_string_view<CharType> prefix) const
+        {
+            return (nullptr != TraverseToInternal(prefix));
+        }
+
         /// Creates any nodes needed to represent the specified prefix and then inserts a new prefix data element.
         /// No changes are made if the prefix already exists within the tree.
         /// @param [in] prefix Prefix string for which data is to be inserted.

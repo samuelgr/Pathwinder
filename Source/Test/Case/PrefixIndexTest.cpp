@@ -35,6 +35,7 @@ namespace PathwinderTest
 
     // Inserts a few strings into the prefix index.
     // Verifies that only the strings specifically inserted are seen as being contained in the index and that the correct data reference is returned accordingly for queries.
+    // Only some of the strings represent valid objects that are "contained" in the index, but all levels should at least be indicated as being valid prefix paths.
     TEST_CASE(PrefixIndex_QueryContents_Nominal)
     {
         TTestPrefixIndex index(L"\\");
@@ -43,10 +44,19 @@ namespace PathwinderTest
         index.Insert(L"Level1\\Level2", kTestData[2]);
 
         TEST_ASSERT(false == index.Contains(L"Level1"));
+        TEST_ASSERT(true == index.HasPathForPrefix(L"Level1"));
+
         TEST_ASSERT(true  == index.Contains(L"Level1\\Level2"));
+        TEST_ASSERT(true == index.HasPathForPrefix(L"Level1\\Level2"));
+
         TEST_ASSERT(false == index.Contains(L"Level1\\Level2\\Level3"));
+        TEST_ASSERT(true == index.HasPathForPrefix(L"Level1\\Level2\\Level3"));
+
         TEST_ASSERT(false == index.Contains(L"Level1\\Level2\\Level3\\Level4"));
+        TEST_ASSERT(true == index.HasPathForPrefix(L"Level1\\Level2\\Level3\\Level4"));
+
         TEST_ASSERT(true  == index.Contains(L"Level1\\Level2\\Level3\\Level4\\Level5"));
+        TEST_ASSERT(true == index.HasPathForPrefix(L"Level1\\Level2\\Level3\\Level4\\Level5"));
 
         TEST_ASSERT(nullptr == index.Find(L"Level1"));
         TEST_ASSERT(nullptr == index.Find(L"Level1\\Level2\\Level3"));

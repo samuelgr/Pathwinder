@@ -328,4 +328,32 @@ namespace PathwinderTest
             TEST_ASSERT(false == actualOutput.has_value());
         }
     }
+
+    // Creates a filesystem director with a single rule at a deep level in the hierarchy and queries it a few times to see if it can successfully identify rule prefixes.
+    // This test invokes case-sensitive methods and therefore requires that query inputs all be lowercase.
+    TEST_CASE(FilesystemDirector_IsPrefixForAnyRule_Nominal)
+    {
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", MakeFilesystemRule(L"C:\\Level1\\Level2\\Level3\\Origin", L"C:\\Target")},
+        }));
+
+        constexpr std::pair<std::wstring_view, bool> kTestInputsAndExpectedOutputs[] = {
+            {L"c:\\", true},
+            {L"c:\\level1", true},
+            {L"c:\\level1\\level2\\", true},
+            {L"c:\\level1\\level2\\level3", true},
+            {L"c:\\level1\\level2\\level3\\origin\\", true},
+            {L"x:\\", false},
+            {L"c:\\unrelated\\level2", false}
+        };
+
+        for (const auto& testRecord : kTestInputsAndExpectedOutputs)
+        {
+            const std::wstring_view testInput = testRecord.first;
+            const bool expectedOutput = testRecord.second;
+
+            const bool actualOutput = director.IsPrefixForAnyRule(testInput);
+            TEST_ASSERT(actualOutput == expectedOutput);
+        }
+    }
 }
