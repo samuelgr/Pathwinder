@@ -87,7 +87,7 @@ namespace Pathwinder
         {
             std::optional<TemporaryString> maybePrefixedAbsolutePath = std::nullopt;
 
-            if (true == Strings::PathHasWindowsNamespacePrefix(absolutePath))
+            if (false == Strings::PathHasWindowsNamespacePrefix(absolutePath))
             {
                 maybePrefixedAbsolutePath = Strings::PathAddWindowsNamespacePrefix(absolutePath);
                 absolutePath = maybePrefixedAbsolutePath.value().AsStringView();

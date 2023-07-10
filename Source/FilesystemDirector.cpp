@@ -73,27 +73,23 @@ namespace Pathwinder
 
         unsigned int resolvedPathLength = 0;
 
-        if (L"\\\\?\\" == windowsNamespacePrefix)
+        if (false == windowsNamespacePrefix.empty())
         {
-            // The prefix "\\?\" is an instruction to disable all string processing on the associated path.
-            // Input is therefore already a full and absolute path and does not need to be resolved.
-            // See https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file for more information.
+            // The presence of a namespace prefix generally indicates that the path is already full and absolute.
 
             fileFullPath << filePath;
             resolvedPathLength = static_cast<unsigned int>(filePath.length()) - windowsNamespacePrefixLength;
         }
         else
         {
-            // Any other prefix, or no prefix at all, needs to be preserved but skipped during resolution and redirection.
-            // Otherwise it might be interpreted as a relative path from the current drive.
+            // If there is no prefix at all then the path could be relative and needs to be resolved more fully.
 
             fileFullPath += windowsNamespacePrefix;
-            filePath.remove_prefix(windowsNamespacePrefixLength);
 
             wchar_t* const fileFullPathAfterPrefix = &fileFullPath[windowsNamespacePrefixLength];
             const unsigned int fileFullPathCapacityAfterPrefix = fileFullPath.Capacity() - windowsNamespacePrefixLength;
 
-            resolvedPathLength = GetFullPathName(filePath.data(), fileFullPathCapacityAfterPrefix, fileFullPathAfterPrefix, nullptr);
+            resolvedPathLength = GetFullPathName(filePath.substr(windowsNamespacePrefixLength).data(), fileFullPathCapacityAfterPrefix, fileFullPathAfterPrefix, nullptr);
             fileFullPath.UnsafeSetSize(windowsNamespacePrefixLength + resolvedPathLength);
         }
 
@@ -133,7 +129,7 @@ namespace Pathwinder
             // Redirecton query is for the origin directory itself.
             // There is no file part, so the redirection will occur to the target directory itself.
 
-            maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(fileFullPath, L"");
+            maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(fileFullPathWithoutPrefix, L"", windowsNamespacePrefix);
             break;
 
         default:
