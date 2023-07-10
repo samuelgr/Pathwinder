@@ -83,13 +83,17 @@ namespace Pathwinder
         else
         {
             // If there is no prefix at all then the path could be relative and needs to be resolved more fully.
+            // Because the hooking implementation targets the Nt family of functions, which tend to receive absolute pathnames with a prefix, in general this branch will execute rarely if at all.
+            // The input path is not guaranteed to be null-terminated, but the function that resolves the full path name expects null termination.
+
+            TemporaryString nullTerminatedFilePath = filePath.substr(windowsNamespacePrefixLength);
 
             fileFullPath += windowsNamespacePrefix;
 
             wchar_t* const fileFullPathAfterPrefix = &fileFullPath[windowsNamespacePrefixLength];
             const unsigned int fileFullPathCapacityAfterPrefix = fileFullPath.Capacity() - windowsNamespacePrefixLength;
 
-            resolvedPathLength = GetFullPathName(filePath.substr(windowsNamespacePrefixLength).data(), fileFullPathCapacityAfterPrefix, fileFullPathAfterPrefix, nullptr);
+            resolvedPathLength = GetFullPathName(nullTerminatedFilePath.AsCString(), fileFullPathCapacityAfterPrefix, fileFullPathAfterPrefix, nullptr);
             fileFullPath.UnsafeSetSize(windowsNamespacePrefixLength + resolvedPathLength);
         }
 

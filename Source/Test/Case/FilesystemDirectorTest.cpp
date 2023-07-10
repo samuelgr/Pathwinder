@@ -204,6 +204,32 @@ namespace PathwinderTest
         }
     }
 
+    // Creates a filesystem director a single filesystem rule and queries it with inputs that should not be redirected due to no match.
+    // In this case the input query string is not null-terminated, but the buffer itself contains a null-terminated string that ordinarily would be redirected.
+    // If the implementation is properly handling non-null-terminated input string views then no redirection should occur, otherwise an erroneous redirection will occur.
+    // One query uses a Windows namespace prefix, and the other does not.
+    TEST_CASE(FilesystemDirector_RedirectSingleFile_NoRedirectionNotNullTerminated)
+    {
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", MakeFilesystemRule(L"C:\\Base\\Origin", L"C:\\Base\\Target")},
+        }));
+
+        // String buffer identifies "C:\Base\Origin" which intuitively should be redirected to "C:\Base\Target".
+        // However, the length field of the string view object means that the view only represents "C:\Base" or "C:\Base\" which has no matching rule and should not be redirected.
+        constexpr std::wstring_view kTestInputs[] = {
+            std::wstring_view(L"C:\\Base\\Origin", std::wstring_view(L"C:\\Base").length()),
+            std::wstring_view(L"C:\\Base\\Origin", std::wstring_view(L"C:\\Base\\").length()),
+            std::wstring_view(L"\\??\\C:\\Base\\Origin", std::wstring_view(L"\\??\\C:\\Base").length()),
+            std::wstring_view(L"\\??\\C:\\Base\\Origin", std::wstring_view(L"\\??\\C:\\Base\\").length())
+        };
+
+        for (const auto& testInput : kTestInputs)
+        {
+            auto actualOutput = director.RedirectSingleFile(testInput);
+            TEST_ASSERT(false == actualOutput.has_value());
+        }
+    }
+
     // Creates a filesystem director with a single filesystem rule and queries it for redirection with an input path exactly equal to the origin directory.
     // Verifies that the redirection correctly occurs to the target directory.
     TEST_CASE(FilesystemDirector_RedirectSingleFile_EqualsOriginDirectory)
@@ -282,7 +308,7 @@ namespace PathwinderTest
         }
     }
 
-    // Creates a filesystem director with a few non-overlapping rules and queries it for redirectin with file inputs that are invalid.
+    // Creates a filesystem director with a few non-overlapping rules and queries it for redirecting with file inputs that are invalid.
     // Verifies that each time the resulting returned path is not present.
     TEST_CASE(FilesystemDirector_RedirectSingleFile_InvalidInputPath)
     {
