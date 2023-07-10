@@ -178,8 +178,7 @@ namespace Pathwinder
 
         TemporaryString originDirectoryFullPath;
         originDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeOriginDirectoryResolvedString.Value().c_str(), originDirectoryFullPath.Capacity(), originDirectoryFullPath.Data(), nullptr));
-        while (true == originDirectoryFullPath.AsStringView().ends_with(L'\\'))
-            originDirectoryFullPath.RemoveSuffix(1);
+        originDirectoryFullPath.RemoveTrailing(L'\\');
         originDirectoryFullPath.ToLowercase();
 
         if (false == originDirectoryFullPath.AsStringView().contains(L'\\'))
@@ -199,8 +198,7 @@ namespace Pathwinder
 
         TemporaryString targetDirectoryFullPath;
         targetDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeTargetDirectoryResolvedString.Value().c_str(), targetDirectoryFullPath.Capacity(), targetDirectoryFullPath.Data(), nullptr));
-        while (true == targetDirectoryFullPath.AsStringView().ends_with(L'\\'))
-            targetDirectoryFullPath.RemoveSuffix(1);
+        targetDirectoryFullPath.RemoveTrailing(L'\\');
         targetDirectoryFullPath.ToLowercase();
 
         if (false == targetDirectoryFullPath.AsStringView().contains(L'\\'))

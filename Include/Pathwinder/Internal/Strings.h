@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "ApiWindows.h"
 #include "TemporaryBuffer.h"
 
 #include <cstddef>
@@ -18,6 +19,7 @@
 #include <optional>
 #include <sal.h>
 #include <string_view>
+#include <winternl.h>
 
 
 namespace Pathwinder
@@ -136,6 +138,19 @@ namespace Pathwinder
         /// @return Absolute path with a prefix inserted in front of it.
         TemporaryString PathAddWindowsNamespacePrefix(std::wstring_view absolutePath);
 
+        /// Converts a standard string view to a Windows internal Unicode string view.
+        /// @param [in] strView Standard string view to convert.
+        /// @return Resulting Windows internal Unicode string view.
+        UNICODE_STRING NtConvertStringViewToUnicodeString(std::wstring_view strView);
+
+        /// Converts a Windows internal Unicode string view to a standard string view.
+        /// @param [in] unicodeStr Unicode string view to convert.
+        /// @return Resulting standard string view.
+        inline std::wstring_view NtConvertUnicodeStringToStringView(const UNICODE_STRING& unicodeStr)
+        {
+            return std::wstring_view(unicodeStr.Buffer, (unicodeStr.Length / sizeof(wchar_t)));
+        }
+
         /// Returns a view of the Windows namespace prefix from the supplied absolute path, if it is present.
         /// @param [in] absolutePath Absolute path to check for a prefix.
         /// @return View within the input absolute path containing the Windows namespace prefix, or an empty view if the input absolute path does not contain such a prefix.
@@ -147,6 +162,18 @@ namespace Pathwinder
         inline bool PathHasWindowsNamespacePrefix(std::wstring_view absolutePath)
         {
             return (0 != PathGetWindowsNamespacePrefix(absolutePath).length());
+        }
+
+        // Removes the all occurrences of specified trailing character from the input string view and returns the result.
+        // @param [in] str String view from which to remove the trailing character.
+        // @param [in] trailingChar Trailing character to strip from this string.
+        // @return Resulting string view after the trailing character is removed.
+        inline std::wstring_view RemoveTrailing(std::wstring_view str, wchar_t trailingChar)
+        {
+            while (str.ends_with(trailingChar))
+                str.remove_suffix(1);
+
+            return str;
         }
 
         /// Splits a string using the specified delimiter character and returns a list of views each corresponding to a part of the input string.

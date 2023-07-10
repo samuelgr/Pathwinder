@@ -57,28 +57,6 @@ namespace Pathwinder
 
         // -------- INTERNAL FUNCTIONS ------------------------------------- //
 
-        /// Generates a Unicode string structure for use when interacting with Windows system call functions.
-        /// A Unicode string structure is conceptually just metadata and a pointer, similar to how standard string view objects work.
-        /// @param [in] str String to represent as a Unicode string structure.
-        /// @return Resulting Unicode string structure.
-        static inline UNICODE_STRING MakeUnicodeString(std::wstring_view str)
-        {
-            constexpr int kMaxStringSizeBytes = static_cast<int>(std::numeric_limits<decltype(UNICODE_STRING::Length)>::max());
-            int stringSizeBytes = static_cast<int>(str.length() * sizeof(str[0]));
-
-            if (stringSizeBytes > kMaxStringSizeBytes)
-            {
-                Message::OutputFormatted(Message::ESeverity::Warning, L"String of size %d bytes exceeds the UNICODE_STRING structure limit of %d bytes and is being truncated: \"%.*s\"", stringSizeBytes, kMaxStringSizeBytes, static_cast<int>(str.length()), str.data());
-                stringSizeBytes = kMaxStringSizeBytes;
-            }
-
-            return {
-                .Length = static_cast<decltype(UNICODE_STRING::Length)>(stringSizeBytes),
-                .MaximumLength = static_cast<decltype(UNICODE_STRING::MaximumLength)>(stringSizeBytes),
-                .Buffer = const_cast<decltype(UNICODE_STRING::Buffer)>(str.data())
-            };
-        }
-
         /// Queries for the attributes of the object identified by the specified absolute path.
         /// Roughly analogous to the Windows API function `GetFileAttributes`.
         /// @param [in] absolutePath Absolute path for which attributes are requested.
@@ -95,7 +73,7 @@ namespace Pathwinder
 
             FileStatInformation absolutePathObjectInfo{};
 
-            UNICODE_STRING absolutePathSystemString = MakeUnicodeString(absolutePath);
+            UNICODE_STRING absolutePathSystemString = Strings::NtConvertStringViewToUnicodeString(absolutePath);
             OBJECT_ATTRIBUTES absolutePathObjectAttributes{};
             InitializeObjectAttributes(&absolutePathObjectAttributes, &absolutePathSystemString, 0, nullptr, nullptr);
 

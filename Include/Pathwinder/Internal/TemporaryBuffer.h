@@ -770,6 +770,14 @@ namespace Pathwinder
             }
         }
 
+        // Removes all occurrences the specified trailing character from this string.
+        // @param [in] trailingChar Trailing character to strip from this string.
+        inline void RemoveTrailing(wchar_t trailingChar)
+        {
+            while (AsStringView().ends_with(trailingChar))
+                RemoveSuffix(1);
+        }
+
         /// Changes this string's characters to lowercase.
         inline void ToLowercase(void)
         {

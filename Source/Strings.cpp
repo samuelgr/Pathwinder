@@ -10,6 +10,7 @@
  *****************************************************************************/
 
 #include "ApiWindows.h"
+#include "DebugAssert.h"
 #include "Globals.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
@@ -23,6 +24,7 @@
 #include <shlobj.h>
 #include <string>
 #include <string_view>
+#include <winternl.h>
 
 
 namespace Pathwinder
@@ -349,6 +351,20 @@ namespace Pathwinder
             va_end(args);
 
             return buf;
+        }
+
+        // --------
+
+        UNICODE_STRING NtConvertStringViewToUnicodeString(std::wstring_view strView)
+        {
+            DebugAssert((strView.length() * sizeof(wchar_t)) <= static_cast<size_t>(std::numeric_limits<decltype(UNICODE_STRING::Length)>::max()), "Attempting to make an unrepresentable UNICODE_STRING due to the length exceeding representable range for Length.");
+            DebugAssert((strView.length() * sizeof(wchar_t)) <= static_cast<size_t>(std::numeric_limits<decltype(UNICODE_STRING::MaximumLength)>::max()), "Attempting to make an unrepresentable UNICODE_STRING due to the length exceeding representable range for MaximumLength.");
+
+            return {
+                .Length = static_cast<decltype(UNICODE_STRING::Length)>(strView.length() * sizeof(wchar_t)),
+                .MaximumLength = static_cast<decltype(UNICODE_STRING::MaximumLength)>(strView.length() * sizeof(wchar_t)),
+                .Buffer = const_cast<decltype(UNICODE_STRING::Buffer)>(strView.data())
+            };
         }
 
         // --------

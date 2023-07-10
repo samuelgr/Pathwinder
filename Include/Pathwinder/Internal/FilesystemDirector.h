@@ -115,9 +115,7 @@ namespace Pathwinder
         inline bool IsPrefixForAnyRule(std::wstring_view fileFullPathLowercase) const
         {
             fileFullPathLowercase.remove_prefix(Strings::PathGetWindowsNamespacePrefix(fileFullPathLowercase).length());
-
-            while (fileFullPathLowercase.ends_with(L'\\'))
-                fileFullPathLowercase.remove_suffix(1);
+            fileFullPathLowercase = Strings::RemoveTrailing(fileFullPathLowercase, L'\\');
 
             return originDirectoryIndex.HasPathForPrefix(fileFullPathLowercase);
         }

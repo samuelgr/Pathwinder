@@ -27,57 +27,68 @@
 
 namespace Pathwinder
 {
+    // -------- INTERNAL TYPES --------------------------------------------- //
+
+    /// Holds all of the information needed to represent a full set of object attributes, as needed by the Nt family of system calls.
+    /// This structure places particular emphasis on owning the file name buffer so that it can easily be manipulated.
+    struct SRedirectedNtObjectInfo
+    {
+        TemporaryString objectNameBuffer;                                   ///< Buffer for holding the object name.
+        UNICODE_STRING objectName;                                          ///< View structure for representing a Unicode string in the Nt family of system calls.
+        OBJECT_ATTRIBUTES objectAttributes;                                 ///< Top-level object attributes structure.
+
+        /// Initialization constructor.
+        /// Requires an existing object attributes structure. Copies and transforms the object name to lowercase.
+        inline SRedirectedNtObjectInfo(const OBJECT_ATTRIBUTES& existingObjectAttributes) : objectNameBuffer(Strings::NtConvertUnicodeStringToStringView(*(existingObjectAttributes.ObjectName))), objectName(), objectAttributes(existingObjectAttributes)
+        {
+            objectNameBuffer.ToLowercase();
+            objectAttributes.ObjectName = &objectName;
+            objectName = objectName = Strings::NtConvertStringViewToUnicodeString(objectNameBuffer.AsStringView());
+        }
+
+        /// Initialization constructor.
+        /// Requires an existing object attributes structure and a consumable object name, which must already be lowercase.
+        inline SRedirectedNtObjectInfo(const OBJECT_ATTRIBUTES& existingObjectAttributes, TemporaryString&& replacementObjectNameLowercase) : objectNameBuffer(std::move(replacementObjectNameLowercase)), objectName(), objectAttributes(existingObjectAttributes)
+        {
+            objectAttributes.ObjectName = &objectName;
+            objectName = Strings::NtConvertStringViewToUnicodeString(objectNameBuffer.AsStringView());
+        }
+
+        /// Move constructor.
+        inline SRedirectedNtObjectInfo(SRedirectedNtObjectInfo&& other) : objectNameBuffer(std::move(other.objectNameBuffer)), objectName(), objectAttributes(other.objectAttributes)
+        {
+            objectAttributes.ObjectName = &objectName;
+            objectName = Strings::NtConvertStringViewToUnicodeString(objectNameBuffer.AsStringView());
+        }
+    };
+
+
     // -------- INTERNAL FUNCTIONS ----------------------------------------- //
 
-    /// Converts a Windows internal Unicode string view to a standard string view.
-    /// @param [in] unicodeStr Unicode string view to convert.
-    /// @return Resulting standard string view.
-    static std::wstring_view UnicodeStringToStringView(const UNICODE_STRING& unicodeStr)
+    /// Redirects an individual filename identified by an object attributes structure.
+    /// Used as the main body of several of the hook functions that operate on individual files and directories.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
+    /// @param [in] inputObjectAttributes Object attributes structure received from the application. Used as input for redirection.
+    /// @return New object information structure containing everything required to replace the input object attributes structure when invoking the original system call.
+    static SRedirectedNtObjectInfo RedirectSingleFileByObjectAttributes(const wchar_t* functionName, const OBJECT_ATTRIBUTES& inputObjectAttributes)
     {
-        return std::wstring_view(unicodeStr.Buffer, (unicodeStr.Length / sizeof(wchar_t)));
-    }
-
-    /// Converts a standard string view to a Windows internal Unicode string view.
-    /// @param [in] strView Standard string view to convert.
-    /// @return Resulting Windows internal Unicode string view.
-    static UNICODE_STRING StringViewToUnicodeString(std::wstring_view strView)
-    {
-        DebugAssert((strView.length() * sizeof(wchar_t)) <= static_cast<size_t>(std::numeric_limits<decltype(UNICODE_STRING::Length)>::max()), "Attempting to make an unrepresentable UNICODE_STRING due to the length exceeding representable range for Length.");
-        DebugAssert((strView.length() * sizeof(wchar_t)) <= static_cast<size_t>(std::numeric_limits<decltype(UNICODE_STRING::MaximumLength)>::max()), "Attempting to make an unrepresentable UNICODE_STRING due to the length exceeding representable range for MaximumLength.");
-
-        return {
-            .Length = static_cast<decltype(UNICODE_STRING::Length)>(strView.length() * sizeof(wchar_t)),
-            .MaximumLength = static_cast<decltype(UNICODE_STRING::MaximumLength)>(strView.length() * sizeof(wchar_t)),
-            .Buffer = const_cast<decltype(UNICODE_STRING::Buffer)>(strView.data())
-        };
-    }
-
-    static OBJECT_ATTRIBUTES RedirectObjectAttributesForHookFunction(const wchar_t* functionName, const OBJECT_ATTRIBUTES& inputObjectAttributes, UNICODE_STRING& redirectedFilenameUnicodeStr)
-    {
-        std::wstring_view inputFilename = UnicodeStringToStringView(*(inputObjectAttributes.ObjectName));
-        std::wstring_view redirectedFilename = inputFilename;
-
-        OBJECT_ATTRIBUTES redirectedObjectAttributes = inputObjectAttributes;
-        redirectedObjectAttributes.ObjectName = &redirectedFilenameUnicodeStr;
-        redirectedFilenameUnicodeStr = *(inputObjectAttributes.ObjectName);
-
+        std::wstring_view inputFilename = Strings::NtConvertUnicodeStringToStringView(*(inputObjectAttributes.ObjectName));
         auto maybeRedirectedFilename = Pathwinder::FilesystemDirector::Singleton().RedirectSingleFile(inputFilename);
 
         if (true == maybeRedirectedFilename.has_value())
         {
-            redirectedFilename = maybeRedirectedFilename.value().AsStringView();
+            std::wstring_view redirectedFilename = maybeRedirectedFilename.value().AsStringView();
+            Message::OutputFormatted(Message::ESeverity::Info, L"%s: Invoked with path \"%.*s\" which was redirected to \"%.*s\".", functionName, static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectedFilename.length()), redirectedFilename.data());
 
             if (false == Globals::GetConfigurationData().isDryRunMode)
-                redirectedFilenameUnicodeStr = StringViewToUnicodeString(redirectedFilename);
-
-            Message::OutputFormatted(Message::ESeverity::Info, L"%s: Invoked with path \"%.*s\" which was redirected to \"%.*s\".", functionName, static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectedFilename.length()), redirectedFilename.data());
+                return SRedirectedNtObjectInfo(inputObjectAttributes, std::move(maybeRedirectedFilename.value()));
         }
         else
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s: Invoked with path \"%.*s\" which was not redirected.", functionName, static_cast<int>(inputFilename.length()), inputFilename.data());
         }
 
-        return redirectedObjectAttributes;
+        return SRedirectedNtObjectInfo(inputObjectAttributes);
     }
 }
 
@@ -101,10 +112,13 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(PHANDLE FileHandle, A
     using namespace Pathwinder;
 
 
-    UNICODE_STRING redirectedPath{};
-    OBJECT_ATTRIBUTES redirectedObjectAttributes = RedirectObjectAttributesForHookFunction(GetFunctionName(), *ObjectAttributes, redirectedPath);
+    SRedirectedNtObjectInfo objectInfo = RedirectSingleFileByObjectAttributes(GetFunctionName(), *ObjectAttributes);
 
-    return Original(FileHandle, DesiredAccess, &redirectedObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
+    std::wstring_view pathForSystemCall = Strings::NtConvertUnicodeStringToStringView(objectInfo.objectName);
+    if (FilesystemDirector::Singleton().IsPrefixForAnyRule(pathForSystemCall))
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Path \"%.*s\" is interesting and would have its handle cached.", GetFunctionName(), static_cast<int>(pathForSystemCall.length()), pathForSystemCall.data());
+
+    return Original(FileHandle, DesiredAccess, &objectInfo.objectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
 }
 
 // --------
@@ -114,10 +128,13 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(PHANDLE FileHandle, ACC
     using namespace Pathwinder;
 
 
-    UNICODE_STRING redirectedPath{};
-    OBJECT_ATTRIBUTES redirectedObjectAttributes = RedirectObjectAttributesForHookFunction(GetFunctionName(), *ObjectAttributes, redirectedPath);
+    SRedirectedNtObjectInfo objectInfo = RedirectSingleFileByObjectAttributes(GetFunctionName(), *ObjectAttributes);
 
-    return Original(FileHandle, DesiredAccess, &redirectedObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
+    std::wstring_view pathForSystemCall = Strings::NtConvertUnicodeStringToStringView(objectInfo.objectName);
+    if (FilesystemDirector::Singleton().IsPrefixForAnyRule(pathForSystemCall))
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Path \"%.*s\" is interesting and would have its handle cached.", GetFunctionName(), static_cast<int>(pathForSystemCall.length()), pathForSystemCall.data());
+
+    return Original(FileHandle, DesiredAccess, &objectInfo.objectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
 }
 
 // --------
@@ -149,10 +166,8 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(POBJECT_A
     using namespace Pathwinder;
 
 
-    UNICODE_STRING redirectedPath{};
-    OBJECT_ATTRIBUTES redirectedObjectAttributes = RedirectObjectAttributesForHookFunction(GetFunctionName(), *ObjectAttributes, redirectedPath);
-
-    return Original(&redirectedObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
+    SRedirectedNtObjectInfo objectInfo = RedirectSingleFileByObjectAttributes(GetFunctionName(), *ObjectAttributes);
+    return Original(&objectInfo.objectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
 }
 
 
@@ -164,8 +179,6 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(POBJECT_ATTR
     using namespace Pathwinder;
 
 
-    UNICODE_STRING redirectedPath{};
-    OBJECT_ATTRIBUTES redirectedObjectAttributes = RedirectObjectAttributesForHookFunction(GetFunctionName(), *ObjectAttributes, redirectedPath);
-
-    return Original(&redirectedObjectAttributes, FileInformation);
+    SRedirectedNtObjectInfo objectInfo = RedirectSingleFileByObjectAttributes(GetFunctionName(), *ObjectAttributes);
+    return Original(&objectInfo.objectAttributes, FileInformation);
 }
