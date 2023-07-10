@@ -353,6 +353,37 @@ namespace Pathwinder
 
         // --------
 
+        TemporaryString PathAddWindowsNamespacePrefix(std::wstring_view absolutePath)
+        {
+            static constexpr std::wstring_view kWindowsNamespacePrefixToPrepend = L"\\??\\";
+
+            TemporaryString prependedPath;
+            prependedPath << kWindowsNamespacePrefixToPrepend << absolutePath;
+
+            return prependedPath;
+        }
+
+        // --------
+
+        std::wstring_view PathGetWindowsNamespacePrefix(std::wstring_view absolutePath)
+        {
+            static constexpr std::wstring_view kKnownWindowsNamespacePrefixes[] = {
+                L"\\??\\",
+                L"\\\\?\\",
+                L"\\\\.\\"
+            };
+
+            for (const auto& windowsNamespacePrefix : kKnownWindowsNamespacePrefixes)
+            {
+                if (true == absolutePath.starts_with(windowsNamespacePrefix))
+                    return absolutePath.substr(0, windowsNamespacePrefix.length());
+            }
+
+            return std::wstring_view();
+        }
+
+        // --------
+
         template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(std::basic_string_view<CharType> stringToSplit, std::basic_string_view<CharType> delimiter)
         {
             return SplitString(stringToSplit, &delimiter, 1);

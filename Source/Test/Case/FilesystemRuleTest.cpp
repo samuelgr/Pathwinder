@@ -118,6 +118,43 @@ namespace PathwinderTest
         }
     }
 
+    // Verifies that paths are successfully redirected in the nominal case of straightforward absolute paths, but this time the request asks that a Windows namespace prefix be prepended to the output.
+    // In this test both forward and backward redirection is exercised.
+    TEST_CASE(FilesystemRule_RedirectPath_PrependNamespacePrefix)
+    {
+        constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
+        constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
+        constexpr std::wstring_view kNamespacePrefix = L"\\??\\";
+
+        constexpr std::wstring_view kTestFiles[] = {
+            L"File1",
+            L".file2",
+            L"FILE3.BIN"
+        };
+
+        const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
+
+        for (const auto& kTestFile : kTestFiles)
+        {
+            TemporaryString expectedOutputPath;
+            expectedOutputPath << kNamespacePrefix << kTargetDirectory << L'\\' << kTestFile;
+
+            std::optional<TemporaryString> actualOutputPath = filesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data(), kNamespacePrefix);
+            TEST_ASSERT(true == actualOutputPath.has_value());
+            TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
+        }
+
+        for (const auto& kTestFile : kTestFiles)
+        {
+            TemporaryString expectedOutputPath;
+            expectedOutputPath << kNamespacePrefix << kOriginDirectory << L'\\' << kTestFile;
+
+            std::optional<TemporaryString> actualOutputPath = filesystemRule.RedirectPathTargetToOrigin(kTargetDirectory, kTestFile.data(), kNamespacePrefix);
+            TEST_ASSERT(true == actualOutputPath.has_value());
+            TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
+        }
+    }
+
     // Verifies that paths are successfully redirected in the nominal case of straightforward absolute paths but with no file part present.
     // Ensures correctly-formatted strings are produced with no trailing backslashes.
     TEST_CASE(FilesystemRule_RedirectPath_EmptyFilePart)

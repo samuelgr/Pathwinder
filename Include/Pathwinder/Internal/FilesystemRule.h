@@ -190,8 +190,9 @@ namespace Pathwinder
         /// Otherwise no redirection occurs and no output is produced.
         /// @param [in] candidatePathDirectoryPart Directory portion of the candidate path, which is an absolute path and does not contain a trailing backslash. Does not need to be null-terminated.
         /// @param [in] candidatePathFilePart File portion of the candidate path without any leading backslash. Must be null-terminated.
+        /// @param [in] namespacePrefix Windows namespace prefix to be inserted at the beginning of the output. This parameter is optional and defaults to the empty string.
         /// @return Redirected location as an absolute path, if redirection occurred successfully.
-        std::optional<TemporaryString> RedirectPathOriginToTarget(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart) const;
+        std::optional<TemporaryString> RedirectPathOriginToTarget(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart, std::wstring_view namespacePrefix = L"") const;
 
         /// Computes and returns the result of redirecting from the specified candidate path to the origin directory associated with this rule.
         /// Input candidate path is split into two parts: the directory part, which identifies the absolute directory in which the file is located, and the file part, which identifies the file within its directory.
@@ -199,8 +200,9 @@ namespace Pathwinder
         /// Otherwise no redirection occurs and no output is produced.
         /// @param [in] candidatePathDirectoryPart Directory portion of the candidate path, which is an absolute path and does not contain a trailing backslash.
         /// @param [in] candidatePathFilePart File portion of the candidate path without any leading backslash. Must be null-terminated.
+        /// /// @param [in] namespacePrefix Windows namespace prefix to be inserted at the beginning of the output. This parameter is optional and defaults to the empty string.
         /// @return Redirected location as an absolute path, if redirection occurred successfully.
-        std::optional<TemporaryString> RedirectPathTargetToOrigin(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart) const;
+        std::optional<TemporaryString> RedirectPathTargetToOrigin(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart, std::wstring_view namespacePrefix = L"") const;
 
         /// Sets the name of this rule.
         /// param [in] newName New name for this rule.

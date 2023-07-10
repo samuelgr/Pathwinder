@@ -156,6 +156,34 @@ namespace PathwinderTest
         }
     }
 
+    // Creates a filesystem director with a few non-overlapping rules and queries it for redirection with a few file inputs.
+    // Verifies that each time the resulting redirected path is correct.
+    // This test case variation additionally adds namespace prefixes to the filenames submitted for query. These should be passed through unchanged.
+    TEST_CASE(FilesystemDirector_RedirectSingleFile_QueryInputContainsPrefix)
+    {
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", MakeFilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+            {L"2", MakeFilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
+            {L"3", MakeFilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+        }));
+
+        constexpr std::pair<std::wstring_view, std::wstring_view> kTestInputsAndExpectedOutputs[] = {
+            {L"\\??\\C:\\Origin1\\file1.txt", L"\\??\\C:\\Target1\\file1.txt"},
+            {L"\\\\?\\C:\\Origin2\\Subdir2\\file2.txt", L"\\\\?\\C:\\Target2\\Subdir2\\file2.txt"},
+            {L"\\\\.\\C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt", L"\\\\.\\C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt"}
+        };
+
+        for (const auto& testRecord : kTestInputsAndExpectedOutputs)
+        {
+            const std::wstring_view testInput = testRecord.first;
+            const std::wstring_view expectedOutput = testRecord.second;
+
+            auto actualOutput = director.RedirectSingleFile(testInput);
+            TEST_ASSERT(true == actualOutput.has_value());
+            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput.value(), expectedOutput));
+        }
+    }
+
     // Creates a filesystem director with a few non-overlapping rules and queries it with inputs that should not be redirected due to no match.
     TEST_CASE(FilesystemDirector_RedirectSingleFile_NonRedirectedInputPath)
     {

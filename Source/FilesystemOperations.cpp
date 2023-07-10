@@ -16,6 +16,7 @@
 #include "FilesystemOperations.h"
 #include "Hooks.h"
 #include "Message.h"
+#include "Strings.h"
 #include "TemporaryBuffer.h"
 
 #include <limits>
@@ -56,39 +57,6 @@ namespace Pathwinder
 
         // -------- INTERNAL FUNCTIONS ------------------------------------- //
 
-        /// Copies the specified absolute path and prepends it with an appropriate Windows namespace prefix for identifying file paths to Windows system calls.
-        /// @param [in] absolutePath Absolute path to be prepended with a prefix.
-        /// @return Absolute path with a prefix inserted in front of it.
-        static TemporaryString AddWindowsNamespacePrefixForPath(std::wstring_view absolutePath)
-        {
-            static constexpr std::wstring_view kWindowsNamespacePrefixToPrepend = L"\\??\\";
-
-            TemporaryString prependedPath;
-            prependedPath << kWindowsNamespacePrefixToPrepend << absolutePath;
-
-            return prependedPath;
-        }
-
-        /// Determines if the provided absolute path already contains a prefix identifying a Windows namespace.
-        /// @param [in] absolutePath Absolute path to check for a prefix.
-        /// @return Length, in characters, of the prefix if it is present, or 0 otherwise.
-        static int WindowsNamespacePrefixLengthForPath(std::wstring_view absolutePath)
-        {
-            static constexpr std::wstring_view kWindowsNamespacePrefixes[] = {
-                L"\\??\\",
-                L"\\\\?\\",
-                L"\\\\.\\"
-            };
-
-            for (const auto& windowsNamespacePrefix : kWindowsNamespacePrefixes)
-            {
-                if (true == absolutePath.starts_with(windowsNamespacePrefix))
-                    return static_cast<int>(windowsNamespacePrefix.length());
-            }
-
-            return 0;
-        }
-
         /// Generates a Unicode string structure for use when interacting with Windows system call functions.
         /// A Unicode string structure is conceptually just metadata and a pointer, similar to how standard string view objects work.
         /// @param [in] str String to represent as a Unicode string structure.
@@ -119,9 +87,9 @@ namespace Pathwinder
         {
             std::optional<TemporaryString> maybePrefixedAbsolutePath = std::nullopt;
 
-            if (0 == WindowsNamespacePrefixLengthForPath(absolutePath))
+            if (true == Strings::PathHasWindowsNamespacePrefix(absolutePath))
             {
-                maybePrefixedAbsolutePath = AddWindowsNamespacePrefixForPath(absolutePath);
+                maybePrefixedAbsolutePath = Strings::PathAddWindowsNamespacePrefix(absolutePath);
                 absolutePath = maybePrefixedAbsolutePath.value().AsStringView();
             }
 

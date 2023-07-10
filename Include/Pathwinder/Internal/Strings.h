@@ -130,6 +130,25 @@ namespace Pathwinder
         /// @return Resulting string after all formatting is applied.
         TemporaryString FormatString(_Printf_format_string_ const wchar_t* format, ...);
 
+        /// Copies the specified absolute path and prepends it with an appropriate Windows namespace prefix for identifying file paths to Windows system calls.
+        /// Invoke this function with an empty string as the input parameter to return a new string object filled with just the prefix.
+        /// @param [in] absolutePath Absolute path to be prepended with a prefix.
+        /// @return Absolute path with a prefix inserted in front of it.
+        TemporaryString PathAddWindowsNamespacePrefix(std::wstring_view absolutePath);
+
+        /// Returns a view of the Windows namespace prefix from the supplied absolute path, if it is present.
+        /// @param [in] absolutePath Absolute path to check for a prefix.
+        /// @return View within the input absolute path containing the Windows namespace prefix, or an empty view if the input absolute path does not contain such a prefix.
+        std::wstring_view PathGetWindowsNamespacePrefix(std::wstring_view absolutePath);
+
+        /// Determines if the provided absolute path contains a prefix identifying a Windows namespace.
+        /// @param [in] absolutePath Absolute path to check for a prefix.
+        /// @return `true` if the supplied absolute path contains a prefix, `false` otherwise.
+        inline bool PathHasWindowsNamespacePrefix(std::wstring_view absolutePath)
+        {
+            return (0 != PathGetWindowsNamespacePrefix(absolutePath).length());
+        }
+
         /// Splits a string using the specified delimiter character and returns a list of views each corresponding to a part of the input string.
         /// If there are too many delimiters present such that not all of the pieces can fit into the returned container type then the returned container will be empty.
         /// Otherwise the returned container will contain at least one element.
