@@ -82,17 +82,23 @@ namespace Pathwinder
         /// Both handle closure and removal need to be done while the lock is held, to ensure proper concurrency control.
         /// This avoids a race condition in which a closed handle is reused and re-added to the cache before the closing thread has a chance to remove it first.
         /// @param [in] handleToRemove Handle to be removed.
+        /// @param [out] correspondingPath String object to receive ownership of the corresponding path to the handle that was removed, if not null. Only filled if the underlying system call to close the handle succeeds.
         /// @return Result of the underlying system call to `NtClose` to close the handle.
-        inline NTSTATUS RemoveAndCloseHandle(HANDLE handleToRemove)
+        inline NTSTATUS RemoveAndCloseHandle(HANDLE handleToRemove, std::wstring* correspondingPath)
         {
             std::unique_lock lock(openHandlesMutex);
+
+            auto removalIter = openHandles.find(handleToRemove);
+            DebugAssert(openHandles.end() != removalIter, "Attempting to remove a handle that was not cached in the open handles cache.");
 
             NTSTATUS systemCallResult = Hooks::ProtectedDependency::NtClose::SafeInvoke(handleToRemove);
             if (!(NT_SUCCESS(systemCallResult)))
                 return systemCallResult;
 
-            const bool removalWasSuccessful = openHandles.erase(handleToRemove);
-            DebugAssert(true == removalWasSuccessful, "Failed to remove a handle from the handle cache.");
+            if (nullptr == correspondingPath)
+                openHandles.erase(removalIter);
+            else
+                *correspondingPath = std::move(openHandles.extract(removalIter).mapped());
 
             return systemCallResult;
         }
@@ -168,7 +174,10 @@ namespace Pathwinder
         }
     }
 
-
+    /// Attempts to redirect an entire directory enumeration operation whereby the directory is identified by an open directory handle/
+    /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
+    /// @param [in] openDirectoryHandle Handle, which identifies the directory being enumerated, received as part of the enumeration request.
+    /// @return Handle to an open directory that should be sent to the system call for enumeration. For now this is the same as the handle that is passed as input.
     static HANDLE RedirectDirectoryEnumerationByHandle(const wchar_t* functionName, HANDLE openDirectoryHandle)
     {
         auto maybeDirectoryPath = openHandleCache->GetPathForHandle(openDirectoryHandle);
@@ -193,7 +202,6 @@ namespace Pathwinder
     }
 
     /// Redirects an individual filename identified by an object attributes structure.
-    /// Used as the main body of several of the hook functions that operate on individual files and directories.
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
     /// @param [in] inputObjectAttributes Object attributes structure received from the application. Used as input for redirection.
     /// @return New object information structure containing everything required to replace the input object attributes structure when invoking the original system call.
@@ -291,22 +299,13 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtClose::Hook(HANDLE Handle)
     if (false == maybeClosedHandlePath.has_value())
         return Original(Handle);
 
-    if (true == Message::WillOutputMessageOfSeverity(Message::ESeverity::Debug))
-    {
-        // This branch is just for logging and does a non-trivial amount of extra work.
+    std::wstring closedHandlePath;
+    NTSTATUS closeHandleResult = openHandleCache->RemoveAndCloseHandle(Handle, &closedHandlePath);
 
-        TemporaryString closedHandlePath = maybeClosedHandlePath.value();
-        NTSTATUS closeResult = openHandleCache->RemoveAndCloseHandle(Handle);
+    if (NT_SUCCESS(closeHandleResult))
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu for path \"%s\" was closed and removed from the cache.", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(Handle)), closedHandlePath.c_str());
 
-        if (NT_SUCCESS(closeResult))
-            Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu for path \"%s\" was closed and removed from the cache.", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(Handle)), closedHandlePath.AsCString());
-
-        return closeResult;
-    }
-    else
-    {
-        return openHandleCache->RemoveAndCloseHandle(Handle);
-    }
+    return closeHandleResult;
 }
 
 // --------
