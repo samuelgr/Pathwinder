@@ -270,12 +270,20 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(PHANDLE FileHandle, A
     if (NT_SUCCESS(systemCallResult))
     {
         std::wstring_view pathForSystemCall = Strings::RemoveTrailing(Strings::NtConvertUnicodeStringToStringView(objectInfo.objectName), L'\\');
-        if ((false == objectInfo.wasRedirected) && (true == FilesystemDirector::Singleton().IsPrefixForAnyRule(pathForSystemCall)))
+        if (true == objectInfo.wasRedirected)
+        {
+            // If a new handle was opened for a path that has been redirected, it is possible that the handle represents a directory that could be passed as a parameter to one of the directory enumeration system call functions.
+            // For this reason, it will be cached in the handle cache. Unconditionally caching is most likely less expensive than checking with the filesystem directly, so this is the approach that will be taken.
+
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu is being cached for redirected path \"%.*s\".", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(newlyOpenedHandle)), static_cast<int>(pathForSystemCall.length()), pathForSystemCall.data());
+            openHandleCache->InsertHandle(newlyOpenedHandle, pathForSystemCall);
+        }
+        else if ((false == objectInfo.wasRedirected) && (true == FilesystemDirector::Singleton().IsPrefixForAnyRule(pathForSystemCall)))
         {
             // If a new handle was opened for a directory path that was not redirected, but exists in the hierarchy towards filesystem rules that could result in redirection, the handle needs to be cached along with the path.
             // In a future call this handle could be specified as the `RootDirectory` handle in an `OBJECT_ATTRIBUTES` structure, which means the resulting combined path might need to be redirected.
 
-            Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu is being cached for path \"%.*s\"", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(newlyOpenedHandle)), static_cast<int>(pathForSystemCall.length()), pathForSystemCall.data());
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu is being cached for non-redirected path \"%.*s\".", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(newlyOpenedHandle)), static_cast<int>(pathForSystemCall.length()), pathForSystemCall.data());
             openHandleCache->InsertHandle(newlyOpenedHandle, pathForSystemCall);
         }
     }
@@ -299,12 +307,20 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(PHANDLE FileHandle, ACC
     if (NT_SUCCESS(systemCallResult))
     {
         std::wstring_view pathForSystemCall = Strings::RemoveTrailing(Strings::NtConvertUnicodeStringToStringView(objectInfo.objectName), L'\\');
-        if ((false == objectInfo.wasRedirected) && (true == FilesystemDirector::Singleton().IsPrefixForAnyRule(pathForSystemCall)))
+        if (true == objectInfo.wasRedirected)
+        {
+            // If a new handle was opened for a path that has been redirected, it is possible that the handle represents a directory that could be passed as a parameter to one of the directory enumeration system call functions.
+            // For this reason, it will be cached in the handle cache. Unconditionally caching is most likely less expensive than checking with the filesystem directly, so this is the approach that will be taken.
+
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu is being cached for redirected path \"%.*s\".", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(newlyOpenedHandle)), static_cast<int>(pathForSystemCall.length()), pathForSystemCall.data());
+            openHandleCache->InsertHandle(newlyOpenedHandle, pathForSystemCall);
+        }
+        else if ((false == objectInfo.wasRedirected) && (true == FilesystemDirector::Singleton().IsPrefixForAnyRule(pathForSystemCall)))
         {
             // If a new handle was opened for a directory path that was not redirected, but exists in the hierarchy towards filesystem rules that could result in redirection, the handle needs to be cached along with the path.
             // In a future call this handle could be specified as the `RootDirectory` handle in an `OBJECT_ATTRIBUTES` structure, which means the resulting combined path might need to be redirected.
 
-            Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu is being cached for path \"%.*s\"", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(newlyOpenedHandle)), static_cast<int>(pathForSystemCall.length()), pathForSystemCall.data());
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu is being cached for non-redirected path \"%.*s\".", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(newlyOpenedHandle)), static_cast<int>(pathForSystemCall.length()), pathForSystemCall.data());
             openHandleCache->InsertHandle(newlyOpenedHandle, pathForSystemCall);
         }
     }
@@ -320,6 +336,21 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(HANDLE FileHa
     using namespace Pathwinder;
 
 
+    auto maybeDirectoryPath = openHandleCache->GetPathForHandle(FileHandle);
+    if (false == maybeDirectoryPath.has_value())
+    {
+        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s: Invoked with handle %llu which is not cached.", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(FileHandle)));
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
+    }
+
+    auto maybeRedirectedDirectoryPath = FilesystemDirector::Singleton().RedirectDirectoryEnumeration(maybeDirectoryPath.value());
+    if (false == maybeRedirectedDirectoryPath.has_value())
+    {
+        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s: Invoked with handle %llu for directory at path \"%.*s\" which would not be redirected.", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(FileHandle)), static_cast<int>(maybeDirectoryPath.value().length()), maybeDirectoryPath.value().data());
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
+    }
+
+    Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Invoked with handle %llu for directory at path \"%.*s\" which would be redirected to \"%s\".", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(FileHandle)), static_cast<int>(maybeDirectoryPath.value().length()), maybeDirectoryPath.value().data(), maybeRedirectedDirectoryPath.value().AsCString());
     return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
 }
 
@@ -330,6 +361,21 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(HANDLE File
     using namespace Pathwinder;
 
 
+    auto maybeDirectoryPath = openHandleCache->GetPathForHandle(FileHandle);
+    if (false == maybeDirectoryPath.has_value())
+    {
+        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s: Invoked with handle %llu which is not cached.", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(FileHandle)));
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
+    }
+
+    auto maybeRedirectedDirectoryPath = FilesystemDirector::Singleton().RedirectDirectoryEnumeration(maybeDirectoryPath.value());
+    if (false == maybeRedirectedDirectoryPath.has_value())
+    {
+        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s: Invoked with handle %llu for directory at path \"%.*s\" which would not be redirected.", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(FileHandle)), static_cast<int>(maybeDirectoryPath.value().length()), maybeDirectoryPath.value().data());
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
+    }
+
+    Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Invoked with handle %llu for directory at path \"%.*s\" which would be redirected to \"%s\".", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(FileHandle)), static_cast<int>(maybeDirectoryPath.value().length()), maybeDirectoryPath.value().data(), maybeRedirectedDirectoryPath.value().AsCString());
     return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
 }
 

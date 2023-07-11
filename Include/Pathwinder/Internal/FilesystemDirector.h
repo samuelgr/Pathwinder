@@ -127,6 +127,19 @@ namespace Pathwinder
         /// @return Pointer to the rule object that should be used to process the redirection, or `nullptr` if no redirection should occur at all.
         const FilesystemRule* SelectRuleForSingleFile(std::wstring_view fileFullPath) const;
 
+        /// Determines which rule from among those held by this object should be used to redirect a directory operation, such as enumeration.
+        /// This operation is useful for filesystem functions that operate on an entire directory, particularly those that enumerate its contents.
+        /// Primarily intended for internal use but exposed for tests.
+        /// @param [in] absoluteDirectoryPath Full path of the file being queried for possible redirection. Must be null-terminated.
+        /// @return Pointer to the rule object that should be used to process the redirection, or `nullptr` if no redirection should occur at all.
+        const FilesystemRule* SelectRuleForDirectoryEnumeration(std::wstring_view absoluteDirectoryPath) const;
+
+        /// Redirects a directory enumeration operation by selecting an appropriate rule and then using it to change the directory path.
+        /// The directory path must already be fully resolved, in lowercase, and with no trailing backslash characters, ready for data structure query. A Windows namespace prefix is optional.
+        /// This operation is useful for filesystem functions that operate on an entire directory, particularly those that enumerate its contents.
+        /// @param [in] absoluteDirectoryPath Absolute path for the directory being enumerated.
+        std::optional<TemporaryString> RedirectDirectoryEnumeration(std::wstring_view absoluteDirectoryPath) const;
+
         /// Redirects a single file by selecting an appropriate rule and then using it to change the file's full path.
         /// This operation is useful for those filesystem functions that directly operate on a single absolute path.
         /// @param [in] filePath Path of the file being queried for possible redirection. Typically supplied by an application and need not be absolute. Must be null-terminated.

@@ -27,7 +27,7 @@ namespace Pathwinder
 
     /// Traverses a prefix index to select a filesystem rule for the given full file path.
     /// This operation is useful for those filesystem functions that directly operate on a single absolute path.
-    /// @param [in] fileFullPathLowerCase Full path of the file being queried for possible redirection. Must be null-terminated and all lower-case.
+    /// @param [in] fileFullPathLowerCase Full path of the file being queried for possible redirection. Must be all lower-case.
     /// @return Pointer to the rule object that should be used to process the redirection, or `nullptr` if no redirection should occur at all.
     static const FilesystemRule* SelectRuleForSingleFileInternal(const PrefixIndex<wchar_t, FilesystemRule>& prefixIndexToSearch, std::wstring_view fileFullPathLowerCase)
     {
@@ -37,6 +37,23 @@ namespace Pathwinder
         // A file having full path "C:\Dir1\Dir2\textfile.txt" would need to use "C:\Dir1\Dir2" even though technically both rules do match.
 
         auto ruleNode = prefixIndexToSearch.LongestMatchingPrefix(fileFullPathLowerCase);
+        if (nullptr == ruleNode)
+            return nullptr;
+
+        return ruleNode->GetData();
+    }
+
+    /// Traverses a prefix index to select a filesystem rule for the given full file path.
+    /// This operation is useful for those filesystem functions that operate on entire directories, such as directory enumeration.
+    /// @param [in] absoluteDirectoryPathLowerCase Full path of the directory being queried for possible redirection. Must be all lower-case.
+    /// @return Pointer to the rule object that should be used to process the redirection, or `nullptr` if no redirection should occur at all.
+    static const FilesystemRule* SelectRuleForDirectoryEnumerationInternal(const PrefixIndex<wchar_t, FilesystemRule>& prefixIndexToSearch, std::wstring_view absoluteDirectoryPathLowerCase)
+    {
+        // For directory enumeration redirection an exact path match is needed.
+        // Directory enumeration operates on handles to directories that have already been opened.
+        // Therefore, to make it appear that the origin directory's contents are actually the target directory's contents, the actual enumeration needs to be redirected even though the open handle is for the origin directory.
+
+        auto ruleNode = prefixIndexToSearch.Find(absoluteDirectoryPathLowerCase);
         if (nullptr == ruleNode)
             return nullptr;
 
@@ -60,6 +77,38 @@ namespace Pathwinder
     const FilesystemRule* FilesystemDirector::SelectRuleForSingleFile(std::wstring_view fileFullPath) const
     {
         return SelectRuleForSingleFileInternal(originDirectoryIndex, Strings::ToLowercase(fileFullPath));
+    }
+
+    // --------
+
+    const FilesystemRule* FilesystemDirector::SelectRuleForDirectoryEnumeration(std::wstring_view absoluteDirectoryPath) const
+    {
+        return SelectRuleForDirectoryEnumerationInternal(originDirectoryIndex, Strings::ToLowercase(absoluteDirectoryPath));
+    }
+
+    // --------
+
+    std::optional<TemporaryString> FilesystemDirector::RedirectDirectoryEnumeration(std::wstring_view absoluteDirectoryPath) const
+    {
+        const std::wstring_view windowsNamespacePrefix = Strings::PathGetWindowsNamespacePrefix(absoluteDirectoryPath);
+        const std::wstring_view absoluteDirectoryPathWithoutPrefix = absoluteDirectoryPath.substr(windowsNamespacePrefix.length());
+
+        const FilesystemRule* const selectedRule = SelectRuleForDirectoryEnumerationInternal(originDirectoryIndex, absoluteDirectoryPathWithoutPrefix);
+        if (nullptr == selectedRule)
+        {
+            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Directory redirection query for path \"%.*s\" did not match any rules.", static_cast<int>(absoluteDirectoryPath.length()), absoluteDirectoryPath.data());
+            return std::nullopt;
+        }
+
+        std::optional<TemporaryString> maybeRedirectedDirectoryPath = selectedRule->RedirectPathOriginToTarget(absoluteDirectoryPathWithoutPrefix, L"", windowsNamespacePrefix);
+        if (false == maybeRedirectedDirectoryPath.has_value())
+        {
+            Message::OutputFormatted(Message::ESeverity::Error, L"Directory redirection query for path \"%.*s\" matched rule \"%s\" but failed due to an internal error while synthesizing the redirect result.", static_cast<int>(absoluteDirectoryPath.length()), absoluteDirectoryPath.data(), selectedRule->GetName().data());
+            return std::nullopt;
+        }
+
+        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Directory redirection query for path \"%.*s\", matched rule \"%s\", and was redirected to \"%s\".", static_cast<int>(absoluteDirectoryPath.length()), absoluteDirectoryPath.data(), selectedRule->GetName().data(), maybeRedirectedDirectoryPath.value().AsCString());
+        return std::move(maybeRedirectedDirectoryPath.value());
     }
 
     // --------
@@ -99,7 +148,7 @@ namespace Pathwinder
 
         if (0 == resolvedPathLength)
         {
-            Message::OutputFormatted(Message::ESeverity::Error, L"Filesystem redirection query for path \"%.*s\" failed to resolve full path: %s", (int)filePath.length(), filePath.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
+            Message::OutputFormatted(Message::ESeverity::Error, L"File redirection query for path \"%.*s\" failed to resolve full path: %s", static_cast<int>(filePath.length()), filePath.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
             return std::nullopt;
         }
 
@@ -107,51 +156,31 @@ namespace Pathwinder
 
         std::wstring_view fileFullPathWithoutPrefix = std::wstring_view(&fileFullPath[windowsNamespacePrefixLength], resolvedPathLength);
 
-        const FilesystemRule* const selectedRule = SelectRuleForSingleFileInternal(originDirectoryIndex, fileFullPathWithoutPrefix);
-        if (nullptr == selectedRule)
-        {
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Filesystem redirection query for path \"%.*s\" resolved to \"%s\" but did not match any rules.", (int)filePath.length(), filePath.data(), fileFullPath.AsCString());
-            return std::nullopt;
-        }
-
         const size_t lastSeparatorPos = fileFullPathWithoutPrefix.find_last_of(L'\\');
         if (std::wstring_view::npos == lastSeparatorPos)
         {
-            Message::OutputFormatted(Message::ESeverity::Error, L"Filesystem redirection query for path \"%.*s\" resolved to \"%s\" and matched rule \"%s\" but failed due to an internal error while finding the last path separator.", (int)filePath.length(), filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data());
+            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File redirection query for path \"%.*s\" resolved to \"%s\" but does not contain a final path separator and was therefore skipped for redirection.", static_cast<int>(filePath.length()), filePath.data(), fileFullPath.AsCString());
             return std::nullopt;
         }
 
         const std::wstring_view directoryPart = fileFullPathWithoutPrefix.substr(0, lastSeparatorPos);
         const std::wstring_view filePart = ((L'\\' == fileFullPathWithoutPrefix.back()) ? L"" : fileFullPathWithoutPrefix.substr(1 + lastSeparatorPos));
 
-        std::optional<TemporaryString> maybeRedirectedFilePath;
-
-        switch (selectedRule->DirectoryCompareWithOrigin(directoryPart))
+        const FilesystemRule* const selectedRule = SelectRuleForSingleFileInternal(originDirectoryIndex, directoryPart);
+        if (nullptr == selectedRule)
         {
-        case FilesystemRule::EDirectoryCompareResult::CandidateIsParent:
-
-            // Redirecton query is for the origin directory itself.
-            // There is no file part, so the redirection will occur to the target directory itself.
-
-            maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(fileFullPathWithoutPrefix, L"", windowsNamespacePrefix);
-            break;
-
-        default:
-
-            // Redirection query prefix-matched the origin directory.
-            // There is a file part present.
-
-            maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(directoryPart, filePart, windowsNamespacePrefix);
-            break;
-        }
-        
-        if (false == maybeRedirectedFilePath.has_value())
-        {
-            Message::OutputFormatted(Message::ESeverity::Error, L"Filesystem redirection query for path \"%.*s\" resolved to \"%s\" and matched rule \"%s\" but failed due to an internal error while synthesizing the redirect result.", (int)filePath.length(), filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data());
+            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File redirection query for path \"%.*s\" resolved to \"%s\" but did not match any rules.", static_cast<int>(filePath.length()), filePath.data(), fileFullPath.AsCString());
             return std::nullopt;
         }
 
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Filesystem redirection query for path \"%s\" resolved to \"%s\", matched rule \"%s\", and was redirected to \"%s\".", filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());
+        std::optional<TemporaryString> maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(directoryPart, filePart, windowsNamespacePrefix);;
+        if (false == maybeRedirectedFilePath.has_value())
+        {
+            Message::OutputFormatted(Message::ESeverity::Error, L"File redirection query for path \"%.*s\" resolved to \"%s\" and matched rule \"%s\" but failed due to an internal error while synthesizing the redirect result.", static_cast<int>(filePath.length()), filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data());
+            return std::nullopt;
+        }
+
+        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File redirection query for path \"%.*s\" resolved to \"%s\", matched rule \"%s\", and was redirected to \"%s\".", static_cast<int>(filePath.length()), filePath.data(), fileFullPath.AsCString(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());
         return std::move(maybeRedirectedFilePath.value());
     }
 }
