@@ -114,16 +114,15 @@ namespace Pathwinder
         OBJECT_ATTRIBUTES objectAttributes;                                 ///< Top-level object attributes structure.
 
         /// Initialization constructor.
-        /// Requires an existing object attributes structure. Copies and transforms the object name to lowercase.
+        /// Requires an existing object attributes structure.
         inline SNtObjectInfo(bool wasRedirected, const OBJECT_ATTRIBUTES& existingObjectAttributes) : wasRedirected(wasRedirected), objectNameBuffer(Strings::NtConvertUnicodeStringToStringView(*(existingObjectAttributes.ObjectName))), objectName(), objectAttributes(existingObjectAttributes)
         {
-            objectNameBuffer.ToLowercase();
             objectAttributes.ObjectName = &objectName;
             objectName = objectName = Strings::NtConvertStringViewToUnicodeString(objectNameBuffer.AsStringView());
         }
 
         /// Initialization constructor.
-        /// Requires an existing object attributes structure and a consumable object name, which must already be lowercase.
+        /// Requires an existing object attributes structure and a consumable object name.
         inline SNtObjectInfo(bool wasRedirected, const OBJECT_ATTRIBUTES& existingObjectAttributes, TemporaryString&& replacementObjectNameLowercase) : wasRedirected(wasRedirected), objectNameBuffer(std::move(replacementObjectNameLowercase)), objectName(), objectAttributes(existingObjectAttributes)
         {
             objectAttributes.ObjectName = &objectName;
@@ -139,14 +138,15 @@ namespace Pathwinder
     };
 
 
-    // -------- INTERNAL VARIABLES ----------------------------------------- //
-
-    /// Cache for all open handles for directories that might at some point become the `RootDirectory` member of an `OBJECT_ATTRIBUTES` structure.
-    /// Implemented as a pointer with backing storage on the heap to avoid premature destruction when the program closes.
-    static OpenHandleCache* const openHandleCache = new OpenHandleCache;
-
-
     // -------- INTERNAL FUNCTIONS ----------------------------------------- //
+
+    /// Retrieves a reference to the singleton instance of the open file handles cache.
+    /// This cache holds all open handles for directories that might at some point become the `RootDirectory` member of an `OBJECT_ATTRIBUTES` structure or the subject of a directory enumeration query.
+    static OpenHandleCache& SingletonOpenHandleCache(void)
+    {
+        static OpenHandleCache* const openHandleCache = new OpenHandleCache;
+        return *openHandleCache;
+    }
 
     /// Conditionally inserts a newly-opened handle into the open handle cache.
     /// Not all newly-opened handles are "interesting" and need to be cached.
@@ -162,7 +162,7 @@ namespace Pathwinder
             // For this reason, it will be cached in the handle cache. Unconditionally caching is most likely less expensive than checking with the filesystem directly, so this is the approach that will be taken.
 
             Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu is being cached for redirected path \"%.*s\".", functionName, static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(newlyOpenedHandle)), static_cast<int>(pathForSystemCall.length()), pathForSystemCall.data());
-            openHandleCache->InsertHandle(newlyOpenedHandle, pathForSystemCall);
+            SingletonOpenHandleCache().InsertHandle(newlyOpenedHandle, pathForSystemCall);
         }
         else if ((false == objectInfo.wasRedirected) && (true == FilesystemDirector::Singleton().IsPrefixForAnyRule(pathForSystemCall)))
         {
@@ -170,7 +170,7 @@ namespace Pathwinder
             // In a future call this handle could be specified as the `RootDirectory` handle in an `OBJECT_ATTRIBUTES` structure, which means the resulting combined path might need to be redirected.
 
             Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu is being cached for non-redirected path \"%.*s\".", functionName, static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(newlyOpenedHandle)), static_cast<int>(pathForSystemCall.length()), pathForSystemCall.data());
-            openHandleCache->InsertHandle(newlyOpenedHandle, pathForSystemCall);
+            SingletonOpenHandleCache().InsertHandle(newlyOpenedHandle, pathForSystemCall);
         }
     }
 
@@ -180,7 +180,7 @@ namespace Pathwinder
     /// @return Handle to an open directory that should be sent to the system call for enumeration. For now this is the same as the handle that is passed as input.
     static HANDLE RedirectDirectoryEnumerationByHandle(const wchar_t* functionName, HANDLE openDirectoryHandle)
     {
-        auto maybeDirectoryPath = openHandleCache->GetPathForHandle(openDirectoryHandle);
+        auto maybeDirectoryPath = SingletonOpenHandleCache().GetPathForHandle(openDirectoryHandle);
         if (false == maybeDirectoryPath.has_value())
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s: Invoked with handle %llu which is not cached.", functionName, static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(openDirectoryHandle)));
@@ -208,7 +208,7 @@ namespace Pathwinder
     static SNtObjectInfo RedirectSingleFileByObjectAttributes(const wchar_t* functionName, const OBJECT_ATTRIBUTES& inputObjectAttributes)
     {
         std::optional<TemporaryString> maybeRedirectedFilename = std::nullopt;
-        std::optional<std::wstring_view> maybeRootDirectoryHandlePath = ((nullptr == inputObjectAttributes.RootDirectory) ? std::nullopt : openHandleCache->GetPathForHandle(inputObjectAttributes.RootDirectory));
+        std::optional<std::wstring_view> maybeRootDirectoryHandlePath = ((nullptr == inputObjectAttributes.RootDirectory) ? std::nullopt : SingletonOpenHandleCache().GetPathForHandle(inputObjectAttributes.RootDirectory));
 
         std::wstring_view inputFilename = Strings::NtConvertUnicodeStringToStringView(*(inputObjectAttributes.ObjectName));
 
@@ -295,12 +295,12 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtClose::Hook(HANDLE Handle)
     using namespace Pathwinder;
 
 
-    auto maybeClosedHandlePath = openHandleCache->GetPathForHandle(Handle);
+    auto maybeClosedHandlePath = SingletonOpenHandleCache().GetPathForHandle(Handle);
     if (false == maybeClosedHandlePath.has_value())
         return Original(Handle);
 
     std::wstring closedHandlePath;
-    NTSTATUS closeHandleResult = openHandleCache->RemoveAndCloseHandle(Handle, &closedHandlePath);
+    NTSTATUS closeHandleResult = SingletonOpenHandleCache().RemoveAndCloseHandle(Handle, &closedHandlePath);
 
     if (NT_SUCCESS(closeHandleResult))
         Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu for path \"%s\" was closed and removed from the cache.", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(Handle)), closedHandlePath.c_str());

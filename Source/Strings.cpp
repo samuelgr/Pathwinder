@@ -16,6 +16,7 @@
 #include "TemporaryBuffer.h"
 
 #include <cctype>
+#include <cstdint>
 #include <cstdlib>
 #include <cwctype>
 #include <mutex>
@@ -352,6 +353,43 @@ namespace Pathwinder
 
             return buf;
         }
+
+        // --------
+
+        template<typename CharType> size_t HashCaseInsensitive(std::basic_string_view<CharType> str)
+        {
+            // Implements the FNV-1a hash algorithm.
+            // See https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function for more information.
+            // See also https://softwareengineering.stackexchange.com/questions/49550/which-hashing-algorithm-is-best-for-uniqueness-and-speed/145633#145633 for more information.
+
+#ifdef _WIN64
+            constexpr uint64_t hashPrime = 1099511628211ull;
+            uint64_t hash = 14695981039346656037ull;
+#else
+            constexpr uint32_t hashPrime = 16777619u;
+            uint32_t hash = 2166136261u;
+#endif
+            static_assert(sizeof(size_t) == sizeof(hash), "Hash size mismatch.");
+
+            for (size_t charIndex = 0; charIndex < str.length(); ++charIndex)
+            {
+                const CharType currentChar = Strings::ToLowercase(str[charIndex]);
+                const uint8_t* const charByteBase = reinterpret_cast<const uint8_t*>(&currentChar);
+                const size_t charByteCount = sizeof(currentChar);
+
+                for (size_t charByteIndex = 0; charByteIndex < charByteCount; ++charByteIndex)
+                {
+                    const decltype(hash) currentByte = static_cast<decltype(hash)>(charByteBase[charByteIndex]);
+                    hash = hash ^ currentByte;
+                    hash = hash * hashPrime;
+                }
+            }
+
+            return hash;
+        }
+
+        template size_t HashCaseInsensitive<char>(std::string_view);
+        template size_t HashCaseInsensitive<wchar_t>(std::wstring_view);
 
         // --------
 

@@ -778,20 +778,6 @@ namespace Pathwinder
                 RemoveSuffix(1);
         }
 
-        /// Changes this string's characters to lowercase.
-        inline void ToLowercase(void)
-        {
-            for (int i = 0; i < size; ++i)
-                (*this)[i] = std::towlower((*this)[i]);
-        }
-
-        /// Changes this string's characters to uppercase.
-        inline void ToUppercase(void)
-        {
-            for (int i = 0; i < size; ++i)
-                (*this)[i] = std::towupper((*this)[i]);
-        }
-
         /// Changes this object's knowledge of its own size.
         /// This is generally an unsafe operation but is intended to be used after the underlying buffer is manipulated by functions that operate on C strings.
         /// @param [in] newsize New size to use.

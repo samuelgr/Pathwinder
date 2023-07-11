@@ -23,51 +23,13 @@
 
 namespace Pathwinder
 {
-    // -------- INTERNAL FUNCTIONS ----------------------------------------- //
-
-    /// Traverses a prefix index to select a filesystem rule for the given full file path.
-    /// This operation is useful for those filesystem functions that directly operate on a single absolute path.
-    /// @param [in] fileFullPathLowerCase Full path of the file being queried for possible redirection. Must be all lower-case.
-    /// @return Pointer to the rule object that should be used to process the redirection, or `nullptr` if no redirection should occur at all.
-    static const FilesystemRule* SelectRuleForSingleFileInternal(const PrefixIndex<wchar_t, FilesystemRule>& prefixIndexToSearch, std::wstring_view fileFullPathLowerCase)
-    {
-        // It is possible that multiple rules all have a prefix that matches the directory part of the full file path.
-        // We want to pick the most specific one to apply, meaning it has the longest matching prefix.
-        // For example, suppose two rules exist with "C:\Dir1\Dir2" and "C:\Dir1" as their respective origin directories.
-        // A file having full path "C:\Dir1\Dir2\textfile.txt" would need to use "C:\Dir1\Dir2" even though technically both rules do match.
-
-        auto ruleNode = prefixIndexToSearch.LongestMatchingPrefix(fileFullPathLowerCase);
-        if (nullptr == ruleNode)
-            return nullptr;
-
-        return ruleNode->GetData();
-    }
-
-    /// Traverses a prefix index to select a filesystem rule for the given full file path.
-    /// This operation is useful for those filesystem functions that operate on entire directories, such as directory enumeration.
-    /// @param [in] absoluteDirectoryPathLowerCase Full path of the directory being queried for possible redirection. Must be all lower-case.
-    /// @return Pointer to the rule object that should be used to process the redirection, or `nullptr` if no redirection should occur at all.
-    static const FilesystemRule* SelectRuleForDirectoryEnumerationInternal(const PrefixIndex<wchar_t, FilesystemRule>& prefixIndexToSearch, std::wstring_view absoluteDirectoryPathLowerCase)
-    {
-        // For directory enumeration redirection an exact path match is needed.
-        // Directory enumeration operates on handles to directories that have already been opened.
-        // Therefore, to make it appear that the origin directory's contents are actually the target directory's contents, the actual enumeration needs to be redirected even though the open handle is for the origin directory.
-
-        auto ruleNode = prefixIndexToSearch.Find(absoluteDirectoryPathLowerCase);
-        if (nullptr == ruleNode)
-            return nullptr;
-
-        return ruleNode->GetData();
-    }
-
-
     // -------- CLASS METHODS ---------------------------------------------- //
     // See "FilesystemDirector.h" for documentation.
 
     FilesystemDirector& FilesystemDirector::Singleton(void)
     {
-        static FilesystemDirector singleton;
-        return singleton;
+        static FilesystemDirector* const singleton = new FilesystemDirector;
+        return *singleton;
     }
 
 
@@ -76,14 +38,31 @@ namespace Pathwinder
 
     const FilesystemRule* FilesystemDirector::SelectRuleForSingleFile(std::wstring_view fileFullPath) const
     {
-        return SelectRuleForSingleFileInternal(originDirectoryIndex, Strings::ToLowercase(fileFullPath));
+        // It is possible that multiple rules all have a prefix that matches the directory part of the full file path.
+        // We want to pick the most specific one to apply, meaning it has the longest matching prefix.
+        // For example, suppose two rules exist with "C:\Dir1\Dir2" and "C:\Dir1" as their respective origin directories.
+        // A file having full path "C:\Dir1\Dir2\textfile.txt" would need to use "C:\Dir1\Dir2" even though technically both rules do match.
+
+        auto ruleNode = originDirectoryIndex.LongestMatchingPrefix(fileFullPath);
+        if (nullptr == ruleNode)
+            return nullptr;
+
+        return ruleNode->GetData();
     }
 
     // --------
 
     const FilesystemRule* FilesystemDirector::SelectRuleForDirectoryEnumeration(std::wstring_view absoluteDirectoryPath) const
     {
-        return SelectRuleForDirectoryEnumerationInternal(originDirectoryIndex, Strings::ToLowercase(absoluteDirectoryPath));
+        // For directory enumeration redirection an exact path match is needed.
+        // Directory enumeration operates on handles to directories that have already been opened.
+        // Therefore, to make it appear that the origin directory's contents are actually the target directory's contents, the actual enumeration needs to be redirected even though the open handle is for the origin directory.
+
+        auto ruleNode = originDirectoryIndex.Find(absoluteDirectoryPath);
+        if (nullptr == ruleNode)
+            return nullptr;
+
+        return ruleNode->GetData();
     }
 
     // --------
@@ -93,7 +72,7 @@ namespace Pathwinder
         const std::wstring_view windowsNamespacePrefix = Strings::PathGetWindowsNamespacePrefix(absoluteDirectoryPath);
         const std::wstring_view absoluteDirectoryPathWithoutPrefix = absoluteDirectoryPath.substr(windowsNamespacePrefix.length());
 
-        const FilesystemRule* const selectedRule = SelectRuleForDirectoryEnumerationInternal(originDirectoryIndex, absoluteDirectoryPathWithoutPrefix);
+        const FilesystemRule* const selectedRule = SelectRuleForDirectoryEnumeration(absoluteDirectoryPathWithoutPrefix);
         if (nullptr == selectedRule)
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Directory redirection query for path \"%.*s\" did not match any rules.", static_cast<int>(absoluteDirectoryPath.length()), absoluteDirectoryPath.data());
@@ -152,8 +131,6 @@ namespace Pathwinder
             return std::nullopt;
         }
 
-        fileFullPath.ToLowercase();
-
         std::wstring_view fileFullPathWithoutPrefix = std::wstring_view(&fileFullPath[windowsNamespacePrefixLength], resolvedPathLength);
 
         const size_t lastSeparatorPos = fileFullPathWithoutPrefix.find_last_of(L'\\');
@@ -166,7 +143,7 @@ namespace Pathwinder
         const std::wstring_view directoryPart = fileFullPathWithoutPrefix.substr(0, lastSeparatorPos);
         const std::wstring_view filePart = ((L'\\' == fileFullPathWithoutPrefix.back()) ? L"" : fileFullPathWithoutPrefix.substr(1 + lastSeparatorPos));
 
-        const FilesystemRule* const selectedRule = SelectRuleForSingleFileInternal(originDirectoryIndex, directoryPart);
+        const FilesystemRule* const selectedRule = SelectRuleForSingleFile(directoryPart);
         if (nullptr == selectedRule)
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File redirection query for path \"%.*s\" resolved to \"%s\" but did not match any rules.", static_cast<int>(filePath.length()), filePath.data(), fileFullPath.AsCString());

@@ -25,6 +25,7 @@ namespace Pathwinder
 {
     /// Data structure for indexing objects identified by delimited strings for efficient traversal by prefix.
     /// Implemented as a prefix tree where each level represents a token within the delimited string.
+    /// Case is preserved as provided by input string, but all comparisons and traversals are case-insensitive.
     /// @tparam CharType Type of character in each string, either narrow or wide.
     template <typename CharType, typename DataType> class PrefixIndex
     {
@@ -53,7 +54,7 @@ namespace Pathwinder
             std::basic_string_view<CharType> parentKey;
 
             /// Child nodes, stored associatively by path prefix string.
-            std::unordered_map<std::basic_string_view<CharType>, Node> children;
+            std::unordered_map<std::basic_string_view<CharType>, Node, Strings::CaseInsensitiveHasher<CharType>, Strings::CaseInsensitiveEqualityComparator<CharType>> children;
 
 
         public:

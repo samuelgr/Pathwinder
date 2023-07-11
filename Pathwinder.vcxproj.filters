@@ -113,9 +113,6 @@
     <ClInclude Include="Include\Pathwinder\Internal\MutexWrapper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Internal\LookupTransparentString.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources\Pathwinder.rc">

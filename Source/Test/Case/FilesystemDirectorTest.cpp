@@ -12,7 +12,6 @@
 
 #include "FilesystemDirector.h"
 #include "PrefixIndex.h"
-#include "Strings.h"
 #include "TemporaryBuffer.h"
 #include "TestCase.h"
 
@@ -45,16 +44,6 @@ namespace PathwinderTest
         return FilesystemDirector(std::move(filesystemRules), std::move(originDirectoryIndex));
     }
 
-    /// Convenience function for constructing a filesystem rule object from an origin directory and a target directory.
-    /// Performs some of the operations that would normally be done internally for things like case-insensitivity.
-    /// @param [in] originDirectory Origin directory for the filesystem rule object.
-    /// @param [in] targetDirectory Target directory for the filesystem rule object.
-    /// @return Newly-constructed filesystem rule object.
-    static FilesystemRule MakeFilesystemRule(std::wstring_view originDirectory, std::wstring_view targetDirectory)
-    {
-        return FilesystemRule(Strings::ToLowercase(originDirectory), Strings::ToLowercase(targetDirectory));
-    }
-
     /// Convenience helper for evaluating an expected outcome of a rule not being present.
     /// Simply compares the pointer to `nullptr`.
     /// @param [in] rule Rule pointer to check.
@@ -84,9 +73,9 @@ namespace PathwinderTest
     TEST_CASE(FilesystemDirector_SelectRuleForSingleFile_Nominal)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
-            {L"1", MakeFilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-            {L"2", MakeFilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-            {L"3", MakeFilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+            {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+            {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
+            {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
         }));
 
         TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForSingleFile(L"C:\\Origin1\\file1.txt")));
@@ -101,9 +90,9 @@ namespace PathwinderTest
     TEST_CASE(FilesystemDirector_SelectRuleForSingleFile_CaseInsensitive)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
-            {L"1", MakeFilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-            {L"2", MakeFilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-            {L"3", MakeFilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+            {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+            {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
+            {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
         }));
 
         TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForSingleFile(L"C:\\ORIGIN1\\file1.txt")));
@@ -117,9 +106,9 @@ namespace PathwinderTest
     TEST_CASE(FilesystemDirector_SelectRuleForSingleFile_ChooseMostSpecific)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
-            {L"1", MakeFilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-            {L"2", MakeFilesystemRule(L"C:\\Origin1\\Origin2", L"C:\\Target2")},
-            {L"3", MakeFilesystemRule(L"C:\\Origin1\\Origin2\\Origin3", L"C:\\Target3")},
+            {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+            {L"2", FilesystemRule(L"C:\\Origin1\\Origin2", L"C:\\Target2")},
+            {L"3", FilesystemRule(L"C:\\Origin1\\Origin2\\Origin3", L"C:\\Target3")},
         }));
 
         TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForSingleFile(L"C:\\Origin1\\file1.txt")));
@@ -134,9 +123,9 @@ namespace PathwinderTest
     TEST_CASE(FilesystemDirector_RedirectSingleFile_Nominal)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
-            {L"1", MakeFilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-            {L"2", MakeFilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-            {L"3", MakeFilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+            {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+            {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
+            {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
         }));
 
         constexpr std::pair<std::wstring_view, std::wstring_view> kTestInputsAndExpectedOutputs[] = {
@@ -152,7 +141,7 @@ namespace PathwinderTest
 
             auto actualOutput = director.RedirectSingleFile(testInput);
             TEST_ASSERT(true == actualOutput.has_value());
-            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput.value(), expectedOutput));
+            TEST_ASSERT(actualOutput.value() == expectedOutput);
         }
     }
 
@@ -162,9 +151,9 @@ namespace PathwinderTest
     TEST_CASE(FilesystemDirector_RedirectSingleFile_QueryInputContainsPrefix)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
-            {L"1", MakeFilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-            {L"2", MakeFilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-            {L"3", MakeFilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+            {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+            {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
+            {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
         }));
 
         constexpr std::pair<std::wstring_view, std::wstring_view> kTestInputsAndExpectedOutputs[] = {
@@ -180,7 +169,7 @@ namespace PathwinderTest
 
             auto actualOutput = director.RedirectSingleFile(testInput);
             TEST_ASSERT(true == actualOutput.has_value());
-            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput.value(), expectedOutput));
+            TEST_ASSERT(actualOutput.value() == expectedOutput);
         }
     }
 
@@ -188,9 +177,9 @@ namespace PathwinderTest
     TEST_CASE(FilesystemDirector_RedirectSingleFile_NonRedirectedInputPath)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
-            {L"1", MakeFilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-            {L"2", MakeFilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-            {L"3", MakeFilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+            {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+            {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
+            {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
         }));
 
         constexpr std::wstring_view kTestInputs[] = {
@@ -211,7 +200,7 @@ namespace PathwinderTest
     TEST_CASE(FilesystemDirector_RedirectSingleFile_NoRedirectionNotNullTerminated)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
-            {L"1", MakeFilesystemRule(L"C:\\Base\\Origin", L"C:\\Base\\Target")},
+            {L"1", FilesystemRule(L"C:\\Base\\Origin", L"C:\\Base\\Target")},
         }));
 
         // String buffer identifies "C:\Base\Origin" which intuitively should be redirected to "C:\Base\Target".
@@ -235,7 +224,7 @@ namespace PathwinderTest
     TEST_CASE(FilesystemDirector_RedirectSingleFile_EqualsOriginDirectory)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
-            {L"1", MakeFilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+            {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
         }));
 
         constexpr std::wstring_view kTestInputs[] = {
@@ -255,9 +244,9 @@ namespace PathwinderTest
     TEST_CASE(FilesystemDirector_RedirectSingleFile_ConsecutivePathSeparators)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
-            {L"1", MakeFilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-            {L"2", MakeFilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-            {L"3", MakeFilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+            {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+            {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
+            {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
         }));
 
         constexpr std::pair<std::wstring_view, std::wstring_view> kTestInputsAndExpectedOutputs[] = {
@@ -273,7 +262,7 @@ namespace PathwinderTest
 
             auto actualOutput = director.RedirectSingleFile(testInput);
             TEST_ASSERT(true == actualOutput.has_value());
-            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput.value(), expectedOutput));
+            TEST_ASSERT(actualOutput.value() == expectedOutput);
         }
     }
 
@@ -282,9 +271,9 @@ namespace PathwinderTest
     TEST_CASE(FilesystemDirector_RedirectSingleFile_RelativePaths)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
-            {L"1", MakeFilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-            {L"2", MakeFilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-            {L"3", MakeFilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+            {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+            {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
+            {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
         }));
 
         constexpr std::pair<std::wstring_view, std::wstring_view> kTestInputsAndExpectedOutputs[] = {
@@ -300,7 +289,7 @@ namespace PathwinderTest
 
             auto actualOutput = director.RedirectSingleFile(testInput);
             TEST_ASSERT(true == actualOutput.has_value());
-            TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(actualOutput.value(), expectedOutput));
+            TEST_ASSERT(actualOutput.value() == expectedOutput);
         }
     }
 
@@ -309,9 +298,9 @@ namespace PathwinderTest
     TEST_CASE(FilesystemDirector_RedirectSingleFile_InvalidInputPath)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
-            {L"1", MakeFilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-            {L"2", MakeFilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-            {L"3", MakeFilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+            {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+            {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
+            {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
         }));
 
         constexpr std::wstring_view kTestInputs[] = {
@@ -326,21 +315,20 @@ namespace PathwinderTest
     }
 
     // Creates a filesystem director with a single rule at a deep level in the hierarchy and queries it a few times to see if it can successfully identify rule prefixes.
-    // This test invokes case-sensitive methods and therefore requires that query inputs all be lowercase.
     TEST_CASE(FilesystemDirector_IsPrefixForAnyRule_Nominal)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
-            {L"1", MakeFilesystemRule(L"C:\\Level1\\Level2\\Level3\\Origin", L"C:\\Target")},
+            {L"1", FilesystemRule(L"C:\\Level1\\Level2\\Level3\\Origin", L"C:\\Target")},
         }));
 
         constexpr std::pair<std::wstring_view, bool> kTestInputsAndExpectedOutputs[] = {
-            {L"c:\\", true},
-            {L"c:\\level1", true},
-            {L"c:\\level1\\level2\\", true},
-            {L"c:\\level1\\level2\\level3", true},
-            {L"c:\\level1\\level2\\level3\\origin\\", true},
-            {L"x:\\", false},
-            {L"c:\\unrelated\\level2", false}
+            {L"C:\\", true},
+            {L"C:\\Level1", true},
+            {L"C:\\Level1\\Level2\\", true},
+            {L"C:\\Level1\\Level2\\Level3", true},
+            {L"C:\\Level1\\Level2\\Level3\\Origin\\", true},
+            {L"X:\\", false},
+            {L"C:\\Unrelated\\Level2", false}
         };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)

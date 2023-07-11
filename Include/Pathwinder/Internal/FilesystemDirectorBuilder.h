@@ -120,8 +120,7 @@ namespace Pathwinder
         /// @return `true` if so, `false` if not.
         inline bool HasDirectory(std::wstring_view directoryFullPath) const
         {
-            TemporaryString directoryFullPathLowerCase = Strings::ToLowercase(directoryFullPath);
-            return (originDirectories.Contains(directoryFullPathLowerCase) || targetDirectories.contains(directoryFullPathLowerCase));
+            return (originDirectories.Contains(directoryFullPath) || targetDirectories.contains(directoryFullPath));
         }
 
         /// Determines if any rule added to this object uses the specified directory as its origin directory.
@@ -129,7 +128,7 @@ namespace Pathwinder
         /// @return `true` if so, `false` if not.
         inline bool HasOriginDirectory(std::wstring_view directoryFullPath) const
         {
-            return originDirectories.Contains(Strings::ToLowercase(directoryFullPath));
+            return originDirectories.Contains(directoryFullPath);
         }
 
         /// Determines if any rule added to this object uses the specified directory as its target directory.
@@ -137,7 +136,7 @@ namespace Pathwinder
         /// @return `true` if so, `false` if not.
         inline bool HasTargetDirectory(std::wstring_view directoryFullPath) const
         {
-            return targetDirectories.contains(Strings::ToLowercase(directoryFullPath));
+            return targetDirectories.contains(directoryFullPath);
         }
     };
 }

@@ -132,6 +132,12 @@ namespace Pathwinder
         /// @return Resulting string after all formatting is applied.
         TemporaryString FormatString(_Printf_format_string_ const wchar_t* format, ...);
 
+        /// Computes a hash code for the specified string, without regard to case.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
+        /// @param [in] str String for which a hash code is desired.
+        /// @return Resulting hash code for the input string.
+        template<typename CharType> size_t HashCaseInsensitive(std::basic_string_view<CharType> str);
+
         /// Copies the specified absolute path and prepends it with an appropriate Windows namespace prefix for identifying file paths to Windows system calls.
         /// Invoke this function with an empty string as the input parameter to return a new string object filled with just the prefix.
         /// @param [in] absolutePath Absolute path to be prepended with a prefix.
@@ -221,29 +227,30 @@ namespace Pathwinder
         /// @return Next token found in the input string, if it exists.
         template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(size_t& tokenizeState, std::basic_string_view<CharType> stringToTokenize, const std::basic_string_view<CharType>* delimiters, unsigned int numDelimiters);
 
-        /// Copies the specified string and changes its case to lowercase.
-        /// @param [in] str String to be changed to lowercase.
-        /// @return Input string changed to lowercase.
-        inline TemporaryString ToLowercase(std::wstring_view str)
-        {
-            TemporaryString lowercaseStr = str;
-            lowercaseStr.ToLowercase();
-            return lowercaseStr;
-        }
-
-        /// Copies the specified string and changes its case to uppercase.
-        /// @param [in] str String to be changed to uppercase.
-        /// @return Input string changed to uppercase.
-        inline TemporaryString ToUppercase(std::wstring_view str)
-        {
-            TemporaryString uppercaseStr = str;
-            uppercaseStr.ToUppercase();
-            return uppercaseStr;
-        }
-
         /// Generates a string representation of a system error code.
         /// @param [in] systemErrorCode System error code for which to generate a string.
         /// @return String representation of the system error code.
         TemporaryString SystemErrorCodeString(const unsigned long systemErrorCode);
+
+
+        // -------- TYPE DEFINITIONS --------------------------------------- //
+
+        /// Case-insensitive hasher for various kinds of string representations.
+        template <typename CharType> struct CaseInsensitiveHasher
+        {
+            constexpr inline size_t operator()(const std::basic_string_view<CharType>& key) const
+            {
+                return HashCaseInsensitive(key);
+            }
+        };
+
+        /// Case-insensitive equality comparator for various kinds of string representations.
+        template <typename CharType> struct CaseInsensitiveEqualityComparator
+        {
+            constexpr inline bool operator()(const std::basic_string_view<CharType>& lhs, const std::basic_string_view<CharType>& rhs) const
+            {
+                return EqualsCaseInsensitive(lhs, rhs);
+            }
+        };
     }
 }

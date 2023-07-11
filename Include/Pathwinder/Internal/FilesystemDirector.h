@@ -102,22 +102,22 @@ namespace Pathwinder
         /// @return Pointer to the rule, or `nullptr` if no matching rule is found.
         inline const FilesystemRule* FindRuleByOriginDirectory(std::wstring_view ruleOriginDirectoryFullPath) const
         {
-            const auto ruleNode = originDirectoryIndex.Find(Strings::ToLowercase(ruleOriginDirectoryFullPath));
+            const auto ruleNode = originDirectoryIndex.Find(ruleOriginDirectoryFullPath);
             if (nullptr == ruleNode)
                 return nullptr;
 
             return ruleNode->GetData();
         }
 
-        /// Determines if the specified file path, which is already absolute and lowercase, exists as a valid prefix for any filesystem rule.
-        /// @param [in] fileFullPathLowercase Absolute lowercase path to check.
+        /// Determines if the specified file path, which is already absolute, exists as a valid prefix for any filesystem rule.
+        /// @param [in] fileFullPath Absolute path to check.
         /// @return `true` if a rule exists either at or as a descendent in the filesystem hierarchy of the specified path, `false` otherwise.
-        inline bool IsPrefixForAnyRule(std::wstring_view fileFullPathLowercase) const
+        inline bool IsPrefixForAnyRule(std::wstring_view fileFullPath) const
         {
-            fileFullPathLowercase.remove_prefix(Strings::PathGetWindowsNamespacePrefix(fileFullPathLowercase).length());
-            fileFullPathLowercase = Strings::RemoveTrailing(fileFullPathLowercase, L'\\');
+            fileFullPath.remove_prefix(Strings::PathGetWindowsNamespacePrefix(fileFullPath).length());
+            fileFullPath = Strings::RemoveTrailing(fileFullPath, L'\\');
 
-            return originDirectoryIndex.HasPathForPrefix(fileFullPathLowercase);
+            return originDirectoryIndex.HasPathForPrefix(fileFullPath);
         }
 
         /// Determines which rule from among those held by this object should be used to redirect a single filename.
@@ -135,7 +135,7 @@ namespace Pathwinder
         const FilesystemRule* SelectRuleForDirectoryEnumeration(std::wstring_view absoluteDirectoryPath) const;
 
         /// Redirects a directory enumeration operation by selecting an appropriate rule and then using it to change the directory path.
-        /// The directory path must already be fully resolved, in lowercase, and with no trailing backslash characters, ready for data structure query. A Windows namespace prefix is optional.
+        /// The directory path must already be fully resolved and with no trailing backslash characters, ready for data structure query. A Windows namespace prefix is optional.
         /// This operation is useful for filesystem functions that operate on an entire directory, particularly those that enumerate its contents.
         /// @param [in] absoluteDirectoryPath Absolute path for the directory being enumerated.
         std::optional<TemporaryString> RedirectDirectoryEnumeration(std::wstring_view absoluteDirectoryPath) const;

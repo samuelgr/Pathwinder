@@ -19,6 +19,23 @@
 #include <winternl.h>
 
 
+// -------- MACROS --------------------------------------------------------- //
+
+// Creates a Hookshot dynamic hook and defines a protected dependency wrapper for it.
+#define PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(funcname, typespec) \
+    HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(funcname, typespec); \
+    namespace _ProtectedDependencyInternal { inline constexpr char kProtectedDynamicHookName__##funcname[] = #funcname; } \
+    namespace ProtectedDependency { using funcname = ::Pathwinder::_ProtectedDependencyInternal::ProtectedDependencyImpl<_ProtectedDependencyInternal::kProtectedDynamicHookName__##funcname, ::Pathwinder::Hooks::DynamicHook_##funcname, ::Pathwinder::Hooks::DynamicHook_##funcname::TFunction>; }
+
+// Selects an appropriate calling convention for the protected dependency hook template, based on whether or not the target is a 32-bit or 64-bit binary.
+// Hard-coding a single calling convention works because all of the hooked APIs use the same one. This is also simpler in code than adding a generic template to detect it automatically.
+#ifdef _WIN32
+#define PROTECTED_DEPENDENCY_IMPL_CALLING_CONVENTION                        (__stdcall)
+#else
+#define PROTECTED_DEPENDENCY_IMPL_CALLING_CONVENTION
+#endif
+
+
 namespace Pathwinder
 {
     // -------- TYPE DEFINITIONS ------------------------------------------- //
@@ -36,7 +53,7 @@ namespace Pathwinder
         /// API functions that are hooked will potentially need to be invoked internally by Pathwinder.
         /// This template specialization provides a single entry point that internal code can invoke to access the original functionality of the API, whether or not the hook has been set successfully.
         /// It is intended to be accessed using the macro interface defined below.
-        template <const char* kFunctionName, typename DynamicHookType, typename ReturnType, typename... ArgumentTypes> class ProtectedDependencyImpl<kFunctionName, DynamicHookType, ReturnType(ArgumentTypes...)>
+        template <const char* kFunctionName, typename DynamicHookType, typename ReturnType, typename... ArgumentTypes> class ProtectedDependencyImpl<kFunctionName, DynamicHookType, ReturnType PROTECTED_DEPENDENCY_IMPL_CALLING_CONVENTION (ArgumentTypes...)>
         {
         private:
             inline static const DynamicHookType::TFunctionPtr initialFunctionPointer = static_cast<DynamicHookType::TFunctionPtr>(GetInternalWindowsApiFunctionAddress(kFunctionName));
@@ -65,15 +82,6 @@ namespace Pathwinder
         };
     }
 }
-
-
-// -------- MACROS --------------------------------------------------------- //
-
-/// Creates a Hookshot dynamic hook and defines a protected dependency wrapper for it.
-#define PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(funcname, typespec) \
-    HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(funcname, typespec); \
-    namespace _ProtectedDependencyInternal { inline constexpr char kProtectedDynamicHookName__##funcname[] = #funcname; } \
-    namespace ProtectedDependency { using funcname = ::Pathwinder::_ProtectedDependencyInternal::ProtectedDependencyImpl<_ProtectedDependencyInternal::kProtectedDynamicHookName__##funcname, ::Pathwinder::Hooks::DynamicHook_##funcname, ::Pathwinder::Hooks::DynamicHook_##funcname::TFunction>; }
 
 
 namespace Pathwinder

@@ -142,7 +142,6 @@
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemRule.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Hooks.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\LookupTransparentString.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
     <ClInclude Include="Include\Pathwinder\Internal\MutexWrapper.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PathwinderConfigReader.h" />
