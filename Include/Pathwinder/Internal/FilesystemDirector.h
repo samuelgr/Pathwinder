@@ -120,19 +120,11 @@ namespace Pathwinder
             return originDirectoryIndex.HasPathForPrefix(fileFullPath);
         }
 
-        /// Determines which rule from among those held by this object should be used to redirect a single filename.
-        /// This operation is useful for those filesystem functions that directly operate on a single absolute path.
+        /// Determines which rule from among those held by this object should be used for a particular redirection query.
         /// Primarily intended for internal use but exposed for tests.
-        /// @param [in] fileFullPath Full path of the file being queried for possible redirection. Must be null-terminated.
+        /// @param [in] absolutePath Absolute path for which to search for a rule for possible redirection.
         /// @return Pointer to the rule object that should be used to process the redirection, or `nullptr` if no redirection should occur at all.
-        const FilesystemRule* SelectRuleForSingleFile(std::wstring_view fileFullPath) const;
-
-        /// Determines which rule from among those held by this object should be used to redirect a directory operation, such as enumeration.
-        /// This operation is useful for filesystem functions that operate on an entire directory, particularly those that enumerate its contents.
-        /// Primarily intended for internal use but exposed for tests.
-        /// @param [in] absoluteDirectoryPath Full path of the file being queried for possible redirection. Must be null-terminated.
-        /// @return Pointer to the rule object that should be used to process the redirection, or `nullptr` if no redirection should occur at all.
-        const FilesystemRule* SelectRuleForDirectoryEnumeration(std::wstring_view absoluteDirectoryPath) const;
+        const FilesystemRule* SelectRuleForRedirectionQuery(std::wstring_view absolutePath) const;
 
         /// Redirects a directory enumeration operation by selecting an appropriate rule and then using it to change the directory path.
         /// The directory path must already be fully resolved and with no trailing backslash characters, ready for data structure query. A Windows namespace prefix is optional.

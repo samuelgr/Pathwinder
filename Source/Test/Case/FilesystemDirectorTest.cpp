@@ -70,7 +70,7 @@ namespace PathwinderTest
 
     // Creates a filesystem director with a few non-overlapping rules and queries it with a few file inputs.
     // Verifies that each time the correct rule is chosen or, if the file path does not match any rule, no rule is chosen.
-    TEST_CASE(FilesystemDirector_SelectRuleForSingleFile_Nominal)
+    TEST_CASE(FilesystemDirector_SelectRuleForRedirectionQuery_Nominal)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
@@ -78,16 +78,16 @@ namespace PathwinderTest
             {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
         }));
 
-        TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForSingleFile(L"C:\\Origin1\\file1.txt")));
-        TEST_ASSERT(RuleIsPresentAndNamed(L"2", director.SelectRuleForSingleFile(L"C:\\Origin2\\Subdir2\\file2.txt")));
-        TEST_ASSERT(RuleIsPresentAndNamed(L"3", director.SelectRuleForSingleFile(L"C:\\Origin3\\Subdir3\\Subdir3_2\\file3.txt")));
-        TEST_ASSERT(RuleIsNotPresent(director.SelectRuleForSingleFile(L"C:\\Origin4\\Subdir4\\Subdir4_2\\Subdir4_3\\file4.txt")));
+        TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForRedirectionQuery(L"C:\\Origin1\\file1.txt")));
+        TEST_ASSERT(RuleIsPresentAndNamed(L"2", director.SelectRuleForRedirectionQuery(L"C:\\Origin2\\Subdir2\\file2.txt")));
+        TEST_ASSERT(RuleIsPresentAndNamed(L"3", director.SelectRuleForRedirectionQuery(L"C:\\Origin3\\Subdir3\\Subdir3_2\\file3.txt")));
+        TEST_ASSERT(RuleIsNotPresent(director.SelectRuleForRedirectionQuery(L"C:\\Origin4\\Subdir4\\Subdir4_2\\Subdir4_3\\file4.txt")));
     }
 
     // Creates a filesystem director with a few non-overlapping rules and queries it with a few file inputs.
     // Verifies that each time the correct rule is chosen or, if the file path does not match any rule, no rule is chosen.
     // This variation exercises case insensitivity by varying the case between rule creation and redirection query.
-    TEST_CASE(FilesystemDirector_SelectRuleForSingleFile_CaseInsensitive)
+    TEST_CASE(FilesystemDirector_SelectRuleForRedirectionQuery_CaseInsensitive)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
@@ -95,15 +95,15 @@ namespace PathwinderTest
             {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
         }));
 
-        TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForSingleFile(L"C:\\ORIGIN1\\file1.txt")));
-        TEST_ASSERT(RuleIsPresentAndNamed(L"2", director.SelectRuleForSingleFile(L"C:\\origin2\\SubDir2\\file2.txt")));
-        TEST_ASSERT(RuleIsPresentAndNamed(L"3", director.SelectRuleForSingleFile(L"C:\\ORiGiN3\\SubdIR3\\SubdIR3_2\\file3.txt")));
-        TEST_ASSERT(RuleIsNotPresent(director.SelectRuleForSingleFile(L"C:\\OrigIN4\\SUBdir4\\SUBdir4_2\\SUBdir4_3\\file4.txt")));
+        TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForRedirectionQuery(L"C:\\ORIGIN1\\file1.txt")));
+        TEST_ASSERT(RuleIsPresentAndNamed(L"2", director.SelectRuleForRedirectionQuery(L"C:\\origin2\\SubDir2\\file2.txt")));
+        TEST_ASSERT(RuleIsPresentAndNamed(L"3", director.SelectRuleForRedirectionQuery(L"C:\\ORiGiN3\\SubdIR3\\SubdIR3_2\\file3.txt")));
+        TEST_ASSERT(RuleIsNotPresent(director.SelectRuleForRedirectionQuery(L"C:\\OrigIN4\\SUBdir4\\SUBdir4_2\\SUBdir4_3\\file4.txt")));
     }
 
     // Creates a filesystem with a few overlapping rules and queries it with a few file inputs.
     // Verifies that the most specific rule is always chosen.
-    TEST_CASE(FilesystemDirector_SelectRuleForSingleFile_ChooseMostSpecific)
+    TEST_CASE(FilesystemDirector_SelectRuleForRedirectionQuery_ChooseMostSpecific)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
@@ -111,11 +111,11 @@ namespace PathwinderTest
             {L"3", FilesystemRule(L"C:\\Origin1\\Origin2\\Origin3", L"C:\\Target3")},
         }));
 
-        TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForSingleFile(L"C:\\Origin1\\file1.txt")));
-        TEST_ASSERT(RuleIsPresentAndNamed(L"2", director.SelectRuleForSingleFile(L"C:\\Origin1\\Origin2\\file2.txt")));
-        TEST_ASSERT(RuleIsPresentAndNamed(L"3", director.SelectRuleForSingleFile(L"C:\\Origin1\\Origin2\\Origin3\\file3.txt")));
-        TEST_ASSERT(RuleIsPresentAndNamed(L"2", director.SelectRuleForSingleFile(L"C:\\Origin1\\Origin2\\AnotherDirectory\\somefile.txt")));
-        TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForSingleFile(L"C:\\Origin1\\AnotherPathway\\SomeDirectory\\Subdir\\logfile.log")));
+        TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForRedirectionQuery(L"C:\\Origin1\\file1.txt")));
+        TEST_ASSERT(RuleIsPresentAndNamed(L"2", director.SelectRuleForRedirectionQuery(L"C:\\Origin1\\Origin2\\file2.txt")));
+        TEST_ASSERT(RuleIsPresentAndNamed(L"3", director.SelectRuleForRedirectionQuery(L"C:\\Origin1\\Origin2\\Origin3\\file3.txt")));
+        TEST_ASSERT(RuleIsPresentAndNamed(L"2", director.SelectRuleForRedirectionQuery(L"C:\\Origin1\\Origin2\\AnotherDirectory\\somefile.txt")));
+        TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForRedirectionQuery(L"C:\\Origin1\\AnotherPathway\\SomeDirectory\\Subdir\\logfile.log")));
     }
 
     // Creates a filesystem director with a few non-overlapping rules and queries it for redirection with a few file inputs.

@@ -36,29 +36,14 @@ namespace Pathwinder
     // -------- INSTANCE METHODS ------------------------------------------- //
     // See "FilesystemDirector.h" for documentation.
 
-    const FilesystemRule* FilesystemDirector::SelectRuleForSingleFile(std::wstring_view fileFullPath) const
+    const FilesystemRule* FilesystemDirector::SelectRuleForRedirectionQuery(std::wstring_view absolutePath) const
     {
         // It is possible that multiple rules all have a prefix that matches the directory part of the full file path.
         // We want to pick the most specific one to apply, meaning it has the longest matching prefix.
         // For example, suppose two rules exist with "C:\Dir1\Dir2" and "C:\Dir1" as their respective origin directories.
         // A file having full path "C:\Dir1\Dir2\textfile.txt" would need to use "C:\Dir1\Dir2" even though technically both rules do match.
 
-        auto ruleNode = originDirectoryIndex.LongestMatchingPrefix(fileFullPath);
-        if (nullptr == ruleNode)
-            return nullptr;
-
-        return ruleNode->GetData();
-    }
-
-    // --------
-
-    const FilesystemRule* FilesystemDirector::SelectRuleForDirectoryEnumeration(std::wstring_view absoluteDirectoryPath) const
-    {
-        // For directory enumeration redirection an exact path match is needed.
-        // Directory enumeration operates on handles to directories that have already been opened.
-        // Therefore, to make it appear that the origin directory's contents are actually the target directory's contents, the actual enumeration needs to be redirected even though the open handle is for the origin directory.
-
-        auto ruleNode = originDirectoryIndex.Find(absoluteDirectoryPath);
+        auto ruleNode = originDirectoryIndex.LongestMatchingPrefix(absolutePath);
         if (nullptr == ruleNode)
             return nullptr;
 
@@ -72,7 +57,7 @@ namespace Pathwinder
         const std::wstring_view windowsNamespacePrefix = Strings::PathGetWindowsNamespacePrefix(absoluteDirectoryPath);
         const std::wstring_view absoluteDirectoryPathWithoutPrefix = absoluteDirectoryPath.substr(windowsNamespacePrefix.length());
 
-        const FilesystemRule* const selectedRule = SelectRuleForDirectoryEnumeration(absoluteDirectoryPathWithoutPrefix);
+        const FilesystemRule* const selectedRule = SelectRuleForRedirectionQuery(absoluteDirectoryPathWithoutPrefix);
         if (nullptr == selectedRule)
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Directory redirection query for path \"%.*s\" did not match any rules.", static_cast<int>(absoluteDirectoryPath.length()), absoluteDirectoryPath.data());
@@ -143,7 +128,7 @@ namespace Pathwinder
         const std::wstring_view directoryPart = fileFullPathWithoutPrefix.substr(0, lastSeparatorPos);
         const std::wstring_view filePart = ((L'\\' == fileFullPathWithoutPrefix.back()) ? L"" : fileFullPathWithoutPrefix.substr(1 + lastSeparatorPos));
 
-        const FilesystemRule* const selectedRule = SelectRuleForSingleFile(directoryPart);
+        const FilesystemRule* const selectedRule = SelectRuleForRedirectionQuery(directoryPart);
         if (nullptr == selectedRule)
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File redirection query for path \"%.*s\" resolved to \"%s\" but did not match any rules.", static_cast<int>(filePath.length()), filePath.data(), fileFullPath.AsCString());
