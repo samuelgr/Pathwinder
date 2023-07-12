@@ -13,6 +13,7 @@
 #pragma once
 
 #include "Strings.h"
+#include "TemporaryBuffer.h"
 
 #include <array>
 #include <initializer_list>
@@ -124,6 +125,26 @@ namespace Pathwinder
             inline Node* FindOrEmplaceChild(std::basic_string_view<CharType> childKey)
             {
                 return &(children.emplace(childKey, Node(this, childKey)).first->second);
+            }
+
+            /// Retrieves and returns pointers to all immediate child nodes of this node, including only the ones that contain data.
+            /// @return Pointers to all immediate child nodes that contain data.
+            std::optional<TemporaryVector<const Node*>> GetAllImmediateChildrenWithData(void) const
+            {
+                std::optional<TemporaryVector<const Node*>> immediateChildren = std::nullopt;
+
+                for (const auto& child : children)
+                {
+                    if (child.second.HasData())
+                    {
+                        if (false == immediateChildren.has_value())
+                            immediateChildren.emplace();
+
+                        immediateChildren.value().PushBack(&child.second);
+                    }
+                }
+
+                return immediateChildren;
             }
 
             /// Retrieves a read-only pointer to the optional data contained within this node, which may not exist.
@@ -346,6 +367,18 @@ namespace Pathwinder
                 return nullptr;
 
             return node;
+        }
+
+        /// Attempts to locate all of the nodes in the tree that are immediate children of the specified prefix, if they exist and have data.
+        /// @param [in] prefix Prefix string for which to search.
+        /// @return All immediate children of the specified prefix, if any exist and contain data.
+        inline std::optional<TemporaryVector<const Node*>> FindAllImmediateChildren(std::basic_string_view<CharType> prefix) const
+        {
+            const Node* const node = TraverseToInternal(prefix);
+            if (nullptr == node)
+                return std::nullopt;
+
+            return node->GetAllImmediateChildrenWithData();
         }
 
         /// Determines if the specified prefix exists as a valid path in the prefix index.
