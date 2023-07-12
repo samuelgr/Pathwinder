@@ -123,8 +123,8 @@ namespace PathwinderTest
 /// Recommended way of declaring a class that implements a mock context for free functions.
 /// Requires a class name and the number of contexts to create.
 #define MOCK_FREE_FUNCTION_MULTICONTEXT_CLASS(classname, numcontexts) \
-    inline constexpr wchar_t kMockFreeFunctionContext__##classname[] = L#classname; \
-    template <typename MockObjectType> using MockFreeFunctionContextInternalAlias = MockFreeFunctionContext<MockObjectType, kMockFreeFunctionContext__##classname, numcontexts>;\
+    namespace _MockFreeFunctionContextInternal { inline constexpr wchar_t kMockFreeFunctionContext__##classname[] = L#classname; } \
+    template <typename MockObjectType> using MockFreeFunctionContextInternalAlias = MockFreeFunctionContext<MockObjectType, _MockFreeFunctionContextInternal::kMockFreeFunctionContext__##classname, numcontexts>;\
     class classname : public MockFreeFunctionContextInternalAlias<classname>
 
 /// Recommended way of declaring a class that implements a mock context for free functions when only one context is required.

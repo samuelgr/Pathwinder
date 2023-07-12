@@ -236,8 +236,11 @@ namespace Pathwinder
         // -------- TYPE DEFINITIONS --------------------------------------- //
 
         /// Case-insensitive hasher for various kinds of string representations.
+        /// This is a type-transparent hasher for all string representations that are implicitly convertable to string views.
         template <typename CharType> struct CaseInsensitiveHasher
         {
+            using is_transparent = void;
+
             constexpr inline size_t operator()(const std::basic_string_view<CharType>& key) const
             {
                 return HashCaseInsensitive(key);
@@ -245,8 +248,11 @@ namespace Pathwinder
         };
 
         /// Case-insensitive equality comparator for various kinds of string representations.
+        /// This is a type-transparent comparator for all string representations that are implicitly convertable to string views.
         template <typename CharType> struct CaseInsensitiveEqualityComparator
         {
+            using is_transparent = void;
+
             constexpr inline bool operator()(const std::basic_string_view<CharType>& lhs, const std::basic_string_view<CharType>& rhs) const
             {
                 return EqualsCaseInsensitive(lhs, rhs);

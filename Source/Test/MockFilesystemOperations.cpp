@@ -17,35 +17,17 @@
 #include <cwctype>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 
 namespace PathwinderTest
 {
-    // -------- INTERNAL FUNCTIONS ------------------------------------- //
-
-    /// Converts a string to lowercase.
-    /// Intended as a step for converting paths before being used with a mock filesystem so that comparisons are all case-insensitive.
-    /// @param [in] str String to convert.
-    /// @return Input string converted to lowercase.
-    static std::wstring ConvertToLowerCase(std::wstring_view str)
-    {
-        std::wstring convertedStr;
-        convertedStr.reserve(1 + str.length());
-
-        for (auto c : str)
-            convertedStr.append(1, std::towlower(c));
-
-        return convertedStr;
-    }
-
-
     // -------- INSTANCE METHODS --------------------------------------- //
     // See "MockFilesystemOperations.h" for documentation.
 
     void MockFilesystemOperations::AddFilesystemEntityInternal(std::wstring_view absolutePath, EFilesystemEntityType type, unsigned int sizeInBytes)
     {
-        const std::wstring absolutePathLowerCase = ConvertToLowerCase(absolutePath);
-        std::wstring_view currentPathView = absolutePathLowerCase;
+        std::wstring_view currentPathView = absolutePath;
 
         size_t lastBackslashIndex = currentPathView.find_last_of(L'\\');
 
@@ -54,7 +36,7 @@ namespace PathwinderTest
         case EFilesystemEntityType::File:
             do {
                 if (std::wstring_view::npos == lastBackslashIndex)
-                    TEST_FAILED_BECAUSE(L"%s: Missing '\\' in absolute path \"%s\" when adding a file to a fake filesystem.", __FUNCTIONW__, absolutePathLowerCase.c_str());
+                    TEST_FAILED_BECAUSE(L"%s: Missing '\\' in absolute path \"%.*s\" when adding a file to a fake filesystem.", __FUNCTIONW__, static_cast<int>(absolutePath.length()), absolutePath.data());
             } while (false);
             break;
 
@@ -62,7 +44,7 @@ namespace PathwinderTest
             do {
                 auto directoryIter = filesystemContents.find(currentPathView);
                 if (filesystemContents.end() == directoryIter)
-                    directoryIter = filesystemContents.insert({std::wstring(currentPathView), std::map<std::wstring, SFilesystemEntity, std::less<>>()}).first;
+                    directoryIter = filesystemContents.insert({std::wstring(currentPathView), TDirectoryContents()}).first;
             } while (false);
             break;
 
@@ -77,7 +59,7 @@ namespace PathwinderTest
 
             auto directoryIter = filesystemContents.find(directoryPart);
             if (filesystemContents.end() == directoryIter)
-                directoryIter = filesystemContents.insert({std::wstring(directoryPart), std::map<std::wstring, SFilesystemEntity, std::less<>>()}).first;
+                directoryIter = filesystemContents.insert({std::wstring(directoryPart), TDirectoryContents()}).first;
 
             directoryIter->second.insert({std::wstring(filePart), {.type = type, .sizeInBytes = sizeInBytes}});
 
@@ -96,16 +78,13 @@ namespace PathwinderTest
     // See "FilesystemOperations.h" for documentation.
     
     bool MockFilesystemOperations::Exists(std::wstring_view absolutePath)
-    {
-        const std::wstring pathLowerCase = ConvertToLowerCase(absolutePath);
-        const std::wstring_view pathLowerCaseView = pathLowerCase;
-
-        size_t lastBackslashIndex = pathLowerCaseView.find_last_of(L'\\');
+    {        
+        size_t lastBackslashIndex = absolutePath.find_last_of(L'\\');
         if (std::wstring_view::npos == lastBackslashIndex)
             return false;
 
-        std::wstring_view directoryPart = pathLowerCaseView.substr(0, lastBackslashIndex);
-        std::wstring_view filePart = pathLowerCaseView.substr(lastBackslashIndex + 1);
+        std::wstring_view directoryPart = absolutePath.substr(0, lastBackslashIndex);
+        std::wstring_view filePart = absolutePath.substr(lastBackslashIndex + 1);
 
         const auto directoryIter = filesystemContents.find(directoryPart);
         if (filesystemContents.cend() == directoryIter)
@@ -118,7 +97,7 @@ namespace PathwinderTest
 
     bool MockFilesystemOperations::IsDirectory(std::wstring_view absolutePath)
     {
-        return filesystemContents.contains(ConvertToLowerCase(absolutePath));
+        return filesystemContents.contains(absolutePath);
     }
 }
 

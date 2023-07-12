@@ -14,10 +14,11 @@
 
 #include "FilesystemOperations.h"
 #include "MockFreeFunctionContext.h"
+#include "Strings.h"
 
-#include <map>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 
 namespace PathwinderTest
@@ -44,12 +45,21 @@ namespace PathwinderTest
             unsigned int sizeInBytes;
         };
 
+        /// Type alias for the contents of an individual directory.
+        /// Key is a filename and value is the file's metadata.
+        typedef std::unordered_map <std::wstring, SFilesystemEntity, Pathwinder::Strings::CaseInsensitiveHasher<wchar_t>, Pathwinder::Strings::CaseInsensitiveEqualityComparator<wchar_t>> TDirectoryContents;
+
+        /// Type alias for the contents of an entire mock filesystem.
+        /// Key is a directory name and value is the directory's contents.
+        /// This is a single-level data structure whereby all directories of arbitrary depth in the hierarchy are represented by name in this data structure.
+        typedef std::unordered_map<std::wstring, TDirectoryContents, Pathwinder::Strings::CaseInsensitiveHasher<wchar_t>, Pathwinder::Strings::CaseInsensitiveEqualityComparator<wchar_t>> TFilesystemContents;
+
 
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
         /// Contents of the mock filesystem.
         /// Top-level map key is an absolute directory name and value is a set of directory contents.
-        std::map<std::wstring, std::map<std::wstring, SFilesystemEntity, std::less<>>, std::less<>> filesystemContents;
+        TFilesystemContents filesystemContents;
 
 
         // -------- INSTANCE METHODS --------------------------------------- //
