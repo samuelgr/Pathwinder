@@ -290,12 +290,12 @@ namespace Pathwinder
             size_t tokenizeState = 0;
             Node* currentNode = &rootNode;
 
-            for (std::optional<std::basic_string_view<CharType>> maybeNextPathComponent = Strings::TokenizeString<CharType>(tokenizeState, prefix, pathDelimiters.data(), pathDelimiterCount); true == maybeNextPathComponent.has_value(); maybeNextPathComponent = Strings::TokenizeString<CharType>(tokenizeState, prefix, pathDelimiters.data(), pathDelimiterCount))
+            for (std::basic_string_view<CharType> pathComponent : Strings::Tokenizer(prefix, pathDelimiters.data(), pathDelimiterCount))
             {
-                if (0 == maybeNextPathComponent.value().length())
+                if (true == pathComponent.empty())
                     continue;
 
-                currentNode = currentNode->FindOrEmplaceChild(maybeNextPathComponent.value());
+                currentNode = currentNode->FindOrEmplaceChild(pathComponent);
             }
 
             return currentNode;
@@ -311,12 +311,12 @@ namespace Pathwinder
             size_t tokenizeState = 0;
             const Node* currentNode = &rootNode;
 
-            for (std::optional<std::basic_string_view<CharType>> maybeNextPathComponent = Strings::TokenizeString<CharType>(tokenizeState, prefix, pathDelimiters.data(), pathDelimiterCount); true == maybeNextPathComponent.has_value(); maybeNextPathComponent = Strings::TokenizeString<CharType>(tokenizeState, prefix, pathDelimiters.data(), pathDelimiterCount))
+            for (std::basic_string_view<CharType> pathComponent : Strings::Tokenizer(prefix, pathDelimiters.data(), pathDelimiterCount))
             {
-                if (0 == maybeNextPathComponent.value().length())
+                if (0 == pathComponent.length())
                     continue;
 
-                const Node* nextPathChildNode = currentNode->FindChild(maybeNextPathComponent.value());
+                const Node* nextPathChildNode = currentNode->FindChild(pathComponent);
                 if (nullptr == nextPathChildNode)
                     return nullptr;
 

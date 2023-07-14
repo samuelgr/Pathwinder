@@ -16,6 +16,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <sal.h>
 #include <string_view>
@@ -237,6 +238,7 @@ namespace Pathwinder
 
         /// Case-insensitive hasher for various kinds of string representations.
         /// This is a type-transparent hasher for all string representations that are implicitly convertable to string views.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
         template <typename CharType> struct CaseInsensitiveHasher
         {
             using is_transparent = void;
@@ -249,6 +251,7 @@ namespace Pathwinder
 
         /// Case-insensitive equality comparator for various kinds of string representations.
         /// This is a type-transparent comparator for all string representations that are implicitly convertable to string views.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
         template <typename CharType> struct CaseInsensitiveEqualityComparator
         {
             using is_transparent = void;
@@ -256,6 +259,131 @@ namespace Pathwinder
             constexpr inline bool operator()(const std::basic_string_view<CharType>& lhs, const std::basic_string_view<CharType>& rhs) const
             {
                 return EqualsCaseInsensitive(lhs, rhs);
+            }
+        };
+
+
+        /// Captures the state of a tokenization operation and exposes it via an iterator interface.
+        /// Intended to be constructed directly within a range-based loop to provide simple iteration over all the tokens in a string.
+        template <typename CharType> class Tokenizer
+        {
+        public:
+            // -------- TYPE DEFINITIONS ----------------------------------- //
+
+            /// Iterator type used to hold the complete state of a tokenization operator.
+            /// Implements the minimum functionality needed for single-step forward iteration through the tokens of a string.
+            class Iterator
+            {
+            public:
+                // -------- CONSTANTS -------------------------------------- //
+
+                /// Iterator state indicator to be used by all one-past-the-end iterators.
+                static constexpr size_t kTokenizeStateEnd = std::numeric_limits<size_t>::max();
+
+
+            private:
+                // -------- INSTANCE VARIABLES ----------------------------- //
+
+                /// Read-only reference to the tokenizer object itself.
+                const Tokenizer& tokenizer;
+
+                /// Current internal state of the tokenization operation.
+                size_t tokenizeState;
+
+                /// Last token that was successfully tokenized.
+                std::optional<std::basic_string_view<CharType>> token;
+
+            public:
+                // -------- CONSTRUCTION AND DESTRUCTION ------------------- //
+
+                /// Initialization constructor.
+                /// Requires a tokenizer reference. Optionally accepts a tokenization state and an initial token.
+                constexpr inline Iterator(const Tokenizer& tokenizer, size_t tokenizeState = 0, std::optional<std::basic_string_view<CharType>> token = std::nullopt) : tokenizer(tokenizer), tokenizeState(tokenizeState), token(token)
+                {
+                    // Nothing to do here.
+                }
+
+
+                // -------- CONSTRUCTION AND DESTRUCTION ------------------- //
+
+                /// Dereferencing operator.
+                /// Provides direct access to the token itself. This is safe because an iterator will either be past-the-end or have a valid token.
+                constexpr inline const std::basic_string_view<CharType>& operator*(void) const
+                {
+                    return token.value();
+                }
+
+                /// Post-increment operator.
+                /// Advances to the next token.
+                constexpr inline Iterator& operator++(void)
+                {
+                    if (nullptr != tokenizer.multiDelimiters)
+                        token = TokenizeString(tokenizeState, tokenizer.stringToTokenize, tokenizer.multiDelimiters, tokenizer.numDelimiters);
+                    else
+                        token = TokenizeString(tokenizeState, tokenizer.stringToTokenize, tokenizer.delimiter);
+
+                    if (false == token.has_value())
+                        tokenizeState = kTokenizeStateEnd;
+
+                    return *this;
+                }
+
+                /// Equality comparison operator.
+                /// In debug builds this will check that the two iterators refer to the same tokenization operation.
+                constexpr inline bool operator==(const Iterator& other) const
+                {
+                    DebugAssert(&tokenizer == &(other.tokenizer), "Iterators refer to different tokenization operations.");
+                    return ((tokenizeState == other.tokenizeState) && (token == other.token));
+                }
+            };
+
+
+            // -------- INSTANCE VARIABLES --------------------------------- //
+
+            /// String to be tokenized.
+            const std::basic_string_view<CharType> stringToTokenize;
+
+            /// Single delimiter to be used for tokenization.
+            /// To be filled if this object is constructed with a single delimiter.
+            const std::basic_string_view<CharType> delimiter;
+
+            /// Pointer to an array of multiple delimiters to be used for tokenization.
+            /// To be filled if this object is constructed with multiple delimiters.
+            const std::basic_string_view<CharType>* const multiDelimiters;
+
+            /// Number of delimiters.
+            const unsigned int numDelimiters;
+
+
+            // -------- CONSTRUCTION AND DESTRUCTION ----------------------- //
+
+            /// Initialization constructor.
+            /// Requires a string to tokenize and a single delimiter.
+            constexpr Tokenizer(std::basic_string_view<CharType> stringToTokenize, std::basic_string_view<CharType> delimiter) : stringToTokenize(stringToTokenize), delimiter(delimiter), multiDelimiters(nullptr), numDelimiters(1)
+            {
+                // Nothing to do here.
+            }
+
+            /// Initialization constructor.
+            /// Requires a string to tokenize and multiple delimiters.
+            constexpr Tokenizer(std::basic_string_view<CharType> stringToTokenize, const std::basic_string_view<CharType>* delimiters, unsigned int numDelimiters) : stringToTokenize(stringToTokenize), delimiter(), multiDelimiters(delimiters), numDelimiters(numDelimiters)
+            {
+                // Nothing to do here.
+            }
+
+
+            // -------- ITERATORS ------------------------------------------ //
+            
+            /// Beginning iterator.
+            Iterator begin(void) const
+            {
+                return ++Iterator(*this);
+            }
+
+            /// One-past-the-end iterator.
+            Iterator end(void) const
+            {
+                return Iterator(*this, Iterator::kTokenizeStateEnd);
             }
         };
     }

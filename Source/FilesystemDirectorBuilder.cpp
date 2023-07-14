@@ -122,13 +122,12 @@ namespace Pathwinder
             return false;
 
         // From this point the candidate directory is separated into individual path components using backslash as a delimiter, and each such component is checked individually.
-        size_t tokenizeState = 0;
-        for (std::optional<std::wstring_view> maybeNextPathComponent = Strings::TokenizeString<wchar_t>(tokenizeState, candidateDirectory, L"\\"); true == maybeNextPathComponent.has_value(); maybeNextPathComponent = Strings::TokenizeString<wchar_t>(tokenizeState, candidateDirectory, L"\\"))
+        for (std::wstring_view pathComponent : Strings::Tokenizer<wchar_t>(candidateDirectory, L"\\"))
         {
-            if (true == maybeNextPathComponent.value().empty())
+            if (true == pathComponent.empty())
                 continue;
 
-            for (wchar_t pathComponentChar : maybeNextPathComponent.value())
+            for (wchar_t pathComponentChar : pathComponent)
             {
                 if ((0 == std::iswprint(pathComponentChar)) || (kDisallowedCharacters.contains(pathComponentChar)))
                     return false;
@@ -136,7 +135,7 @@ namespace Pathwinder
 
             for (wchar_t disallowedEntireComponentChar : kDisallowedCharactersForEntirePathComponent)
             {
-                if (std::wstring_view::npos == maybeNextPathComponent.value().find_first_not_of(disallowedEntireComponentChar))
+                if (std::wstring_view::npos == pathComponent.find_first_not_of(disallowedEntireComponentChar))
                     return false;
             }
         }
