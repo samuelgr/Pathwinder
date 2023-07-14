@@ -126,16 +126,10 @@ namespace Pathwinder
         /// @return Pointer to the rule object that should be used to process the redirection, or `nullptr` if no redirection should occur at all.
         const FilesystemRule* SelectRuleForRedirectionQuery(std::wstring_view absolutePath) const;
 
-        /// Redirects a directory enumeration operation by selecting an appropriate rule and then using it to change the directory path.
-        /// The directory path must already be fully resolved and with no trailing backslash characters, ready for data structure query. A Windows namespace prefix is optional.
-        /// This operation is useful for filesystem functions that operate on an entire directory, particularly those that enumerate its contents.
-        /// @param [in] absoluteDirectoryPath Absolute path for the directory being enumerated.
-        std::optional<TemporaryString> RedirectDirectoryEnumeration(std::wstring_view absoluteDirectoryPath) const;
-
-        /// Redirects a single file by selecting an appropriate rule and then using it to change the file's full path.
-        /// This operation is useful for those filesystem functions that directly operate on a single absolute path.
-        /// @param [in] filePath Path of the file being queried for possible redirection. Typically supplied by an application and need not be absolute. Must be null-terminated.
+        /// Redirects a file operation, such as opening, creating, or querying information about an individual file.
+        /// The file path must already be fully resolved, ready for data structure query. A Windows namespace prefix is optional.
+        /// @param [in] absoluteFilePath Path of the file being queried for possible redirection. Typically supplied by an application and need not be absolute.
         /// @return String containing the full path of the result of the redirection, if a redirection occurred.
-        std::optional<TemporaryString> RedirectSingleFile(std::wstring_view filePath) const;
+        std::optional<TemporaryString> RedirectFileOperation(std::wstring_view absoluteFilePath) const;
     };
 }

@@ -174,38 +174,11 @@ namespace Pathwinder
         }
     }
 
-    /// Attempts to redirect an entire directory enumeration operation whereby the directory is identified by an open directory handle/
-    /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
-    /// @param [in] openDirectoryHandle Handle, which identifies the directory being enumerated, received as part of the enumeration request.
-    /// @return Handle to an open directory that should be sent to the system call for enumeration. For now this is the same as the handle that is passed as input.
-    static HANDLE RedirectDirectoryEnumerationByHandle(const wchar_t* functionName, HANDLE openDirectoryHandle)
-    {
-        auto maybeDirectoryPath = SingletonOpenHandleCache().GetPathForHandle(openDirectoryHandle);
-        if (false == maybeDirectoryPath.has_value())
-        {
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s: Invoked with handle %llu which is not cached.", functionName, static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(openDirectoryHandle)));
-            // TODO: return something useful
-            return openDirectoryHandle;
-        }
-
-        auto maybeRedirectedDirectoryPath = FilesystemDirector::Singleton().RedirectDirectoryEnumeration(maybeDirectoryPath.value());
-        if (false == maybeRedirectedDirectoryPath.has_value())
-        {
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s: Invoked with handle %llu for directory at path \"%.*s\" which would not be redirected.", functionName, static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(openDirectoryHandle)), static_cast<int>(maybeDirectoryPath.value().length()), maybeDirectoryPath.value().data());
-            // TODO: return something useful
-            return openDirectoryHandle;
-        }
-
-        Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Invoked with handle %llu for directory at path \"%.*s\" which would be redirected to \"%s\".", functionName, static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(openDirectoryHandle)), static_cast<int>(maybeDirectoryPath.value().length()), maybeDirectoryPath.value().data(), maybeRedirectedDirectoryPath.value().AsCString());
-        // TODO: return something useful
-        return openDirectoryHandle;
-    }
-
     /// Redirects an individual filename identified by an object attributes structure.
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
     /// @param [in] inputObjectAttributes Object attributes structure received from the application. Used as input for redirection.
     /// @return New object information structure containing everything required to replace the input object attributes structure when invoking the original system call.
-    static SNtObjectInfo RedirectSingleFileByObjectAttributes(const wchar_t* functionName, const OBJECT_ATTRIBUTES& inputObjectAttributes)
+    static SNtObjectInfo RedirectFileOperationByObjectAttributes(const wchar_t* functionName, const OBJECT_ATTRIBUTES& inputObjectAttributes)
     {
         std::optional<TemporaryString> maybeRedirectedFilename = std::nullopt;
         std::optional<std::wstring_view> maybeRootDirectoryHandlePath = ((nullptr == inputObjectAttributes.RootDirectory) ? std::nullopt : SingletonOpenHandleCache().GetPathForHandle(inputObjectAttributes.RootDirectory));
@@ -219,7 +192,7 @@ namespace Pathwinder
 
             TemporaryString inputFullFilenameForRedirection;
             inputFullFilenameForRedirection << maybeRootDirectoryHandlePath.value() << L'\\' << inputFilename;
-            maybeRedirectedFilename = Pathwinder::FilesystemDirector::Singleton().RedirectSingleFile(inputFullFilenameForRedirection);
+            maybeRedirectedFilename = Pathwinder::FilesystemDirector::Singleton().RedirectFileOperation(inputFullFilenameForRedirection);
         }
         else if (nullptr == inputObjectAttributes.RootDirectory)
         {
@@ -227,7 +200,7 @@ namespace Pathwinder
             // It is sufficient to send the object name directly for redirection.
 
             std::wstring_view inputFullFilenameForRedirection = inputFilename;
-            maybeRedirectedFilename = Pathwinder::FilesystemDirector::Singleton().RedirectSingleFile(inputFullFilenameForRedirection);
+            maybeRedirectedFilename = Pathwinder::FilesystemDirector::Singleton().RedirectFileOperation(inputFullFilenameForRedirection);
         }
         else
         {
@@ -315,7 +288,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(PHANDLE FileHandle, A
     using namespace Pathwinder;
 
 
-    SNtObjectInfo objectInfo = RedirectSingleFileByObjectAttributes(GetFunctionName(), *ObjectAttributes);
+    SNtObjectInfo objectInfo = RedirectFileOperationByObjectAttributes(GetFunctionName(), *ObjectAttributes);
     HANDLE newlyOpenedHandle = nullptr;
 
     NTSTATUS systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, &objectInfo.objectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
@@ -334,7 +307,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(PHANDLE FileHandle, ACC
     using namespace Pathwinder;
 
 
-    SNtObjectInfo objectInfo = RedirectSingleFileByObjectAttributes(GetFunctionName(), *ObjectAttributes);
+    SNtObjectInfo objectInfo = RedirectFileOperationByObjectAttributes(GetFunctionName(), *ObjectAttributes);
     HANDLE newlyOpenedHandle = nullptr;
 
     NTSTATUS systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, &objectInfo.objectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
@@ -353,8 +326,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(HANDLE FileHa
     using namespace Pathwinder;
 
 
-    HANDLE directoryHandleForSystemCall = RedirectDirectoryEnumerationByHandle(GetFunctionName(), FileHandle);
-    return Original(directoryHandleForSystemCall, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
+    return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
 }
 
 // --------
@@ -364,8 +336,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(HANDLE File
     using namespace Pathwinder;
 
 
-    HANDLE directoryHandleForSystemCall = RedirectDirectoryEnumerationByHandle(GetFunctionName(), FileHandle);
-    return Original(directoryHandleForSystemCall, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
+    return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
 }
 
 // --------
@@ -375,7 +346,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(POBJECT_A
     using namespace Pathwinder;
 
 
-    SNtObjectInfo objectInfo = RedirectSingleFileByObjectAttributes(GetFunctionName(), *ObjectAttributes);
+    SNtObjectInfo objectInfo = RedirectFileOperationByObjectAttributes(GetFunctionName(), *ObjectAttributes);
     return Original(&objectInfo.objectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
 }
 
@@ -388,6 +359,6 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(POBJECT_ATTR
     using namespace Pathwinder;
 
 
-    SNtObjectInfo objectInfo = RedirectSingleFileByObjectAttributes(GetFunctionName(), *ObjectAttributes);
+    SNtObjectInfo objectInfo = RedirectFileOperationByObjectAttributes(GetFunctionName(), *ObjectAttributes);
     return Original(&objectInfo.objectAttributes, FileInformation);
 }

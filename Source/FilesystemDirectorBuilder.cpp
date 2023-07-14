@@ -21,6 +21,7 @@
 #include "TemporaryBuffer.h"
 #include "ValueOrError.h"
 
+#include <cwctype>
 #include <map>
 #include <optional>
 #include <set>
@@ -107,20 +108,38 @@ namespace Pathwinder
         // Directory strings cannot contain wildcards but can contain backslashes as separators and colons to identify drives.
         constexpr std::wstring_view kDisallowedCharacters = L"/*?\"<>|";
 
-        // These characters are disallowed as the last character in the directory string.
-        constexpr std::wstring_view kDisallowedAsLastCharacter = L"\\";
+        // These characters cannot make up the entirety of a path component.
+        // For example, adding '.' here prevents ".", "..", "...", "....", and so on from being valid path components.
+        constexpr std::wstring_view kDisallowedCharactersForEntirePathComponent = L".";
 
-        if (true == candidateDirectory.empty())
+        // Valid directory strings must begin with a drive letter and a colon.
+        // The length must therefore be at least two.
+        if ((candidateDirectory.length() < 2) || (0 == std::iswalpha(candidateDirectory[0])) || (L':' != candidateDirectory[1]))
             return false;
 
-        for (wchar_t c : candidateDirectory)
+        // Strings containing two back-to-back backslash characters are not valid directory strings.
+        if (true == candidateDirectory.contains(L"\\\\"))
+            return false;
+
+        // From this point the candidate directory is separated into individual path components using backslash as a delimiter, and each such component is checked individually.
+        size_t tokenizeState = 0;
+        for (std::optional<std::wstring_view> maybeNextPathComponent = Strings::TokenizeString<wchar_t>(tokenizeState, candidateDirectory, L"\\"); true == maybeNextPathComponent.has_value(); maybeNextPathComponent = Strings::TokenizeString<wchar_t>(tokenizeState, candidateDirectory, L"\\"))
         {
-            if ((0 == iswprint(c)) || (kDisallowedCharacters.contains(c)))
-                return false;
-        }
+            if (true == maybeNextPathComponent.value().empty())
+                continue;
 
-        if (kDisallowedAsLastCharacter.contains(candidateDirectory.back()))
-            return false;
+            for (wchar_t pathComponentChar : maybeNextPathComponent.value())
+            {
+                if ((0 == std::iswprint(pathComponentChar)) || (kDisallowedCharacters.contains(pathComponentChar)))
+                    return false;
+            }
+
+            for (wchar_t disallowedEntireComponentChar : kDisallowedCharactersForEntirePathComponent)
+            {
+                if (std::wstring_view::npos == maybeNextPathComponent.value().find_first_not_of(disallowedEntireComponentChar))
+                    return false;
+            }
+        }
 
         return true;
     }
@@ -164,9 +183,8 @@ namespace Pathwinder
         // For each of the origin and target directories:
         // 1. Resolve any embedded references.
         // 2. Check for any invalid characters.
-        // 3. Transform a possible relative path (possibly including "." and "..") into an absolute path.
-        // 4. Verify that the resulting directory is not already in use as an origin or target directory for another filesystem rule.
-        // 5. Verify that the resulting directory is not a filesystem root (i.e. it has a parent directory).
+        // 3. Verify that the resulting directory is not already in use as an origin or target directory for another filesystem rule.
+        // 4. Verify that the resulting directory is not a filesystem root (i.e. it has a parent directory).
         // If all operations succeed then the filesystem rule object can be created.
 
         Resolver::ResolvedStringOrError maybeOriginDirectoryResolvedString = Resolver::ResolveAllReferences(originDirectory);
@@ -175,8 +193,7 @@ namespace Pathwinder
         if (false == IsValidDirectoryString(maybeOriginDirectoryResolvedString.Value()))
             return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Origin directory: Either empty or contains disallowed characters.", (int)ruleName.length(), ruleName.data());
 
-        TemporaryString originDirectoryFullPath;
-        originDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeOriginDirectoryResolvedString.Value().c_str(), originDirectoryFullPath.Capacity(), originDirectoryFullPath.Data(), nullptr));
+        TemporaryString originDirectoryFullPath = maybeOriginDirectoryResolvedString.Value();
         originDirectoryFullPath.RemoveTrailing(L'\\');
 
         if (false == originDirectoryFullPath.AsStringView().contains(L'\\'))
@@ -194,8 +211,7 @@ namespace Pathwinder
         if (false == IsValidDirectoryString(maybeTargetDirectoryResolvedString.Value()))
             return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Target directory: Either empty or contains disallowed characters.", (int)ruleName.length(), ruleName.data());
 
-        TemporaryString targetDirectoryFullPath;
-        targetDirectoryFullPath.UnsafeSetSize(GetFullPathName(maybeTargetDirectoryResolvedString.Value().c_str(), targetDirectoryFullPath.Capacity(), targetDirectoryFullPath.Data(), nullptr));
+        TemporaryString targetDirectoryFullPath = maybeTargetDirectoryResolvedString.Value();
         targetDirectoryFullPath.RemoveTrailing(L'\\');
 
         if (false == targetDirectoryFullPath.AsStringView().contains(L'\\'))

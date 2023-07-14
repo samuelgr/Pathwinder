@@ -36,9 +36,6 @@ namespace PathwinderTest
             L"C:",
             L"C:\\Directory",
             L"C:\\Program Files (x86)\\Games\\Some Game With A Title",
-            L"\\sharepath\\shared folder$\\another shared folder",
-            L"C:\\Program Files (x86)\\Games\\Some Game With A Title\\..",
-            L"C:\\Program Files (x86)\\Games\\Some Game With A Title\\."
         };
 
         for (const auto& kDirectoryString : kDirectoryStrings)
@@ -50,16 +47,25 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kDirectoryStrings[] = {
             L"",
-            L"D:\\",
             L"C:\\Program Files <x86>\\Games\\Some Game With A Title",
             L"\"C:\\Program Files (x86)\\Games\\Some Game With A Title\"",
-            L"C:\\Program Files (x86)\\Games\\Some Game With A Title\\",
             L"C:\\Program Files*",
             L"C:\\Program Files (???)",
             L"C:\\Program Files\\*",
             L"C:\\Program Files\t(x86)\\Games\\Some Game With A Title",
             L"C:\\Program Files\n(x86)\\Games\\Some Game With A Title",
             L"C:\\Program Files\b(x86)\\Games\\Some Game With A Title",
+            L"C:\\Program Files (x86)\\Games\\Some Game With A Title\\..",
+            L"C:\\Program Files (x86)\\Games\\Some Game With A Title\\.",
+            L"C:\\Somedir\\..\\Somedir",
+            L"C:\\.\\.\\Somedir",
+            L"\\\\sharepath\\shared folder$\\another shared folder",
+            L"AB\\Test",
+            L"AB:\\TestDir\\File.txt",
+            L"1:\\TestDir\\File.txt",
+            L"\\??\\C:",
+            L"\\\\.\\C:\\Directory",
+            L"\\\\?\\C:\\Program Files (x86)\\Games\\Some Game With A Title",
         };
 
         for (const auto& kDirectoryString : kDirectoryStrings)
@@ -160,9 +166,9 @@ namespace PathwinderTest
         FilesystemDirectorBuilder directorBuilder;
 
         ValueOrError<const FilesystemRule*, TemporaryString> addRuleResults[] = {
-            directorBuilder.AddRule(L"1", L"C:\\.", L"D:\\RedirectFromC"),
-            directorBuilder.AddRule(L"2", L"C:\\RedirectToD", L"D:\\."),
-            directorBuilder.AddRule(L"3", L"C:\\.", L"D:\\.")
+            directorBuilder.AddRule(L"1", L"C:\\", L"D:\\RedirectFromC"),
+            directorBuilder.AddRule(L"2", L"C:\\RedirectToD", L"D:\\"),
+            directorBuilder.AddRule(L"3", L"C:\\", L"D:\\")
         };
 
         for (auto& addRuleResult : addRuleResults)
