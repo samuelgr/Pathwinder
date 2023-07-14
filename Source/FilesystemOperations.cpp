@@ -19,6 +19,7 @@
 #include "Strings.h"
 #include "TemporaryBuffer.h"
 
+#include <cwctype>
 #include <limits>
 #include <optional>
 #include <string_view>
@@ -92,7 +93,21 @@ namespace Pathwinder
 
         bool Exists(std::wstring_view absolutePath)
         {
-            const DWORD pathAttributes = GetAttributesForPath(absolutePath);
+            DWORD pathAttributes = 0;
+
+            if ((2 == absolutePath.length()) && (0 != std::iswalpha(absolutePath[0])) && (L':' == absolutePath[1]))
+            {
+                // If the query is for a drive letter itself (for example, "C:") then appending a backslash is necessary.
+                // This is a special case. Ordinarily appending a backslash is not required.
+
+                wchar_t absolutePathWithBackslash[] = { absolutePath[0], absolutePath[1], L'\\' };
+                pathAttributes = GetAttributesForPath(std::wstring_view(absolutePathWithBackslash, _countof(absolutePathWithBackslash)));
+            }
+            else
+            {
+                pathAttributes = GetAttributesForPath(absolutePath);
+            }
+
             return (INVALID_FILE_ATTRIBUTES != pathAttributes);
         }
 
@@ -101,7 +116,21 @@ namespace Pathwinder
         bool IsDirectory(std::wstring_view absolutePath)
         {
             constexpr DWORD kDirectoryAttributeMask = FILE_ATTRIBUTE_DIRECTORY;
-            const DWORD pathAttributes = GetAttributesForPath(absolutePath);
+            DWORD pathAttributes = 0;
+
+            if ((2 == absolutePath.length()) && (0 != std::iswalpha(absolutePath[0])) && (L':' == absolutePath[1]))
+            {
+                // If the query is for a drive letter itself (for example, "C:") then appending a backslash is necessary.
+                // This is a special case. Ordinarily appending a backslash is not required.
+
+                wchar_t absolutePathWithBackslash[] = {absolutePath[0], absolutePath[1], L'\\'};
+                pathAttributes = GetAttributesForPath(std::wstring_view(absolutePathWithBackslash, _countof(absolutePathWithBackslash)));
+            }
+            else
+            {
+                pathAttributes = GetAttributesForPath(absolutePath);
+            }
+            
             return ((INVALID_FILE_ATTRIBUTES != pathAttributes) && (0 != (kDirectoryAttributeMask & pathAttributes)));
         }
     }
