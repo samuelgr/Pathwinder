@@ -12,6 +12,7 @@
 #include "ApiWindows.h"
 #include "DebugAssert.h"
 #include "FilesystemDirector.h"
+#include "FilesystemInstruction.h"
 #include "FilesystemRule.h"
 #include "Message.h"
 #include "PrefixIndex.h"
@@ -52,10 +53,8 @@ namespace Pathwinder
 
     // --------
 
-    std::optional<TemporaryString> FilesystemDirector::RedirectFileOperation(std::wstring_view absoluteFilePath) const
+    FileOperationRedirectInstruction FilesystemDirector::RedirectFileOperation(std::wstring_view absoluteFilePath) const
     {
-        absoluteFilePath = Strings::RemoveTrailing(absoluteFilePath, L'\\');
-
         const std::wstring_view windowsNamespacePrefix = Strings::PathGetWindowsNamespacePrefix(absoluteFilePath);
         const std::wstring_view absoluteFilePathWithoutPrefix = absoluteFilePath.substr(windowsNamespacePrefix.length());
 
@@ -63,7 +62,7 @@ namespace Pathwinder
         if (std::wstring_view::npos == lastSeparatorPos)
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File operation redirection query for path \"%.*s\" does not contain a final path separator and was therefore skipped for redirection.", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data());
-            return std::nullopt;
+            return FileOperationRedirectInstruction::DoNotRedirectFrom(absoluteFilePath);
         }
 
         const std::wstring_view directoryPart = absoluteFilePathWithoutPrefix.substr(0, lastSeparatorPos);
@@ -73,17 +72,19 @@ namespace Pathwinder
         if (nullptr == selectedRule)
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File operation redirection query for path \"%.*s\" did not match any rules.", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data());
-            return std::nullopt;
+            return FileOperationRedirectInstruction::DoNotRedirectFrom(absoluteFilePath);
         }
 
         std::optional<TemporaryString> maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(directoryPart, filePart, windowsNamespacePrefix);;
         if (false == maybeRedirectedFilePath.has_value())
         {
             Message::OutputFormatted(Message::ESeverity::Error, L"File operation redirection query for path \"%.*s\" matched rule \"%s\" but failed due to an internal error while synthesizing the redirect result.", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data());
-            return std::nullopt;
+            return FileOperationRedirectInstruction::DoNotRedirectFrom(absoluteFilePath);
         }
 
         Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File operation redirection query for path \"%.*s\" matched rule \"%s\", and was redirected to \"%s\".", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());
-        return std::move(maybeRedirectedFilePath.value());
+
+        std::wstring_view redirectedFilePath = maybeRedirectedFilePath.value().AsStringView();
+        return FileOperationRedirectInstruction::RedirectAndTryInOrder({redirectedFilePath}, *selectedRule, std::move(maybeRedirectedFilePath.value()));
     }
 }

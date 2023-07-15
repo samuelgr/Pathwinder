@@ -15,6 +15,7 @@
 #include "DebugAssert.h"
 
 #include <Hookshot/DynamicHook.h>
+
 #include <type_traits>
 #include <winternl.h>
 

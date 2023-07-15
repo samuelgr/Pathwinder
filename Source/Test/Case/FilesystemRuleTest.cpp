@@ -155,22 +155,6 @@ namespace PathwinderTest
         }
     }
 
-    // Verifies that paths are successfully redirected in the nominal case of straightforward absolute paths but with no file part present.
-    // Ensures correctly-formatted strings are produced with no trailing backslashes.
-    TEST_CASE(FilesystemRule_RedirectPath_EmptyFilePart)
-    {
-        constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
-        constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
-        constexpr std::wstring_view kTestFile = L"";
-
-        const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
-
-        constexpr std::wstring_view expectedOutputPath = kTargetDirectory;
-        std::optional<TemporaryString> actualOutputPath = filesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data());
-        TEST_ASSERT(true == actualOutputPath.has_value());
-        TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
-    }
-
     // Verifies that paths are successfully redirected when the input path is a descendent of the origin directory.
     // Only the matching prefix part should be replaced with the target directory.
     TEST_CASE(FilesystemRule_RedirectPath_WithSubdirectoryHierarchy)

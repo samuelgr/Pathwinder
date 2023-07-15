@@ -15,6 +15,7 @@
 #include "ApiWindows.h"
 #include "DebugAssert.h"
 #include "FilesystemDirector.h"
+#include "FilesystemInstruction.h"
 #include "Globals.h"
 #include "Hooks.h"
 #include "Message.h"
@@ -23,6 +24,8 @@
 #include "TemporaryBuffer.h"
 
 #include <Hookshot/DynamicHook.h>
+
+#include <atomic>
 #include <cstdint>
 #include <limits>
 #include <mutex>
@@ -104,38 +107,12 @@ namespace Pathwinder
         }
     };
 
-    /// Holds all of the information needed to represent a full set of object attributes, as needed by the Nt family of system calls.
-    /// This structure places particular emphasis on owning the file name buffer so that it can easily be manipulated.
-    struct SNtObjectInfo
-    {
-        bool wasRedirected;                                                 ///< Indicates whether the object information represents a path that was redirected (if `true`) or is just a copy of the original without a redirection (if `false`).
-        TemporaryString objectNameBuffer;                                   ///< Buffer for holding the object name.
-        UNICODE_STRING objectName;                                          ///< View structure for representing a Unicode string in the Nt family of system calls.
-        OBJECT_ATTRIBUTES objectAttributes;                                 ///< Top-level object attributes structure.
 
-        /// Initialization constructor.
-        /// Requires an existing object attributes structure.
-        inline SNtObjectInfo(bool wasRedirected, const OBJECT_ATTRIBUTES& existingObjectAttributes) : wasRedirected(wasRedirected), objectNameBuffer(Strings::NtConvertUnicodeStringToStringView(*(existingObjectAttributes.ObjectName))), objectName(), objectAttributes(existingObjectAttributes)
-        {
-            objectAttributes.ObjectName = &objectName;
-            objectName = objectName = Strings::NtConvertStringViewToUnicodeString(objectNameBuffer.AsStringView());
-        }
+    // -------- INTERNAL VARIABLES ----------------------------------------- //
 
-        /// Initialization constructor.
-        /// Requires an existing object attributes structure and a consumable object name.
-        inline SNtObjectInfo(bool wasRedirected, const OBJECT_ATTRIBUTES& existingObjectAttributes, TemporaryString&& replacementObjectNameLowercase) : wasRedirected(wasRedirected), objectNameBuffer(std::move(replacementObjectNameLowercase)), objectName(), objectAttributes(existingObjectAttributes)
-        {
-            objectAttributes.ObjectName = &objectName;
-            objectName = Strings::NtConvertStringViewToUnicodeString(objectNameBuffer.AsStringView());
-        }
-
-        /// Move constructor.
-        inline SNtObjectInfo(SNtObjectInfo&& other) : wasRedirected(std::move(other.wasRedirected)), objectNameBuffer(std::move(other.objectNameBuffer)), objectName(), objectAttributes(std::move(other.objectAttributes))
-        {
-            objectAttributes.ObjectName = &objectName;
-            objectName = Strings::NtConvertStringViewToUnicodeString(objectNameBuffer.AsStringView());
-        }
-    };
+    /// Holds an atomic counter for hook function requests that increments with each invocation.
+    /// Used exclusively for logging.
+    static std::atomic<unsigned int> nextRequestIdentifier;
 
 
     // -------- INTERNAL FUNCTIONS ----------------------------------------- //
@@ -151,34 +128,38 @@ namespace Pathwinder
     /// Conditionally inserts a newly-opened handle into the open handle cache.
     /// Not all newly-opened handles are "interesting" and need to be cached.
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
     /// @param [in] newlyOpenedHandle Handle to add to the cache.
+    /// @param [in] associatedPath Path associated with the newly opened handle being added to cache.
+    /// @param [in] wasRedirected Whether or not the handle was opened after a file operation redirection took place.
     /// @param [in] objectInfo Object information structure that describes how the request was presented to the underlying system call, including the path of the file.
-    static void InsertNewlyOpenedHandleIntoCache(const wchar_t* functionName, HANDLE newlyOpenedHandle, const SNtObjectInfo& objectInfo)
+    static void InsertNewlyOpenedHandleIntoCache(const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE newlyOpenedHandle, std::wstring_view associatedPath, bool wasRedirected)
     {
-        std::wstring_view pathForSystemCall = Strings::RemoveTrailing(Strings::NtConvertUnicodeStringToStringView(objectInfo.objectName), L'\\');
-        if (true == objectInfo.wasRedirected)
+        std::wstring_view associatedPathTrimmed = Strings::RemoveTrailing(associatedPath, L'\\');
+        if (true == wasRedirected)
         {
             // If a new handle was opened for a path that has been redirected, it is possible that the handle represents a directory that could be passed as a parameter to one of the directory enumeration system call functions.
             // For this reason, it will be cached in the handle cache. Unconditionally caching is most likely less expensive than checking with the filesystem directly, so this is the approach that will be taken.
 
-            Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu is being cached for redirected path \"%.*s\".", functionName, static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(newlyOpenedHandle)), static_cast<int>(pathForSystemCall.length()), pathForSystemCall.data());
-            SingletonOpenHandleCache().InsertHandle(newlyOpenedHandle, pathForSystemCall);
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu is being cached for redirected path \"%.*s\".", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(newlyOpenedHandle), static_cast<int>(associatedPathTrimmed.length()), associatedPathTrimmed.data());
+            SingletonOpenHandleCache().InsertHandle(newlyOpenedHandle, associatedPathTrimmed);
         }
-        else if ((false == objectInfo.wasRedirected) && (true == FilesystemDirector::Singleton().IsPrefixForAnyRule(pathForSystemCall)))
+        else if ((false == wasRedirected) && (true == FilesystemDirector::Singleton().IsPrefixForAnyRule(associatedPathTrimmed)))
         {
             // If a new handle was opened for a directory path that was not redirected, but exists in the hierarchy towards filesystem rules that could result in redirection, the handle needs to be cached along with the path.
             // In a future call this handle could be specified as the `RootDirectory` handle in an `OBJECT_ATTRIBUTES` structure, which means the resulting combined path might need to be redirected.
 
-            Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu is being cached for non-redirected path \"%.*s\".", functionName, static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(newlyOpenedHandle)), static_cast<int>(pathForSystemCall.length()), pathForSystemCall.data());
-            SingletonOpenHandleCache().InsertHandle(newlyOpenedHandle, pathForSystemCall);
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu is being cached for non-redirected path \"%.*s\".", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(newlyOpenedHandle), static_cast<int>(associatedPathTrimmed.length()), associatedPathTrimmed.data());
+            SingletonOpenHandleCache().InsertHandle(newlyOpenedHandle, associatedPathTrimmed);
         }
     }
 
     /// Redirects an individual filename identified by an object attributes structure.
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
     /// @param [in] inputObjectAttributes Object attributes structure received from the application. Used as input for redirection.
     /// @return New object information structure containing everything required to replace the input object attributes structure when invoking the original system call.
-    static SNtObjectInfo RedirectFileOperationByObjectAttributes(const wchar_t* functionName, const OBJECT_ATTRIBUTES& inputObjectAttributes)
+    static std::optional<FileOperationRedirectInstruction> RedirectFileOperationByObjectAttributes(const wchar_t* functionName, unsigned int functionRequestIdentifier, const OBJECT_ATTRIBUTES& inputObjectAttributes)
     {
         std::optional<TemporaryString> maybeRedirectedFilename = std::nullopt;
         std::optional<std::wstring_view> maybeRootDirectoryHandlePath = ((nullptr == inputObjectAttributes.RootDirectory) ? std::nullopt : SingletonOpenHandleCache().GetPathForHandle(inputObjectAttributes.RootDirectory));
@@ -190,17 +171,30 @@ namespace Pathwinder
             // Input object attributes structure specifies an open directory handle as the root directory and the handle was found in the cache.
             // Before querying for redirection it is necessary to assemble the full filename, including the root directory path.
 
-            TemporaryString inputFullFilenameForRedirection;
-            inputFullFilenameForRedirection << maybeRootDirectoryHandlePath.value() << L'\\' << inputFilename;
-            maybeRedirectedFilename = Pathwinder::FilesystemDirector::Singleton().RedirectFileOperation(inputFullFilenameForRedirection);
+            TemporaryString inputFullFilename;
+            inputFullFilename << maybeRootDirectoryHandlePath.value() << L'\\' << inputFilename;
+
+            FileOperationRedirectInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().RedirectFileOperation(inputFullFilename);
+            if (true == redirectionInstruction.IsFilesystemOperationRedirected())
+                Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined and redirected via rule \"%.*s\".", functionName, functionRequestIdentifier, static_cast<int>(maybeRootDirectoryHandlePath.value().length()), maybeRootDirectoryHandlePath.value().data(), reinterpret_cast<size_t>(inputObjectAttributes.RootDirectory), static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectionInstruction.GetFilesystemRule().GetName().length()), redirectionInstruction.GetFilesystemRule().GetName().data());
+            else
+                Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined but not redirected.", functionName, functionRequestIdentifier, static_cast<int>(maybeRootDirectoryHandlePath.value().length()), maybeRootDirectoryHandlePath.value().data(), reinterpret_cast<size_t>(inputObjectAttributes.RootDirectory), static_cast<int>(inputFilename.length()), inputFilename.data());
+
+            return redirectionInstruction;
         }
         else if (nullptr == inputObjectAttributes.RootDirectory)
         {
             // Input object attributes structure does not specify an open directory handle as the root directory.
             // It is sufficient to send the object name directly for redirection.
 
-            std::wstring_view inputFullFilenameForRedirection = inputFilename;
-            maybeRedirectedFilename = Pathwinder::FilesystemDirector::Singleton().RedirectFileOperation(inputFullFilenameForRedirection);
+            FileOperationRedirectInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().RedirectFileOperation(inputFilename);
+
+            if (true == redirectionInstruction.IsFilesystemOperationRedirected())
+                Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with path \"%.*s\" which was redirected via rule \"%.*s\".", functionName, functionRequestIdentifier, static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectionInstruction.GetFilesystemRule().GetName().length()), redirectionInstruction.GetFilesystemRule().GetName().data());
+            else
+                Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with path \"%.*s\" which was not redirected.", functionName, functionRequestIdentifier, static_cast<int>(inputFilename.length()), inputFilename.data());
+
+            return redirectionInstruction;
         }
         else
         {
@@ -208,53 +202,8 @@ namespace Pathwinder
             // When the root directory handle was originally opened it was determined that there is no possible match with a filesystem rule.
             // Therefore, it is not necessary to attempt redirection.
 
-            maybeRedirectedFilename = std::nullopt;
-        }
-
-        if (true == maybeRedirectedFilename.has_value())
-        {
-            std::wstring_view redirectedFilename = maybeRedirectedFilename.value().AsStringView();
-
-            if (true == maybeRootDirectoryHandlePath.has_value())
-            {
-                // A relative root directory was present in the original input object attributes structure, but the complete pathname has been redirected.
-                // The redirected pathname is absolute, and the process of redirection invalidates the root directory handle.
-
-                Message::OutputFormatted(Message::ESeverity::Info, L"%s: Invoked with root directory path \"%.*s\" (via handle %llu) and relative path \"%.*s\" which were combined and redirected to \"%.*s\".", functionName, static_cast<int>(maybeRootDirectoryHandlePath.value().length()), maybeRootDirectoryHandlePath.value().data(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(inputObjectAttributes.RootDirectory)), static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectedFilename.length()), redirectedFilename.data());
-
-                if (false == Globals::GetConfigurationData().isDryRunMode)
-                {
-                    SNtObjectInfo redirectedObjectInfo(true, inputObjectAttributes, std::move(maybeRedirectedFilename.value()));
-                    redirectedObjectInfo.objectAttributes.RootDirectory = nullptr;
-
-                    return redirectedObjectInfo;
-                }
-                else
-                {
-                    return SNtObjectInfo(true, inputObjectAttributes);
-                }
-            }
-            else
-            {
-                // A relative root directory was not in the original input object attributes structure and a path redirection took place.
-                // This is the simplest case. All that needs to happen is a new object attributes structure be created with its object name set to the redirected path.
-
-                Message::OutputFormatted(Message::ESeverity::Info, L"%s: Invoked with path \"%.*s\" which was redirected to \"%.*s\".", functionName, static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectedFilename.length()), redirectedFilename.data());
-
-                if (false == Globals::GetConfigurationData().isDryRunMode)
-                    return SNtObjectInfo(true, inputObjectAttributes, std::move(maybeRedirectedFilename.value()));
-                else
-                    return SNtObjectInfo(true, inputObjectAttributes);
-            }
-        }
-        else
-        {
-            // No redirection took place.
-            // If a root directory handle was present in the input object attributes structure, it was not found in cache and therefore redirection was skipped.
-            // Otherwise, the complete input object name was queried for redirection, but a matching filesystem rule was not found.
-
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s: Invoked with path \"%.*s\" which was not redirected.", functionName, static_cast<int>(inputFilename.length()), inputFilename.data());
-            return SNtObjectInfo(false, inputObjectAttributes);
+            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): Invoked with root directory handle %zu and relative path \"%.*s\" for which no redirection was attempted.", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(inputObjectAttributes.RootDirectory), static_cast<int>(inputFilename.length()), inputFilename.data());
+            return std::nullopt;
         }
     }
 }
@@ -272,11 +221,13 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtClose::Hook(HANDLE Handle)
     if (false == maybeClosedHandlePath.has_value())
         return Original(Handle);
 
+    const unsigned int requestIdentifier = nextRequestIdentifier++;
+
     std::wstring closedHandlePath;
     NTSTATUS closeHandleResult = SingletonOpenHandleCache().RemoveAndCloseHandle(Handle, &closedHandlePath);
 
     if (NT_SUCCESS(closeHandleResult))
-        Message::OutputFormatted(Message::ESeverity::Debug, L"%s: Handle %llu for path \"%s\" was closed and removed from the cache.", GetFunctionName(), static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(Handle)), closedHandlePath.c_str());
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %llu for path \"%s\" was closed and removed from the cache.", GetFunctionName(), requestIdentifier, static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(Handle)), closedHandlePath.c_str());
 
     return closeHandleResult;
 }
@@ -288,13 +239,39 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(PHANDLE FileHandle, A
     using namespace Pathwinder;
 
 
-    SNtObjectInfo objectInfo = RedirectFileOperationByObjectAttributes(GetFunctionName(), *ObjectAttributes);
+    const unsigned int requestIdentifier = nextRequestIdentifier++;
+
+    std::optional<FileOperationRedirectInstruction> maybeRedirectionInstruction = RedirectFileOperationByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    if (false == maybeRedirectionInstruction.has_value())
+        return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
+
+    if (true == Globals::GetConfigurationData().isDryRunMode)
+    {
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Continuing with unmodified original path because dry run mode is enabled.", GetFunctionName(), requestIdentifier);
+        return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
+    }
+
+    FileOperationRedirectInstruction& redirectionInstruction = maybeRedirectionInstruction.value();
     HANDLE newlyOpenedHandle = nullptr;
+    NTSTATUS systemCallResult = 0;
 
-    NTSTATUS systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, &objectInfo.objectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
+    for (std::wstring_view absolutePathToTry : redirectionInstruction.AbsolutePathsToTry())
+    {
+        UNICODE_STRING absolutePathToTryUnicodeString = Strings::NtConvertStringViewToUnicodeString(absolutePathToTry);
+        
+        OBJECT_ATTRIBUTES objectAttributesToTry = *ObjectAttributes;
+        objectAttributesToTry.RootDirectory = nullptr;
+        objectAttributesToTry.ObjectName = &absolutePathToTryUnicodeString;
 
-    if (NT_SUCCESS(systemCallResult))
-        InsertNewlyOpenedHandleIntoCache(GetFunctionName(), newlyOpenedHandle, objectInfo);
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Trying path \"%.*s\".", GetFunctionName(), requestIdentifier, static_cast<int>(absolutePathToTry.length()), absolutePathToTry.data());
+        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, &objectAttributesToTry, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
+
+        if (NT_SUCCESS(systemCallResult))
+        {
+            InsertNewlyOpenedHandleIntoCache(GetFunctionName(), requestIdentifier, newlyOpenedHandle, absolutePathToTry, redirectionInstruction.IsFilesystemOperationRedirected());
+            break;
+        }
+    }
 
     *FileHandle = newlyOpenedHandle;
     return systemCallResult;
@@ -307,13 +284,39 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(PHANDLE FileHandle, ACC
     using namespace Pathwinder;
 
 
-    SNtObjectInfo objectInfo = RedirectFileOperationByObjectAttributes(GetFunctionName(), *ObjectAttributes);
+    const unsigned int requestIdentifier = nextRequestIdentifier++;
+
+    std::optional<FileOperationRedirectInstruction> maybeRedirectionInstruction = RedirectFileOperationByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    if (false == maybeRedirectionInstruction.has_value())
+        return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
+
+    if (true == Globals::GetConfigurationData().isDryRunMode)
+    {
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Continuing with unmodified original path because dry run mode is enabled.", GetFunctionName(), requestIdentifier);
+        return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
+    }
+
+    FileOperationRedirectInstruction& redirectionInstruction = maybeRedirectionInstruction.value();
     HANDLE newlyOpenedHandle = nullptr;
+    NTSTATUS systemCallResult = 0;
 
-    NTSTATUS systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, &objectInfo.objectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
+    for (std::wstring_view absolutePathToTry : redirectionInstruction.AbsolutePathsToTry())
+    {
+        UNICODE_STRING absolutePathToTryUnicodeString = Strings::NtConvertStringViewToUnicodeString(absolutePathToTry);
+        
+        OBJECT_ATTRIBUTES objectAttributesToTry = *ObjectAttributes;
+        objectAttributesToTry.RootDirectory = nullptr;
+        objectAttributesToTry.ObjectName = &absolutePathToTryUnicodeString;
 
-    if (NT_SUCCESS(systemCallResult))
-        InsertNewlyOpenedHandleIntoCache(GetFunctionName(), newlyOpenedHandle, objectInfo);
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Trying path \"%.*s\".", GetFunctionName(), requestIdentifier, static_cast<int>(absolutePathToTry.length()), absolutePathToTry.data());
+        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, &objectAttributesToTry, IoStatusBlock, ShareAccess, OpenOptions);
+
+        if (NT_SUCCESS(systemCallResult))
+        {
+            InsertNewlyOpenedHandleIntoCache(GetFunctionName(), requestIdentifier, newlyOpenedHandle, absolutePathToTry, redirectionInstruction.IsFilesystemOperationRedirected());
+            break;
+        }
+    }
 
     *FileHandle = newlyOpenedHandle;
     return systemCallResult;
@@ -326,6 +329,8 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(HANDLE FileHa
     using namespace Pathwinder;
 
 
+    const unsigned int requestIdentifier = nextRequestIdentifier++;
+
     return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
 }
 
@@ -335,6 +340,8 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(HANDLE File
 {
     using namespace Pathwinder;
 
+
+    const unsigned int requestIdentifier = nextRequestIdentifier++;
 
     return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
 }
@@ -346,8 +353,37 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(POBJECT_A
     using namespace Pathwinder;
 
 
-    SNtObjectInfo objectInfo = RedirectFileOperationByObjectAttributes(GetFunctionName(), *ObjectAttributes);
-    return Original(&objectInfo.objectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
+    const unsigned int requestIdentifier = nextRequestIdentifier++;
+
+    std::optional<FileOperationRedirectInstruction> maybeRedirectionInstruction = RedirectFileOperationByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    if (false == maybeRedirectionInstruction.has_value())
+        return Original(ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
+
+    if (true == Globals::GetConfigurationData().isDryRunMode)
+    {
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Continuing with unmodified original path because dry run mode is enabled.", GetFunctionName(), requestIdentifier);
+        return Original(ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
+    }
+
+    FileOperationRedirectInstruction& redirectionInstruction = maybeRedirectionInstruction.value();
+    NTSTATUS systemCallResult = 0;
+
+    for (std::wstring_view absolutePathToTry : redirectionInstruction.AbsolutePathsToTry())
+    {
+        UNICODE_STRING absolutePathToTryUnicodeString = Strings::NtConvertStringViewToUnicodeString(absolutePathToTry);
+
+        OBJECT_ATTRIBUTES objectAttributesToTry = *ObjectAttributes;
+        objectAttributesToTry.RootDirectory = nullptr;
+        objectAttributesToTry.ObjectName = &absolutePathToTryUnicodeString;
+
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Trying path \"%.*s\".", GetFunctionName(), requestIdentifier, static_cast<int>(absolutePathToTry.length()), absolutePathToTry.data());
+        systemCallResult = Original(&objectAttributesToTry, IoStatusBlock, FileInformation, Length, FileInformationClass);
+
+        if (NT_SUCCESS(systemCallResult))
+            break;
+    }
+
+    return systemCallResult;
 }
 
 
@@ -359,6 +395,35 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(POBJECT_ATTR
     using namespace Pathwinder;
 
 
-    SNtObjectInfo objectInfo = RedirectFileOperationByObjectAttributes(GetFunctionName(), *ObjectAttributes);
-    return Original(&objectInfo.objectAttributes, FileInformation);
+    const unsigned int requestIdentifier = nextRequestIdentifier++;
+
+    std::optional<FileOperationRedirectInstruction> maybeRedirectionInstruction = RedirectFileOperationByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    if (false == maybeRedirectionInstruction.has_value())
+        return Original(ObjectAttributes, FileInformation);
+
+    if (true == Globals::GetConfigurationData().isDryRunMode)
+    {
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Continuing with unmodified original path because dry run mode is enabled.", GetFunctionName(), requestIdentifier);
+        return Original(ObjectAttributes, FileInformation);
+    }
+
+    FileOperationRedirectInstruction& redirectionInstruction = maybeRedirectionInstruction.value();
+    NTSTATUS systemCallResult = 0;
+
+    for (std::wstring_view absolutePathToTry : redirectionInstruction.AbsolutePathsToTry())
+    {
+        UNICODE_STRING absolutePathToTryUnicodeString = Strings::NtConvertStringViewToUnicodeString(absolutePathToTry);
+
+        OBJECT_ATTRIBUTES objectAttributesToTry = *ObjectAttributes;
+        objectAttributesToTry.RootDirectory = nullptr;
+        objectAttributesToTry.ObjectName = &absolutePathToTryUnicodeString;
+
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Trying path \"%.*s\".", GetFunctionName(), requestIdentifier, static_cast<int>(absolutePathToTry.length()), absolutePathToTry.data());
+        systemCallResult = Original(&objectAttributesToTry, FileInformation);
+
+        if (NT_SUCCESS(systemCallResult))
+            break;
+    }
+
+    return systemCallResult;
 }

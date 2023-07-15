@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include "FilesystemInstruction.h"
 #include "FilesystemRule.h"
 #include "PrefixIndex.h"
 #include "Strings.h"
@@ -129,7 +130,7 @@ namespace Pathwinder
         /// Redirects a file operation, such as opening, creating, or querying information about an individual file.
         /// The file path must already be fully resolved, ready for data structure query. A Windows namespace prefix is optional.
         /// @param [in] absoluteFilePath Path of the file being queried for possible redirection. Typically supplied by an application and need not be absolute.
-        /// @return String containing the full path of the result of the redirection, if a redirection occurred.
-        std::optional<TemporaryString> RedirectFileOperation(std::wstring_view absoluteFilePath) const;
+        /// @return Instruction that provides information on how to execute the file operation redirection.
+        FileOperationRedirectInstruction RedirectFileOperation(std::wstring_view absoluteFilePath) const;
     };
 }
