@@ -171,11 +171,25 @@ namespace Pathwinder
             return (0 != PathGetWindowsNamespacePrefix(absolutePath).length());
         }
 
-        // Removes the all occurrences of specified trailing character from the input string view and returns the result.
-        // @param [in] str String view from which to remove the trailing character.
-        // @param [in] trailingChar Trailing character to strip from this string.
-        // @return Resulting string view after the trailing character is removed.
-        inline std::wstring_view RemoveTrailing(std::wstring_view str, wchar_t trailingChar)
+        /// Removes the all occurrences of specified leading character from the input string view and returns the result.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
+        /// @param [in] str String view from which to remove the leading character.
+        /// @param [in] leadingChar Leading character to strip from this string.
+        /// @return Resulting string view after the leading character is removed.
+        template <typename CharType> inline std::basic_string_view<CharType> RemoveLeading(std::basic_string_view<CharType> str, CharType leadingChar)
+        {
+            while (str.starts_with(leadingChar))
+                str.remove_prefix(1);
+
+            return str;
+        }
+
+        /// Removes the all occurrences of specified trailing character from the input string view and returns the result.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
+        /// @param [in] str String view from which to remove the trailing character.
+        /// @param [in] trailingChar Trailing character to strip from this string.
+        /// @return Resulting string view after the trailing character is removed.
+        template <typename CharType> inline std::basic_string_view<CharType> RemoveTrailing(std::basic_string_view<CharType> str, CharType trailingChar)
         {
             while (str.ends_with(trailingChar))
                 str.remove_suffix(1);

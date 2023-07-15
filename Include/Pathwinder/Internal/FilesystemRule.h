@@ -184,6 +184,13 @@ namespace Pathwinder
             return targetDirectoryParent;
         }
 
+        /// Determines if the specified path is in scope for redirection by this rule.
+        /// A path is considered "in scope" for redirection if it is a descendant of this rule's origin directory and the immediate child part of the specified path (the part right after the origin directory of this rule) matches this rule's file patterns.
+        /// A path is explicitly not considered "in scope" for redirection if it is exactly equal to this rule's origin directory.
+        /// @param [in] candidatePath Path to check for being in scope for redirection by this rule.
+        /// @return `true` if the specified path is in scope for redireciton by this rule, `false` if not.
+        bool IsPathInScope(std::wstring_view candidatePath) const;
+
         /// Computes and returns the result of redirecting from the specified candidate path to the target directory associated with this rule.
         /// Input candidate path is split into two parts: the directory part, which identifies the absolute directory in which the file is located, and the file part, which identifies the file within its directory.
         /// If the origin directory matches the candidate path's directory part and a file pattern matches the candidate path's file part then a redirection can occur to the target directory.
