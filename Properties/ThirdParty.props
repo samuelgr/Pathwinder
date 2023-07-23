@@ -3,4 +3,7 @@
   <ImportGroup Label="PropertySheets" Condition="'$(ThirdPartyNeedsHookshot)'!=''">
     <Import Project="$(SolutionDir)Properties\ThirdParty\Hookshot.props" />
   </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(ThirdPartyNeedsXstdBitSet)'!=''">
+    <Import Project="$(SolutionDir)Properties\ThirdParty\XstdBitSet.props" />
+  </ImportGroup>
 </Project>

@@ -2,6 +2,7 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="UserMacros">
     <ThirdPartyNeedsHookshot>yes</ThirdPartyNeedsHookshot>
+    <ThirdPartyNeedsXstdBitSet>yes</ThirdPartyNeedsXstdBitSet>
   </PropertyGroup>
   <ImportGroup Label="PropertySheets">
     <Import Project="$(SolutionDir)Properties\$(SolutionName).props" />
@@ -11,6 +12,9 @@
   <ItemGroup>
     <BuildMacro Include="ThirdPartyNeedsHookshot">
       <Value>$(ThirdPartyNeedsHookshot)</Value>
+    </BuildMacro>
+    <BuildMacro Include="ThirdPartyNeedsXstdBitSet">
+      <Value>$(ThirdPartyNeedsXstdBitSet)</Value>
     </BuildMacro>
   </ItemGroup>
 </Project>

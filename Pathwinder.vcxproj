@@ -133,6 +133,7 @@
     <ClCompile Include="Source\TemporaryBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Include\Pathwinder\Internal\ApiBitSet.h" />
     <ClInclude Include="Include\Pathwinder\Internal\ApiWindows.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Configuration.h" />
     <ClInclude Include="Include\Pathwinder\Internal\DebugAssert.h" />

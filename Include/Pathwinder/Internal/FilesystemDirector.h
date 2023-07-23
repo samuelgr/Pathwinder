@@ -111,14 +111,13 @@ namespace Pathwinder
         }
 
         /// Determines if the specified file path, which is already absolute, exists as a valid prefix for any filesystem rule.
-        /// @param [in] fileFullPath Absolute path to check.
+        /// The input file path must not contain any leading Windows namespace prefixes and must not have any trailing backslash characters.
+        /// Primarily intended for internal use but exposed for tests.
+        /// @param [in] absoluteFilePathTrimmed Absolute path to check.
         /// @return `true` if a rule exists either at or as a descendent in the filesystem hierarchy of the specified path, `false` otherwise.
-        inline bool IsPrefixForAnyRule(std::wstring_view fileFullPath) const
+        inline bool IsPrefixForAnyRule(std::wstring_view absoluteFilePathTrimmed) const
         {
-            fileFullPath.remove_prefix(Strings::PathGetWindowsNamespacePrefix(fileFullPath).length());
-            fileFullPath = Strings::RemoveTrailing(fileFullPath, L'\\');
-
-            return originDirectoryIndex.HasPathForPrefix(fileFullPath);
+            return originDirectoryIndex.HasPathForPrefix(absoluteFilePathTrimmed);
         }
 
         /// Determines which rule from among those held by this object should be used for a particular redirection query.
@@ -129,7 +128,7 @@ namespace Pathwinder
 
         /// Redirects a file operation, such as opening, creating, or querying information about an individual file.
         /// The file path must already be fully resolved, ready for data structure query. A Windows namespace prefix is optional.
-        /// @param [in] absoluteFilePath Path of the file being queried for possible redirection. Typically supplied by an application and need not be absolute.
+        /// @param [in] absoluteFilePath Path of the file being queried for possible redirection.
         /// @return Instruction that provides information on how to execute the file operation redirection.
         FileOperationRedirectInstruction RedirectFileOperation(std::wstring_view absoluteFilePath) const;
     };

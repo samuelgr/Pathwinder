@@ -107,8 +107,9 @@ namespace Pathwinder
     /// @param [in] toDirectory Target directory of the redirection. Typically this comes from a filesystem rule.
     /// @param [in] filePatterns File patterns against which to check the file part of the redirection query.
     /// @param [in] namespacePrefix Windows namespace prefix to be prepended to the output string, if one is generated.
+    /// @param [in] extraSuffix Additional suffix to add to the end of the output string, if one is generated.
     /// @return Redirected location as an absolute path, if redirection occurred successfully.
-    static std::optional<TemporaryString> RedirectPathInternal(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart, std::wstring_view fromDirectory, std::wstring_view toDirectory, const std::vector<std::wstring>& filePatterns, std::wstring_view namespacePrefix)
+    static std::optional<TemporaryString> RedirectPathInternal(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart, std::wstring_view fromDirectory, std::wstring_view toDirectory, const std::vector<std::wstring>& filePatterns, std::wstring_view namespacePrefix, std::wstring_view extraSuffix)
     {
         switch (DirectoryCompareInternal(candidatePathDirectoryPart, fromDirectory))
         {
@@ -150,7 +151,11 @@ namespace Pathwinder
         candidatePathDirectoryPart.remove_prefix(fromDirectory.length());
 
         TemporaryString redirectedPath;
-        redirectedPath << namespacePrefix << toDirectory << candidatePathDirectoryPart << L'\\' << candidatePathFilePart;
+        redirectedPath << namespacePrefix << toDirectory << candidatePathDirectoryPart;
+        if (false == candidatePathFilePart.empty())
+            redirectedPath << L'\\' << candidatePathFilePart;
+        if (false == extraSuffix.empty())
+            redirectedPath << extraSuffix;
 
         return redirectedPath;
     }
@@ -211,15 +216,15 @@ namespace Pathwinder
 
     // --------
 
-    std::optional<TemporaryString> FilesystemRule::RedirectPathOriginToTarget(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart, std::wstring_view namespacePrefix) const
+    std::optional<TemporaryString> FilesystemRule::RedirectPathOriginToTarget(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart, std::wstring_view namespacePrefix, std::wstring_view extraSuffix) const
     {
-        return RedirectPathInternal(candidatePathDirectoryPart, candidatePathFilePart, originDirectoryFullPath, targetDirectoryFullPath, filePatterns, namespacePrefix);
+        return RedirectPathInternal(candidatePathDirectoryPart, candidatePathFilePart, originDirectoryFullPath, targetDirectoryFullPath, filePatterns, namespacePrefix, extraSuffix);
     }
 
     // --------
 
-    std::optional<TemporaryString> FilesystemRule::RedirectPathTargetToOrigin(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart, std::wstring_view namespacePrefix) const
+    std::optional<TemporaryString> FilesystemRule::RedirectPathTargetToOrigin(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart, std::wstring_view namespacePrefix, std::wstring_view extraSuffix) const
     {
-        return RedirectPathInternal(candidatePathDirectoryPart, candidatePathFilePart, targetDirectoryFullPath, originDirectoryFullPath, filePatterns, namespacePrefix);
+        return RedirectPathInternal(candidatePathDirectoryPart, candidatePathFilePart, targetDirectoryFullPath, originDirectoryFullPath, filePatterns, namespacePrefix, extraSuffix);
     }
 }
