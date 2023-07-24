@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include "ApiBitSet.h"
 #include "ApiWindows.h"
 #include "DebugAssert.h"
 #include "FilesystemDirector.h"
@@ -146,12 +147,28 @@ namespace Pathwinder
         SingletonOpenHandleStore().InsertHandle(newlyOpenedHandle, associatedPathTrimmed);
     }
 
-    /// Determines how to redirect an individual file operation identified by an object attributes structure.
+    /// Executes any pre-operations needed ahead of a file operation redirection.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
+    /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation, including identifying any pre-operations needed.
+    /// @return Result of executing all of the pre-operations. The code will indicate success if they all succeed or a failure that corresponds to the first applicable operation failure.
+    static NTSTATUS ExecuteExtraPreOperationsForFileOperationRedirection(const wchar_t* functionName, unsigned int functionRequestIdentifier, const FileOperationRedirectInstruction& instruction)
+    {
+        if (instruction.GetExtraPreOperations().contains(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists)))
+        {
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Ensuring directory hierarchy exists for \"%.*s\".", functionName, functionRequestIdentifier, static_cast<int>(instruction.GetExtraPreOperationOperand().length()), instruction.GetExtraPreOperationOperand().data());
+            // TODO
+        }
+
+        return 0;
+    }
+
+    /// Determines how to redirect an individual file operation in which the affected file is identified by an object attributes structure.
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
     /// @param [in] inputObjectAttributes Object attributes structure received from the application. Used as input for redirection.
     /// @return Context that contains all of the information needed to submit the file operation to the underlying system call.
-    static FileOperationContext HowToRedirectFileOperationByObjectAttributes(const wchar_t* functionName, unsigned int functionRequestIdentifier, const OBJECT_ATTRIBUTES& inputObjectAttributes)
+    static FileOperationContext GetFileOperationRedirectionContextByObjectAttributes(const wchar_t* functionName, unsigned int functionRequestIdentifier, const OBJECT_ATTRIBUTES& inputObjectAttributes)
     {
         std::optional<TemporaryString> maybeRedirectedFilename = std::nullopt;
         std::optional<std::wstring_view> maybeRootDirectoryHandlePath = ((nullptr == inputObjectAttributes.RootDirectory) ? std::nullopt : SingletonOpenHandleStore().GetPathForHandle(inputObjectAttributes.RootDirectory));
@@ -172,7 +189,7 @@ namespace Pathwinder
             else
                 Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined but not redirected.", functionName, functionRequestIdentifier, static_cast<int>(maybeRootDirectoryHandlePath.value().length()), maybeRootDirectoryHandlePath.value().data(), reinterpret_cast<size_t>(inputObjectAttributes.RootDirectory), static_cast<int>(inputFilename.length()), inputFilename.data());
 
-            return {.instruction = redirectionInstruction, .composedInputPath = std::move(inputFullFilename)};
+            return {.instruction = std::move(redirectionInstruction), .composedInputPath = std::move(inputFullFilename)};
         }
         else if (nullptr == inputObjectAttributes.RootDirectory)
         {
@@ -186,7 +203,7 @@ namespace Pathwinder
             else
                 Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): Invoked with path \"%.*s\" which was not redirected.", functionName, functionRequestIdentifier, static_cast<int>(inputFilename.length()), inputFilename.data());
 
-            return {.instruction = redirectionInstruction, .composedInputPath = std::nullopt};
+            return {.instruction = std::move(redirectionInstruction), .composedInputPath = std::nullopt};
         }
         else
         {
@@ -233,13 +250,15 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(PHANDLE FileHandle, A
 
     const unsigned int requestIdentifier = nextRequestIdentifier++;
 
-    const FileOperationContext operationContext = HowToRedirectFileOperationByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    const FileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
     const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
 
-    // TODO: Insert pre-operations here.
+    NTSTATUS preOperationResult = ExecuteExtraPreOperationsForFileOperationRedirection(GetFunctionName(), requestIdentifier, operationContext.instruction);
+    if (!(NT_SUCCESS(preOperationResult)))
+        return preOperationResult;
 
     std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
     std::wstring_view redirectedPath;
@@ -339,13 +358,15 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(PHANDLE FileHandle, ACC
 
     const unsigned int requestIdentifier = nextRequestIdentifier++;
 
-    const FileOperationContext operationContext = HowToRedirectFileOperationByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    const FileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
     const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
 
-    // TODO: Insert pre-operations here.
+    NTSTATUS preOperationResult = ExecuteExtraPreOperationsForFileOperationRedirection(GetFunctionName(), requestIdentifier, operationContext.instruction);
+    if (!(NT_SUCCESS(preOperationResult)))
+        return preOperationResult;
 
     std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
     std::wstring_view redirectedPath;
@@ -469,13 +490,15 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(POBJECT_A
 
     const unsigned int requestIdentifier = nextRequestIdentifier++;
 
-    const FileOperationContext operationContext = HowToRedirectFileOperationByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    const FileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
     const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
-    // TODO: Insert pre-operations here.
+    NTSTATUS preOperationResult = ExecuteExtraPreOperationsForFileOperationRedirection(GetFunctionName(), requestIdentifier, operationContext.instruction);
+    if (!(NT_SUCCESS(preOperationResult)))
+        return preOperationResult;
 
     UNICODE_STRING redirectedUnicodeString = {};
     OBJECT_ATTRIBUTES redirectedObjectAttributes = *ObjectAttributes;
@@ -540,13 +563,15 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(POBJECT_ATTR
 
     const unsigned int requestIdentifier = nextRequestIdentifier++;
 
-    const FileOperationContext operationContext = HowToRedirectFileOperationByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    const FileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
     const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(ObjectAttributes, FileInformation);
 
-    // TODO: Insert pre-operations here.
+    NTSTATUS preOperationResult = ExecuteExtraPreOperationsForFileOperationRedirection(GetFunctionName(), requestIdentifier, operationContext.instruction);
+    if (!(NT_SUCCESS(preOperationResult)))
+        return preOperationResult;
 
     UNICODE_STRING redirectedUnicodeString = {};
     OBJECT_ATTRIBUTES redirectedObjectAttributes = *ObjectAttributes;

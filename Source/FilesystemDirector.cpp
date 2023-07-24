@@ -13,6 +13,7 @@
 #include "DebugAssert.h"
 #include "FilesystemDirector.h"
 #include "FilesystemInstruction.h"
+#include "FilesystemOperations.h"
 #include "FilesystemRule.h"
 #include "Message.h"
 #include "PrefixIndex.h"
@@ -66,9 +67,6 @@ namespace Pathwinder
             return FileOperationRedirectInstruction::NoRedirectionOrInterception();
         }
 
-        const std::wstring_view directoryPart = absoluteFilePathTrimmedForQuery.substr(0, lastSeparatorPos);
-        const std::wstring_view filePart = absoluteFilePathTrimmedForQuery.substr(1 + lastSeparatorPos);
-
         const FilesystemRule* const selectedRule = SelectRuleForRedirectionQuery(absoluteFilePathTrimmedForQuery);
         if (nullptr == selectedRule)
         {
@@ -88,33 +86,47 @@ namespace Pathwinder
             }
         }
 
-        std::optional<TemporaryString> maybeRedirectedFilePath = std::nullopt;
-        FileOperationRedirectInstruction::EAssociateNameWithHandle filenameHandleAssociation = FileOperationRedirectInstruction::EAssociateNameWithHandle::None;
-        BitSetEnum<FileOperationRedirectInstruction::EExtraPreOperation> extraPreOperations;
-        std::wstring_view extraPreOperationOperand;
-
+        std::wstring_view unredirectedPathDirectoryPart;
+        std::wstring_view unredirectedPathFilePart;
         if (FilesystemRule::EDirectoryCompareResult::Equal == selectedRule->DirectoryCompareWithOrigin(absoluteFilePathTrimmedForQuery))
         {
-            // TODO: Depending on the operation, ensure that either the actual target directory exists or just up to its parent.
-
-            maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(absoluteFilePathTrimmedForQuery, L"", windowsNamespacePrefix, extraSuffix);
-            filenameHandleAssociation = FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected;
-            extraPreOperations.insert(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
-            extraPreOperationOperand = selectedRule->GetTargetDirectoryFullPath();
+            // If the input path is exactly equal to the origin directory of the filesystem rule, then the entire input path is one big directory path, and the file part does not exist.
+            unredirectedPathDirectoryPart = absoluteFilePathTrimmedForQuery;
+            unredirectedPathFilePart = L"";
         }
         else
         {
-            maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(directoryPart, filePart, windowsNamespacePrefix, extraSuffix);
-            filenameHandleAssociation = FileOperationRedirectInstruction::EAssociateNameWithHandle::Redirected;
+            // If the input path is something else, then it is safe to split it at the last path separator into a directory part and a file part.
+            unredirectedPathDirectoryPart = absoluteFilePathTrimmedForQuery.substr(0, lastSeparatorPos);
+            unredirectedPathFilePart = absoluteFilePathTrimmedForQuery.substr(1 + lastSeparatorPos);
         }
 
+        std::optional<TemporaryString> maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(unredirectedPathDirectoryPart, unredirectedPathFilePart, windowsNamespacePrefix, extraSuffix);
         if (false == maybeRedirectedFilePath.has_value())
         {
-            Message::OutputFormatted(Message::ESeverity::Error, L"File operation redirection query for path \"%.*s\" matched rule \"%s\" but failed due to an internal error while synthesizing the redirect result.", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data());
+            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File operation redirection query for path \"%.*s\" did not match rule \"%s\" because a file pattern put it out of the rule's scope.", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data());
             return FileOperationRedirectInstruction::NoRedirectionOrInterception();
         }
 
+        std::wstring_view redirectedFilePath = maybeRedirectedFilePath.value().AsStringView();
+
+        BitSetEnum<FileOperationRedirectInstruction::EExtraPreOperation> extraPreOperations;
+        std::wstring_view extraPreOperationOperand;
+        if (FilesystemOperations::IsDirectory(unredirectedPathDirectoryPart))
+        {
+            // It is necessary to ensure that the same hierarchy that exists on the origin directory side also exists on the target directory side.
+            // Whenever a file operation is attempted that has a directory part that exists on the origin side the hierarchy on the target side will be created before the file operation is attempted.
+            extraPreOperations.insert(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
+
+            // For operations that act on files within an origin hierarchy this logic resolves to the directory part of the output redirected path.
+            // In the event that the operation acts on the origin directory itself this logic will resolve to the target directory.
+            extraPreOperationOperand = redirectedFilePath;
+            extraPreOperationOperand.remove_prefix(windowsNamespacePrefix.length());
+            extraPreOperationOperand.remove_suffix(extraSuffix.length() + unredirectedPathFilePart.length());
+            extraPreOperationOperand = Strings::RemoveTrailing(extraPreOperationOperand, L'\\');
+        }
+
         Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File operation redirection query for path \"%.*s\" matched rule \"%s\", and was redirected to \"%s\".", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());
-        return FileOperationRedirectInstruction::RedirectTo(std::move(maybeRedirectedFilePath.value()), filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
+        return FileOperationRedirectInstruction::RedirectTo(std::move(maybeRedirectedFilePath.value()), FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected, std::move(extraPreOperations), extraPreOperationOperand);
     }
 }
