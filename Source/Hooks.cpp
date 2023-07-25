@@ -123,15 +123,15 @@ namespace Pathwinder
     /// Contains all of the information associated with a file operation.
     struct SFileOperationContext
     {
-        FileOperationRedirectInstruction instruction;                   ///< How the redirection should be performed.
-        std::optional<TemporaryString> composedInputPath;               ///< If an input path was composed, for example due to combination with a root directory, then that input path is stored here.
+        FileOperationRedirectInstruction instruction;                       ///< How the redirection should be performed.
+        std::optional<TemporaryString> composedInputPath;                   ///< If an input path was composed, for example due to combination with a root directory, then that input path is stored here.
     };
 
     /// Contains all of the information needed to represent a file name and attributes in the format needed to interact with underlying system calls.
     struct SObjectNameAndAttributes
     {
-        UNICODE_STRING objectName;                                      ///< Name of the object, as a Unicode string in the format supported by system calls.
-        OBJECT_ATTRIBUTES objectAttributes;                             ///< Attributes of the object, which includes a field that points to the name.
+        UNICODE_STRING objectName;                                          ///< Name of the object, as a Unicode string in the format supported by system calls.
+        OBJECT_ATTRIBUTES objectAttributes;                                 ///< Attributes of the object, which includes a field that points to the name.
     };
 
     /// Contains pointers to all of the object attributes to try, in order, for a file operation.
@@ -155,6 +155,30 @@ namespace Pathwinder
         }
 
         return 0;
+    }
+
+    /// Converts a `CreateDisposition` parameter, which system calls use to identify filesystem behavior regarding creating new files or opening existing files, into an appropriate file operation mode.
+    /// @param [in] ntCreateDisposition `CreateDisposition` parameter received from the application.
+    /// @return Corresponding file operation mode enumerator.
+    static FilesystemDirector::EFileOperationMode FileOperationModeFromCreateDisposition(ULONG ntCreateDisposition)
+    {
+        switch (ntCreateDisposition)
+        {
+        case FILE_CREATE:
+            return FilesystemDirector::EFileOperationMode::CreateNewFile;
+
+        case FILE_SUPERSEDE:
+        case FILE_OPEN_IF:
+        case FILE_OVERWRITE_IF:
+            return FilesystemDirector::EFileOperationMode::CreateNewOrOpenExistingFile;
+
+        case FILE_OPEN:
+        case FILE_OVERWRITE:
+            return FilesystemDirector::EFileOperationMode::OpenExistingFile;
+
+        default:
+            return FilesystemDirector::EFileOperationMode::OpenExistingFile;
+        }
     }
 
     /// Fills the supplied object name and attributes structure with the name and attributes needed to represent the redirected filename from a file operation redirection instruction.
@@ -188,8 +212,9 @@ namespace Pathwinder
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
     /// @param [in] inputObjectAttributes Object attributes structure received from the application. Used as input for redirection.
+    /// @param [in] fileOperationMode Type of file operation requested by the application.
     /// @return Context that contains all of the information needed to submit the file operation to the underlying system call.
-    static SFileOperationContext GetFileOperationRedirectionContextByObjectAttributes(const wchar_t* functionName, unsigned int functionRequestIdentifier, const OBJECT_ATTRIBUTES& inputObjectAttributes)
+    static SFileOperationContext GetFileOperationRedirectionContextByObjectAttributes(const wchar_t* functionName, unsigned int functionRequestIdentifier, const OBJECT_ATTRIBUTES& inputObjectAttributes, FilesystemDirector::EFileOperationMode fileOperationMode)
     {
         std::optional<TemporaryString> maybeRedirectedFilename = std::nullopt;
         std::optional<std::wstring_view> maybeRootDirectoryHandlePath = ((nullptr == inputObjectAttributes.RootDirectory) ? std::nullopt : OpenHandleStore::Singleton().GetPathForHandle(inputObjectAttributes.RootDirectory));
@@ -204,7 +229,7 @@ namespace Pathwinder
             TemporaryString inputFullFilename;
             inputFullFilename << maybeRootDirectoryHandlePath.value() << L'\\' << inputFilename;
 
-            FileOperationRedirectInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().RedirectFileOperation(inputFullFilename);
+            FileOperationRedirectInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().RedirectFileOperation(inputFullFilename, fileOperationMode);
             if (true == redirectionInstruction.HasRedirectedFilename())
                 Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined and redirected to \"%.*s\".", functionName, functionRequestIdentifier, static_cast<int>(maybeRootDirectoryHandlePath.value().length()), maybeRootDirectoryHandlePath.value().data(), reinterpret_cast<size_t>(inputObjectAttributes.RootDirectory), static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
             else
@@ -217,7 +242,7 @@ namespace Pathwinder
             // Input object attributes structure does not specify an open directory handle as the root directory.
             // It is sufficient to send the object name directly for redirection.
 
-            FileOperationRedirectInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().RedirectFileOperation(inputFilename);
+            FileOperationRedirectInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().RedirectFileOperation(inputFilename, fileOperationMode);
 
             if (true == redirectionInstruction.HasRedirectedFilename())
                 Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with path \"%.*s\" which was redirected to \"%.*s\".", functionName, functionRequestIdentifier, static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
@@ -322,7 +347,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(PHANDLE FileHandle, A
 
     const unsigned int requestIdentifier = GetRequestIdentifier();
 
-    const SFileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    const SFileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes, FileOperationModeFromCreateDisposition(CreateDisposition));
     const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
@@ -398,7 +423,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(PHANDLE FileHandle, ACC
 
     const unsigned int requestIdentifier = GetRequestIdentifier();
 
-    const SFileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    const SFileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes, FilesystemDirector::EFileOperationMode::OpenExistingFile);
     const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
@@ -498,7 +523,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(POBJECT_A
 
     const unsigned int requestIdentifier = GetRequestIdentifier();
 
-    const SFileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    const SFileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes, FilesystemDirector::EFileOperationMode::OpenExistingFile);
     const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
@@ -550,7 +575,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(POBJECT_ATTR
 
     const unsigned int requestIdentifier = GetRequestIdentifier();
 
-    const SFileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    const SFileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes, FilesystemDirector::EFileOperationMode::OpenExistingFile);
     const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)

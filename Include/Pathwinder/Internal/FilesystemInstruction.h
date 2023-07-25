@@ -30,29 +30,29 @@ namespace Pathwinder
         /// Enumerates possible modes for submitting a file operation to the underlying system call.
         enum class ETryFiles : uint8_t
         {
-            UnredirectedOnly,                                           ///< Only try submitting the unredirected filename.
-            UnredirectedFirst,                                          ///< First try submitting the unredirected filename. If the operation fails, then try submitting the redirected filename.
-            RedirectedFirst,                                            ///< First try submitting the redirected filename. If the operation fails, then try submitting the unredirected filename.
-            RedirectedOnly,                                             ///< Only try submitting the redirected filename.
-            Count                                                       ///< Not used as a value. Identifies the number of enumerators present in this enumeration.
+            UnredirectedOnly,                                               ///< Only try submitting the unredirected filename.
+            UnredirectedFirst,                                              ///< First try submitting the unredirected filename. If the operation fails, then try submitting the redirected filename.
+            RedirectedFirst,                                                ///< First try submitting the redirected filename. If the operation fails, then try submitting the unredirected filename.
+            RedirectedOnly,                                                 ///< Only try submitting the redirected filename.
+            Count                                                           ///< Not used as a value. Identifies the number of enumerators present in this enumeration.
         };
 
         /// Enumerates possible ways of associating a filename with a newly-created file handle.
         enum class EAssociateNameWithHandle : uint8_t
         {
-            None,                                                       ///< Do not associate any filename with the newly-created file handle. The filename used to create the handle is not interesting.
-            WhicheverWasSuccessful,                                     ///< Associate with the handle whichever filename resulted in its successful creation.
-            Unredirected,                                               ///< Associate the unredirected filename with the newly-created file handle.
-            Redirected,                                                 ///< Associate the redirected filename with the newly-created file handle.
-            Count                                                       ///< Not used as a value. Identifies the number of enumerators present in this enumeration.
+            None,                                                           ///< Do not associate any filename with the newly-created file handle. The filename used to create the handle is not interesting.
+            WhicheverWasSuccessful,                                         ///< Associate with the handle whichever filename resulted in its successful creation.
+            Unredirected,                                                   ///< Associate the unredirected filename with the newly-created file handle.
+            Redirected,                                                     ///< Associate the redirected filename with the newly-created file handle.
+            Count                                                           ///< Not used as a value. Identifies the number of enumerators present in this enumeration.
         };
 
         /// Possible additional operations that should be performed prior to submitting a file operation to the underlying system call.
         /// Each filesystem operation can require multiple such pre-operations, but order of execution is not important.
         enum class EExtraPreOperation : uint8_t
         {
-            EnsurePathHierarchyExists,                                  ///< Ensure all directories in path hierarchy exist up to the directory that is specified as an extra operand.
-            Count                                                       ///< Not used as a value. Identifies the number of enumerators present in this enumeration.
+            EnsurePathHierarchyExists,                                      ///< Ensure all directories in path hierarchy exist up to the directory that is specified as an extra operand.
+            Count                                                           ///< Not used as a value. Identifies the number of enumerators present in this enumeration.
         };
 
 

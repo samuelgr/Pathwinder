@@ -29,6 +29,19 @@ namespace Pathwinder
     /// Rule set is immutable once this object is constructed.
     class FilesystemDirector
     {
+    public:
+        // -------- TYPE DEFINITIONS --------------------------------------- //
+
+        /// Enumerates the different modes of file operations that an application can request.
+        enum class EFileOperationMode
+        {
+            CreateNewFile,                                                  ///< Application has requested that a new file be created. The system call will fail if the file already exists.
+            OpenExistingFile,                                               ///< Application has requested that an existing file be opened. The system call will fail if the file does not exist.
+            CreateNewOrOpenExistingFile,                                    ///< Application has requested that the file be opened if it exists or be created as a new file if it does not exist.
+            Count                                                           ///< Not used as a value. Identifies the number of enumerators present in this enumeration.
+        };
+
+
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
@@ -129,7 +142,8 @@ namespace Pathwinder
         /// Redirects a file operation, such as opening, creating, or querying information about an individual file.
         /// The file path must already be fully resolved, ready for data structure query. A Windows namespace prefix is optional.
         /// @param [in] absoluteFilePath Path of the file being queried for possible redirection.
+        /// @param [in] fileOperationMode Type of file operation requested by the application.
         /// @return Instruction that provides information on how to execute the file operation redirection.
-        FileOperationRedirectInstruction RedirectFileOperation(std::wstring_view absoluteFilePath) const;
+        FileOperationRedirectInstruction RedirectFileOperation(std::wstring_view absoluteFilePath, EFileOperationMode fileOperationMode) const;
     };
 }

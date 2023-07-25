@@ -25,6 +25,25 @@
 
 namespace Pathwinder
 {
+    // -------- INTERNAL FUNCTIONS ----------------------------------------- //
+
+    /// Determines if the specified file operation mode can result in a new file being created.
+    /// @param [in] fileOperationMode File operation mode to check.
+    /// @return `true` if the file operation can result in a new file being created, `false` otherwise.
+    static inline bool CanFileOperationResultInFileCreation(FilesystemDirector::EFileOperationMode fileOperationMode)
+    {
+        switch (fileOperationMode)
+        {
+        case FilesystemDirector::EFileOperationMode::CreateNewFile:
+        case FilesystemDirector::EFileOperationMode::CreateNewOrOpenExistingFile:
+            return true;
+
+        default:
+            return false;
+        }
+    }
+
+
     // -------- CLASS METHODS ---------------------------------------------- //
     // See "FilesystemDirector.h" for documentation.
 
@@ -54,7 +73,7 @@ namespace Pathwinder
 
     // --------
 
-    FileOperationRedirectInstruction FilesystemDirector::RedirectFileOperation(std::wstring_view absoluteFilePath) const
+    FileOperationRedirectInstruction FilesystemDirector::RedirectFileOperation(std::wstring_view absoluteFilePath, EFileOperationMode fileOperationMode) const
     {
         const std::wstring_view windowsNamespacePrefix = Strings::PathGetWindowsNamespacePrefix(absoluteFilePath);
         const std::wstring_view extraSuffix = ((true == absoluteFilePath.ends_with(L'\\')) ? L"\\" : L"");
@@ -112,18 +131,30 @@ namespace Pathwinder
 
         BitSetEnum<FileOperationRedirectInstruction::EExtraPreOperation> extraPreOperations;
         std::wstring_view extraPreOperationOperand;
-        if (FilesystemOperations::IsDirectory(unredirectedPathDirectoryPart))
-        {
-            // It is necessary to ensure that the same hierarchy that exists on the origin directory side also exists on the target directory side.
-            // Whenever a file operation is attempted that has a directory part that exists on the origin side the hierarchy on the target side will be created before the file operation is attempted.
-            extraPreOperations.insert(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
 
-            // For operations that act on files within an origin hierarchy this logic resolves to the directory part of the output redirected path.
-            // In the event that the operation acts on the origin directory itself this logic will resolve to the target directory.
-            extraPreOperationOperand = redirectedFilePath;
-            extraPreOperationOperand.remove_prefix(windowsNamespacePrefix.length());
-            extraPreOperationOperand.remove_suffix(extraSuffix.length() + unredirectedPathFilePart.length());
-            extraPreOperationOperand = Strings::RemoveTrailing(extraPreOperationOperand, L'\\');
+        if (true == CanFileOperationResultInFileCreation(fileOperationMode))
+        {
+            // If the filesystem operation can result in file creation, then it must be possible to complete file creation in the target hierarchy if it would also be possible to do so in the origin hierarchy.
+            // In this situation it is necessary to ensure that the target-side hierarchy exists up to the directory containing the file that is to be potentially created, if said hierarchy also exists on the origin side.
+
+            if (FilesystemOperations::IsDirectory(unredirectedPathDirectoryPart))
+            {
+                extraPreOperations.insert(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
+                extraPreOperationOperand = Strings::RemoveTrailing(redirectedFilePath.substr(0, redirectedFilePath.find_last_of(L'\\')), L'\\');
+                extraPreOperationOperand.remove_prefix(windowsNamespacePrefix.length());
+            }
+        }
+        else
+        {
+            // If the filesystem operation cannot result in file creation, then it is possible that the operation is targeting a directory that exists in the origin hierarchy.
+            // In this situation it is necessary to ensure that the same directory also exists in the target hierarchy.
+
+            if (FilesystemOperations::IsDirectory(absoluteFilePathTrimmedForQuery))
+            {
+                extraPreOperations.insert(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
+                extraPreOperationOperand = Strings::RemoveTrailing(redirectedFilePath, L'\\');
+                extraPreOperationOperand.remove_prefix(windowsNamespacePrefix.length());
+            }
         }
 
         Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File operation redirection query for path \"%.*s\" matched rule \"%s\", and was redirected to \"%s\".", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());

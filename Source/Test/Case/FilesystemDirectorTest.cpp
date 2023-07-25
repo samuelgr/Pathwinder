@@ -170,22 +170,21 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.RedirectFileOperation(testInput);
+            auto actualOutput = director.RedirectFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
 
-    
-    TEST_CASE(FilesystemDirector_RedirectFileOperation_OriginHierarchyExists)
+    // Verifies that pre-operations are correctly added when a hierarchy exists on the origin side and the file operation attempts to open an existing file.
+    // When the query is for a directory that exists on the origin side, it is expected that a pre-operation is added to ensure the same hierarchy exists on the target side.
+    // When the query is for a file, whether or not it exists on the origin side, no such pre-operation is necessary.
+    TEST_CASE(FilesystemDirector_RedirectFileOperation_OriginHierarchyExists_OpenExistingFile)
     {
         MockFilesystemOperations mockFilesystem;
         mockFilesystem.AddDirectory(L"C:\\Origin1");
-        mockFilesystem.AddDirectory(L"C:\\Origin2");
         mockFilesystem.AddDirectory(L"C:\\Origin2\\Subdir2");
-        mockFilesystem.AddDirectory(L"C:\\Origin3");
-        mockFilesystem.AddDirectory(L"C:\\Origin3\\Subdir3");
-        mockFilesystem.AddDirectory(L"C:\\Origin3\\Subdir3\\Subdir3B");
         mockFilesystem.AddDirectory(L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C");
+        mockFilesystem.AddFile(L"C:\\Origin1\\file1.txt");
 
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
@@ -194,10 +193,11 @@ namespace PathwinderTest
         }));
 
         const std::pair<std::wstring_view, FileOperationRedirectInstruction> kTestInputsAndExpectedOutputs[] = {
-            {L"C:\\Origin1",                                            FileOperationRedirectInstruction::RedirectTo(L"C:\\Target1",                                            FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target1")},
-            {L"C:\\Origin1\\file1.txt",                                 FileOperationRedirectInstruction::RedirectTo(L"C:\\Target1\\file1.txt",                                 FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target1")},
-            {L"C:\\Origin2\\Subdir2\\file2.txt",                        FileOperationRedirectInstruction::RedirectTo(L"C:\\Target2\\Subdir2\\file2.txt",                        FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target2\\Subdir2")},
-            {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",    FileOperationRedirectInstruction::RedirectTo(L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",    FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C")}
+            {L"C:\\Origin1",                                FileOperationRedirectInstruction::RedirectTo(L"C:\\Target1",                                FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target1")},
+            {L"C:\\Origin2\\Subdir2",                       FileOperationRedirectInstruction::RedirectTo(L"C:\\Target2\\Subdir2",                       FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target2\\Subdir2")},
+            {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C",   FileOperationRedirectInstruction::RedirectTo(L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C",   FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C")},
+            {L"C:\\Origin1\\file1.txt",                     FileOperationRedirectInstruction::RedirectTo(L"C:\\Target1\\file1.txt",                     FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected, {}, L"")},
+            {L"C:\\Origin2\\Subdir2\\file2.bin",            FileOperationRedirectInstruction::RedirectTo(L"C:\\Target2\\Subdir2\\file2.bin",            FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected, {}, L"")}
         };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -205,7 +205,32 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.RedirectFileOperation(testInput);
+            auto actualOutput = director.RedirectFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
+            TEST_ASSERT(actualOutput == expectedOutput);
+        }
+    }
+
+    // Verifies that pre-operations are correctly added when a hierarchy exists on the origin side and the file operation attempts to create a new file.
+    // Regardless of the nature of the filesystem entity that is the subject of the query (file or directory) a pre-operation is needed to ensure the parent hierarchy exists on the target side if it also exists on the origin side.
+    TEST_CASE(FilesystemDirector_RedirectFileOperation_OriginHierarchyExists_CreateNewFile)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:\\Origin1");
+
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")}
+        }));
+
+        const std::pair<std::wstring_view, FileOperationRedirectInstruction> kTestInputsAndExpectedOutputs[] = {
+            {L"C:\\Origin1\\AnyTypeOfFile", FileOperationRedirectInstruction::RedirectTo(L"C:\\Target1\\AnyTypeOfFile", FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target1")}
+        };
+
+        for (const auto& testRecord : kTestInputsAndExpectedOutputs)
+        {
+            const std::wstring_view testInput = testRecord.first;
+            const auto& expectedOutput = testRecord.second;
+
+            auto actualOutput = director.RedirectFileOperation(testInput, FilesystemDirector::EFileOperationMode::CreateNewFile);
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -234,7 +259,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.RedirectFileOperation(testInput);
+            auto actualOutput = director.RedirectFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -263,7 +288,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.RedirectFileOperation(testInput);
+            auto actualOutput = director.RedirectFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -286,7 +311,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.RedirectFileOperation(testInput);
+            auto actualOutput = director.RedirectFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -316,7 +341,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.RedirectFileOperation(testInput);
+            auto actualOutput = director.RedirectFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -342,7 +367,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.RedirectFileOperation(testInput);
+            auto actualOutput = director.RedirectFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -366,7 +391,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.RedirectFileOperation(testInput);
+            auto actualOutput = director.RedirectFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
