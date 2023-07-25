@@ -27,6 +27,7 @@
 #include <Hookshot/DynamicHook.h>
 
 #include <atomic>
+#include <array>
 #include <cstdint>
 #include <limits>
 #include <mutex>
@@ -55,6 +56,17 @@ namespace Pathwinder
 
 
     public:
+        // -------- CLASS METHODS ------------------------------------------ //
+
+        /// Retrieves a reference to the singleton instance of this object.
+        /// It holds all open handles for directories that might at some point become the `RootDirectory` member of an `OBJECT_ATTRIBUTES` structure or the subject of a directory enumeration query.
+        static inline OpenHandleStore& Singleton(void)
+        {
+            static OpenHandleStore* const openHandleCache = new OpenHandleStore;
+            return *openHandleCache;
+        }
+
+
         // -------- INSTANCE METHODS --------------------------------------- //
 
         /// Queries the open handle cache for the specified handle and retrieves the corresponding path if it exists.
@@ -109,50 +121,32 @@ namespace Pathwinder
     };
 
     /// Contains all of the information associated with a file operation.
-    struct FileOperationContext
+    struct SFileOperationContext
     {
         FileOperationRedirectInstruction instruction;                   ///< How the redirection should be performed.
         std::optional<TemporaryString> composedInputPath;               ///< If an input path was composed, for example due to combination with a root directory, then that input path is stored here.
     };
 
+    /// Contains all of the information needed to represent a file name and attributes in the format needed to interact with underlying system calls.
+    struct SObjectNameAndAttributes
+    {
+        UNICODE_STRING objectName;                                      ///< Name of the object, as a Unicode string in the format supported by system calls.
+        OBJECT_ATTRIBUTES objectAttributes;                             ///< Attributes of the object, which includes a field that points to the name.
+    };
 
-    // -------- INTERNAL VARIABLES ----------------------------------------- //
-
-    /// Holds an atomic counter for hook function requests that increments with each invocation.
-    /// Used exclusively for logging.
-    static std::atomic<unsigned int> nextRequestIdentifier;
+    /// Contains pointers to all of the object attributes to try, in order, for a file operation.
+    /// Any values that are `nullptr` are skipped.
+    typedef std::array<POBJECT_ATTRIBUTES, 2> TFileOperationObjectAttributesToTry;
 
 
     // -------- INTERNAL FUNCTIONS ----------------------------------------- //
 
-    /// Retrieves a reference to the singleton instance of the open file handles store.
-    /// This cache holds all open handles for directories that might at some point become the `RootDirectory` member of an `OBJECT_ATTRIBUTES` structure or the subject of a directory enumeration query.
-    static OpenHandleStore& SingletonOpenHandleStore(void)
-    {
-        static OpenHandleStore* const openHandleCache = new OpenHandleStore;
-        return *openHandleCache;
-    }
-
-    /// Conditionally inserts a newly-opened handle into the open handle cache.
-    /// Not all newly-opened handles are "interesting" and need to be cached.
-    /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
-    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
-    /// @param [in] newlyOpenedHandle Handle to add to the cache.
-    /// @param [in] associatedPath Path associated with the newly opened handle being added to cache.
-    /// @param [in] objectInfo Object information structure that describes how the request was presented to the underlying system call, including the path of the file.
-    static void StoreNewlyOpenedHandle(const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE newlyOpenedHandle, std::wstring_view associatedPath)
-    {
-        std::wstring_view associatedPathTrimmed = Strings::RemoveTrailing(associatedPath, L'\\');
-        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu is being stored in association with path \"%.*s\".", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(newlyOpenedHandle), static_cast<int>(associatedPathTrimmed.length()), associatedPathTrimmed.data());
-        SingletonOpenHandleStore().InsertHandle(newlyOpenedHandle, associatedPathTrimmed);
-    }
-
-    /// Executes any pre-operations needed ahead of a file operation redirection.
+    /// Executes any pre-operations needed ahead of invoking underlying system calls.
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
     /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation, including identifying any pre-operations needed.
     /// @return Result of executing all of the pre-operations. The code will indicate success if they all succeed or a failure that corresponds to the first applicable operation failure.
-    static NTSTATUS ExecuteExtraPreOperationsForFileOperationRedirection(const wchar_t* functionName, unsigned int functionRequestIdentifier, const FileOperationRedirectInstruction& instruction)
+    static NTSTATUS ExecuteExtraPreOperations(const wchar_t* functionName, unsigned int functionRequestIdentifier, const FileOperationRedirectInstruction& instruction)
     {
         if (instruction.GetExtraPreOperations().contains(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists)))
         {
@@ -163,15 +157,42 @@ namespace Pathwinder
         return 0;
     }
 
+    /// Fills the supplied object name and attributes structure with the name and attributes needed to represent the redirected filename from a file operation redirection instruction.
+    /// Does nothing if the file operation redirection instruction does not specify any redirection.
+    /// This must be done in place because the `OBJECT_ATTRIBUTES` structure refers to its `ObjectName` field by pointer. Returning by value would invalidate the address of the `ObjectName` field and therefore not work.
+    /// @param [out] redirectedObjectNameAndAttributes Mutable reference to the structure to be filled.
+    /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
+    /// @param [in] unredirectedObjectAttributes Object attributes structure received from the application.
+    static void FillRedirectedObjectNameAndAttributesForInstruction(SObjectNameAndAttributes& redirectedObjectNameAndAttributes, const FileOperationRedirectInstruction& instruction, const OBJECT_ATTRIBUTES& unredirectedObjectAttributes)
+    {
+        if (true == instruction.HasRedirectedFilename())
+        {
+            redirectedObjectNameAndAttributes.objectName = Strings::NtConvertStringViewToUnicodeString(instruction.GetRedirectedFilename());
+
+            redirectedObjectNameAndAttributes.objectAttributes = unredirectedObjectAttributes;
+            redirectedObjectNameAndAttributes.objectAttributes.RootDirectory = nullptr;
+            redirectedObjectNameAndAttributes.objectAttributes.ObjectName = &redirectedObjectNameAndAttributes.objectName;
+        }
+    }
+
+    /// Retrieves an identifier for a particular invocation of a hook function.
+    /// Used exclusively for logging.
+    /// @return Numeric identifier for an invocation.
+    static inline unsigned int GetRequestIdentifier(void)
+    {
+        static std::atomic<unsigned int> nextRequestIdentifier;
+        return nextRequestIdentifier++;
+    }
+
     /// Determines how to redirect an individual file operation in which the affected file is identified by an object attributes structure.
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
     /// @param [in] inputObjectAttributes Object attributes structure received from the application. Used as input for redirection.
     /// @return Context that contains all of the information needed to submit the file operation to the underlying system call.
-    static FileOperationContext GetFileOperationRedirectionContextByObjectAttributes(const wchar_t* functionName, unsigned int functionRequestIdentifier, const OBJECT_ATTRIBUTES& inputObjectAttributes)
+    static SFileOperationContext GetFileOperationRedirectionContextByObjectAttributes(const wchar_t* functionName, unsigned int functionRequestIdentifier, const OBJECT_ATTRIBUTES& inputObjectAttributes)
     {
         std::optional<TemporaryString> maybeRedirectedFilename = std::nullopt;
-        std::optional<std::wstring_view> maybeRootDirectoryHandlePath = ((nullptr == inputObjectAttributes.RootDirectory) ? std::nullopt : SingletonOpenHandleStore().GetPathForHandle(inputObjectAttributes.RootDirectory));
+        std::optional<std::wstring_view> maybeRootDirectoryHandlePath = ((nullptr == inputObjectAttributes.RootDirectory) ? std::nullopt : OpenHandleStore::Singleton().GetPathForHandle(inputObjectAttributes.RootDirectory));
 
         std::wstring_view inputFilename = Strings::NtConvertUnicodeStringToStringView(*(inputObjectAttributes.ObjectName));
 
@@ -215,6 +236,57 @@ namespace Pathwinder
             return {.instruction = FileOperationRedirectInstruction::NoRedirectionOrInterception(), .composedInputPath = std::nullopt};
         }
     }
+
+    /// Places pointers to the object attributes structures to try, in order, to submit to the underlying system call for a file operation.
+    /// The number of pointers placed, and the order in which they are placed, is controlled by the file operation redirection instruction.
+    /// Any entries placed as `nullptr` are invalid and should be skipped.
+    /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
+    /// @param [in] unredirectedObjectAttributes Pointer to the object attributes structure received from the application.
+    /// @param [in] redirectedObjectAttributes Pointer to the object attributes structure generated by querying for file operation redirection.
+    /// @return Object attributes to be tried, in order.
+    static TFileOperationObjectAttributesToTry GetFileOperationObjectAttributesToTry(const FileOperationRedirectInstruction& instruction, POBJECT_ATTRIBUTES unredirectedObjectAttributes, POBJECT_ATTRIBUTES redirectedObjectAttributes)
+    {
+        switch (instruction.GetFilenamesToTry())
+        {
+        case FileOperationRedirectInstruction::ETryFiles::UnredirectedOnly:
+            return {unredirectedObjectAttributes, nullptr};
+
+        case FileOperationRedirectInstruction::ETryFiles::UnredirectedFirst:
+            return {unredirectedObjectAttributes, redirectedObjectAttributes};
+
+        case FileOperationRedirectInstruction::ETryFiles::RedirectedFirst:
+            return {redirectedObjectAttributes, unredirectedObjectAttributes};
+
+        case FileOperationRedirectInstruction::ETryFiles::RedirectedOnly:
+            return {redirectedObjectAttributes};
+
+        default:
+            // This should never be executed because it indicates the enumerator is invalid.
+            return {nullptr, nullptr};
+        }
+    }
+
+    /// Determines if the next possible filename should be tried or if the existing system call result should be returned to the application.
+    /// @param [in] systemCallResult Result of the system call for the present attempt.
+    /// @return `true` if the result indicates that the next filename should be tried, `false` if the result indicates to stop trying and move on.
+    static bool ShouldTryNextFilename(NTSTATUS systemCallResult)
+    {
+        // This check is simply based on whether or not the call was successful.
+        // If not, advance to the next file, otherwise stop.
+        return (!(NT_SUCCESS(systemCallResult)));
+    }
+
+    /// Inserts a newly-opened handle into the open handle store.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
+    /// @param [in] newlyOpenedHandle Handle to add to the open handles store.
+    /// @param [in] associatedPath Path associated with the newly opened handle being added to storage.
+    static void StoreNewlyOpenedHandle(const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE newlyOpenedHandle, std::wstring_view associatedPath)
+    {
+        std::wstring_view associatedPathTrimmed = Strings::RemoveTrailing(associatedPath, L'\\');
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu is being stored in association with path \"%.*s\".", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(newlyOpenedHandle), static_cast<int>(associatedPathTrimmed.length()), associatedPathTrimmed.data());
+        OpenHandleStore::Singleton().InsertHandle(newlyOpenedHandle, associatedPathTrimmed);
+    }
 }
 
 
@@ -226,14 +298,14 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtClose::Hook(HANDLE Handle)
     using namespace Pathwinder;
 
 
-    auto maybeClosedHandlePath = SingletonOpenHandleStore().GetPathForHandle(Handle);
+    auto maybeClosedHandlePath = OpenHandleStore::Singleton().GetPathForHandle(Handle);
     if (false == maybeClosedHandlePath.has_value())
         return Original(Handle);
 
-    const unsigned int requestIdentifier = nextRequestIdentifier++;
+    const unsigned int requestIdentifier = GetRequestIdentifier();
 
     std::wstring closedHandlePath;
-    NTSTATUS closeHandleResult = SingletonOpenHandleStore().RemoveAndCloseHandle(Handle, &closedHandlePath);
+    NTSTATUS closeHandleResult = OpenHandleStore::Singleton().RemoveAndCloseHandle(Handle, &closedHandlePath);
 
     if (NT_SUCCESS(closeHandleResult))
         Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %llu for path \"%s\" was closed and erased from storage.", GetFunctionName(), requestIdentifier, static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(Handle)), closedHandlePath.c_str());
@@ -248,77 +320,45 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(PHANDLE FileHandle, A
     using namespace Pathwinder;
 
 
-    const unsigned int requestIdentifier = nextRequestIdentifier++;
+    const unsigned int requestIdentifier = GetRequestIdentifier();
 
-    const FileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    const SFileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
     const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
 
-    NTSTATUS preOperationResult = ExecuteExtraPreOperationsForFileOperationRedirection(GetFunctionName(), requestIdentifier, operationContext.instruction);
+    NTSTATUS preOperationResult = ExecuteExtraPreOperations(GetFunctionName(), requestIdentifier, operationContext.instruction);
     if (!(NT_SUCCESS(preOperationResult)))
         return preOperationResult;
 
-    std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
-    std::wstring_view redirectedPath;
+    SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
+    FillRedirectedObjectNameAndAttributesForInstruction(redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
 
-    UNICODE_STRING redirectedUnicodeString = {};
-    OBJECT_ATTRIBUTES redirectedObjectAttributes = *ObjectAttributes;
-    if (true == redirectionInstruction.HasRedirectedFilename())
-    {
-        redirectedPath = redirectionInstruction.GetRedirectedFilename();
-        redirectedUnicodeString = Strings::NtConvertStringViewToUnicodeString(redirectedPath);
-        redirectedObjectAttributes.ObjectName = &redirectedUnicodeString;
-    }
+    std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
+    std::wstring_view redirectedPath = ((true == redirectionInstruction.HasRedirectedFilename()) ? redirectionInstruction.GetRedirectedFilename() : L"");
 
     HANDLE newlyOpenedHandle = nullptr;
     NTSTATUS systemCallResult = 0;
-    std::wstring_view lastAttemptedPath;
+    std::wstring_view lastAttemptedPath = L"";
 
-    switch (redirectionInstruction.GetFilenamesToTry())
+    for (POBJECT_ATTRIBUTES objectAttributesToTry : GetFileOperationObjectAttributesToTry(redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
     {
-    case FileOperationRedirectInstruction::ETryFiles::UnredirectedOnly:
-        lastAttemptedPath = unredirectedPath;
-        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for unredirected path.", GetFunctionName(), requestIdentifier, systemCallResult);
-        break;
+        if (nullptr == objectAttributesToTry)
+            continue;
 
-    case FileOperationRedirectInstruction::ETryFiles::UnredirectedFirst:
-        lastAttemptedPath = unredirectedPath;
-        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for unredirected path.", GetFunctionName(), requestIdentifier, systemCallResult);
+        lastAttemptedPath = Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
+        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, objectAttributesToTry, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
+        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
 
-        if (!(NT_SUCCESS(systemCallResult)))
-        {
-            lastAttemptedPath = redirectedPath;
-            systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, &redirectedObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for redirected path \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
-        }
-        break;
+        if (false == ShouldTryNextFilename(systemCallResult))
+            break;
+    }
 
-    case FileOperationRedirectInstruction::ETryFiles::RedirectedFirst:
-        lastAttemptedPath = redirectedPath;
-        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, &redirectedObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for redirected path \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
-        
-        if (!(NT_SUCCESS(systemCallResult)))
-        {
-            lastAttemptedPath = unredirectedPath;
-            systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for unredirected path.", GetFunctionName(), requestIdentifier, systemCallResult);
-        }
-        break;
-
-    case FileOperationRedirectInstruction::ETryFiles::RedirectedOnly:
-        lastAttemptedPath = redirectedPath;
-        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, &redirectedObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for redirected path \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
-        break;
-
-    default:
+    if (true == lastAttemptedPath.empty())
+    {
         Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationRedirectInstruction::ETryFiles = %u).", GetFunctionName(), requestIdentifier, static_cast<unsigned int>(redirectionInstruction.GetFilenamesToTry()));
-        break;
+        return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
     }
 
     if (NT_SUCCESS(systemCallResult))
@@ -356,77 +396,45 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(PHANDLE FileHandle, ACC
     using namespace Pathwinder;
 
 
-    const unsigned int requestIdentifier = nextRequestIdentifier++;
+    const unsigned int requestIdentifier = GetRequestIdentifier();
 
-    const FileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    const SFileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
     const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
 
-    NTSTATUS preOperationResult = ExecuteExtraPreOperationsForFileOperationRedirection(GetFunctionName(), requestIdentifier, operationContext.instruction);
+    NTSTATUS preOperationResult = ExecuteExtraPreOperations(GetFunctionName(), requestIdentifier, operationContext.instruction);
     if (!(NT_SUCCESS(preOperationResult)))
         return preOperationResult;
 
-    std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
-    std::wstring_view redirectedPath;
+    SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
+    FillRedirectedObjectNameAndAttributesForInstruction(redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
 
-    UNICODE_STRING redirectedUnicodeString = {};
-    OBJECT_ATTRIBUTES redirectedObjectAttributes = *ObjectAttributes;
-    if (true == redirectionInstruction.HasRedirectedFilename())
-    {
-        redirectedPath = redirectionInstruction.GetRedirectedFilename();
-        redirectedUnicodeString = Strings::NtConvertStringViewToUnicodeString(redirectedPath);
-        redirectedObjectAttributes.ObjectName = &redirectedUnicodeString;
-    }
+    std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
+    std::wstring_view redirectedPath = ((true == redirectionInstruction.HasRedirectedFilename()) ? redirectionInstruction.GetRedirectedFilename() : L"");
 
     HANDLE newlyOpenedHandle = nullptr;
     NTSTATUS systemCallResult = 0;
     std::wstring_view lastAttemptedPath;
 
-    switch (redirectionInstruction.GetFilenamesToTry())
+    for (POBJECT_ATTRIBUTES objectAttributesToTry : GetFileOperationObjectAttributesToTry(redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
     {
-    case FileOperationRedirectInstruction::ETryFiles::UnredirectedOnly:
-        lastAttemptedPath = unredirectedPath;
-        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for unredirected path.", GetFunctionName(), requestIdentifier, systemCallResult);
-        break;
+        if (nullptr == objectAttributesToTry)
+            continue;
 
-    case FileOperationRedirectInstruction::ETryFiles::UnredirectedFirst:
-        lastAttemptedPath = unredirectedPath;
-        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for unredirected path.", GetFunctionName(), requestIdentifier, systemCallResult);
+        lastAttemptedPath = Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
+        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, objectAttributesToTry, IoStatusBlock, ShareAccess, OpenOptions);
+        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
 
-        if (!(NT_SUCCESS(systemCallResult)))
-        {
-            lastAttemptedPath = redirectedPath;
-            systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, &redirectedObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for redirected path \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
-        }
-        break;
+        if (false == ShouldTryNextFilename(systemCallResult))
+            break;
+    }
 
-    case FileOperationRedirectInstruction::ETryFiles::RedirectedFirst:
-        lastAttemptedPath = redirectedPath;
-        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, &redirectedObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for redirected path \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
-        
-        if (!(NT_SUCCESS(systemCallResult)))
-        {
-            lastAttemptedPath = unredirectedPath;
-            systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for unredirected path.", GetFunctionName(), requestIdentifier, systemCallResult);
-        }
-        break;
-
-    case FileOperationRedirectInstruction::ETryFiles::RedirectedOnly:
-        lastAttemptedPath = redirectedPath;
-        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, &redirectedObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for redirected path \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
-        break;
-
-    default:
+    if (true == lastAttemptedPath.empty())
+    {
         Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationRedirectInstruction::ETryFiles = %u).", GetFunctionName(), requestIdentifier, static_cast<unsigned int>(redirectionInstruction.GetFilenamesToTry()));
-        break;
+        return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
     }
 
     if (NT_SUCCESS(systemCallResult))
@@ -464,7 +472,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(HANDLE FileHa
     using namespace Pathwinder;
 
 
-    const unsigned int requestIdentifier = nextRequestIdentifier++;
+    const unsigned int requestIdentifier = GetRequestIdentifier();
 
     return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
 }
@@ -476,7 +484,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(HANDLE File
     using namespace Pathwinder;
 
 
-    const unsigned int requestIdentifier = nextRequestIdentifier++;
+    const unsigned int requestIdentifier = GetRequestIdentifier();
 
     return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
 }
@@ -488,65 +496,44 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(POBJECT_A
     using namespace Pathwinder;
 
 
-    const unsigned int requestIdentifier = nextRequestIdentifier++;
+    const unsigned int requestIdentifier = GetRequestIdentifier();
 
-    const FileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    const SFileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
     const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
-    NTSTATUS preOperationResult = ExecuteExtraPreOperationsForFileOperationRedirection(GetFunctionName(), requestIdentifier, operationContext.instruction);
+    NTSTATUS preOperationResult = ExecuteExtraPreOperations(GetFunctionName(), requestIdentifier, operationContext.instruction);
     if (!(NT_SUCCESS(preOperationResult)))
         return preOperationResult;
 
-    UNICODE_STRING redirectedUnicodeString = {};
-    OBJECT_ATTRIBUTES redirectedObjectAttributes = *ObjectAttributes;
-    if (true == redirectionInstruction.HasRedirectedFilename())
-    {
-        redirectedUnicodeString = Strings::NtConvertStringViewToUnicodeString(redirectionInstruction.GetRedirectedFilename());
-        redirectedObjectAttributes.ObjectName = &redirectedUnicodeString;
-    }
+    SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
+    FillRedirectedObjectNameAndAttributesForInstruction(redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
+
+    std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
+    std::wstring_view redirectedPath = ((true == redirectionInstruction.HasRedirectedFilename()) ? redirectionInstruction.GetRedirectedFilename() : L"");
+    std::wstring_view lastAttemptedPath = L"";
 
     NTSTATUS systemCallResult = 0;
 
-    switch (redirectionInstruction.GetFilenamesToTry())
+    for (POBJECT_ATTRIBUTES objectAttributesToTry : GetFileOperationObjectAttributesToTry(redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
     {
-    case FileOperationRedirectInstruction::ETryFiles::UnredirectedOnly:
-        systemCallResult = Original(ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for unredirected path.", GetFunctionName(), requestIdentifier, systemCallResult);
-        break;
+        if (nullptr == objectAttributesToTry)
+            continue;
 
-    case FileOperationRedirectInstruction::ETryFiles::UnredirectedFirst:
-        systemCallResult = Original(ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for unredirected path.", GetFunctionName(), requestIdentifier, systemCallResult);
+        lastAttemptedPath = Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
+        systemCallResult = Original(objectAttributesToTry, IoStatusBlock, FileInformation, Length, FileInformationClass);
+        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
 
-        if (!(NT_SUCCESS(systemCallResult)))
-        {
-            systemCallResult = Original(&redirectedObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for redirected path \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
-        }
-        break;
+        if (false == ShouldTryNextFilename(systemCallResult))
+            break;
+    }
 
-    case FileOperationRedirectInstruction::ETryFiles::RedirectedFirst:
-        systemCallResult = Original(&redirectedObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for redirected path \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
-        
-        if (!(NT_SUCCESS(systemCallResult)))
-        {
-            systemCallResult = Original(ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for unredirected path.", GetFunctionName(), requestIdentifier, systemCallResult);
-        }
-        break;
-
-    case FileOperationRedirectInstruction::ETryFiles::RedirectedOnly:
-        systemCallResult = Original(&redirectedObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for redirected path \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
-        break;
-
-    default:
+    if (true == lastAttemptedPath.empty())
+    {
         Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationRedirectInstruction::ETryFiles = %u).", GetFunctionName(), requestIdentifier, static_cast<unsigned int>(redirectionInstruction.GetFilenamesToTry()));
-        break;
+        return Original(ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
     }
 
     return systemCallResult;
@@ -561,65 +548,44 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(POBJECT_ATTR
     using namespace Pathwinder;
 
 
-    const unsigned int requestIdentifier = nextRequestIdentifier++;
+    const unsigned int requestIdentifier = GetRequestIdentifier();
 
-    const FileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
+    const SFileOperationContext operationContext = GetFileOperationRedirectionContextByObjectAttributes(GetFunctionName(), requestIdentifier, *ObjectAttributes);
     const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(ObjectAttributes, FileInformation);
 
-    NTSTATUS preOperationResult = ExecuteExtraPreOperationsForFileOperationRedirection(GetFunctionName(), requestIdentifier, operationContext.instruction);
+    NTSTATUS preOperationResult = ExecuteExtraPreOperations(GetFunctionName(), requestIdentifier, operationContext.instruction);
     if (!(NT_SUCCESS(preOperationResult)))
         return preOperationResult;
 
-    UNICODE_STRING redirectedUnicodeString = {};
-    OBJECT_ATTRIBUTES redirectedObjectAttributes = *ObjectAttributes;
-    if (true == redirectionInstruction.HasRedirectedFilename())
-    {
-        redirectedUnicodeString = Strings::NtConvertStringViewToUnicodeString(redirectionInstruction.GetRedirectedFilename());
-        redirectedObjectAttributes.ObjectName = &redirectedUnicodeString;
-    }
+    SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
+    FillRedirectedObjectNameAndAttributesForInstruction(redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
+
+    std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
+    std::wstring_view redirectedPath = ((true == redirectionInstruction.HasRedirectedFilename()) ? redirectionInstruction.GetRedirectedFilename() : L"");
+    std::wstring_view lastAttemptedPath = L"";
 
     NTSTATUS systemCallResult = 0;
 
-    switch (redirectionInstruction.GetFilenamesToTry())
+    for (POBJECT_ATTRIBUTES objectAttributesToTry : GetFileOperationObjectAttributesToTry(redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
     {
-    case FileOperationRedirectInstruction::ETryFiles::UnredirectedOnly:
-        systemCallResult = Original(ObjectAttributes, FileInformation);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for unredirected path.", GetFunctionName(), requestIdentifier, systemCallResult);
-        break;
+        if (nullptr == objectAttributesToTry)
+            continue;
 
-    case FileOperationRedirectInstruction::ETryFiles::UnredirectedFirst:
-        systemCallResult = Original(ObjectAttributes, FileInformation);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for unredirected path.", GetFunctionName(), requestIdentifier, systemCallResult);
+        lastAttemptedPath = Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
+        systemCallResult = Original(objectAttributesToTry, FileInformation);
+        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
 
-        if (!(NT_SUCCESS(systemCallResult)))
-        {
-            systemCallResult = Original(&redirectedObjectAttributes, FileInformation);
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for redirected path \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
-        }
-        break;
+        if (false == ShouldTryNextFilename(systemCallResult))
+            break;
+    }
 
-    case FileOperationRedirectInstruction::ETryFiles::RedirectedFirst:
-        systemCallResult = Original(&redirectedObjectAttributes, FileInformation);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for redirected path \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
-        
-        if (!(NT_SUCCESS(systemCallResult)))
-        {
-            systemCallResult = Original(ObjectAttributes, FileInformation);
-            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for unredirected path.", GetFunctionName(), requestIdentifier, systemCallResult);
-        }
-        break;
-
-    case FileOperationRedirectInstruction::ETryFiles::RedirectedOnly:
-        systemCallResult = Original(&redirectedObjectAttributes, FileInformation);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x for redirected path \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
-        break;
-
-    default:
+    if (true == lastAttemptedPath.empty())
+    {
         Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationRedirectInstruction::ETryFiles = %u).", GetFunctionName(), requestIdentifier, static_cast<unsigned int>(redirectionInstruction.GetFilenamesToTry()));
-        break;
+        return Original(ObjectAttributes, FileInformation);
     }
 
     return systemCallResult;
