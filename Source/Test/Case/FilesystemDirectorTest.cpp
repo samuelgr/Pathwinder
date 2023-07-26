@@ -267,7 +267,7 @@ namespace PathwinderTest
     // Creates a filesystem director with a few non-overlapping rules and queries it for redirection with a few file inputs.
     // Verifies that each time the resulting redirected path is correct.
     // This test case variation additionally adds namespace prefixes to the filenames submitted for query. These should be passed through unchanged.
-    TEST_CASE(FilesystemDirector_RedirectFileOperation_QueryInputContainsPrefix)
+    TEST_CASE(FilesystemDirector_RedirectFileOperation_QueryInputContainsWindowsNamespacePrefix)
     {
         MockFilesystemOperations mockFilesystem;
 
@@ -360,6 +360,30 @@ namespace PathwinderTest
         const std::pair<std::wstring_view, FileOperationRedirectInstruction> kTestInputsAndExpectedOutputs[] = {
             {L"C:\\Origin1",   FileOperationRedirectInstruction::RedirectTo(L"C:\\Target1", FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected)},
             {L"C:\\Origin1\\", FileOperationRedirectInstruction::RedirectTo(L"C:\\Target1\\", FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected)},
+        };
+
+        for (const auto& testRecord : kTestInputsAndExpectedOutputs)
+        {
+            const std::wstring_view testInput = testRecord.first;
+            const auto& expectedOutput = testRecord.second;
+
+            auto actualOutput = director.RedirectFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
+            TEST_ASSERT(actualOutput == expectedOutput);
+        }
+    }
+
+    // Cerates a filesystem directory with a single filesystem rule and queries it for redirection with an input path that is a prefix of the origin directory.
+    // No redirection should occur, but the resulting instruction should indicate that the created file handle should be associated with the query path.
+    TEST_CASE(FilesystemDirectory_RedirectFileOperation_PrefixOfOriginDirectory)
+    {
+        MockFilesystemOperations mockFilesystem;
+
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Base\\Origin", L"C:\\Base\\Target")},
+        }));
+
+        const std::pair<std::wstring_view, FileOperationRedirectInstruction> kTestInputsAndExpectedOutputs[] = {
+            {L"C:\\Base",   FileOperationRedirectInstruction::InterceptWithoutRedirection(FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected)},
         };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
