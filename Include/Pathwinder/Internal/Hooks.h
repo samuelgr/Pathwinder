@@ -60,6 +60,10 @@ namespace Pathwinder
             inline static const DynamicHookType::TFunctionPtr initialFunctionPointer = static_cast<DynamicHookType::TFunctionPtr>(GetInternalWindowsApiFunctionAddress(kFunctionName));
 
         public:
+            ProtectedDependencyImpl(void) = delete;
+            ProtectedDependencyImpl(const ProtectedDependencyImpl& other) = delete;
+            ProtectedDependencyImpl(ProtectedDependencyImpl&& other) = delete;
+
             /// Invokes the protected API function.
             /// If the hook has already been set, then the original function is invoked directly from the hook.
             /// Otherwise the initial address of the function, prior to hooking, is invoked.

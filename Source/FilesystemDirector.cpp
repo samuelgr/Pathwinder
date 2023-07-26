@@ -106,17 +106,19 @@ namespace Pathwinder
         }
 
         std::wstring_view unredirectedPathDirectoryPart;
+        std::wstring_view unredirectedPathDirectoryPartWithWindowsNamespacePrefix;
         std::wstring_view unredirectedPathFilePart;
         if (FilesystemRule::EDirectoryCompareResult::Equal == selectedRule->DirectoryCompareWithOrigin(absoluteFilePathTrimmedForQuery))
         {
             // If the input path is exactly equal to the origin directory of the filesystem rule, then the entire input path is one big directory path, and the file part does not exist.
             unredirectedPathDirectoryPart = absoluteFilePathTrimmedForQuery;
-            unredirectedPathFilePart = L"";
+            unredirectedPathDirectoryPartWithWindowsNamespacePrefix = absoluteFilePath.substr(0, windowsNamespacePrefix.length() + absoluteFilePathTrimmedForQuery.length());
         }
         else
         {
             // If the input path is something else, then it is safe to split it at the last path separator into a directory part and a file part.
             unredirectedPathDirectoryPart = absoluteFilePathTrimmedForQuery.substr(0, lastSeparatorPos);
+            unredirectedPathDirectoryPartWithWindowsNamespacePrefix = absoluteFilePath.substr(0, windowsNamespacePrefix.length() + lastSeparatorPos);
             unredirectedPathFilePart = absoluteFilePathTrimmedForQuery.substr(1 + lastSeparatorPos);
         }
 
@@ -137,11 +139,10 @@ namespace Pathwinder
             // If the filesystem operation can result in file creation, then it must be possible to complete file creation in the target hierarchy if it would also be possible to do so in the origin hierarchy.
             // In this situation it is necessary to ensure that the target-side hierarchy exists up to the directory containing the file that is to be potentially created, if said hierarchy also exists on the origin side.
 
-            if (FilesystemOperations::IsDirectory(unredirectedPathDirectoryPart))
+            if (FilesystemOperations::IsDirectory(unredirectedPathDirectoryPartWithWindowsNamespacePrefix))
             {
                 extraPreOperations.insert(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
                 extraPreOperationOperand = Strings::RemoveTrailing(redirectedFilePath.substr(0, redirectedFilePath.find_last_of(L'\\')), L'\\');
-                extraPreOperationOperand.remove_prefix(windowsNamespacePrefix.length());
             }
         }
         else
@@ -149,11 +150,10 @@ namespace Pathwinder
             // If the filesystem operation cannot result in file creation, then it is possible that the operation is targeting a directory that exists in the origin hierarchy.
             // In this situation it is necessary to ensure that the same directory also exists in the target hierarchy.
 
-            if (FilesystemOperations::IsDirectory(absoluteFilePathTrimmedForQuery))
+            if (FilesystemOperations::IsDirectory(absoluteFilePath))
             {
                 extraPreOperations.insert(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
                 extraPreOperationOperand = Strings::RemoveTrailing(redirectedFilePath, L'\\');
-                extraPreOperationOperand.remove_prefix(windowsNamespacePrefix.length());
             }
         }
 

@@ -57,7 +57,7 @@ namespace Pathwinder
         /// @param [in] escapeSequenceStart Optional string specifying what character sequence to use to begin an escape sequence, defaults to a single backslash.
         /// @param [in] escapeSequenceEnd Optional string specifying what character sequence to use to end an escape sequence, defaults to an empty string.
         /// @return Input string with all references resolved or an error message if the resolution failed.
-        ResolvedStringOrError ResolveAllReferences(std::wstring_view str, std::wstring_view escapeCharacters = L"", std::wstring_view escapeSequenceStart = L"\\", std::wstring_view escapeSequenceEnd = L"");
+        ResolvedStringOrError ResolveAllReferences(std::wstring_view str, std::wstring_view escapeCharacters = std::wstring_view(), std::wstring_view escapeSequenceStart = L"\\", std::wstring_view escapeSequenceEnd = std::wstring_view());
 
         /// Clears the configured definitions.
         /// This operation is primarily intended for tests.

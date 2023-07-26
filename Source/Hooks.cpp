@@ -17,6 +17,7 @@
 #include "DebugAssert.h"
 #include "FilesystemDirector.h"
 #include "FilesystemInstruction.h"
+#include "FilesystemOperations.h"
 #include "Globals.h"
 #include "Hooks.h"
 #include "Message.h"
@@ -145,16 +146,21 @@ namespace Pathwinder
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
     /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation, including identifying any pre-operations needed.
-    /// @return Result of executing all of the pre-operations. The code will indicate success if they all succeed or a failure that corresponds to the first applicable operation failure.
+    /// @return Result of executing the pre-operations. The code will indicate success if they all succeed or a failure that corresponds to the first applicable pre-operation failure.
     static NTSTATUS ExecuteExtraPreOperations(const wchar_t* functionName, unsigned int functionRequestIdentifier, const FileOperationRedirectInstruction& instruction)
     {
-        if (instruction.GetExtraPreOperations().contains(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists)))
+        NTSTATUS extraPreOperationResult = 0;
+
+        if (instruction.GetExtraPreOperations().contains(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists)) && (NT_SUCCESS(extraPreOperationResult)))
         {
             Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Ensuring directory hierarchy exists for \"%.*s\".", functionName, functionRequestIdentifier, static_cast<int>(instruction.GetExtraPreOperationOperand().length()), instruction.GetExtraPreOperationOperand().data());
-            // TODO
+            extraPreOperationResult = static_cast<NTSTATUS>(FilesystemOperations::CreateDirectoryHierarchy(instruction.GetExtraPreOperationOperand()));
         }
 
-        return 0;
+        if (!(NT_SUCCESS(extraPreOperationResult)))
+            Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): A required pre-operation failed (NTSTATUS = 0x%08x).", functionName, functionRequestIdentifier, static_cast<unsigned int>(extraPreOperationResult));
+
+        return extraPreOperationResult;
     }
 
     /// Converts a `CreateDisposition` parameter, which system calls use to identify filesystem behavior regarding creating new files or opening existing files, into an appropriate file operation mode.
@@ -398,7 +404,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(PHANDLE FileHandle, A
     NTSTATUS systemCallResult = 0;
 
     std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
-    std::wstring_view lastAttemptedPath = L"";
+    std::wstring_view lastAttemptedPath;
 
     for (POBJECT_ATTRIBUTES objectAttributesToTry : GetFileOperationObjectAttributesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
     {
@@ -449,7 +455,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(PHANDLE FileHandle, ACC
     NTSTATUS systemCallResult = 0;
 
     std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
-    std::wstring_view lastAttemptedPath = L"";
+    std::wstring_view lastAttemptedPath;
 
     for (POBJECT_ATTRIBUTES objectAttributesToTry : GetFileOperationObjectAttributesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
     {
@@ -520,7 +526,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(POBJECT_A
     SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
     FillRedirectedObjectNameAndAttributesForInstruction(redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
 
-    std::wstring_view lastAttemptedPath = L"";
+    std::wstring_view lastAttemptedPath;
 
     NTSTATUS systemCallResult = 0;
 
@@ -567,7 +573,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(POBJECT_ATTR
     SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
     FillRedirectedObjectNameAndAttributesForInstruction(redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
 
-    std::wstring_view lastAttemptedPath = L"";
+    std::wstring_view lastAttemptedPath;
 
     NTSTATUS systemCallResult = 0;
 

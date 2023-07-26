@@ -91,6 +91,7 @@ namespace PathwinderTest
         // -------- MOCK INSTANCE METHODS ---------------------------------- //
         // See "FilesystemOperations.h" for documentation.
 
+        intptr_t CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath);
         bool Exists(std::wstring_view absolutePath);
         bool IsDirectory(std::wstring_view absolutePath);
     };

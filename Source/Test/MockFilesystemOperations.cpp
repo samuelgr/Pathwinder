@@ -76,7 +76,14 @@ namespace PathwinderTest
 
     // -------- MOCK INSTANCE METHODS -------------------------------------- //
     // See "FilesystemOperations.h" for documentation.
-    
+
+    intptr_t MockFilesystemOperations::CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath)
+    {
+        TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
+    }
+
+    // --------
+
     bool MockFilesystemOperations::Exists(std::wstring_view absolutePath)
     {        
         size_t lastBackslashIndex = absolutePath.find_last_of(L'\\');
@@ -111,6 +118,13 @@ namespace Pathwinder
 
         // -------- MOCK FUNCTIONS ----------------------------------------- //
         // Invocations are forwarded to mock instance methods.
+
+        intptr_t CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath)
+        {
+            MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, CreateDirectoryHierarchy, absoluteDirectoryPath);
+        }
+
+        // --------
 
         bool Exists(std::wstring_view absolutePath)
         {
