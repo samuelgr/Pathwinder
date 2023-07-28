@@ -182,22 +182,39 @@ namespace Pathwinder
             if ((true == driveLetterPrefix.empty()) || (absoluteDirectoryPath.length() == driveLetterPrefix.length()))
                 return kNtStatusObjectPathInvalid;
 
-            // This loop skips over the drive letter prefix and iteratively tries to open directories one level at a time throughout the target hierarchy.
-            // For example, if the parameter is "C:\111\222\333\444" then the order of directories will be "C:\111", "C:\111\222", "C:\111\222\333", and finally "C:\111\222\333\444".
-            // Current position is initialized to the position of the drive letter prefix backslash character so that when it is incremented it refers to the character right after.
+            std::wstring_view currentDirectoryToTry = absoluteDirectoryPathTrimmed;
 
-            size_t currentBackslashPosition = (driveLetterPrefix.length() - 1);
+            // This loop tries to verify that directories exist starting with the input path provided and working its way up one level at a time but stopping one level right before the drive letter prefix.
+            // For example, if the input path is "C:\111\222\333" it will check directories, in order, "C:\111\222\333", "C:\111\222", and finally "C:\111".
+            // Upon completion, the directory in the hierarchy with the longest path known (or assumed, in the case of a drive letter alone) to exist is stored. From there all subsequent hierarchy levels can be created in order.
+            // Rationale for this approach is to optimize for the common case whereby the directory hierarchy already exists, in which case a single system call to check for that is all it takes to complete the entire operation.
             do
             {
-                currentBackslashPosition = absoluteDirectoryPathTrimmed.find_first_of(L'\\', (1 + currentBackslashPosition));
-                
-                std::wstring_view currentDirectoryToTry = absoluteDirectoryPathTrimmed.substr(0, currentBackslashPosition);
-                currentDirectoryToTry = absoluteDirectoryPath.substr(0, windowsNamespacePrefix.length() + currentDirectoryToTry.length());
+                std::wstring_view currentDirectoryToTryWithPrefix = absoluteDirectoryPath.substr(0, currentDirectoryToTry.length() + windowsNamespacePrefix.length());
 
-                NTSTATUS currentDirectoryResult = EnsureDirectoryExists(currentDirectoryToTry);
-                if (!(NT_SUCCESS(currentDirectoryResult)))
-                    return currentDirectoryResult;
-            } while (std::wstring_view::npos != currentBackslashPosition);
+                if (true == IsDirectory(currentDirectoryToTryWithPrefix))
+                    break;
+
+                currentDirectoryToTry = currentDirectoryToTry.substr(0, currentDirectoryToTry.find_last_of(L'\\'));
+            } while (currentDirectoryToTry.length() > driveLetterPrefix.length());
+
+            // No need to check string content because the current directory is always a substring of the absolute input path.
+            // If this condition is true then the full input path hierarchy exists, so there is no need to create any new directories.
+            if (currentDirectoryToTry.length() == absoluteDirectoryPathTrimmed.length())
+                return kNtStatusSuccess;
+
+            // This loop goes the opposite way, starting with the longest path known to exist and working its way down the absolute input path hierarchy.
+            // Each step of the way an attempt is made to create a directory.
+            std::wstring_view remainingHierarchyToCreate = absoluteDirectoryPathTrimmed.substr(1 + currentDirectoryToTry.length());
+            for (std::wstring_view nextHierarchyLevelToCreate : Strings::Tokenizer<wchar_t>(remainingHierarchyToCreate, L"\\"))
+            {
+                currentDirectoryToTry = absoluteDirectoryPathTrimmed.substr(0, 1 + currentDirectoryToTry.length() + nextHierarchyLevelToCreate.length());
+
+                std::wstring_view currentDirectoryToTryWithPrefix = absoluteDirectoryPath.substr(0, currentDirectoryToTry.length() + windowsNamespacePrefix.length());
+                NTSTATUS currentDirectoryCreateResult = EnsureDirectoryExists(currentDirectoryToTry);
+                if (!(NT_SUCCESS(currentDirectoryCreateResult)))
+                    return currentDirectoryCreateResult;
+            }
 
             return kNtStatusSuccess;
         }
