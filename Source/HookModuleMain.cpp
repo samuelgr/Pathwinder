@@ -55,6 +55,7 @@ namespace Pathwinder
                 PROTECTED_HOOK_RECORD(NtQueryDirectoryFile),
                 PROTECTED_HOOK_RECORD(NtQueryDirectoryFileEx),
                 PROTECTED_HOOK_RECORD(NtQueryInformationByName),
+                PROTECTED_HOOK_RECORD(NtSetInformationFile),
                 UNPROTECTED_HOOK_RECORD(NtQueryAttributesFile)
             };
 

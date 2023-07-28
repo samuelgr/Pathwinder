@@ -12,7 +12,7 @@
 
 #pragma once
 
-#include "ApiWindows.h"
+#include "ApiWindowsInternal.h"
 #include "FilesystemOperations.h"
 #include "Hooks.h"
 #include "Message.h"
@@ -23,47 +23,12 @@
 #include <limits>
 #include <optional>
 #include <string_view>
-#include <winternl.h>
 
 
 namespace Pathwinder
 {
     namespace FilesystemOperations
     {
-        // -------- INTERNAL CONSTANTS -------------------------------------- //
-
-        // NTSTATUS values. Many are not defined in header files outside of the Windows driver kit.
-        // See https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/596a1078-e883-4972-9bbc-49e60bebca55 for more information.
-        static constexpr NTSTATUS kNtStatusSuccess                          = 0x00000000;
-        static constexpr NTSTATUS kNtStatusObjectPathInvalid                = 0xC0000039;
-
-
-        // -------- INTERNAL TYPES ----------------------------------------- //
-
-        // Contains metadata about a file, as retrieved by invoking Windows system calls.
-        struct SFileStatInformation
-        {
-            // Identifies this structure as the type of information being requested from Windows system calls.
-            // Corresponds to the `FileStatInformation` enumerator in the `FILE_INFORMATION_CLASS` enumeration.
-            // See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ne-wdm-_file_information_class for more information.
-            static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(68);
-            
-            // Holds file metadata. Corresponds to the `FILE_STAT_INFORMATION` structure.
-            // See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_stat_information for more information.
-            LARGE_INTEGER fileId;
-            LARGE_INTEGER creationTime;
-            LARGE_INTEGER lastAccessTime;
-            LARGE_INTEGER lastWriteTime;
-            LARGE_INTEGER changeTime;
-            LARGE_INTEGER allocationSize;
-            LARGE_INTEGER endOfFile;
-            ULONG fileAttributes;
-            ULONG reparseTag;
-            ULONG numberOfLinks;
-            ACCESS_MASK effectiveAccess;
-        };
-
-
         // -------- INTERNAL FUNCTIONS ------------------------------------- //
 
         /// Determines if the specified file attributes indicate that the file in question exists.
@@ -180,7 +145,7 @@ namespace Pathwinder
 
             std::wstring_view driveLetterPrefix = PathGetDriveLetterPrefix(absoluteDirectoryPathTrimmed);
             if ((true == driveLetterPrefix.empty()) || (absoluteDirectoryPath.length() == driveLetterPrefix.length()))
-                return kNtStatusObjectPathInvalid;
+                return NtStatus::kObjectPathInvalid;
 
             std::wstring_view currentDirectoryToTry = absoluteDirectoryPathTrimmed;
 
@@ -201,7 +166,7 @@ namespace Pathwinder
             // No need to check string content because the current directory is always a substring of the absolute input path.
             // If this condition is true then the full input path hierarchy exists, so there is no need to create any new directories.
             if (currentDirectoryToTry.length() == absoluteDirectoryPathTrimmed.length())
-                return kNtStatusSuccess;
+                return NtStatus::kSuccess;
 
             // This loop goes the opposite way, starting with the longest path known to exist and working its way down the absolute input path hierarchy.
             // Each step of the way an attempt is made to create a directory.
@@ -216,7 +181,7 @@ namespace Pathwinder
                     return currentDirectoryCreateResult;
             }
 
-            return kNtStatusSuccess;
+            return NtStatus::kSuccess;
         }
 
         // --------

@@ -9,7 +9,7 @@
  *   Implementation of functions for manipulating Pathwinder-specific strings.
  *****************************************************************************/
 
-#include "ApiWindows.h"
+#include "ApiWindowsInternal.h"
 #include "DebugAssert.h"
 #include "Globals.h"
 #include "Strings.h"
@@ -25,7 +25,6 @@
 #include <shlobj.h>
 #include <string>
 #include <string_view>
-#include <winternl.h>
 
 
 namespace Pathwinder

@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "ApiWindows.h"
+#include "ApiWindowsInternal.h"
 #include "TemporaryBuffer.h"
 
 #include <cstddef>
@@ -20,7 +20,6 @@
 #include <optional>
 #include <sal.h>
 #include <string_view>
-#include <winternl.h>
 
 
 namespace Pathwinder

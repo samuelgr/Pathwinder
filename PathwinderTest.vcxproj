@@ -138,6 +138,7 @@
   <ItemGroup>
     <ClInclude Include="Include\Pathwinder\Internal\ApiBitSet.h" />
     <ClInclude Include="Include\Pathwinder\Internal\ApiWindows.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\ApiWindowsInternal.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Configuration.h" />
     <ClInclude Include="Include\Pathwinder\Internal\DebugAssert.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirectorBuilder.h" />
@@ -147,6 +148,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirector.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\MutexWrapper.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PathwinderConfigReader.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PrefixIndex.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Resolver.h" />
