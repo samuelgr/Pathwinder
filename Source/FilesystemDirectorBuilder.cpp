@@ -122,7 +122,7 @@ namespace Pathwinder
             return false;
 
         // From this point the candidate directory is separated into individual path components using backslash as a delimiter, and each such component is checked individually.
-        for (std::wstring_view pathComponent : Strings::Tokenizer<wchar_t>(candidateDirectory, L"\\"))
+        for (std::wstring_view pathComponent : Strings::Tokenizer(candidateDirectory, L"\\"))
         {
             if (true == pathComponent.empty())
                 continue;

@@ -704,7 +704,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(HANDLE FileHa
         return preOperationResult;
 
     // Due to how the file rename information structure is laid out, including an embedded filename buffer of variable size, there is overhead to generating a new one.
-    // Without a redirected filename present it is better to bail early than to generate a new one unconditionally and follow the file selection.
+    // Without a redirected filename present it is better to bail early than to generate a new one unconditionally.
     if (false == redirectionInstruction.HasRedirectedFilename())
         Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
 

@@ -171,7 +171,7 @@ namespace Pathwinder
             // This loop goes the opposite way, starting with the longest path known to exist and working its way down the absolute input path hierarchy.
             // Each step of the way an attempt is made to create a directory.
             std::wstring_view remainingHierarchyToCreate = absoluteDirectoryPathTrimmed.substr(1 + currentDirectoryToTry.length());
-            for (std::wstring_view nextHierarchyLevelToCreate : Strings::Tokenizer<wchar_t>(remainingHierarchyToCreate, L"\\"))
+            for (std::wstring_view nextHierarchyLevelToCreate : Strings::Tokenizer(remainingHierarchyToCreate, L"\\"))
             {
                 currentDirectoryToTry = absoluteDirectoryPathTrimmed.substr(0, 1 + currentDirectoryToTry.length() + nextHierarchyLevelToCreate.length());
 

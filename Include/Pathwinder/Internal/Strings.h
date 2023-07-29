@@ -371,8 +371,22 @@ namespace Pathwinder
             // -------- CONSTRUCTION AND DESTRUCTION ----------------------- //
 
             /// Initialization constructor.
-            /// Requires a string to tokenize and a single delimiter.
+            /// Requires a string to tokenize and a single delimiter as a string view.
             constexpr Tokenizer(std::basic_string_view<CharType> stringToTokenize, std::basic_string_view<CharType> delimiter) : stringToTokenize(stringToTokenize), delimiter(delimiter), multiDelimiters(nullptr), numDelimiters(1)
+            {
+                // Nothing to do here.
+            }
+
+            /// Initialization constructor.
+            /// Requires a string to tokenize and a single delimiter as a string object.
+            constexpr Tokenizer(std::basic_string_view<CharType> stringToTokenize, const std::basic_string<CharType>& delimiter) : Tokenizer(stringToTokenize, std::basic_string_view<CharType>(delimiter))
+            {
+                // Nothing to do here.
+            }
+
+            /// Initialization constructor.
+            /// Requires a string to tokenize and a single delimiter as a C string.
+            constexpr Tokenizer(std::basic_string_view<CharType> stringToTokenize, const CharType* delimiter) : Tokenizer(stringToTokenize, std::basic_string_view<CharType>(delimiter))
             {
                 // Nothing to do here.
             }
