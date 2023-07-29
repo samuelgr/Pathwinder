@@ -259,6 +259,8 @@ namespace Pathwinder
         if (true == filesystemRules.empty())
             return L"Error while building a filesystem director configuration: Internal error: Attempted to finalize an empty registry.";
 
+        PrefixIndex<wchar_t, FilesystemRule> allDirectories;
+
         for (const auto& filesystemRuleRecord : filesystemRules)
         {
             const FilesystemRule& filesystemRule = filesystemRuleRecord.second;
@@ -271,6 +273,30 @@ namespace Pathwinder
             const TemporaryString originDirectoryParent = filesystemRule.GetOriginDirectoryParent();
             if ((false == FilesystemOperations::IsDirectory(originDirectoryParent.AsCString())) && (false == HasOriginDirectory(originDirectoryParent)))
                 return Strings::FormatString(L"Error while building a filesystem director configuration: Filesystem rule \"%s\": Constraint violation: Parent of origin directory must either exist as a real directory or be the origin directory of another filesystem rule.", filesystemRuleRecord.first.c_str());
+
+            // Both origin and target directories are added to a prefix index containing all directories. This is done to implement the check for constraint (3).
+            // Directory uniqueness should already have been verified at filesystem rule creation time, so it is an internal error indicative of a bug if those checks passed but there is still some non-uniqueness here.
+            if (false == allDirectories.Insert(filesystemRule.GetOriginDirectoryFullPath(), filesystemRule).second)
+                return Strings::FormatString(L"Error while building a filesystem director configuration: Filesystem rule \"%s\": Internal error: Origin directory conflicts with another rule, but this should have been caught already.", filesystemRuleRecord.first.c_str());
+            if (false == allDirectories.Insert(filesystemRule.GetTargetDirectoryFullPath(), filesystemRule).second)
+                return Strings::FormatString(L"Error while building a filesystem director configuration: Filesystem rule \"%s\": Internal error: Target directory conflicts with another rule, but this should have been caught already.", filesystemRuleRecord.first.c_str());
+        }
+
+        // This loop iterates over all rules one more time and checks all the target directories for ancestors in the prefix index.
+        // Since the prefix index contains all origin and target directories this check directly implements constraint (3).
+        // If an ancestor is located then the configuration violates this constraint and should be rejected.
+        for (const auto& filesystemRuleRecord : filesystemRules)
+        {
+            auto targetDirectoryNode = allDirectories.Find(filesystemRuleRecord.second.GetTargetDirectoryFullPath());
+            if (nullptr == targetDirectoryNode)
+                return Strings::FormatString(L"Error while building a filesystem director configuration: Filesystem rule \"%s\": Internal error: Target directory is improperly properly indexed.", filesystemRuleRecord.first.c_str());
+
+            auto ancestorNode = targetDirectoryNode->GetClosestAncestor();
+            if (nullptr != ancestorNode)
+            {
+                std::wstring_view conflictingFilesystemRuleName = ancestorNode->GetData()->GetName();
+                return Strings::FormatString(L"Error while building a filesystem director configuration: Filesystem rule \"%s\": Constraint violation: Target directory must not have any origin or other target directories as ancestors but conflicts with filesystem rule \"%.*s\".", filesystemRuleRecord.first.c_str(), static_cast<int>(conflictingFilesystemRuleName.length()), conflictingFilesystemRuleName.data());
+            }
         }
 
         return FilesystemDirector(std::move(filesystemRules), std::move(originDirectories));

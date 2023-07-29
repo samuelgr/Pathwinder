@@ -422,4 +422,64 @@ namespace PathwinderTest
         actualOutput = index.FindAllImmediateChildren(L"OtherBase\\BranchA");
         TEST_ASSERT(false == actualOutput.has_value());
     }
+
+    // Creates a small hierarchy of prefixes, including a common base node for a few sub-nodes.
+    // Verifies that the base node is correctly identified as the ancestor when the sub-nodes are queried for their ancestors.
+    TEST_CASE(PrefixIndex_QueryForAncestors_AncestorsExist)
+    {
+        TTestPrefixIndex index(L"\\");
+
+        const TTestPrefixIndex::Node* nodeBase = index.Insert(L"Base", kTestData[0]).first;
+        const TTestPrefixIndex::Node* nodeSub2 = index.Insert(L"Base\\Sub\\2", kTestData[2]).first;
+        const TTestPrefixIndex::Node* nodeSub3 = index.Insert(L"Base\\Sub\\3", kTestData[3]).first;
+        const TTestPrefixIndex::Node* nodeSub4 = index.Insert(L"Base\\Sub\\4", kTestData[4]).first;
+        const TTestPrefixIndex::Node* nodeSub5 = index.Insert(L"Base\\Sub\\5", kTestData[5]).first;
+
+        TEST_ASSERT(nullptr != nodeBase);
+        TEST_ASSERT(nullptr != nodeSub2);
+        TEST_ASSERT(nullptr != nodeSub3);
+        TEST_ASSERT(nullptr != nodeSub4);
+        TEST_ASSERT(nullptr != nodeSub5);
+
+        TEST_ASSERT(nodeBase == nodeSub2->GetClosestAncestor());
+        TEST_ASSERT(true == nodeSub2->HasAncestor());
+
+        TEST_ASSERT(nodeBase == nodeSub3->GetClosestAncestor());
+        TEST_ASSERT(true == nodeSub3->HasAncestor());
+
+        TEST_ASSERT(nodeBase == nodeSub4->GetClosestAncestor());
+        TEST_ASSERT(true == nodeSub4->HasAncestor());
+
+        TEST_ASSERT(nodeBase == nodeSub5->GetClosestAncestor());
+        TEST_ASSERT(true == nodeSub5->HasAncestor());
+    }
+
+    // Creates a small hierarchy of prefixes, but all at the same level and with no ancestor.
+    // Verifies that the prefix index correctly indicates that none of the nodes have ancestors.
+    TEST_CASE(PrefixIndex_QueryForAncestors_AncestorsDoNotExist)
+    {
+        TTestPrefixIndex index(L"\\");
+
+        const TTestPrefixIndex::Node* nodeSub2 = index.Insert(L"Base\\Sub\\2", kTestData[2]).first;
+        const TTestPrefixIndex::Node* nodeSub3 = index.Insert(L"Base\\Sub\\3", kTestData[3]).first;
+        const TTestPrefixIndex::Node* nodeSub4 = index.Insert(L"Base\\Sub\\4", kTestData[4]).first;
+        const TTestPrefixIndex::Node* nodeSub5 = index.Insert(L"Base\\Sub\\5", kTestData[5]).first;
+
+        TEST_ASSERT(nullptr != nodeSub2);
+        TEST_ASSERT(nullptr != nodeSub3);
+        TEST_ASSERT(nullptr != nodeSub4);
+        TEST_ASSERT(nullptr != nodeSub5);
+
+        TEST_ASSERT(nullptr == nodeSub2->GetClosestAncestor());
+        TEST_ASSERT(false == nodeSub2->HasAncestor());
+
+        TEST_ASSERT(nullptr == nodeSub3->GetClosestAncestor());
+        TEST_ASSERT(false == nodeSub3->HasAncestor());
+
+        TEST_ASSERT(nullptr == nodeSub4->GetClosestAncestor());
+        TEST_ASSERT(false == nodeSub4->HasAncestor());
+
+        TEST_ASSERT(nullptr == nodeSub5->GetClosestAncestor());
+        TEST_ASSERT(false == nodeSub5->HasAncestor());
+    }
 }

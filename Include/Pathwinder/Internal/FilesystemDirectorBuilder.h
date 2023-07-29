@@ -102,9 +102,10 @@ namespace Pathwinder
         /// Attempts to build a real filesystem director object using all of the rules added so far. Built filesystem director objects are immutable.
         /// Some constraints that are enforced between rules, such as relationships between directories, cannot be checked until all rules have been added.
         /// Once a new filesystem director object is built this builder object is invalidated and should not be used further.
-        /// Two constraints are imposed on each filesystem rule:
+        /// Some additional constraints are imposed on each filesystem rule at build time:
         /// (1) Origin directory either exists as a real directory or does not exist at all (i.e. it does not exist as a file or some other non-directory entity type).
         /// (2) Immediate parent of the origin directory either exists as a directory or serves as the origin directory for another rule.
+        /// (3) Target directory hierarchies are all unrelated. In other words, no target directory has any rule's origin directory or target directory as an ancestor in the filesystem. 
         /// @return Newly-built filesystem director object on success, or an error message on failure.
         ValueOrError<FilesystemDirector, TemporaryString> Build(void);
 

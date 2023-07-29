@@ -37,6 +37,7 @@ namespace Pathwinder
         static constexpr unsigned int kMaxDelimiters = 4;
 
 
+    public:
         // -------- TYPE DEFINITIONS --------------------------------------- //
 
         /// Individual node within the prefix tree.
@@ -147,6 +148,20 @@ namespace Pathwinder
                 return immediateChildren;
             }
 
+            /// Traverses up the tree via parent node pointers and checks all the nodes encountered for whether or not they contain any data.
+            /// Returns a pointer to the first node encountered that contains data.
+            /// @return Pointer to the closest ancestor node, or `nullptr` if no such node exists.
+            const Node* GetClosestAncestor(void) const
+            {
+                for (const Node* currentNode = GetParent(); nullptr != currentNode; currentNode = currentNode->GetParent())
+                {
+                    if (true == currentNode->HasData())
+                        return currentNode;
+                }
+
+                return nullptr;
+            }
+
             /// Retrieves a read-only pointer to the optional data contained within this node, which may not exist.
             /// @return Read-only pointer to optional node data, or `nullptr` if no data exist.
             inline const DataType* GetData(void) const
@@ -173,6 +188,14 @@ namespace Pathwinder
             inline std::basic_string_view<CharType> GetParentKey(void) const
             {
                 return parentKey;
+            }
+
+            /// Determines if this node has any ancestors.
+            /// Traverses up the tree via parent node pointers and checks all the nodes encountered for whether or not they contain any data.
+            /// @return `true` if a node is encountered containing data, `false` otherwise.
+            inline bool HasAncestor(void) const
+            {
+                return (nullptr != GetClosestAncestor());
             }
 
             /// Determines if this node has any children.
@@ -205,6 +228,7 @@ namespace Pathwinder
         };
 
 
+    private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
         /// Root node of the path prefix tree data structure.

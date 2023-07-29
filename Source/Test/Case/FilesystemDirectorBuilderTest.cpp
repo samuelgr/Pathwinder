@@ -337,7 +337,7 @@ namespace PathwinderTest
         TEST_ASSERT(true  == directorBuilder.HasOriginDirectory(L"C:\\Level1\\Level2\\Level3\\Level4\\Level5"));
     }
 
-    // Verifies that rule set finalization completes successfully in the nominal case of filesystem rules having origin directories that exist and whose parent directories also exist.
+    // Verifies that the filesystem director build process completes successfully in the nominal case of filesystem rules having origin directories that exist and whose parent directories also exist.
     // Performs a few data structure consistency checks on the new filesystem director object to ensure it was build correctly.
     TEST_CASE(FilesystemDirectorBuilder_Build_Success_Nominal)
     {
@@ -365,7 +365,7 @@ namespace PathwinderTest
         TEST_ASSERT(director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2"));
     }
 
-    // Verifies that rule set finalization completes successfully where rules have origin directories whose parents do not exist but themselves are the origin directories of other rules.
+    // Verifies that the filesystem director build process completes successfully where rules have origin directories whose parents do not exist but themselves are the origin directories of other rules.
     // No rules have any file patterns.
     TEST_CASE(FilesystemDirectorBuilder_Build_Success_OriginHierarchy)
     {
@@ -381,7 +381,7 @@ namespace PathwinderTest
         TEST_ASSERT(buildResult.HasValue());
     }
 
-    // Verifies that rule set finalization fails when the origin directory path already exists but is not a directory.
+    // Verifies that the filesystem director build process fails when the origin directory path already exists but is not a directory.
     TEST_CASE(FilesystemDirectorBuilder_Build_Failure_OriginExistsNotAsDirectory)
     {
         MockFilesystemOperations mockFilesystem;
@@ -394,7 +394,7 @@ namespace PathwinderTest
         TEST_ASSERT(buildResult.HasError());
     }
 
-    // Verifies that rule set finalization fails when the origin directory's parent does not exist in the filesystem or as another origin directory.
+    // Verifies that the filesystem director build process fails when the origin directory's parent does not exist in the filesystem or as another origin directory.
     TEST_CASE(FilesystemDirectorBuilder_Build_Failure_OriginParentMissing)
     {
         MockFilesystemOperations mockFilesystem;
@@ -405,6 +405,40 @@ namespace PathwinderTest
 
         auto buildResult = directorBuilder.Build();
         TEST_ASSERT(buildResult.HasError());
+    }
+
+    // Verifies that the filesystem director build process fails when a target directory conflicts with another rule's origin or target directory by virtue of the latter being an ancestor of the former.
+    // In this case the conflict is between the target directories of two rules.
+    TEST_CASE(FilesystemDirectorBuilder_Build_Failure_TargetHierarchyConflictWithTarget)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:\\OriginDir1");
+        mockFilesystem.AddDirectory(L"C:\\OriginDir2");
+
+        FilesystemDirectorBuilder directorBuilder;
+        TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir1").HasValue());
+        TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\OriginDir2", L"C:\\TargetDir1\\TargetDir2").HasValue());
+
+        auto buildResult = directorBuilder.Build();
+        TEST_ASSERT(buildResult.HasError());
+        TEST_ASSERT(buildResult.Error().AsStringView().contains(L"ancestor"));
+    }
+
+    // Verifies that the filesystem director build process fails when a target directory conflicts with another rule's origin or target directory by virtue of the latter being an ancestor of the former.
+    // In this case the conflict is between the target directory of one rule and the origin directory of another.
+    TEST_CASE(FilesystemDirectorBuilder_Build_Failure_TargetHierarchyConflictWithOrigin)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:\\OriginDir1");
+        mockFilesystem.AddDirectory(L"C:\\OriginDir2");
+
+        FilesystemDirectorBuilder directorBuilder;
+        TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir1").HasValue());
+        TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\OriginDir2", L"C:\\OriginDir1\\TargetDir2").HasValue());
+
+        auto buildResult = directorBuilder.Build();
+        TEST_ASSERT(buildResult.HasError());
+        TEST_ASSERT(buildResult.Error().AsStringView().contains(L"ancestor"));
     }
 
     // Verifies that a filesystem director object can be built from a configuration file in the nominal case of filesystem rules having origin directories that exist and whose parent directories also exist.
@@ -483,7 +517,7 @@ namespace PathwinderTest
         TEST_ASSERT(director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2"));
     }
 
-    // Verifies that rule set finalization fails when the origin directory's parent does not exist in the filesystem or as another origin directory.
+    // Verifies that the filesystem director build process fails when the origin directory's parent does not exist in the filesystem or as another origin directory.
     // This test case uses a configuration data object instead of calling builder methods directly.
     TEST_CASE(FilesystemDirectorBuilder_BuildFromConfigurationData_Failure_OriginParentMissing)
     {
