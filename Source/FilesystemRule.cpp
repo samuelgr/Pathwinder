@@ -119,10 +119,10 @@ namespace Pathwinder
         case FilesystemRule::EDirectoryCompareResult::Equal:
 
             // Candidate directory and origin directory are equal. This is the simplest case.
-            // If the candidate file part matches the redirection file patterns then a redirection can occur.
+            // If the candidate file part is either empty or matches the redirection file patterns then a redirection can occur.
             // For example, if we are asked to redirect "C:\Dir1\file.txt" from "C:\Dir1" to "C:\Dir5000" then the result would be "C:\Dir5000\file.txt" but only if "file.txt" matches the file patterns for redirection.
 
-            if (false == FileNameMatchesAnyPatternInternal(candidatePathFilePart, filePatterns))
+            if ((false == candidatePathFilePart.empty()) && (false == FileNameMatchesAnyPatternInternal(candidatePathFilePart, filePatterns)))
                 return std::nullopt;
             break;
 

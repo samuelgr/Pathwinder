@@ -188,7 +188,6 @@ namespace PathwinderTest
         };
 
         constexpr std::wstring_view kTestFilesNotMatching[] = {
-            L"",
             L"    ASDF",
             L"gh.jkl",
             L"A",
