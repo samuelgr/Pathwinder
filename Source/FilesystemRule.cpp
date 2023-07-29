@@ -9,12 +9,12 @@
  *   Implementation of filesystem redirection rule functionality.
  *****************************************************************************/
 
+#include "ApiWindowsInternal.h"
 #include "FilesystemRule.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
 
 #include <optional>
-#include <shlwapi.h>
 #include <string_view>
 #include <vector>
 
@@ -90,7 +90,10 @@ namespace Pathwinder
 
         for (const auto& filePattern : filePatterns)
         {
-            if (TRUE == PathMatchSpec(candidateFileName.data(), filePattern.data()))
+            UNICODE_STRING candidateFileNameString = Strings::NtConvertStringViewToUnicodeString(candidateFileName);
+            UNICODE_STRING filePatternString = Strings::NtConvertStringViewToUnicodeString(filePattern);
+
+            if (TRUE == WindowsInternal::RtlIsNameInExpression(&filePatternString, &candidateFileNameString, TRUE, nullptr))
                 return true;
         }
 
@@ -166,7 +169,13 @@ namespace Pathwinder
 
     FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns) : originDirectorySeparator(FinalSeparatorPosition(originDirectoryFullPath)), targetDirectorySeparator(FinalSeparatorPosition(targetDirectoryFullPath)), originDirectoryFullPath(originDirectoryFullPath), targetDirectoryFullPath(targetDirectoryFullPath), filePatterns(std::move(filePatterns)), name()
     {
-        // Nothing to do here.
+        // The specific implementation used for comparing file names to file patterns requires that all pattern strings be uppercase.
+        // Comparisons remain case-insensitive. This is just a documented implementation detail of the comparison function itself.
+        for (auto& filePattern : this->filePatterns)
+        {
+            for (size_t i = 0; i < filePattern.size(); ++i)
+                filePattern[i] = std::towupper(filePattern[i]);
+        }
     }
 
 

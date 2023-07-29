@@ -77,4 +77,14 @@ namespace Pathwinder
         ULONG numberOfLinks;
         ACCESS_MASK effectiveAccess;
     };
+
+
+    // -------- FUNCTIONS ---------------------------------------------- //
+
+    namespace WindowsInternal
+    {
+        /// Wrapper around the internal `RtlIsNameInExpression` function, which has no associated header file and requires dynamically linking.
+        /// See https://learn.microsoft.com/en-us/windows/win32/devnotes/rtlisnameinexpression for more information.
+        BOOLEAN RtlIsNameInExpression(PUNICODE_STRING Expression, PUNICODE_STRING Name, BOOLEAN IgnoreCase, PWCH UpcaseTable);
+    }
 }

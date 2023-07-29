@@ -113,6 +113,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Source\ApiWindows.cpp" />
+    <ClCompile Include="Source\ApiWindowsInternal.cpp" />
     <ClCompile Include="Source\Configuration.cpp" />
     <ClCompile Include="Source\FilesystemDirectorBuilder.cpp" />
     <ClCompile Include="Source\FilesystemRule.cpp" />
