@@ -62,11 +62,11 @@ namespace Pathwinder
                 const FilesystemRule& newFilesystemRule = *(addFilesystemRuleResult.Value());
 
                 Message::OutputFormatted(Message::ESeverity::Info, L"Successfully created filesystem rule \"%.*s\".", (int)newFilesystemRule.GetName().length(), newFilesystemRule.GetName().data());
-                Message::OutputFormatted(Message::ESeverity::Debug, L"  Origin directory = \"%.*s\"", (int)newFilesystemRule.GetOriginDirectoryFullPath().length(), newFilesystemRule.GetOriginDirectoryFullPath().data());
-                Message::OutputFormatted(Message::ESeverity::Debug, L"  Target directory = \"%.*s\"", (int)newFilesystemRule.GetTargetDirectoryFullPath().length(), newFilesystemRule.GetTargetDirectoryFullPath().data());
+                Message::OutputFormatted(Message::ESeverity::Info, L"  Origin directory = \"%.*s\"", (int)newFilesystemRule.GetOriginDirectoryFullPath().length(), newFilesystemRule.GetOriginDirectoryFullPath().data());
+                Message::OutputFormatted(Message::ESeverity::Info, L"  Target directory = \"%.*s\"", (int)newFilesystemRule.GetTargetDirectoryFullPath().length(), newFilesystemRule.GetTargetDirectoryFullPath().data());
 
                 for (const auto& filePattern : newFilesystemRule.GetFilePatterns())
-                    Message::OutputFormatted(Message::ESeverity::Debug, L"  File pattern = \"%s\"", filePattern.c_str());
+                    Message::OutputFormatted(Message::ESeverity::Info, L"  File pattern = \"%s\"", filePattern.c_str());
             }
             else
             {
@@ -295,7 +295,7 @@ namespace Pathwinder
             if (nullptr != ancestorNode)
             {
                 std::wstring_view conflictingFilesystemRuleName = ancestorNode->GetData()->GetName();
-                return Strings::FormatString(L"Error while building a filesystem director configuration: Filesystem rule \"%s\": Constraint violation: Target directory must not have any origin or other target directories as ancestors but conflicts with filesystem rule \"%.*s\".", filesystemRuleRecord.first.c_str(), static_cast<int>(conflictingFilesystemRuleName.length()), conflictingFilesystemRuleName.data());
+                return Strings::FormatString(L"Error while building a filesystem director configuration: Filesystem rule \"%s\": Constraint violation: Target directory must not be a descendent of the origin or target directory of filesystem rule \"%.*s\".", filesystemRuleRecord.first.c_str(), static_cast<int>(conflictingFilesystemRuleName.length()), conflictingFilesystemRuleName.data());
             }
         }
 
