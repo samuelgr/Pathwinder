@@ -84,7 +84,7 @@ namespace Pathwinder
             return openHandleIter->second;
         }
 
-        /// Inserts a new handle and corresponding path into the open handle cache.
+        /// Inserts a new handle and corresponding path into the open handle store.
         /// @param [in] handleToInsert Handle to be inserted.
         /// @param [in] correspondingPath Corresponding filesystem path to store for the handle.
         inline void InsertHandle(HANDLE handleToInsert, std::wstring_view correspondingPath)
@@ -93,6 +93,36 @@ namespace Pathwinder
 
             const bool insertionWasSuccessful = openHandles.emplace(handleToInsert, correspondingPath).second;
             DebugAssert(true == insertionWasSuccessful, "Failed to insert a handle into storage.");
+        }
+
+        /// Inserts a new handle and corresponding path into the open handle store or, if the handle already exists, updates its corresponding path.
+        /// @param [in] handleToInsertOrUpdate Handle to be inserted or updated.
+        /// @param [in] correspondingPath Corresponding filesystem path to store for the handle.
+        inline void InsertOrUpdateHandle(HANDLE handleToInsertOrUpdate, std::wstring_view correspondingPath)
+        {
+            std::unique_lock lock(openHandlesMutex);
+
+            openHandles.insert_or_assign(handleToInsertOrUpdate, correspondingPath).second;
+        }
+
+        /// Attempts to remove an existing handle and corresponding path from the open handle store.
+        /// @param [in] handleToRemove Handle to be removed.
+        /// @param [out] correspondingPath String object to receive ownership of the corresponding path to the handle that was removed, if not null. Only filled if this method returns `true`.
+        /// @return `true` if the handle was found and removed, `false` otherwise.
+        inline bool RemoveHandle(HANDLE handleToRemove, std::wstring* correspondingPath)
+        {
+            std::unique_lock lock(openHandlesMutex);
+
+            auto removalIter = openHandles.find(handleToRemove);
+            if (openHandles.end() == removalIter)
+                return false;
+
+            if (nullptr == correspondingPath)
+                openHandles.erase(removalIter);
+            else
+                *correspondingPath = std::move(openHandles.extract(removalIter).mapped());
+
+            return true;
         }
 
         /// Attempts to close and subsequently remove an existing handle and corresponding path from the open handle store.
@@ -106,7 +136,7 @@ namespace Pathwinder
             std::unique_lock lock(openHandlesMutex);
 
             auto removalIter = openHandles.find(handleToRemove);
-            DebugAssert(openHandles.end() != removalIter, "Attempting to erase a handle that was not previously stored.");
+            DebugAssert(openHandles.end() != removalIter, "Attempting to close and erase a handle that was not previously stored.");
 
             NTSTATUS systemCallResult = Hooks::ProtectedDependency::NtClose::SafeInvoke(handleToRemove);
             if (!(NT_SUCCESS(systemCallResult)))
@@ -118,6 +148,42 @@ namespace Pathwinder
                 *correspondingPath = std::move(openHandles.extract(removalIter).mapped());
 
             return systemCallResult;
+        }
+    };
+
+    /// Holds file rename information, including the variably-sized filename, in a bytewise buffer and exposes it in a type-safe way.
+    /// This object is used for representation only, not for any functionality surrounding actually creating a byte-wise buffer representation of a file rename information structure.
+    class FileRenameInformationAndFilename
+    {
+    private:
+        // -------- INSTANCE VARIABLES ------------------------------------- //
+
+        /// Byte-wise buffer, which will hold the file rename information data structure.
+        TemporaryVector<uint8_t> bytewiseBuffer;
+
+
+    public:
+        // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
+
+        /// Initialization constructor. Requires an already-constructed bytewise buffer, which is moved into place.
+        inline FileRenameInformationAndFilename(TemporaryVector<uint8_t>&& bytewiseBuffer) : bytewiseBuffer(std::move(bytewiseBuffer))
+        {
+            // Nothing to do here.
+        }
+
+
+        // -------- INSTANCE METHODS --------------------------------------- //
+
+        /// Convenience method for retrieving a properly-typed file rename information structure.
+        inline SFileRenameInformation& GetFileRenameInformation(void)
+        {
+            return *(reinterpret_cast<SFileRenameInformation*>(bytewiseBuffer.Data()));
+        }
+
+        /// Convenience method for retrieving the size, in bytes, of the stored file rename information structure including filename.
+        inline unsigned int GetFileRenameInformationSizeBytes(void)
+        {
+            return bytewiseBuffer.Size();
         }
     };
 
@@ -135,12 +201,29 @@ namespace Pathwinder
         OBJECT_ATTRIBUTES objectAttributes;                                 ///< Attributes of the object, which includes a field that points to the name.
     };
 
-    /// Contains pointers to all of the object attributes to try, in order, for a file operation.
-    /// Any values that are `nullptr` are skipped.
-    typedef std::array<POBJECT_ATTRIBUTES, 2> TFileOperationObjectAttributesToTry;
-
 
     // -------- INTERNAL FUNCTIONS ----------------------------------------- //
+
+    /// Copies the contents of the supplied file rename information structure but replaces the filename.
+    /// This has the effect of changing the new name of the specified file after the rename operation completes.
+    /// @param [in] inputFileRenameInformation Original file rename information structurewhose contents are to be copied.
+    /// @param [in] replacementFilename Replacement filename.
+    /// @return Buffer containing a new file rename information structure with the filename replaced.
+    static FileRenameInformationAndFilename CopyFileRenameInformationAndReplaceFilename(const SFileRenameInformation& inputFileRenameInformation, std::wstring_view replacementFilename)
+    {
+        TemporaryVector<uint8_t> newFileRenameInformation;
+
+        SFileRenameInformation outputFileRenameInformation = inputFileRenameInformation;
+        outputFileRenameInformation.fileNameLength = (static_cast<ULONG>(replacementFilename.length()) * sizeof(wchar_t));
+
+        for (size_t i = 0; i < offsetof(SFileRenameInformation, fileName); ++i)
+            newFileRenameInformation.PushBack((reinterpret_cast<const uint8_t*>(&outputFileRenameInformation))[i]);
+
+        for (size_t i = 0; i < (replacementFilename.length() * sizeof(wchar_t)); ++i)
+            newFileRenameInformation.PushBack((reinterpret_cast<const uint8_t*>(replacementFilename.data()))[i]);
+
+        return FileRenameInformationAndFilename(std::move(newFileRenameInformation));
+    }
 
     /// Executes any pre-operations needed ahead of invoking underlying system calls.
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
@@ -267,30 +350,31 @@ namespace Pathwinder
         }
     }
 
-    /// Places pointers to the object attributes structures to try, in order, to submit to the underlying system call for a file operation.
+    /// Places pointers to the data structures that identify files to try, in order, to submit to the underlying system call for a file operation.
     /// The number of pointers placed, and the order in which they are placed, is controlled by the file operation redirection instruction.
     /// Any entries placed as `nullptr` are invalid and should be skipped.
+    /// @tparam FileObjectType Data structure type that identifies files to try.
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
     /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
-    /// @param [in] unredirectedObjectAttributes Pointer to the object attributes structure received from the application.
-    /// @param [in] redirectedObjectAttributes Pointer to the object attributes structure generated by querying for file operation redirection.
+    /// @param [in] unredirectedFileObject Pointer to the data structure received from the application.
+    /// @param [in] redirectedFileObject Pointer to the data structure generated by querying for file operation redirection.
     /// @return Object attributes to be tried, in order.
-    static TFileOperationObjectAttributesToTry GetFileOperationObjectAttributesToTry(const wchar_t* functionName, unsigned int functionRequestIdentifier, const FileOperationRedirectInstruction& instruction, POBJECT_ATTRIBUTES unredirectedObjectAttributes, POBJECT_ATTRIBUTES redirectedObjectAttributes)
+    template <typename FileObjectType> std::array<FileObjectType*, 2> SelectFilesToTry(const wchar_t* functionName, unsigned int functionRequestIdentifier, const FileOperationRedirectInstruction& instruction, FileObjectType* unredirectedFileObject, FileObjectType* redirectedFileObject)
     {
         switch (instruction.GetFilenamesToTry())
         {
         case FileOperationRedirectInstruction::ETryFiles::UnredirectedOnly:
-            return {unredirectedObjectAttributes, nullptr};
+            return {unredirectedFileObject, nullptr};
 
         case FileOperationRedirectInstruction::ETryFiles::UnredirectedFirst:
-            return {unredirectedObjectAttributes, redirectedObjectAttributes};
+            return {unredirectedFileObject, redirectedFileObject};
 
         case FileOperationRedirectInstruction::ETryFiles::RedirectedFirst:
-            return {redirectedObjectAttributes, unredirectedObjectAttributes};
+            return {redirectedFileObject, unredirectedFileObject};
 
         case FileOperationRedirectInstruction::ETryFiles::RedirectedOnly:
-            return {redirectedObjectAttributes};
+            return {redirectedFileObject};
 
         default:
             Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationRedirectInstruction::ETryFiles = %u).", functionName, functionRequestIdentifier, static_cast<unsigned int>(instruction.GetFilenamesToTry()));
@@ -308,18 +392,6 @@ namespace Pathwinder
         return (!(NT_SUCCESS(systemCallResult)));
     }
 
-    /// Inserts a newly-opened handle into the open handle store.
-    /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
-    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
-    /// @param [in] newlyOpenedHandle Handle to add to the open handles store.
-    /// @param [in] associatedPath Path associated with the newly opened handle being added to storage.
-    static inline void StoreNewlyOpenedHandle(const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE newlyOpenedHandle, std::wstring_view associatedPath)
-    {
-        std::wstring_view associatedPathTrimmed = Strings::RemoveTrailing(associatedPath, L'\\');
-        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu is being stored in association with path \"%.*s\".", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(newlyOpenedHandle), static_cast<int>(associatedPathTrimmed.length()), associatedPathTrimmed.data());
-        OpenHandleStore::Singleton().InsertHandle(newlyOpenedHandle, associatedPathTrimmed);
-    }
-
     /// Inserts a newly-opened handle into the open handle store, selecting an associated path based on the file operation redirection instruction.
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
@@ -329,26 +401,83 @@ namespace Pathwinder
     /// @param [in] unredirectedPath Original file name supplied by the application.
     static void SelectFilenameAndStoreNewlyOpenedHandle(const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE newlyOpenedHandle, const FileOperationRedirectInstruction& instruction, std::wstring_view successfulPath, std::wstring_view unredirectedPath)
     {
+        std::wstring_view selectedPath;
+
         switch (instruction.GetFilenameHandleAssociation())
         {
         case FileOperationRedirectInstruction::EAssociateNameWithHandle::None:
             break;
 
         case FileOperationRedirectInstruction::EAssociateNameWithHandle::WhicheverWasSuccessful:
-            StoreNewlyOpenedHandle(functionName, functionRequestIdentifier, newlyOpenedHandle, successfulPath);
+            selectedPath = successfulPath;
             break;
 
         case FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected:
-            StoreNewlyOpenedHandle(functionName, functionRequestIdentifier, newlyOpenedHandle, unredirectedPath);
+            selectedPath = unredirectedPath;
             break;
 
         case FileOperationRedirectInstruction::EAssociateNameWithHandle::Redirected:
-            StoreNewlyOpenedHandle(functionName, functionRequestIdentifier, newlyOpenedHandle, instruction.GetRedirectedFilename());
+            selectedPath = instruction.GetRedirectedFilename();
             break;
 
         default:
             Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationRedirectInstruction::EAssociateNameWithHandle = %u).", functionName, functionRequestIdentifier, static_cast<unsigned int>(instruction.GetFilenameHandleAssociation()));
             break;
+        }
+
+        if (false == selectedPath.empty())
+        {
+            selectedPath = Strings::RemoveTrailing(selectedPath, L'\\');
+
+            OpenHandleStore::Singleton().InsertHandle(newlyOpenedHandle, selectedPath);
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu was stored in association with path \"%.*s\".", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(newlyOpenedHandle), static_cast<int>(selectedPath.length()), selectedPath.data());
+        }
+    }
+
+    /// Updates a handle that might already be in the open handle store, selecting an associated path based on the file operation redirection instruction.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
+    /// @param [in] handleToUpdate Handle to update in the open handles store, if it is present.
+    /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
+    /// @param [in] successfulPath Path that was used successfully to create the file handle.
+    /// @param [in] unredirectedPath Original file name supplied by the application.
+    static void SelectFilenameAndUpdateOpenHandle(const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE handleToUpdate, const FileOperationRedirectInstruction& instruction, std::wstring_view successfulPath, std::wstring_view unredirectedPath)
+    {
+        std::wstring_view selectedPath;
+
+        switch (instruction.GetFilenameHandleAssociation())
+        {
+        case FileOperationRedirectInstruction::EAssociateNameWithHandle::None:
+            do {
+                std::wstring erasedHandlePath;
+                if (true == OpenHandleStore::Singleton().RemoveHandle(handleToUpdate, &erasedHandlePath))
+                    Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu for path \"%s\" was erased from storage.", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(handleToUpdate), erasedHandlePath.c_str());
+            } while (false);
+            break;
+
+        case FileOperationRedirectInstruction::EAssociateNameWithHandle::WhicheverWasSuccessful:
+            selectedPath = successfulPath;
+            break;
+
+        case FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected:
+            selectedPath = unredirectedPath;
+            break;
+
+        case FileOperationRedirectInstruction::EAssociateNameWithHandle::Redirected:
+            selectedPath = instruction.GetRedirectedFilename();
+            break;
+
+        default:
+            Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationRedirectInstruction::EAssociateNameWithHandle = %u).", functionName, functionRequestIdentifier, static_cast<unsigned int>(instruction.GetFilenameHandleAssociation()));
+            break;
+        }
+
+        if (false == selectedPath.empty())
+        {
+            selectedPath = Strings::RemoveTrailing(selectedPath, L'\\');
+
+            OpenHandleStore::Singleton().InsertOrUpdateHandle(handleToUpdate, selectedPath);
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu was updated in storage and is now associated with path \"%.*s\".", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(handleToUpdate), static_cast<int>(selectedPath.length()), selectedPath.data());
         }
     }
 }
@@ -372,7 +501,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtClose::Hook(HANDLE Handle)
     NTSTATUS closeHandleResult = OpenHandleStore::Singleton().RemoveAndCloseHandle(Handle, &closedHandlePath);
 
     if (NT_SUCCESS(closeHandleResult))
-        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %llu for path \"%s\" was closed and erased from storage.", GetFunctionName(), requestIdentifier, static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(Handle)), closedHandlePath.c_str());
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu for path \"%s\" was closed and erased from storage.", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(Handle), closedHandlePath.c_str());
 
     return closeHandleResult;
 }
@@ -400,12 +529,12 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(PHANDLE FileHandle, A
     FillRedirectedObjectNameAndAttributesForInstruction(redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
 
     HANDLE newlyOpenedHandle = nullptr;
-    NTSTATUS systemCallResult = 0;
+    NTSTATUS systemCallResult = NtStatus::kSuccess;
 
     std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
     std::wstring_view lastAttemptedPath;
 
-    for (POBJECT_ATTRIBUTES objectAttributesToTry : GetFileOperationObjectAttributesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
+    for (POBJECT_ATTRIBUTES objectAttributesToTry : SelectFilesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
     {
         if (nullptr == objectAttributesToTry)
             continue;
@@ -451,12 +580,12 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(PHANDLE FileHandle, ACC
     FillRedirectedObjectNameAndAttributesForInstruction(redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
 
     HANDLE newlyOpenedHandle = nullptr;
-    NTSTATUS systemCallResult = 0;
+    NTSTATUS systemCallResult = NtStatus::kSuccess;
 
     std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
     std::wstring_view lastAttemptedPath;
 
-    for (POBJECT_ATTRIBUTES objectAttributesToTry : GetFileOperationObjectAttributesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
+    for (POBJECT_ATTRIBUTES objectAttributesToTry : SelectFilesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
     {
         if (nullptr == objectAttributesToTry)
             continue;
@@ -527,9 +656,9 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(POBJECT_A
 
     std::wstring_view lastAttemptedPath;
 
-    NTSTATUS systemCallResult = 0;
+    NTSTATUS systemCallResult = NtStatus::kSuccess;
 
-    for (POBJECT_ATTRIBUTES objectAttributesToTry : GetFileOperationObjectAttributesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
+    for (POBJECT_ATTRIBUTES objectAttributesToTry : SelectFilesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
     {
         if (nullptr == objectAttributesToTry)
             continue;
@@ -561,9 +690,50 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(HANDLE FileHa
 
     const unsigned int requestIdentifier = GetRequestIdentifier();
 
-    // For a rename operation the only path that needs to be redirected is the one that holds the new filename.
+    SFileRenameInformation& unredirectedFileRenameInformation = *(reinterpret_cast<SFileRenameInformation*>(FileInformation));
+    std::wstring_view unredirectedPath = unredirectedFileRenameInformation.GetFilename();
 
-    return Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
+    const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, unredirectedFileRenameInformation.rootDirectory, unredirectedPath, FilesystemDirector::EFileOperationMode::CreateNewFile);
+    const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
+
+    if (true == Globals::GetConfigurationData().isDryRunMode)
+        return Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
+
+    NTSTATUS preOperationResult = ExecuteExtraPreOperations(GetFunctionName(), requestIdentifier, operationContext.instruction);
+    if (!(NT_SUCCESS(preOperationResult)))
+        return preOperationResult;
+
+    // Due to how the file rename information structure is laid out, including an embedded filename buffer of variable size, there is overhead to generating a new one.
+    // Without a redirected filename present it is better to bail early than to generate a new one unconditionally and follow the file selection.
+    if (false == redirectionInstruction.HasRedirectedFilename())
+        Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
+
+    FileRenameInformationAndFilename redirectedFileRenameInformationAndFilename = CopyFileRenameInformationAndReplaceFilename(unredirectedFileRenameInformation, redirectionInstruction.GetRedirectedFilename());
+    SFileRenameInformation& redirectedFileRenameInformation = redirectedFileRenameInformationAndFilename.GetFileRenameInformation();
+
+    NTSTATUS systemCallResult = NtStatus::kSuccess;
+    std::wstring_view lastAttemptedPath;
+
+    for (SFileRenameInformation* renameInformationToTry : SelectFilesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, &unredirectedFileRenameInformation, &redirectedFileRenameInformation))
+    {
+        if (nullptr == renameInformationToTry)
+            continue;
+
+        lastAttemptedPath = renameInformationToTry->GetFilename();
+        systemCallResult = Original(FileHandle, IoStatusBlock, reinterpret_cast<PVOID>(renameInformationToTry), Length, FileInformationClass);
+        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
+
+        if (false == ShouldTryNextFilename(systemCallResult))
+            break;
+    }
+
+    if (true == lastAttemptedPath.empty())
+        return Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
+
+    if (NT_SUCCESS(systemCallResult))
+        SelectFilenameAndUpdateOpenHandle(GetFunctionName(), requestIdentifier, FileHandle, redirectionInstruction, lastAttemptedPath, unredirectedPath);
+
+    return systemCallResult;
 }
 
 
@@ -592,9 +762,9 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(POBJECT_ATTR
 
     std::wstring_view lastAttemptedPath;
 
-    NTSTATUS systemCallResult = 0;
+    NTSTATUS systemCallResult = NtStatus::kSuccess;
 
-    for (POBJECT_ATTRIBUTES objectAttributesToTry : GetFileOperationObjectAttributesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
+    for (POBJECT_ATTRIBUTES objectAttributesToTry : SelectFilesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
     {
         if (nullptr == objectAttributesToTry)
             continue;
