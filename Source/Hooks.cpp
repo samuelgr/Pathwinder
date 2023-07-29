@@ -706,7 +706,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(HANDLE FileHa
     // Due to how the file rename information structure is laid out, including an embedded filename buffer of variable size, there is overhead to generating a new one.
     // Without a redirected filename present it is better to bail early than to generate a new one unconditionally.
     if (false == redirectionInstruction.HasRedirectedFilename())
-        Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
+        return Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
     FileRenameInformationAndFilename redirectedFileRenameInformationAndFilename = CopyFileRenameInformationAndReplaceFilename(unredirectedFileRenameInformation, redirectionInstruction.GetRedirectedFilename());
     SFileRenameInformation& redirectedFileRenameInformation = redirectedFileRenameInformationAndFilename.GetFileRenameInformation();
