@@ -13,6 +13,7 @@
 #pragma once
 
 #include "ApiBitSet.h"
+#include "FilesystemRule.h"
 #include "TemporaryBuffer.h"
 
 #include <cstdint>
@@ -22,6 +23,147 @@
 
 namespace Pathwinder
 {
+    /// Contains all of the information needed to execute a directory enumeration complete with potential path redirection.
+    /// Execution steps described by an instruction are in addition to performing the original enumeration requested by the application, with the caveat that any filenames enumerated by following this instruction must be removed from the original enumeration result.
+    /// Instances of this class would typically be created by consulting filesystem rules and consumed by whatever functions interact with both the application (to receive file operation requests) and the system (to submit file operation requests).
+    class DirectoryEnumerationInstruction
+    {
+    private:
+        // -------- INSTANCE VARIABLES ------------------------------------- //
+
+        /// Filesystem rule to be consulted for any file pattern matching that is needed when enumerating the additional directory.
+        /// May be `nullptr`, in which case no file pattern matching needs to be done.
+        const FilesystemRule* additionalDirectoryFilePatternSource;
+
+        /// Absolute path of the directory whose contents should additionally be enumerated in servicing the directory enumeration request.
+        /// Typically this would be the result of a filesystem rule indicating that the directory being enumerated should be redirected.
+        std::optional<TemporaryString> additionalDirectoryToEnumerate;
+
+        /// Base names of any directories that should be inserted into the enumeration result.
+        /// These are not subject to any additional file pattern matching.
+        /// If not present then no additional names need to be inserted.
+        std::optional<TemporaryVector<std::wstring_view>> directoryNamesToInsert;
+
+
+        // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
+
+        /// Initialization constructor.
+        /// Requires values for all fields.
+        /// Not intended to be invoked externally. Objects should be created using factory methods.
+        constexpr inline DirectoryEnumerationInstruction(const FilesystemRule* additionalDirectoryFilePatternSource, std::optional<TemporaryString>&& additionalDirectoryToEnumerate, std::optional<TemporaryVector<std::wstring_view>>&& directoryNamesToInsert) : additionalDirectoryFilePatternSource(additionalDirectoryFilePatternSource), additionalDirectoryToEnumerate(std::move(additionalDirectoryToEnumerate)), directoryNamesToInsert(std::move(directoryNamesToInsert))
+        {
+            // Nothing to do here.
+        }
+
+
+    public:
+        // -------- OPERATORS ---------------------------------------------- //
+
+        /// Equality check. Primarily useful for tests.
+        inline bool operator==(const DirectoryEnumerationInstruction& other) const = default;
+
+
+        // -------- CLASS METHODS ------------------------------------------ //
+
+        /// Creates a directory enumeration instruction that indicates that no additional steps are needed to complete the enumeration requested by the application.
+        /// @return Directory enumeration instruction encoded to indicate that the original request should be submitted as-is to the system and no additional steps are needed.
+        static inline DirectoryEnumerationInstruction NoAdditionalSteps(void)
+        {
+            return DirectoryEnumerationInstruction(nullptr, std::nullopt, std::nullopt);
+        }
+
+        /// Creates a directory enumeration instruction that indicates that an additional directory should be enumerated and its contents inserted unconditionally into the enumeration result.
+        /// @param [in] additionalDirectoryToEnumerate Absolute path of the additional directory to enumerate.
+        /// @return Directory enumeration instruction encoded to indicate that an additional directory's contents should be unconditionally inserted into the enumeration result.
+        static inline DirectoryEnumerationInstruction AdditionallyEnumerateAllFiles(TemporaryString&& additionalDirectoryToEnumerate)
+        {
+            return DirectoryEnumerationInstruction(nullptr, std::move(additionalDirectoryToEnumerate), std::nullopt);
+        }
+
+        /// Creates a directory enumeration instruction that indicates that an additional directory should be enumerated and its contents inserted unconditionally into the enumeration result.
+        /// @param [in] additionalDirectoryToEnumerate Absolute path of the additional directory to enumerate.
+        /// @param [in] additionalDirectoryFilePatternSource Filesystem rule that should be consulted for determining whether or not the contents of the additional directory are considered a match and should be inserted into the overall enumeration result.
+        /// @return Directory enumeration instruction encoded to indicate that an additional directory's contents should be inserted into the enumeration result, but only those filenames that match the file patterns of the indicated filesystem rule.
+        static inline DirectoryEnumerationInstruction AdditionallyEnumerateMatchingFiles(TemporaryString&& additionalDirectoryToEnumerate, const FilesystemRule& additionalDirectoryFilePatternSource)
+        {
+            return DirectoryEnumerationInstruction(&additionalDirectoryFilePatternSource, std::move(additionalDirectoryToEnumerate), std::nullopt);
+        }
+
+        /// Creates a directory enumeration instruction that indicates that a specific set of directory names are to be inserted into the enumeration result.
+        /// @param [in] directoryNamesToInsert Container of directory names to be inserted into the enumeration result.
+        /// @return Directory enumeration instruction encoded to indicate that the specific identified directory names should be inserted into the enumeration result.
+        static inline DirectoryEnumerationInstruction AdditionallyInsertDirectoryNames(TemporaryVector<std::wstring_view>&& directoryNamesToInsert)
+        {
+            return DirectoryEnumerationInstruction(nullptr, std::nullopt, std::move(directoryNamesToInsert));
+        }
+
+        /// Creates a directory enumeration instruction that indicates that a specific set of directory names, along with the entire contents of an additional directory, are to be inserted into the enumeration result.
+        /// @param [in] directoryNamesToInsert Container of directory names to be inserted into the enumeration result.
+        /// @param [in] additionalDirectoryToEnumerate Absolute path of the additional directory to enumerate.
+        /// @return Directory enumeration instruction encoded to indicate that an additional directory's contents should be unconditionally inserted into the enumeration result along with a specific set of directory names.
+        static inline DirectoryEnumerationInstruction AdditionallyInsertAndEnumerateAllFiles(TemporaryVector<std::wstring_view>&& directoryNamesToInsert, TemporaryString&& additionalDirectoryToEnumerate)
+        {
+            return DirectoryEnumerationInstruction(nullptr, std::move(additionalDirectoryToEnumerate), std::move(directoryNamesToInsert));
+        }
+
+        /// Creates a directory enumeration instruction that indicates that a specific set of directory names, along with the contents of an additional directory whose filenames match a filesystem rule's file patterns, are to be inserted into the enumeration result.
+        /// @param [in] directoryNamesToInsert Container of directory names to be inserted into the enumeration result.
+        /// @param [in] additionalDirectoryToEnumerate Absolute path of the additional directory to enumerate.
+        /// @param [in] additionalDirectoryFilePatternSource Filesystem rule that should be consulted for determining whether or not the contents of the additional directory are considered a match and should be inserted into the overall enumeration result.
+        /// @return Directory enumeration instruction encoded to indicate that an additional directory's contents should be inserted into the enumeration result if they match a filesystem rule's file patterns along with a specific set of directory names.
+        static inline DirectoryEnumerationInstruction AdditionallyInsertAndEnumerateMatchingFiles(TemporaryVector<std::wstring_view>&& directoryNamesToInsert, TemporaryString&& additionalDirectoryToEnumerate, const FilesystemRule& additionalDirectoryFilePatternSource)
+        {
+            return DirectoryEnumerationInstruction(nullptr, std::move(additionalDirectoryToEnumerate), std::move(directoryNamesToInsert));
+        }
+
+
+        // -------- INSTANCE METHODS --------------------------------------- //
+
+        /// Obtains the absolute path to the additional directory to be enumerated as part of this directory enumeration operation.
+        /// Does not check that an additional directory path is actually present.
+        /// @return Absolute path to the additional directory to be enumerated.
+        inline std::wstring_view GetAdditionalDirectoryToEnumerate(void) const
+        {
+            return additionalDirectoryToEnumerate.value().AsStringView();
+        }
+
+        /// Obtains a read-only reference to the container of directory names to be inserted into the enumeration result.
+        /// Does not check that directory names are actually present.
+        /// @return Read-only reference to the container of directory names to insert.
+        inline const TemporaryVector<std::wstring_view>& GetDirectoryNamesToInsert(void) const
+        {
+            return directoryNamesToInsert.value();
+        }
+
+        /// Determines if this instruction indicates that an additional directory should be enumerated and the results inserted into the enumeration result.
+        /// @return `true` if so, `false` if not.
+        inline bool HasAdditionalDirectoryToEnumerate(void) const
+        {
+            return additionalDirectoryToEnumerate.has_value();
+        }
+
+        /// Determines if this instruction indicates that directory names should be inserted into the enumeration result.
+        /// @return `true` if so, `false` if not.
+        inline bool HasDirectoryNamesToInsert(void) const
+        {
+            return directoryNamesToInsert.has_value();
+        }
+
+        /// Determines if the specified filename should be included in the enumeration result when enumerating the contents of an additional directory.
+        /// @param [in] candidateFileName File name to check for inclusion.
+        /// @return `true` if the file name should be included in the enumeration result, `false` otherwise.
+        inline bool ShouldEnumerateFileNameInAdditionalDirectory(std::wstring_view candidateFileName) const
+        {
+            if (nullptr == additionalDirectoryFilePatternSource)
+                return true;
+
+            return additionalDirectoryFilePatternSource->FileNameMatchesAnyPattern(candidateFileName);
+        }
+    };
+
+
+    /// Contains all of the information needed to execute a file operation complete with potential path redirection.
+    /// Instances of this class would typically be created by consulting filesystem rules and consumed by whatever functions interact with both the application (to receive file operation requests) and the system (to submit file operation requests).
     class FileOperationRedirectInstruction
     {
     public:
