@@ -79,7 +79,7 @@ namespace Pathwinder
 
         // -------- INSTANCE METHODS --------------------------------------- //
 
-        /// Attempts to create a new rule and insert it into the candidate filesystem director. All parameter strings must be null-terminated.
+        /// Attempts to create a new rule and insert it into the candidate filesystem director.
         /// Four constraints are imposed on rules as they are added to this registry object:
         /// (1) Rule name must be unique. It cannot match another existing rule in the registry object.
         /// (2) Origin and target directories are not filesystem root directories (i.e. they both have parent directories).

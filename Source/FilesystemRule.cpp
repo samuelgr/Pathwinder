@@ -80,8 +80,8 @@ namespace Pathwinder
 
     /// Determines if the specified filename matches any of the specified file patterns.
     /// Input filename must not contain any backslash separators, as it is intended to represent a file within a directory rather than a path.
-    /// @param [in] candidateFileName File name to check for matches with any file pattern. Must be null-terminated.
-    /// @param [in] filePatterns Patterns against which to compare the candidate file name. Must be null-terminated.
+    /// @param [in] candidateFileName File name to check for matches with any file pattern.
+    /// @param [in] filePatterns Patterns against which to compare the candidate file name.
     /// @return `true` if any file pattern produces a match, `false` otherwise.
     static bool FileNameMatchesAnyPatternInternal(std::wstring_view candidateFileName, const std::vector<std::wstring>& filePatterns)
     {
@@ -105,7 +105,7 @@ namespace Pathwinder
     /// If the source directory matches the candidate path and a file pattern matches then a redirection can occur to the destination directory.
     /// Otherwise no redirection occurs and no output is produced.
     /// @param [in] candidatePathDirectoryPart Directory portion of the candidate path, which is an absolute path and does not contain a trailing backslash.
-    /// @param [in] candidatePathFilePart File portion of the candidate path without any leading backslash. Must be null-terminated.
+    /// @param [in] candidatePathFilePart File portion of the candidate path without any leading backslash.
     /// @param [in] fromDirectory Origin directory of the redirection. Typically this comes from a filesystem rule.
     /// @param [in] toDirectory Target directory of the redirection. Typically this comes from a filesystem rule.
     /// @param [in] filePatterns File patterns against which to check the file part of the redirection query.

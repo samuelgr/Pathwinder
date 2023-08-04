@@ -370,59 +370,6 @@ namespace PathwinderTest
         TEST_ASSERT(nullptr == longestMatchingPrefixNode);
     }
 
-    // Creates a few prefix branches and verifies that in all cases the correct set of immediate children is returned.
-    // For those queries that do not target an existing prefix branch, verifies that no children are returned.
-    TEST_CASE(PrefixIndex_FindAllImmediateChildren_Nominal)
-    {
-        TTestPrefixIndex index(L"\\");
-
-        index.Insert(L"Base", kTestData[0]);
-        index.Insert(L"Base\\BranchA", kTestData[1]);
-        index.Insert(L"Base\\BranchB", kTestData[6]);
-        index.Insert(L"Base\\BranchC", kTestData[11]);
-        const TemporaryVector expectedOutputBase = {index.Find(L"Base\\BranchA"), index.Find(L"Base\\BranchB"), index.Find(L"Base\\BranchC")};
-
-        index.Insert(L"Base\\BranchA\\2", kTestData[2]);
-        index.Insert(L"Base\\BranchA\\3", kTestData[3]);
-        index.Insert(L"Base\\BranchA\\4", kTestData[4]);
-        index.Insert(L"Base\\BranchA\\5", kTestData[5]);
-        const TemporaryVector expectedOutputBranchA = {index.Find(L"Base\\BranchA\\2"), index.Find(L"Base\\BranchA\\3"), index.Find(L"Base\\BranchA\\4"), index.Find(L"Base\\BranchA\\5")};
-
-        index.Insert(L"Base\\BranchB\\7", kTestData[7]);
-        index.Insert(L"Base\\BranchB\\8", kTestData[8]);
-        index.Insert(L"Base\\BranchB\\9", kTestData[9]);
-        index.Insert(L"Base\\BranchB\\10", kTestData[10]);
-        const TemporaryVector expectedOutputBranchB = {index.Find(L"Base\\BranchB\\7"), index.Find(L"Base\\BranchB\\8"), index.Find(L"Base\\BranchB\\9"), index.Find(L"Base\\BranchB\\10")};
-
-        index.Insert(L"Base\\BranchC\\12", kTestData[12]);
-        index.Insert(L"Base\\BranchC\\13", kTestData[13]);
-        index.Insert(L"Base\\BranchC\\14", kTestData[14]);
-        index.Insert(L"Base\\BranchC\\15", kTestData[15]);
-        const TemporaryVector expectedOutputBranchC = {index.Find(L"Base\\BranchC\\12"), index.Find(L"Base\\BranchC\\13"), index.Find(L"Base\\BranchC\\14"), index.Find(L"Base\\BranchC\\15")};
-
-        auto actualOutput = index.FindAllImmediateChildren(L"Base");
-        TEST_ASSERT(true == actualOutput.has_value());
-        TEST_ASSERT(UnorderedContentsEqual(actualOutput.value(), expectedOutputBase));
-
-        actualOutput = index.FindAllImmediateChildren(L"Base\\BranchA");
-        TEST_ASSERT(true == actualOutput.has_value());
-        TEST_ASSERT(UnorderedContentsEqual(actualOutput.value(), expectedOutputBranchA));
-
-        actualOutput = index.FindAllImmediateChildren(L"Base\\BranchB");
-        TEST_ASSERT(true == actualOutput.has_value());
-        TEST_ASSERT(UnorderedContentsEqual(actualOutput.value(), expectedOutputBranchB));
-
-        actualOutput = index.FindAllImmediateChildren(L"Base\\BranchC");
-        TEST_ASSERT(true == actualOutput.has_value());
-        TEST_ASSERT(UnorderedContentsEqual(actualOutput.value(), expectedOutputBranchC));
-
-        actualOutput = index.FindAllImmediateChildren(L"Base\\BranchD");
-        TEST_ASSERT(false == actualOutput.has_value());
-
-        actualOutput = index.FindAllImmediateChildren(L"OtherBase\\BranchA");
-        TEST_ASSERT(false == actualOutput.has_value());
-    }
-
     // Creates a small hierarchy of prefixes, including a common base node for a few sub-nodes.
     // Verifies that the base node is correctly identified as the ancestor when the sub-nodes are queried for their ancestors.
     TEST_CASE(PrefixIndex_QueryForAncestors_AncestorsExist)

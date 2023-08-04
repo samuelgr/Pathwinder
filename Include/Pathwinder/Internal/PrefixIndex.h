@@ -128,26 +128,6 @@ namespace Pathwinder
                 return &(children.emplace(childKey, Node(this, childKey)).first->second);
             }
 
-            /// Retrieves and returns pointers to all immediate child nodes of this node, including only the ones that contain data.
-            /// @return Pointers to all immediate child nodes that contain data.
-            std::optional<TemporaryVector<const Node*>> GetAllImmediateChildrenWithData(void) const
-            {
-                std::optional<TemporaryVector<const Node*>> immediateChildren = std::nullopt;
-
-                for (const auto& child : children)
-                {
-                    if (child.second.HasData())
-                    {
-                        if (false == immediateChildren.has_value())
-                            immediateChildren.emplace();
-
-                        immediateChildren.value().PushBack(&child.second);
-                    }
-                }
-
-                return immediateChildren;
-            }
-
             /// Traverses up the tree via parent node pointers and checks all the nodes encountered for whether or not they contain any data.
             /// Returns a pointer to the first node encountered that contains data.
             /// @return Pointer to the closest ancestor node, or `nullptr` if no such node exists.
@@ -325,31 +305,6 @@ namespace Pathwinder
             return currentNode;
         }
 
-        /// For internal use only.
-        /// Attempts to traverse the tree to the node that represents the specified prefix.
-        /// Nodes returned by this method are not necessarily nodes that are "contained" as prefixes because, while they do exist in the data structure, they may be intermediate nodes (i.e. they may not actually contain any data).
-        /// @param [in] prefix Prefix string for which to search.
-        /// @return Pointer to the node that corresponds to the very last component (i.e. deepest within the tree) of the prefix string, or `nullptr` if no path exists to the requested prefix.
-        const Node* TraverseToInternal(std::basic_string_view<CharType> prefix) const
-        {
-            size_t tokenizeState = 0;
-            const Node* currentNode = &rootNode;
-
-            for (std::basic_string_view<CharType> pathComponent : Strings::Tokenizer(prefix, pathDelimiters.data(), pathDelimiterCount))
-            {
-                if (0 == pathComponent.length())
-                    continue;
-
-                const Node* nextPathChildNode = currentNode->FindChild(pathComponent);
-                if (nullptr == nextPathChildNode)
-                    return nullptr;
-
-                currentNode = nextPathChildNode;
-            }
-
-            return currentNode;
-        }
-
     public:
         /// Determines if the tree contains the specified path prefix.
         /// @param [in] prefix Prefix string for which to search.
@@ -385,24 +340,12 @@ namespace Pathwinder
         /// @return Pointer to the node if it exists and contains data, `nullptr` otherwise.
         const Node* Find(std::basic_string_view<CharType> prefix) const
         {
-            const Node* const node = TraverseToInternal(prefix);
+            const Node* const node = TraverseTo(prefix);
 
             if ((nullptr == node) || (false == node->HasData()))
                 return nullptr;
 
             return node;
-        }
-
-        /// Attempts to locate all of the nodes in the tree that are immediate children of the specified prefix, if they exist and have data.
-        /// @param [in] prefix Prefix string for which to search.
-        /// @return All immediate children of the specified prefix, if any exist and contain data.
-        inline std::optional<TemporaryVector<const Node*>> FindAllImmediateChildren(std::basic_string_view<CharType> prefix) const
-        {
-            const Node* const node = TraverseToInternal(prefix);
-            if (nullptr == node)
-                return std::nullopt;
-
-            return node->GetAllImmediateChildrenWithData();
         }
 
         /// Determines if the specified prefix exists as a valid path in the prefix index.
@@ -411,7 +354,7 @@ namespace Pathwinder
         /// @return `true` if a path exists with the specified prefix, `false` otherwise.
         inline bool HasPathForPrefix(std::basic_string_view<CharType> prefix) const
         {
-            return (nullptr != TraverseToInternal(prefix));
+            return (nullptr != TraverseTo(prefix));
         }
 
         /// Creates any nodes needed to represent the specified prefix and then inserts a new prefix data element.
@@ -459,6 +402,30 @@ namespace Pathwinder
                 longestMatchingPrefixNode = currentNode;
 
             return longestMatchingPrefixNode;
+        }
+
+        /// Attempts to traverse the tree to the node that represents the specified prefix.
+        /// Nodes returned by this method are not necessarily nodes that are "contained" as prefixes because, while they do exist in the data structure, they may be intermediate nodes (i.e. they may not actually contain any data).
+        /// @param [in] prefix Prefix string for which to search.
+        /// @return Pointer to the node that corresponds to the very last component (i.e. deepest within the tree) of the prefix string, or `nullptr` if no path exists to the requested prefix.
+        const Node* TraverseTo(std::basic_string_view<CharType> prefix) const
+        {
+            size_t tokenizeState = 0;
+            const Node* currentNode = &rootNode;
+
+            for (std::basic_string_view<CharType> pathComponent : Strings::Tokenizer(prefix, pathDelimiters.data(), pathDelimiterCount))
+            {
+                if (0 == pathComponent.length())
+                    continue;
+
+                const Node* nextPathChildNode = currentNode->FindChild(pathComponent);
+                if (nullptr == nextPathChildNode)
+                    return nullptr;
+
+                currentNode = nextPathChildNode;
+            }
+
+            return currentNode;
         }
 
         /// Updates the data associated with the specified prefix.

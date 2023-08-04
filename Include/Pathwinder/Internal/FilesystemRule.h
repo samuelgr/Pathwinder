@@ -100,7 +100,7 @@ namespace Pathwinder
 
         /// Determines if the specified filename matches any of the file patterns associated with this object.
         /// Input filename must not contain any backslash separators, as it is intended to represent a file within a directory rather than a path.
-        /// @param [in] candidateFileName File name to check for matches with any file pattern. Must be null-terminated.
+        /// @param [in] candidateFileName File name to check for matches with any file pattern.
         /// @return `true` if any file pattern produces a match, `false` otherwise.
         bool FileNameMatchesAnyPattern(std::wstring_view candidateFileName) const;
 
@@ -195,8 +195,8 @@ namespace Pathwinder
         /// Input candidate path is split into two parts: the directory part, which identifies the absolute directory in which the file is located, and the file part, which identifies the file within its directory.
         /// If the origin directory matches the candidate path's directory part and a file pattern matches the candidate path's file part then a redirection can occur to the target directory.
         /// Otherwise no redirection occurs and no output is produced.
-        /// @param [in] candidatePathDirectoryPart Directory portion of the candidate path, which is an absolute path and does not contain a trailing backslash. Does not need to be null-terminated.
-        /// @param [in] candidatePathFilePart File portion of the candidate path without any leading backslash. Must be null-terminated.
+        /// @param [in] candidatePathDirectoryPart Directory portion of the candidate path, which is an absolute path and does not contain a trailing backslash.
+        /// @param [in] candidatePathFilePart File portion of the candidate path without any leading backslash.
         /// @param [in] namespacePrefix Windows namespace prefix to be inserted at the beginning of the output. This parameter is optional and defaults to the empty string.
         /// @param [in] extraSuffix Extra suffix to be added to the end of the output. This parameter is optional and defaults to the empty string.
         /// @return Redirected location as an absolute path, if redirection occurred successfully.
@@ -207,7 +207,7 @@ namespace Pathwinder
         /// If the target directory matches the candidate path's directory part and a file pattern matches the candidate path's file part then a redirection can occur to the origin directory.
         /// Otherwise no redirection occurs and no output is produced.
         /// @param [in] candidatePathDirectoryPart Directory portion of the candidate path, which is an absolute path and does not contain a trailing backslash.
-        /// @param [in] candidatePathFilePart File portion of the candidate path without any leading backslash. Must be null-terminated.
+        /// @param [in] candidatePathFilePart File portion of the candidate path without any leading backslash.
         /// @param [in] namespacePrefix Windows namespace prefix to be inserted at the beginning of the output. This parameter is optional and defaults to the empty string.
         /// @param [in] extraSuffix Extra suffix to be added to the end of the output. This parameter is optional and defaults to the empty string.
         /// @return Redirected location as an absolute path, if redirection occurred successfully.
