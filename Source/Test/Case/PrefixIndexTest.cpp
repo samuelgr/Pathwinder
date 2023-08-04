@@ -201,6 +201,41 @@ namespace PathwinderTest
         TEST_ASSERT(true  == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7\\Level8"));
     }
 
+    // Inserts a few strings into the prefix index.
+    // Verifies that all internal nodes are accessible by traversal even if they do not represent valid objects that are "contained" in the index.
+    TEST_CASE(PrefixIndex_TraverseTo_Nominal)
+    {
+        TTestPrefixIndex index(L"\\");
+
+        index.Insert(L"Level1\\Level2\\Level3\\Level4\\Level5", kTestData[5]);
+        index.Insert(L"Level1\\Level2", kTestData[2]);
+
+        const TTestPrefixIndex::Node* nodeLevel1 = index.TraverseTo(L"Level1");
+        const TTestPrefixIndex::Node* nodeLevel2 = index.TraverseTo(L"Level1\\Level2");
+        const TTestPrefixIndex::Node* nodeLevel3 = index.TraverseTo(L"Level1\\Level2\\Level3");
+        const TTestPrefixIndex::Node* nodeLevel4 = index.TraverseTo(L"Level1\\Level2\\Level3\\Level4");
+        const TTestPrefixIndex::Node* nodeLevel5 = index.TraverseTo(L"Level1\\Level2\\Level3\\Level4\\Level5");
+
+        TEST_ASSERT(nullptr != nodeLevel1);
+        TEST_ASSERT(L"Level1" == nodeLevel1->GetParentKey());
+
+        TEST_ASSERT(nullptr != nodeLevel2);
+        TEST_ASSERT(L"Level2" == nodeLevel2->GetParentKey());
+        TEST_ASSERT(nodeLevel1 == nodeLevel2->GetParent());
+
+        TEST_ASSERT(nullptr != nodeLevel3);
+        TEST_ASSERT(L"Level3" == nodeLevel3->GetParentKey());
+        TEST_ASSERT(nodeLevel2 == nodeLevel3->GetParent());
+
+        TEST_ASSERT(nullptr != nodeLevel4);
+        TEST_ASSERT(L"Level4" == nodeLevel4->GetParentKey());
+        TEST_ASSERT(nodeLevel3 == nodeLevel4->GetParent());
+
+        TEST_ASSERT(nullptr != nodeLevel5);
+        TEST_ASSERT(L"Level5" == nodeLevel5->GetParentKey());
+        TEST_ASSERT(nodeLevel4 == nodeLevel5->GetParent());
+    }
+
     // Inserts the same string into the prefix index multiple times.
     // Verifies that the data value is not overwritten and all subsequent insertion attempts fail.
     TEST_CASE(PrefixIndex_InsertDuplicate)
