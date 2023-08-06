@@ -19,6 +19,7 @@
 #include "PrefixIndex.h"
 #include "Strings.h"
 
+#include <cwctype>
 #include <optional>
 #include <string_view>
 
@@ -41,6 +42,20 @@ namespace Pathwinder
         default:
             return false;
         }
+    }
+
+    /// Determines if the specified absolute path begins with a drive letter.
+    /// @param [in] absolutePathWithoutWindowsPrefix Absolute path to check, without any Windows namespace prefixes.
+    /// @return `true` if the path begins with a drive letter, `false` otherwise.
+    static inline bool PathBeginsWithDriveLetter(std::wstring_view absolutePathWithoutWindowsPrefix)
+    {
+        if (absolutePathWithoutWindowsPrefix.length() < 3)
+            return false;
+
+        if ((0 != std::iswalpha(absolutePathWithoutWindowsPrefix[0])) && (L':' == absolutePathWithoutWindowsPrefix[1]) && (L'\\' == absolutePathWithoutWindowsPrefix[2]))
+            return true;
+
+        return false;
     }
 
 
@@ -76,7 +91,7 @@ namespace Pathwinder
     DirectoryEnumerationInstruction FilesystemDirector::GetInstructionForDirectoryEnumeration(std::wstring_view absoluteDirectoryPath, std::wstring_view enumerationQueryFilePattern) const
     {
         // TODO: Implement this method.
-        return DirectoryEnumerationInstruction();
+        return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
     }
 
     // --------
@@ -86,6 +101,12 @@ namespace Pathwinder
         const std::wstring_view windowsNamespacePrefix = Strings::PathGetWindowsNamespacePrefix(absoluteFilePath);
         const std::wstring_view extraSuffix = ((true == absoluteFilePath.ends_with(L'\\')) ? L"\\" : L"");
         const std::wstring_view absoluteFilePathTrimmedForQuery = Strings::RemoveTrailing(absoluteFilePath.substr(windowsNamespacePrefix.length()), L'\\');
+
+        if (false == PathBeginsWithDriveLetter(absoluteFilePathTrimmedForQuery))
+        {
+            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File operation redirection query for path \"%.*s\" does not begin with a drive letter and was therefore skipped for redirection.", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data());
+            return FileOperationInstruction::NoRedirectionOrInterception();
+        }
 
         const size_t lastSeparatorPos = absoluteFilePathTrimmedForQuery.find_last_of(L'\\');
         if (std::wstring_view::npos == lastSeparatorPos)

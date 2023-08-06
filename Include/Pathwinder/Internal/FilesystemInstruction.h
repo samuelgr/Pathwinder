@@ -16,6 +16,7 @@
 #include "FilesystemRule.h"
 #include "TemporaryBuffer.h"
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -28,16 +29,137 @@ namespace Pathwinder
     /// Instances of this class would typically be created by consulting filesystem rules and consumed by whatever functions interact with both the application (to receive file operation requests) and the system (to submit file operation requests).
     class DirectoryEnumerationInstruction
     {
+    public:
+        // -------- TYPE DEFINITIONS --------------------------------------- //
+
+        /// Enumerates the possible ways of obtaining a directory path to enumerate.
+        /// Directory enumeration operations are requested using an open directory handle, which would have been subject to file operation redirection.
+        /// Therefore the possible valid sources of a directory path include the path associated internally with the handle and the path actually submitted to the system and used to open the handle.
+        enum class EDirectoryPathSource : uint8_t
+        {
+            None,                                                           ///< No directory path source. Indicates that no directory should be enumerated.
+            AssociatedPath,                                                 ///< Path internally associated with the handle.
+            RealOpenedPath,                                                 ///< Path actually submitted to the system call used to open the handle.
+            Count                                                           ///< Not used as a value. Identifies the number of enumerators present in this enumeration.
+        };
+
+        /// Holds the information needed to describe how to enumerate a single directory as part of a larger directory enumeration operation.
+        /// Immutable once constructed.
+        class SingleDirectoryEnumerator
+        {
+        private:
+            // -------- INSTANCE VARIABLES --------------------------------- //
+
+            /// Filesystem rule to query for a file pattern match.
+            /// If `nullptr` then everything is presumed to match.
+            const FilesystemRule* filePatternSource;
+
+            /// Whether or not the match result should be inverted.
+            /// Only meaningful if the source filesystem rule is present.
+            bool invertFilePatternMatches;
+
+            /// Enumerator to specify how to obtain the path of the directory to be enumerated.
+            EDirectoryPathSource directoryPathSource;
+
+
+        public:
+            // -------- CONSTRUCTION AND DESTRUCTION ----------------------- //
+
+            /// Default constructor.
+            /// Creates an enumerator that represents no enumeration to be done.
+            constexpr inline SingleDirectoryEnumerator(void) : filePatternSource(nullptr), invertFilePatternMatches(false), directoryPathSource(EDirectoryPathSource::None)
+            {
+                // Nothing to do here.
+            }
+
+            /// Initialization constructor.
+            /// Requires values for all fields.
+            constexpr inline SingleDirectoryEnumerator(EDirectoryPathSource directoryPathSource, const FilesystemRule* filePatternSource, bool invertFilePatternMatches) : directoryPathSource(directoryPathSource), filePatternSource(filePatternSource), invertFilePatternMatches(invertFilePatternMatches)
+            {
+                // Nothing to do here.
+            }
+
+
+            // -------- OPERATORS ------------------------------------------ //
+
+            /// Equality check. Primarily useful for tests.
+            constexpr inline bool operator==(const SingleDirectoryEnumerator& other) const = default;
+
+
+            // -------- CLASS METHODS -------------------------------------- //
+
+            /// Creates an instance of this class that represents a no-op (i.e. not doing any directory enumeration).
+            /// @return Instance of this class that represents no enumeration to be done.
+            static constexpr inline SingleDirectoryEnumerator NoEnumeration(void)
+            {
+                return SingleDirectoryEnumerator();
+            }
+
+            /// Creates an instance of this class that unconditionally includes all filenames.
+            /// @param [in] directoryPathSource Enumerator that describes how to obtain the absolute path of the directory to be enumerated.
+            /// @return Instance of this class that represents an enumeration to be done and will return `true` unconditionally when the #ShouldIncludeInDirectoryEnumeration method is invoked.
+            static constexpr inline SingleDirectoryEnumerator IncludeAllFilenames(EDirectoryPathSource directoryPathSource)
+            {
+                return SingleDirectoryEnumerator(directoryPathSource, nullptr, false);
+            }
+
+            /// Creates an instance of this class that includes only those filenames that match one of the file patterns associated with the specified rule.
+            /// @param [in] directoryPathSource Enumerator that describes how to obtain the absolute path of the directory to be enumerated.
+            /// @param [in] filePatternSource Pointer to the filesystem rule used to determine whether or not a filename should be included in the enumeration result. 
+            /// @return Instance of this class that represents an enumeration to be done and will return `true` when the #ShouldIncludeInDirectoryEnumeration method is invoked only for those filenames that match a file pattern associated with the specified rule and `false` otherwise.
+            static constexpr inline SingleDirectoryEnumerator IncludeOnlyMatchingFilenames(EDirectoryPathSource directoryPathSource, const FilesystemRule* filePatternSource)
+            {
+                return SingleDirectoryEnumerator(directoryPathSource, filePatternSource, false);
+            }
+
+            /// Creates an instance of this class that includes only those filenames that do not match one of the file patterns associated with the specified rule.
+            /// @param [in] directoryPathSource Enumerator that describes how to obtain the absolute path of the directory to be enumerated.
+            /// @param [in] filePatternSource Pointer to the filesystem rule used to determine whether or not a filename should be included in the enumeration result.
+            /// @return Instance of this class that represents an enumeration to be done and will return `false` when the #ShouldIncludeInDirectoryEnumeration method is invoked with filenames that match a file pattern associated with the specified rule and `true` otherwise.
+            static constexpr inline SingleDirectoryEnumerator IncludeAllExceptMatchingFilenames(EDirectoryPathSource directoryPathSource, const FilesystemRule* filePatternSource)
+            {
+                return SingleDirectoryEnumerator(directoryPathSource, filePatternSource, true);
+            }
+
+
+            // -------- INSTANCE METHODS ----------------------------------- //
+
+            /// Selects a path for this directory enumeration operation from among the two inputs provided.
+            /// @param [in] associatedPath Path internally associated with the open directory handle being enumerated.
+            /// @param [in] realOpenedPath Path that was submitted to the underlying system call and ultimately used to open the handle to the directory being enumerated.
+            /// @return One of the two input strings provided, or an empty string view if no enumeration is to be performed at all.
+            constexpr inline std::wstring_view SelectDirectoryPath(std::wstring_view associatedPath, std::wstring_view realOpenedPath)
+            {
+                switch (directoryPathSource)
+                {
+                case EDirectoryPathSource::AssociatedPath:
+                    return associatedPath;
+                case EDirectoryPathSource::RealOpenedPath:
+                    return realOpenedPath;
+                default:
+                    return std::wstring_view();
+                }
+            }
+
+            /// Determines whether or not the specified filename should be included in a directory enumeration.
+            /// If a filesystem rule is present then it is checked for a file pattern match and the result is either inverted or not, as appropriate.
+            /// Otherwise it is presumed that there is no restriction on the files to include.
+            /// @param [in] filename Filename to check for inclusion. This is the "file part" of an absolute path, so just the part after the final backslash.
+            /// @return `true` if the filename should be included in the enumeration, `false` otherwise.
+            constexpr inline bool ShouldIncludeInDirectoryEnumeration(std::wstring_view filename)
+            {
+                if (nullptr == filePatternSource)
+                    return true;
+
+                return (filePatternSource->FileNameMatchesAnyPattern(filename) != invertFilePatternMatches);
+            }
+        };
+
+
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
-        /// Filesystem rule to be consulted for any file pattern matching that is needed when enumerating the additional directory.
-        /// May be `nullptr`, in which case no file pattern matching needs to be done.
-        const FilesystemRule* additionalDirectoryFilePatternSource;
-
-        /// Absolute path of the directory whose contents should additionally be enumerated in servicing the directory enumeration request.
-        /// Typically this would be the result of a filesystem rule indicating that the directory being enumerated should be redirected.
-        std::optional<TemporaryString> additionalDirectoryToEnumerate;
+        std::array<SingleDirectoryEnumerator, 2> directoriesToEnumerate;
 
         /// Base names of any directories that should be inserted into the enumeration result.
         /// These are not subject to any additional file pattern matching.
@@ -48,67 +170,91 @@ namespace Pathwinder
     public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
-        /// Default constructor.
-        inline DirectoryEnumerationInstruction(void) = default;
-
         /// Initialization constructor.
         /// Requires values for all fields.
-        constexpr inline DirectoryEnumerationInstruction(const FilesystemRule* additionalDirectoryFilePatternSource, std::optional<TemporaryString>&& additionalDirectoryToEnumerate, std::optional<TemporaryVector<std::wstring_view>>&& directoryNamesToInsert) : additionalDirectoryFilePatternSource(additionalDirectoryFilePatternSource), additionalDirectoryToEnumerate(std::move(additionalDirectoryToEnumerate)), directoryNamesToInsert(std::move(directoryNamesToInsert))
+        constexpr inline DirectoryEnumerationInstruction(std::array<SingleDirectoryEnumerator, 2>&& directoriesToEnumerate, std::optional<TemporaryVector<std::wstring_view>>&& directoryNamesToInsert) : directoriesToEnumerate(std::move(directoriesToEnumerate)), directoryNamesToInsert(std::move(directoryNamesToInsert))
         {
             // Nothing to do here.
         }
 
-
         // -------- OPERATORS ---------------------------------------------- //
 
         /// Equality check. Primarily useful for tests.
-        inline bool operator==(const DirectoryEnumerationInstruction& other) const = default;
+        constexpr inline bool operator==(const DirectoryEnumerationInstruction& other) const = default;
+
+
+        // -------- CLASS METHODS ------------------------------------------ //
+
+        /// Convenience factory method for creating a directory enumeration instruction that specifies to do nothing but pass through the original enumeration query without any modifications.
+        /// @return Directory enumeration instruction encoded to pass the original query through to the system without modification.
+        static constexpr inline DirectoryEnumerationInstruction PassThroughUnmodifiedQuery(void)
+        {
+            return DirectoryEnumerationInstruction(
+                {
+                    SingleDirectoryEnumerator::IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath),
+                    SingleDirectoryEnumerator::NoEnumeration()
+                },
+                std::nullopt);
+        }
+
+        /// Convenience factory method for creating a directory enumeration instruction that specifies a specific set of up to two directories to enumerate in order.
+        /// The enumeration result provided back to the application will include the results of enumerating all of the directories in the supplied set.
+        /// @param [in] directoriesToEnumerate Directories to be enumerated in the supplied order.
+        /// @return Directory enumeration instruction encoded to request enumeration of the directories in the order provided.
+        static constexpr inline DirectoryEnumerationInstruction EnumerateInOrder(std::array<SingleDirectoryEnumerator, 2>&& directoriesToEnumerate)
+        {
+            return DirectoryEnumerationInstruction(std::move(directoriesToEnumerate), std::nullopt);
+        }
+
+        /// Convenience factory method for creating a directory enumeration instruction that specifies a specific set of individual directory names to be inserted into the enumeration results.
+        /// The enumeration result provided back to the application will be the result of the original query with all of the supplied names inserted as directories.
+        /// @param [in] directoryNamesToInsert Individual directory names to be inserted into the enumeration result.
+        /// @return Directory enumeration encoded to request insertion of the specific supplied directory names into the enumeration result.
+        static constexpr inline DirectoryEnumerationInstruction InsertExtraDirectoryNames(TemporaryVector<std::wstring_view>&& directoryNamesToInsert)
+        {
+            return DirectoryEnumerationInstruction(
+                {
+                    SingleDirectoryEnumerator::IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath),
+                    SingleDirectoryEnumerator::NoEnumeration()
+                },
+                std::move(directoryNamesToInsert));
+        }
+
+        /// Convenience factory method for creating a directory enumeration instruction that specifies a specific set of up to two directories to enumerate in order along with a set of directory names to be inserted into the enumeration result.
+        /// The enumeration result provided back to the application will include the results of enumerating all of the directories in the supplied set and with the supplied names inserted as directories.
+        /// @param [in] directoriesToEnumerate Directories to be enumerated in the supplied order.
+        /// @param [in] directoryNamesToInsert Individual directory names to be inserted into the enumeration result.
+        /// @return Directory enumeration instruction encoded to request both enumeration of the directories in the order provided and insertion of the specific supplied directory names into the enumeration result.
+        static constexpr inline DirectoryEnumerationInstruction EnumerateInOrderAndInsertExtraDirectoryNames(std::array<SingleDirectoryEnumerator, 2>&& directoriesToEnumerate, TemporaryVector<std::wstring_view>&& directoryNamesToInsert)
+        {
+            return DirectoryEnumerationInstruction(std::move(directoriesToEnumerate), std::move(directoryNamesToInsert));
+        }
 
 
         // -------- INSTANCE METHODS --------------------------------------- //
 
-        /// Obtains the absolute path to the additional directory to be enumerated as part of this directory enumeration operation.
-        /// Does not check that an additional directory path is actually present.
-        /// @return Absolute path to the additional directory to be enumerated.
-        inline std::wstring_view GetAdditionalDirectoryToEnumerate(void) const
+        /// Obtains a read-only reference to the container of directories to be enumerated.
+        /// @return Read-only reference to the container of directories to be enumerated.
+        constexpr inline const std::array<SingleDirectoryEnumerator, 2>& GetDirectoriesToEnumerate(void) const
         {
-            return additionalDirectoryToEnumerate.value().AsStringView();
+            return directoriesToEnumerate;
         }
 
         /// Obtains a read-only reference to the container of directory names to be inserted into the enumeration result.
         /// Does not check that directory names are actually present.
         /// @return Read-only reference to the container of directory names to insert.
-        inline const TemporaryVector<std::wstring_view>& GetDirectoryNamesToInsert(void) const
+        constexpr inline const TemporaryVector<std::wstring_view>& GetDirectoryNamesToInsert(void) const
         {
             return directoryNamesToInsert.value();
         }
 
-        /// Determines if this instruction indicates that an additional directory should be enumerated and the results inserted into the enumeration result.
-        /// @return `true` if so, `false` if not.
-        inline bool HasAdditionalDirectoryToEnumerate(void) const
-        {
-            return additionalDirectoryToEnumerate.has_value();
-        }
-
         /// Determines if this instruction indicates that directory names should be inserted into the enumeration result.
         /// @return `true` if so, `false` if not.
-        inline bool HasDirectoryNamesToInsert(void) const
+        constexpr inline bool HasDirectoryNamesToInsert(void) const
         {
             return directoryNamesToInsert.has_value();
         }
-
-        /// Determines if the specified filename should be included in the enumeration result when enumerating the contents of an additional directory.
-        /// @param [in] candidateFileName File name to check for inclusion.
-        /// @return `true` if the file name should be included in the enumeration result, `false` otherwise.
-        inline bool ShouldEnumerateFileNameInAdditionalDirectory(std::wstring_view candidateFileName) const
-        {
-            if (nullptr == additionalDirectoryFilePatternSource)
-                return true;
-
-            return additionalDirectoryFilePatternSource->FileNameMatchesAnyPattern(candidateFileName);
-        }
     };
-
 
     /// Contains all of the information needed to execute a file operation complete with potential path redirection.
     /// Instances of this class would typically be created by consulting filesystem rules and consumed by whatever functions interact with both the application (to receive file operation requests) and the system (to submit file operation requests).
@@ -182,14 +328,14 @@ namespace Pathwinder
         // -------- OPERATORS ---------------------------------------------- //
 
         /// Equality check. Primarily useful for tests.
-        inline bool operator==(const FileOperationInstruction& other) const = default;
+        constexpr inline bool operator==(const FileOperationInstruction& other) const = default;
 
 
         // -------- CLASS METHODS ------------------------------------------ //
 
         /// Creates a filesystem operation redirection instruction that indicates the request should be passed directly to the underlying system call without redirection or interception of any kind.
         /// @return File operation redirection instruction encoded to indicate that there should be no processing whatsoever.
-        static inline FileOperationInstruction NoRedirectionOrInterception(void)
+        static constexpr inline FileOperationInstruction NoRedirectionOrInterception(void)
         {
             return FileOperationInstruction(std::nullopt, ETryFiles::UnredirectedOnly, EAssociateNameWithHandle::None, {}, std::wstring_view());
         }
@@ -199,7 +345,7 @@ namespace Pathwinder
         /// @param [in] extraPreOperations Any extra pre-operations to be performed before the file operation is attempted. Optional, defaults to none.
         /// @param [in] extraPreOperationOperand Additional operand for any extra pre-operations. Optional, defaults to none.
         /// @return File operation redirection instruction encoded to indicate some additional processing needed but without redirection.
-        static inline FileOperationInstruction InterceptWithoutRedirection(EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
+        static constexpr inline FileOperationInstruction InterceptWithoutRedirection(EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
         {
             return FileOperationInstruction(std::nullopt, ETryFiles::UnredirectedOnly, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
         }
@@ -220,28 +366,28 @@ namespace Pathwinder
 
         /// Retrieves and returns the set of extra pre-operations.
         /// @return Set of extra pre-operations.
-        inline BitSetEnum<EExtraPreOperation> GetExtraPreOperations(void) const
+        constexpr inline BitSetEnum<EExtraPreOperation> GetExtraPreOperations(void) const
         {
             return extraPreOperations;
         }
 
         /// Retrieves and returns the operand for extra pre-operations.
         /// @return Operand for extra pre-operations.
-        inline std::wstring_view GetExtraPreOperationOperand(void) const
+        constexpr inline std::wstring_view GetExtraPreOperationOperand(void) const
         {
             return extraPreOperationOperand;
         }
 
         /// Retrieves and returns the filenames to be tried.
         /// @return Filenames to try.
-        inline ETryFiles GetFilenamesToTry(void) const
+        constexpr inline ETryFiles GetFilenamesToTry(void) const
         {
             return filenamesToTry;
         }
 
         /// Retrieves and returns the filename to be associated with a newly-created filesystem handle.
         /// @return Filename to associate with the newly-created filesystem handle.
-        inline EAssociateNameWithHandle GetFilenameHandleAssociation(void) const
+        constexpr inline EAssociateNameWithHandle GetFilenameHandleAssociation(void) const
         {
             return filenameHandleAssociation;
         }
@@ -255,9 +401,19 @@ namespace Pathwinder
 
         /// Checks whether or not this object has a redirected filename.
         /// @return `true` if a redirected filename is present, `false` otherwise.
-        inline bool HasRedirectedFilename(void) const
+        constexpr inline bool HasRedirectedFilename(void) const
         {
             return redirectedFilename.has_value();
         }
     };
+
+#ifdef _WIN64
+    static_assert(sizeof(DirectoryEnumerationInstruction::SingleDirectoryEnumerator) == 16, "Data structure size constraint violation.");
+    static_assert(sizeof(DirectoryEnumerationInstruction) <= 64, "Data structure size constraint violation.");
+    static_assert(sizeof(FileOperationInstruction) <= 64, "Data structure size constraint violation.");
+#else
+    static_assert(sizeof(DirectoryEnumerationInstruction::SingleDirectoryEnumerator) <= 8, "Data structure size constraint violation.");
+    static_assert(sizeof(DirectoryEnumerationInstruction) <= 32, "Data structure size constraint violation.");
+    static_assert(sizeof(FileOperationInstruction) <= 32, "Data structure size constraint violation.");
+#endif
 }
