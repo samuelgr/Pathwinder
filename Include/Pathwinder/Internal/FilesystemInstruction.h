@@ -45,76 +45,24 @@ namespace Pathwinder
         std::optional<TemporaryVector<std::wstring_view>> directoryNamesToInsert;
 
 
+    public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
+
+        /// Default constructor.
+        inline DirectoryEnumerationInstruction(void) = default;
 
         /// Initialization constructor.
         /// Requires values for all fields.
-        /// Not intended to be invoked externally. Objects should be created using factory methods.
         constexpr inline DirectoryEnumerationInstruction(const FilesystemRule* additionalDirectoryFilePatternSource, std::optional<TemporaryString>&& additionalDirectoryToEnumerate, std::optional<TemporaryVector<std::wstring_view>>&& directoryNamesToInsert) : additionalDirectoryFilePatternSource(additionalDirectoryFilePatternSource), additionalDirectoryToEnumerate(std::move(additionalDirectoryToEnumerate)), directoryNamesToInsert(std::move(directoryNamesToInsert))
         {
             // Nothing to do here.
         }
 
 
-    public:
         // -------- OPERATORS ---------------------------------------------- //
 
         /// Equality check. Primarily useful for tests.
         inline bool operator==(const DirectoryEnumerationInstruction& other) const = default;
-
-
-        // -------- CLASS METHODS ------------------------------------------ //
-
-        /// Creates a directory enumeration instruction that indicates that no additional steps are needed to complete the enumeration requested by the application.
-        /// @return Directory enumeration instruction encoded to indicate that the original request should be submitted as-is to the system and no additional steps are needed.
-        static inline DirectoryEnumerationInstruction NoAdditionalSteps(void)
-        {
-            return DirectoryEnumerationInstruction(nullptr, std::nullopt, std::nullopt);
-        }
-
-        /// Creates a directory enumeration instruction that indicates that an additional directory should be enumerated and its contents inserted unconditionally into the enumeration result.
-        /// @param [in] additionalDirectoryToEnumerate Absolute path of the additional directory to enumerate.
-        /// @return Directory enumeration instruction encoded to indicate that an additional directory's contents should be unconditionally inserted into the enumeration result.
-        static inline DirectoryEnumerationInstruction AdditionallyEnumerateAllFiles(TemporaryString&& additionalDirectoryToEnumerate)
-        {
-            return DirectoryEnumerationInstruction(nullptr, std::move(additionalDirectoryToEnumerate), std::nullopt);
-        }
-
-        /// Creates a directory enumeration instruction that indicates that an additional directory should be enumerated and its contents inserted unconditionally into the enumeration result.
-        /// @param [in] additionalDirectoryToEnumerate Absolute path of the additional directory to enumerate.
-        /// @param [in] additionalDirectoryFilePatternSource Filesystem rule that should be consulted for determining whether or not the contents of the additional directory are considered a match and should be inserted into the overall enumeration result.
-        /// @return Directory enumeration instruction encoded to indicate that an additional directory's contents should be inserted into the enumeration result, but only those filenames that match the file patterns of the indicated filesystem rule.
-        static inline DirectoryEnumerationInstruction AdditionallyEnumerateMatchingFiles(TemporaryString&& additionalDirectoryToEnumerate, const FilesystemRule& additionalDirectoryFilePatternSource)
-        {
-            return DirectoryEnumerationInstruction(&additionalDirectoryFilePatternSource, std::move(additionalDirectoryToEnumerate), std::nullopt);
-        }
-
-        /// Creates a directory enumeration instruction that indicates that a specific set of directory names are to be inserted into the enumeration result.
-        /// @param [in] directoryNamesToInsert Container of directory names to be inserted into the enumeration result.
-        /// @return Directory enumeration instruction encoded to indicate that the specific identified directory names should be inserted into the enumeration result.
-        static inline DirectoryEnumerationInstruction AdditionallyInsertDirectoryNames(TemporaryVector<std::wstring_view>&& directoryNamesToInsert)
-        {
-            return DirectoryEnumerationInstruction(nullptr, std::nullopt, std::move(directoryNamesToInsert));
-        }
-
-        /// Creates a directory enumeration instruction that indicates that a specific set of directory names, along with the entire contents of an additional directory, are to be inserted into the enumeration result.
-        /// @param [in] directoryNamesToInsert Container of directory names to be inserted into the enumeration result.
-        /// @param [in] additionalDirectoryToEnumerate Absolute path of the additional directory to enumerate.
-        /// @return Directory enumeration instruction encoded to indicate that an additional directory's contents should be unconditionally inserted into the enumeration result along with a specific set of directory names.
-        static inline DirectoryEnumerationInstruction AdditionallyInsertAndEnumerateAllFiles(TemporaryVector<std::wstring_view>&& directoryNamesToInsert, TemporaryString&& additionalDirectoryToEnumerate)
-        {
-            return DirectoryEnumerationInstruction(nullptr, std::move(additionalDirectoryToEnumerate), std::move(directoryNamesToInsert));
-        }
-
-        /// Creates a directory enumeration instruction that indicates that a specific set of directory names, along with the contents of an additional directory whose filenames match a filesystem rule's file patterns, are to be inserted into the enumeration result.
-        /// @param [in] directoryNamesToInsert Container of directory names to be inserted into the enumeration result.
-        /// @param [in] additionalDirectoryToEnumerate Absolute path of the additional directory to enumerate.
-        /// @param [in] additionalDirectoryFilePatternSource Filesystem rule that should be consulted for determining whether or not the contents of the additional directory are considered a match and should be inserted into the overall enumeration result.
-        /// @return Directory enumeration instruction encoded to indicate that an additional directory's contents should be inserted into the enumeration result if they match a filesystem rule's file patterns along with a specific set of directory names.
-        static inline DirectoryEnumerationInstruction AdditionallyInsertAndEnumerateMatchingFiles(TemporaryVector<std::wstring_view>&& directoryNamesToInsert, TemporaryString&& additionalDirectoryToEnumerate, const FilesystemRule& additionalDirectoryFilePatternSource)
-        {
-            return DirectoryEnumerationInstruction(nullptr, std::move(additionalDirectoryToEnumerate), std::move(directoryNamesToInsert));
-        }
 
 
         // -------- INSTANCE METHODS --------------------------------------- //
@@ -164,7 +112,7 @@ namespace Pathwinder
 
     /// Contains all of the information needed to execute a file operation complete with potential path redirection.
     /// Instances of this class would typically be created by consulting filesystem rules and consumed by whatever functions interact with both the application (to receive file operation requests) and the system (to submit file operation requests).
-    class FileOperationRedirectInstruction
+    class FileOperationInstruction
     {
     public:
         // -------- TYPE DEFINITIONS --------------------------------------- //
@@ -224,7 +172,7 @@ namespace Pathwinder
         /// Initialization constructor.
         /// Requires values for all fields.
         /// Not intended to be invoked externally. Objects should be created using factory methods.
-        constexpr inline FileOperationRedirectInstruction(std::optional<TemporaryString>&& redirectedFilename, ETryFiles filenamesToTry, EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations, std::wstring_view extraPreOperationOperand) : redirectedFilename(std::move(redirectedFilename)), filenamesToTry(filenamesToTry), filenameHandleAssociation(filenameHandleAssociation), extraPreOperations(std::move(extraPreOperations)), extraPreOperationOperand(extraPreOperationOperand)
+        constexpr inline FileOperationInstruction(std::optional<TemporaryString>&& redirectedFilename, ETryFiles filenamesToTry, EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations, std::wstring_view extraPreOperationOperand) : redirectedFilename(std::move(redirectedFilename)), filenamesToTry(filenamesToTry), filenameHandleAssociation(filenameHandleAssociation), extraPreOperations(std::move(extraPreOperations)), extraPreOperationOperand(extraPreOperationOperand)
         {
             // Nothing to do here.
         }
@@ -234,16 +182,16 @@ namespace Pathwinder
         // -------- OPERATORS ---------------------------------------------- //
 
         /// Equality check. Primarily useful for tests.
-        inline bool operator==(const FileOperationRedirectInstruction& other) const = default;
+        inline bool operator==(const FileOperationInstruction& other) const = default;
 
 
         // -------- CLASS METHODS ------------------------------------------ //
 
         /// Creates a filesystem operation redirection instruction that indicates the request should be passed directly to the underlying system call without redirection or interception of any kind.
         /// @return File operation redirection instruction encoded to indicate that there should be no processing whatsoever.
-        static inline FileOperationRedirectInstruction NoRedirectionOrInterception(void)
+        static inline FileOperationInstruction NoRedirectionOrInterception(void)
         {
-            return FileOperationRedirectInstruction(std::nullopt, ETryFiles::UnredirectedOnly, EAssociateNameWithHandle::None, {}, std::wstring_view());
+            return FileOperationInstruction(std::nullopt, ETryFiles::UnredirectedOnly, EAssociateNameWithHandle::None, {}, std::wstring_view());
         }
 
         /// Creates a filesystem operation redirection instruction that indicates the request should not be redirected but should be intercepted for additional processing
@@ -251,9 +199,9 @@ namespace Pathwinder
         /// @param [in] extraPreOperations Any extra pre-operations to be performed before the file operation is attempted. Optional, defaults to none.
         /// @param [in] extraPreOperationOperand Additional operand for any extra pre-operations. Optional, defaults to none.
         /// @return File operation redirection instruction encoded to indicate some additional processing needed but without redirection.
-        static inline FileOperationRedirectInstruction InterceptWithoutRedirection(EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
+        static inline FileOperationInstruction InterceptWithoutRedirection(EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
         {
-            return FileOperationRedirectInstruction(std::nullopt, ETryFiles::UnredirectedOnly, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
+            return FileOperationInstruction(std::nullopt, ETryFiles::UnredirectedOnly, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
         }
 
         /// Creates a filesystem operation redirection instruction that indicates the request should be redirected.
@@ -262,9 +210,9 @@ namespace Pathwinder
         /// @param [in] extraPreOperations Any extra pre-operations to be performed before the file operation is attempted. Optional, defaults to none.
         /// @param [in] extraPreOperationOperand Additional operand for any extra pre-operations. Optional, defaults to none.
         /// @return File operation redirection instruction encoded to indicate redirection plus optionally some additional processing.
-        static inline FileOperationRedirectInstruction RedirectTo(TemporaryString&& redirectedFilename, EAssociateNameWithHandle filenameHandleAssociation = EAssociateNameWithHandle::None, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
+        static inline FileOperationInstruction RedirectTo(TemporaryString&& redirectedFilename, EAssociateNameWithHandle filenameHandleAssociation = EAssociateNameWithHandle::None, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
         {
-            return FileOperationRedirectInstruction(std::move(redirectedFilename), ETryFiles::RedirectedOnly, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
+            return FileOperationInstruction(std::move(redirectedFilename), ETryFiles::RedirectedOnly, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
         }
 
 

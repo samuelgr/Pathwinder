@@ -190,7 +190,7 @@ namespace Pathwinder
     /// Contains all of the information associated with a file operation.
     struct SFileOperationContext
     {
-        FileOperationRedirectInstruction instruction;                       ///< How the redirection should be performed.
+        FileOperationInstruction instruction;                       ///< How the redirection should be performed.
         std::optional<TemporaryString> composedInputPath;                   ///< If an input path was composed, for example due to combination with a root directory, then that input path is stored here.
     };
 
@@ -230,11 +230,11 @@ namespace Pathwinder
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
     /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation, including identifying any pre-operations needed.
     /// @return Result of executing the pre-operations. The code will indicate success if they all succeed or a failure that corresponds to the first applicable pre-operation failure.
-    static NTSTATUS ExecuteExtraPreOperations(const wchar_t* functionName, unsigned int functionRequestIdentifier, const FileOperationRedirectInstruction& instruction)
+    static NTSTATUS ExecuteExtraPreOperations(const wchar_t* functionName, unsigned int functionRequestIdentifier, const FileOperationInstruction& instruction)
     {
         NTSTATUS extraPreOperationResult = NtStatus::kSuccess;
 
-        if (instruction.GetExtraPreOperations().contains(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists)) && (NT_SUCCESS(extraPreOperationResult)))
+        if (instruction.GetExtraPreOperations().contains(static_cast<int>(FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)) && (NT_SUCCESS(extraPreOperationResult)))
         {
             Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Ensuring directory hierarchy exists for \"%.*s\".", functionName, functionRequestIdentifier, static_cast<int>(instruction.GetExtraPreOperationOperand().length()), instruction.GetExtraPreOperationOperand().data());
             extraPreOperationResult = static_cast<NTSTATUS>(FilesystemOperations::CreateDirectoryHierarchy(instruction.GetExtraPreOperationOperand()));
@@ -276,7 +276,7 @@ namespace Pathwinder
     /// @param [out] redirectedObjectNameAndAttributes Mutable reference to the structure to be filled.
     /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
     /// @param [in] unredirectedObjectAttributes Object attributes structure received from the application.
-    static void FillRedirectedObjectNameAndAttributesForInstruction(SObjectNameAndAttributes& redirectedObjectNameAndAttributes, const FileOperationRedirectInstruction& instruction, const OBJECT_ATTRIBUTES& unredirectedObjectAttributes)
+    static void FillRedirectedObjectNameAndAttributesForInstruction(SObjectNameAndAttributes& redirectedObjectNameAndAttributes, const FileOperationInstruction& instruction, const OBJECT_ATTRIBUTES& unredirectedObjectAttributes)
     {
         if (true == instruction.HasRedirectedFilename())
         {
@@ -317,7 +317,7 @@ namespace Pathwinder
             TemporaryString inputFullFilename;
             inputFullFilename << maybeRootDirectoryHandlePath.value() << L'\\' << inputFilename;
 
-            FileOperationRedirectInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().RedirectFileOperation(inputFullFilename, fileOperationMode);
+            FileOperationInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().GetInstructionForFileOperation(inputFullFilename, fileOperationMode);
             if (true == redirectionInstruction.HasRedirectedFilename())
                 Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined and redirected to \"%.*s\".", functionName, functionRequestIdentifier, static_cast<int>(maybeRootDirectoryHandlePath.value().length()), maybeRootDirectoryHandlePath.value().data(), reinterpret_cast<size_t>(rootDirectory), static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
             else
@@ -330,7 +330,7 @@ namespace Pathwinder
             // Input object attributes structure does not specify an open directory handle as the root directory.
             // It is sufficient to send the object name directly for redirection.
 
-            FileOperationRedirectInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().RedirectFileOperation(inputFilename, fileOperationMode);
+            FileOperationInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().GetInstructionForFileOperation(inputFilename, fileOperationMode);
 
             if (true == redirectionInstruction.HasRedirectedFilename())
                 Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with path \"%.*s\" which was redirected to \"%.*s\".", functionName, functionRequestIdentifier, static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
@@ -346,7 +346,7 @@ namespace Pathwinder
             // Therefore, it is not necessary to attempt redirection.
 
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): Invoked with root directory handle %zu and relative path \"%.*s\" for which no redirection was attempted.", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(rootDirectory), static_cast<int>(inputFilename.length()), inputFilename.data());
-            return {.instruction = FileOperationRedirectInstruction::NoRedirectionOrInterception(), .composedInputPath = std::nullopt};
+            return {.instruction = FileOperationInstruction::NoRedirectionOrInterception(), .composedInputPath = std::nullopt};
         }
     }
 
@@ -360,24 +360,24 @@ namespace Pathwinder
     /// @param [in] unredirectedFileObject Pointer to the data structure received from the application.
     /// @param [in] redirectedFileObject Pointer to the data structure generated by querying for file operation redirection.
     /// @return Object attributes to be tried, in order.
-    template <typename FileObjectType> std::array<FileObjectType*, 2> SelectFilesToTry(const wchar_t* functionName, unsigned int functionRequestIdentifier, const FileOperationRedirectInstruction& instruction, FileObjectType* unredirectedFileObject, FileObjectType* redirectedFileObject)
+    template <typename FileObjectType> std::array<FileObjectType*, 2> SelectFilesToTry(const wchar_t* functionName, unsigned int functionRequestIdentifier, const FileOperationInstruction& instruction, FileObjectType* unredirectedFileObject, FileObjectType* redirectedFileObject)
     {
         switch (instruction.GetFilenamesToTry())
         {
-        case FileOperationRedirectInstruction::ETryFiles::UnredirectedOnly:
+        case FileOperationInstruction::ETryFiles::UnredirectedOnly:
             return {unredirectedFileObject, nullptr};
 
-        case FileOperationRedirectInstruction::ETryFiles::UnredirectedFirst:
+        case FileOperationInstruction::ETryFiles::UnredirectedFirst:
             return {unredirectedFileObject, redirectedFileObject};
 
-        case FileOperationRedirectInstruction::ETryFiles::RedirectedFirst:
+        case FileOperationInstruction::ETryFiles::RedirectedFirst:
             return {redirectedFileObject, unredirectedFileObject};
 
-        case FileOperationRedirectInstruction::ETryFiles::RedirectedOnly:
+        case FileOperationInstruction::ETryFiles::RedirectedOnly:
             return {redirectedFileObject};
 
         default:
-            Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationRedirectInstruction::ETryFiles = %u).", functionName, functionRequestIdentifier, static_cast<unsigned int>(instruction.GetFilenamesToTry()));
+            Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationInstruction::ETryFiles = %u).", functionName, functionRequestIdentifier, static_cast<unsigned int>(instruction.GetFilenamesToTry()));
             return {nullptr, nullptr};
         }
     }
@@ -399,29 +399,29 @@ namespace Pathwinder
     /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
     /// @param [in] successfulPath Path that was used successfully to create the file handle.
     /// @param [in] unredirectedPath Original file name supplied by the application.
-    static void SelectFilenameAndStoreNewlyOpenedHandle(const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE newlyOpenedHandle, const FileOperationRedirectInstruction& instruction, std::wstring_view successfulPath, std::wstring_view unredirectedPath)
+    static void SelectFilenameAndStoreNewlyOpenedHandle(const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE newlyOpenedHandle, const FileOperationInstruction& instruction, std::wstring_view successfulPath, std::wstring_view unredirectedPath)
     {
         std::wstring_view selectedPath;
 
         switch (instruction.GetFilenameHandleAssociation())
         {
-        case FileOperationRedirectInstruction::EAssociateNameWithHandle::None:
+        case FileOperationInstruction::EAssociateNameWithHandle::None:
             break;
 
-        case FileOperationRedirectInstruction::EAssociateNameWithHandle::WhicheverWasSuccessful:
+        case FileOperationInstruction::EAssociateNameWithHandle::WhicheverWasSuccessful:
             selectedPath = successfulPath;
             break;
 
-        case FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected:
+        case FileOperationInstruction::EAssociateNameWithHandle::Unredirected:
             selectedPath = unredirectedPath;
             break;
 
-        case FileOperationRedirectInstruction::EAssociateNameWithHandle::Redirected:
+        case FileOperationInstruction::EAssociateNameWithHandle::Redirected:
             selectedPath = instruction.GetRedirectedFilename();
             break;
 
         default:
-            Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationRedirectInstruction::EAssociateNameWithHandle = %u).", functionName, functionRequestIdentifier, static_cast<unsigned int>(instruction.GetFilenameHandleAssociation()));
+            Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationInstruction::EAssociateNameWithHandle = %u).", functionName, functionRequestIdentifier, static_cast<unsigned int>(instruction.GetFilenameHandleAssociation()));
             break;
         }
 
@@ -441,13 +441,13 @@ namespace Pathwinder
     /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
     /// @param [in] successfulPath Path that was used successfully to create the file handle.
     /// @param [in] unredirectedPath Original file name supplied by the application.
-    static void SelectFilenameAndUpdateOpenHandle(const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE handleToUpdate, const FileOperationRedirectInstruction& instruction, std::wstring_view successfulPath, std::wstring_view unredirectedPath)
+    static void SelectFilenameAndUpdateOpenHandle(const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE handleToUpdate, const FileOperationInstruction& instruction, std::wstring_view successfulPath, std::wstring_view unredirectedPath)
     {
         std::wstring_view selectedPath;
 
         switch (instruction.GetFilenameHandleAssociation())
         {
-        case FileOperationRedirectInstruction::EAssociateNameWithHandle::None:
+        case FileOperationInstruction::EAssociateNameWithHandle::None:
             do {
                 std::wstring erasedHandlePath;
                 if (true == OpenHandleStore::Singleton().RemoveHandle(handleToUpdate, &erasedHandlePath))
@@ -455,20 +455,20 @@ namespace Pathwinder
             } while (false);
             break;
 
-        case FileOperationRedirectInstruction::EAssociateNameWithHandle::WhicheverWasSuccessful:
+        case FileOperationInstruction::EAssociateNameWithHandle::WhicheverWasSuccessful:
             selectedPath = successfulPath;
             break;
 
-        case FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected:
+        case FileOperationInstruction::EAssociateNameWithHandle::Unredirected:
             selectedPath = unredirectedPath;
             break;
 
-        case FileOperationRedirectInstruction::EAssociateNameWithHandle::Redirected:
+        case FileOperationInstruction::EAssociateNameWithHandle::Redirected:
             selectedPath = instruction.GetRedirectedFilename();
             break;
 
         default:
-            Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationRedirectInstruction::EAssociateNameWithHandle = %u).", functionName, functionRequestIdentifier, static_cast<unsigned int>(instruction.GetFilenameHandleAssociation()));
+            Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationInstruction::EAssociateNameWithHandle = %u).", functionName, functionRequestIdentifier, static_cast<unsigned int>(instruction.GetFilenameHandleAssociation()));
             break;
         }
 
@@ -516,7 +516,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(PHANDLE FileHandle, A
     const unsigned int requestIdentifier = GetRequestIdentifier();
 
     const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, ObjectAttributes->RootDirectory, Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)), FileOperationModeFromCreateDisposition(CreateDisposition));
-    const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
+    const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
@@ -567,7 +567,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(PHANDLE FileHandle, ACC
     const unsigned int requestIdentifier = GetRequestIdentifier();
 
     const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, ObjectAttributes->RootDirectory, Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)), FilesystemDirector::EFileOperationMode::OpenExistingFile);
-    const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
+    const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
@@ -642,7 +642,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(POBJECT_A
     const unsigned int requestIdentifier = GetRequestIdentifier();
 
     const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, ObjectAttributes->RootDirectory, Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)), FilesystemDirector::EFileOperationMode::OpenExistingFile);
-    const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
+    const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
@@ -694,7 +694,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(HANDLE FileHa
     std::wstring_view unredirectedPath = unredirectedFileRenameInformation.GetFilename();
 
     const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, unredirectedFileRenameInformation.rootDirectory, unredirectedPath, FilesystemDirector::EFileOperationMode::CreateNewFile);
-    const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
+    const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
@@ -748,7 +748,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(POBJECT_ATTR
     const unsigned int requestIdentifier = GetRequestIdentifier();
 
     const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, ObjectAttributes->RootDirectory, Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)), FilesystemDirector::EFileOperationMode::OpenExistingFile);
-    const FileOperationRedirectInstruction& redirectionInstruction = operationContext.instruction;
+    const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(ObjectAttributes, FileInformation);

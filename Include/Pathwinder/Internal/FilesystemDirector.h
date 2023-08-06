@@ -123,6 +123,18 @@ namespace Pathwinder
             return ruleNode->GetData();
         }
 
+        /// Generates an instruction for how to execute a directory enumeration, which involves listing the contents of a directory.
+        /// @param [in] absoluteDirectoryPath Path of the file being queried for possible redirection. A Windows namespace prefix is optional.
+        /// @param [in] enumerationQueryFilePattern Optional file pattern provided along with the directory enumeration query. This would be obtained from the application's query and has the effect of limiting the output of the query to only those filenames that match.
+        /// @return Instruction that provides information on how to execute the directory enumeration.
+        DirectoryEnumerationInstruction GetInstructionForDirectoryEnumeration(std::wstring_view absoluteDirectoryPath, std::wstring_view enumerationQueryFilePattern) const;
+
+        /// Generates an instruction for how to execute a file operation, such as opening, creating, or querying information about an individual file.
+        /// @param [in] absoluteFilePath Path of the file being queried for possible redirection. A Windows namespace prefix is optional.
+        /// @param [in] fileOperationMode Type of file operation requested by the application.
+        /// @return Instruction that provides information on how to execute the file operation redirection.
+        FileOperationInstruction GetInstructionForFileOperation(std::wstring_view absoluteFilePath, EFileOperationMode fileOperationMode) const;
+
         /// Determines if the specified file path, which is already absolute, exists as a valid prefix for any filesystem rule.
         /// The input file path must not contain any leading Windows namespace prefixes and must not have any trailing backslash characters.
         /// Primarily intended for internal use but exposed for tests.
@@ -133,17 +145,10 @@ namespace Pathwinder
             return originDirectoryIndex.HasPathForPrefix(absoluteFilePathTrimmed);
         }
 
-        /// Determines which rule from among those held by this object should be used for a particular redirection query.
+        /// Determines which rule from among those held by this object should be used for a particular input path.
         /// Primarily intended for internal use but exposed for tests.
         /// @param [in] absolutePath Absolute path for which to search for a rule for possible redirection.
-        /// @return Pointer to the rule object that should be used to process the redirection, or `nullptr` if no redirection should occur at all.
-        const FilesystemRule* SelectRuleForRedirectionQuery(std::wstring_view absolutePath) const;
-
-        /// Redirects a file operation, such as opening, creating, or querying information about an individual file.
-        /// The file path must already be fully resolved, ready for data structure query. A Windows namespace prefix is optional.
-        /// @param [in] absoluteFilePath Path of the file being queried for possible redirection.
-        /// @param [in] fileOperationMode Type of file operation requested by the application.
-        /// @return Instruction that provides information on how to execute the file operation redirection.
-        FileOperationRedirectInstruction RedirectFileOperation(std::wstring_view absoluteFilePath, EFileOperationMode fileOperationMode) const;
+        /// @return Pointer to the rule object that should be used with the specified path, or `nullptr` if no rule is applicable.
+        const FilesystemRule* SelectRuleForPath(std::wstring_view absolutePath) const;
     };
 }

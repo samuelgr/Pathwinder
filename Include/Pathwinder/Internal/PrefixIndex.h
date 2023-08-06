@@ -43,6 +43,13 @@ namespace Pathwinder
         /// Individual node within the prefix tree.
         class Node
         {
+        public:
+            // -------- TYPE DEFINITIONS ----------------------------------- //
+
+            /// Type alias for the container that holds this node's children.
+            typedef std::unordered_map<std::basic_string_view<CharType>, Node, Strings::CaseInsensitiveHasher<CharType>, Strings::CaseInsensitiveEqualityComparator<CharType>> TChildrenContainer;
+
+
         private:
             // -------- INSTANCE VARIABLES --------------------------------- //
 
@@ -56,7 +63,7 @@ namespace Pathwinder
             std::basic_string_view<CharType> parentKey;
 
             /// Child nodes, stored associatively by path prefix string.
-            std::unordered_map<std::basic_string_view<CharType>, Node, Strings::CaseInsensitiveHasher<CharType>, Strings::CaseInsensitiveEqualityComparator<CharType>> children;
+            TChildrenContainer children;
 
 
         public:
@@ -140,6 +147,13 @@ namespace Pathwinder
                 }
 
                 return nullptr;
+            }
+
+            /// Retrieves a read-only reference to the container holding all of this node's children.
+            /// @return Read-only reference to this node's children.
+            inline const TChildrenContainer& GetChildren(void) const
+            {
+                return children;
             }
 
             /// Retrieves a read-only pointer to the optional data contained within this node, which may not exist.

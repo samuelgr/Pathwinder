@@ -57,7 +57,7 @@ namespace Pathwinder
     // -------- INSTANCE METHODS ------------------------------------------- //
     // See "FilesystemDirector.h" for documentation.
 
-    const FilesystemRule* FilesystemDirector::SelectRuleForRedirectionQuery(std::wstring_view absolutePath) const
+    const FilesystemRule* FilesystemDirector::SelectRuleForPath(std::wstring_view absolutePath) const
     {
         // It is possible that multiple rules all have a prefix that matches the directory part of the full file path.
         // We want to pick the most specific one to apply, meaning it has the longest matching prefix.
@@ -73,7 +73,15 @@ namespace Pathwinder
 
     // --------
 
-    FileOperationRedirectInstruction FilesystemDirector::RedirectFileOperation(std::wstring_view absoluteFilePath, EFileOperationMode fileOperationMode) const
+    DirectoryEnumerationInstruction FilesystemDirector::GetInstructionForDirectoryEnumeration(std::wstring_view absoluteDirectoryPath, std::wstring_view enumerationQueryFilePattern) const
+    {
+        // TODO: Implement this method.
+        return DirectoryEnumerationInstruction();
+    }
+
+    // --------
+
+    FileOperationInstruction FilesystemDirector::GetInstructionForFileOperation(std::wstring_view absoluteFilePath, EFileOperationMode fileOperationMode) const
     {
         const std::wstring_view windowsNamespacePrefix = Strings::PathGetWindowsNamespacePrefix(absoluteFilePath);
         const std::wstring_view extraSuffix = ((true == absoluteFilePath.ends_with(L'\\')) ? L"\\" : L"");
@@ -83,10 +91,10 @@ namespace Pathwinder
         if (std::wstring_view::npos == lastSeparatorPos)
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File operation redirection query for path \"%.*s\" does not contain a final path separator and was therefore skipped for redirection.", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data());
-            return FileOperationRedirectInstruction::NoRedirectionOrInterception();
+            return FileOperationInstruction::NoRedirectionOrInterception();
         }
 
-        const FilesystemRule* const selectedRule = SelectRuleForRedirectionQuery(absoluteFilePathTrimmedForQuery);
+        const FilesystemRule* const selectedRule = SelectRuleForPath(absoluteFilePathTrimmedForQuery);
         if (nullptr == selectedRule)
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"File operation redirection query for path \"%.*s\" did not match any rules.", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data());
@@ -95,13 +103,13 @@ namespace Pathwinder
             {
                 // If the file path could possibly be a directory path that but exists in the hierarchy as an ancestor of filesystem rules, then it is possible this same path could be a relative root path later on for a something that needs to be redirected.
                 // Therefore, if a file handle is being created it needs to be associated with the unredirected path.
-                return FileOperationRedirectInstruction::InterceptWithoutRedirection(FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected);
+                return FileOperationInstruction::InterceptWithoutRedirection(FileOperationInstruction::EAssociateNameWithHandle::Unredirected);
             }
             else
             {
                 // Otherwise, an unredirected file path is not interesting and can be safely passed to the system without any further processing.
                 // The path specified is totally unrelated to all filesystem rules.
-                return FileOperationRedirectInstruction::NoRedirectionOrInterception();
+                return FileOperationInstruction::NoRedirectionOrInterception();
             }
         }
 
@@ -120,7 +128,7 @@ namespace Pathwinder
             if (false == maybeRedirectedFilePath.has_value())
             {
                 Message::OutputFormatted(Message::ESeverity::Error, L"File operation redirection query for path \"%.*s\" did not match rule \"%s\" due to an internal error.", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data());
-                return FileOperationRedirectInstruction::NoRedirectionOrInterception();
+                return FileOperationInstruction::NoRedirectionOrInterception();
             }
 
             Message::OutputFormatted(Message::ESeverity::Info, L"File operation redirection query for path \"%.*s\" is for the origin directory of rule \"%s\" and was redirected to \"%s\".", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());
@@ -136,7 +144,7 @@ namespace Pathwinder
             if (false == maybeRedirectedFilePath.has_value())
             {
                 Message::OutputFormatted(Message::ESeverity::Info, L"File operation redirection query for path \"%.*s\" did not match rule \"%s\" because a file pattern put it out of the rule's scope.", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data());
-                return FileOperationRedirectInstruction::NoRedirectionOrInterception();
+                return FileOperationInstruction::NoRedirectionOrInterception();
             }
 
             Message::OutputFormatted(Message::ESeverity::Info, L"File operation redirection query for path \"%.*s\" matched rule \"%s\" and was redirected to \"%s\".", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());
@@ -144,7 +152,7 @@ namespace Pathwinder
 
         std::wstring_view redirectedFilePath = maybeRedirectedFilePath.value().AsStringView();
 
-        BitSetEnum<FileOperationRedirectInstruction::EExtraPreOperation> extraPreOperations;
+        BitSetEnum<FileOperationInstruction::EExtraPreOperation> extraPreOperations;
         std::wstring_view extraPreOperationOperand;
 
         if (true == CanFileOperationResultInFileCreation(fileOperationMode))
@@ -154,7 +162,7 @@ namespace Pathwinder
 
             if (FilesystemOperations::IsDirectory(unredirectedPathDirectoryPartWithWindowsNamespacePrefix))
             {
-                extraPreOperations.insert(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
+                extraPreOperations.insert(static_cast<int>(FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
                 extraPreOperationOperand = Strings::RemoveTrailing(redirectedFilePath.substr(0, redirectedFilePath.find_last_of(L'\\')), L'\\');
             }
         }
@@ -165,11 +173,11 @@ namespace Pathwinder
 
             if (FilesystemOperations::IsDirectory(absoluteFilePath))
             {
-                extraPreOperations.insert(static_cast<int>(FileOperationRedirectInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
+                extraPreOperations.insert(static_cast<int>(FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
                 extraPreOperationOperand = Strings::RemoveTrailing(redirectedFilePath, L'\\');
             }
         }
 
-        return FileOperationRedirectInstruction::RedirectTo(std::move(maybeRedirectedFilePath.value()), FileOperationRedirectInstruction::EAssociateNameWithHandle::Unredirected, std::move(extraPreOperations), extraPreOperationOperand);
+        return FileOperationInstruction::RedirectTo(std::move(maybeRedirectedFilePath.value()), FileOperationInstruction::EAssociateNameWithHandle::Unredirected, std::move(extraPreOperations), extraPreOperationOperand);
     }
 }
