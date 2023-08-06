@@ -29,10 +29,10 @@
 
 // Selects an appropriate calling convention for the protected dependency hook template, based on whether or not the target is a 32-bit or 64-bit binary.
 // Hard-coding a single calling convention works because all of the hooked APIs use the same one. This is also simpler in code than adding a generic template to detect it automatically.
-#ifdef _WIN32
-#define PROTECTED_DEPENDENCY_IMPL_CALLING_CONVENTION                        (__stdcall)
-#else
+#ifdef _WIN64
 #define PROTECTED_DEPENDENCY_IMPL_CALLING_CONVENTION
+#else
+#define PROTECTED_DEPENDENCY_IMPL_CALLING_CONVENTION                        (__stdcall)
 #endif
 
 
