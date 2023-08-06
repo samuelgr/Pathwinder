@@ -45,12 +45,55 @@ namespace Pathwinder
     /// Implements a concurrency-safe storage data structure for open filesystem handles.
     class OpenHandleStore
     {
+    public:
+        // -------- TYPE DEFINITIONS --------------------------------------- //
+
+        /// Read-only view of data stored about an open handle.
+        struct SHandleDataView
+        {
+            std::wstring_view associatedPath;                               ///< Path associated internally with the open handle.
+            std::wstring_view realOpenedPath;                               ///< Actual path that was opened for the handle. This could be different from the associated path based on instructions from a filesystem director.
+        };
+
+        /// Data stored about an open handle.
+        struct SHandleData
+        {
+            std::wstring associatedPath;                                    ///< Path associated internally with the open handle.
+            std::wstring realOpenedPath;                                    ///< Actual path that was opened for the handle. This could be different from the associated path based on instructions from a filesystem director.
+
+            /// Default constructor.
+            inline SHandleData(void) = default;
+
+            /// Initialization constructor.
+            /// Copy-converts from a read-only view structure.
+            explicit inline SHandleData(const SHandleDataView& dataView) : associatedPath(dataView.associatedPath), realOpenedPath(dataView.realOpenedPath)
+            {
+                // Nothing to do here.
+            }
+
+            /// Move constructor.
+            SHandleData(SHandleData&& other) = default;
+
+            /// Move assignment operator.
+            inline SHandleData& operator=(SHandleData&& other) = default;
+
+            /// Implicit conversion to a read-only view.
+            inline operator SHandleDataView(void) const
+            {
+                return {
+                    .associatedPath = associatedPath,
+                    .realOpenedPath = realOpenedPath
+                };
+            }
+        };
+
+
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
         /// Open handle data structure itself.
         /// Maps from a handle to the filesystem path that was used to open it.
-        std::unordered_map<HANDLE, std::wstring> openHandles;
+        std::unordered_map<HANDLE, SHandleData> openHandles;
 
         /// Mutex for ensuring concurrency-safe access to the open handles data structure.
         SharedMutex openHandlesMutex;
@@ -70,10 +113,10 @@ namespace Pathwinder
 
         // -------- INSTANCE METHODS --------------------------------------- //
 
-        /// Queries the open handle cache for the specified handle and retrieves the corresponding path if it exists.
+        /// Queries the open handle store for the specified handle and retrieves a read-only view of the associated data, if the handle is found in the store.
         /// @param [in] handleToQuery Handle for which to query.
-        /// @return Corresponding filesystem path, if the handle is contained in the cache.
-        inline std::optional<std::wstring_view> GetPathForHandle(HANDLE handleToQuery)
+        /// @return Read-only view of the data associated with the handle, if the handle exists in the store.
+        inline std::optional<SHandleDataView> GetDataForHandle(HANDLE handleToQuery)
         {
             std::shared_lock lock(openHandlesMutex);
 
@@ -85,31 +128,51 @@ namespace Pathwinder
         }
 
         /// Inserts a new handle and corresponding path into the open handle store.
+        /// This version moves handle data into the open handle store.
         /// @param [in] handleToInsert Handle to be inserted.
-        /// @param [in] correspondingPath Corresponding filesystem path to store for the handle.
-        inline void InsertHandle(HANDLE handleToInsert, std::wstring_view correspondingPath)
+        /// @param [in] handleData Corresponding data to store for the handle.
+        inline void InsertHandle(HANDLE handleToInsert, SHandleData&& handleData)
         {
             std::unique_lock lock(openHandlesMutex);
 
-            const bool insertionWasSuccessful = openHandles.emplace(handleToInsert, correspondingPath).second;
+            const bool insertionWasSuccessful = openHandles.emplace(handleToInsert, std::move(handleData)).second;
             DebugAssert(true == insertionWasSuccessful, "Failed to insert a handle into storage.");
         }
 
-        /// Inserts a new handle and corresponding path into the open handle store or, if the handle already exists, updates its corresponding path.
+        /// Inserts a new handle and corresponding path into the open handle store.
+        /// This version accepts a read-only view to be copied on insert.
+        /// @param [in] handleToInsert Handle to be inserted.
+        /// @param [in] handleData Corresponding data to store for the handle.
+        inline void InsertHandle(HANDLE handleToInsert, SHandleDataView handleData)
+        {
+            InsertHandle(handleToInsert, SHandleData(handleData));
+        }
+
+        /// Inserts a new handle and corresponding path into the open handle store or, if the handle already exists, updates its stored data.
+        /// This version moves handle data into the open handle store.
         /// @param [in] handleToInsertOrUpdate Handle to be inserted or updated.
-        /// @param [in] correspondingPath Corresponding filesystem path to store for the handle.
-        inline void InsertOrUpdateHandle(HANDLE handleToInsertOrUpdate, std::wstring_view correspondingPath)
+        /// @param [in] handleData Corresponding data to store for the handle.
+        inline void InsertOrUpdateHandle(HANDLE handleToInsertOrUpdate, SHandleData&& handleData)
         {
             std::unique_lock lock(openHandlesMutex);
 
-            openHandles.insert_or_assign(handleToInsertOrUpdate, correspondingPath).second;
+            openHandles.insert_or_assign(handleToInsertOrUpdate, std::move(handleData)).second;
+        }
+
+        /// Inserts a new handle and corresponding path into the open handle store or, if the handle already exists, updates its stored data.
+        /// This version accepts a read-only view to be copied on assignment.
+        /// @param [in] handleToInsertOrUpdate Handle to be inserted or updated.
+        /// @param [in] handleData Corresponding data to store for the handle.
+        inline void InsertOrUpdateHandle(HANDLE handleToInsertOrUpdate, SHandleDataView handleData)
+        {
+            InsertOrUpdateHandle(handleToInsertOrUpdate, SHandleData(handleData));
         }
 
         /// Attempts to remove an existing handle and corresponding path from the open handle store.
         /// @param [in] handleToRemove Handle to be removed.
-        /// @param [out] correspondingPath String object to receive ownership of the corresponding path to the handle that was removed, if not null. Only filled if this method returns `true`.
+        /// @param [out] handleData Handle data object to receive ownership of the corresponding data for the handle that was removed, if not null. Only filled if this method returns `true`.
         /// @return `true` if the handle was found and removed, `false` otherwise.
-        inline bool RemoveHandle(HANDLE handleToRemove, std::wstring* correspondingPath)
+        inline bool RemoveHandle(HANDLE handleToRemove, SHandleData* handleData)
         {
             std::unique_lock lock(openHandlesMutex);
 
@@ -117,10 +180,10 @@ namespace Pathwinder
             if (openHandles.end() == removalIter)
                 return false;
 
-            if (nullptr == correspondingPath)
+            if (nullptr == handleData)
                 openHandles.erase(removalIter);
             else
-                *correspondingPath = std::move(openHandles.extract(removalIter).mapped());
+                *handleData = std::move(openHandles.extract(removalIter).mapped());
 
             return true;
         }
@@ -129,9 +192,9 @@ namespace Pathwinder
         /// Both handle closure and removal need to be done while the lock is held, to ensure proper concurrency control.
         /// This avoids a race condition in which a closed handle is reused and re-added to the store before the closing thread has a chance to remove it first.
         /// @param [in] handleToRemove Handle to be removed.
-        /// @param [out] correspondingPath String object to receive ownership of the corresponding path to the handle that was removed, if not null. Only filled if the underlying system call to close the handle succeeds.
+        /// @param [out] handleData Handle data object to receive ownership of the corresponding data for the handle that was removed, if not null. Only filled if the underlying system call to close the handle succeeds.
         /// @return Result of the underlying system call to `NtClose` to close the handle.
-        inline NTSTATUS RemoveAndCloseHandle(HANDLE handleToRemove, std::wstring* correspondingPath)
+        inline NTSTATUS RemoveAndCloseHandle(HANDLE handleToRemove, SHandleData* handleData)
         {
             std::unique_lock lock(openHandlesMutex);
 
@@ -142,10 +205,10 @@ namespace Pathwinder
             if (!(NT_SUCCESS(systemCallResult)))
                 return systemCallResult;
 
-            if (nullptr == correspondingPath)
+            if (nullptr == handleData)
                 openHandles.erase(removalIter);
             else
-                *correspondingPath = std::move(openHandles.extract(removalIter).mapped());
+                *handleData = std::move(openHandles.extract(removalIter).mapped());
 
             return systemCallResult;
         }
@@ -307,21 +370,23 @@ namespace Pathwinder
     static SFileOperationContext GetFileOperationRedirectionInformation(const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE rootDirectory, std::wstring_view inputFilename, FilesystemDirector::EFileOperationMode fileOperationMode)
     {
         std::optional<TemporaryString> maybeRedirectedFilename = std::nullopt;
-        std::optional<std::wstring_view> maybeRootDirectoryHandlePath = ((nullptr == rootDirectory) ? std::nullopt : OpenHandleStore::Singleton().GetPathForHandle(rootDirectory));
+        std::optional<OpenHandleStore::SHandleDataView> maybeRootDirectoryHandleData = ((nullptr == rootDirectory) ? std::nullopt : OpenHandleStore::Singleton().GetDataForHandle(rootDirectory));
 
-        if (true == maybeRootDirectoryHandlePath.has_value())
+        if (true == maybeRootDirectoryHandleData.has_value())
         {
             // Input object attributes structure specifies an open directory handle as the root directory and the handle was found in the cache.
             // Before querying for redirection it is necessary to assemble the full filename, including the root directory path.
 
+            std::wstring_view rootDirectoryHandlePath = maybeRootDirectoryHandleData.value().associatedPath;
+
             TemporaryString inputFullFilename;
-            inputFullFilename << maybeRootDirectoryHandlePath.value() << L'\\' << inputFilename;
+            inputFullFilename << rootDirectoryHandlePath << L'\\' << inputFilename;
 
             FileOperationInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().GetInstructionForFileOperation(inputFullFilename, fileOperationMode);
             if (true == redirectionInstruction.HasRedirectedFilename())
-                Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined and redirected to \"%.*s\".", functionName, functionRequestIdentifier, static_cast<int>(maybeRootDirectoryHandlePath.value().length()), maybeRootDirectoryHandlePath.value().data(), reinterpret_cast<size_t>(rootDirectory), static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
+                Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined and redirected to \"%.*s\".", functionName, functionRequestIdentifier, static_cast<int>(rootDirectoryHandlePath.length()), rootDirectoryHandlePath.data(), reinterpret_cast<size_t>(rootDirectory), static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
             else
-                Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined but not redirected.", functionName, functionRequestIdentifier, static_cast<int>(maybeRootDirectoryHandlePath.value().length()), maybeRootDirectoryHandlePath.value().data(), reinterpret_cast<size_t>(rootDirectory), static_cast<int>(inputFilename.length()), inputFilename.data());
+                Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined but not redirected.", functionName, functionRequestIdentifier, static_cast<int>(rootDirectoryHandlePath.length()), rootDirectoryHandlePath.data(), reinterpret_cast<size_t>(rootDirectory), static_cast<int>(inputFilename.length()), inputFilename.data());
 
             return {.instruction = std::move(redirectionInstruction), .composedInputPath = std::move(inputFullFilename)};
         }
@@ -427,10 +492,11 @@ namespace Pathwinder
 
         if (false == selectedPath.empty())
         {
+            successfulPath = Strings::RemoveTrailing(successfulPath, L'\\');
             selectedPath = Strings::RemoveTrailing(selectedPath, L'\\');
 
-            OpenHandleStore::Singleton().InsertHandle(newlyOpenedHandle, selectedPath);
-            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu was stored in association with path \"%.*s\".", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(newlyOpenedHandle), static_cast<int>(selectedPath.length()), selectedPath.data());
+            OpenHandleStore::Singleton().InsertHandle(newlyOpenedHandle, {.associatedPath = selectedPath, .realOpenedPath = successfulPath});
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu was opened for path \"%.*s\" and stored in association with path \"%.*s\".", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(newlyOpenedHandle), static_cast<int>(successfulPath.length()), successfulPath.data(), static_cast<int>(selectedPath.length()), selectedPath.data());
         }
     }
 
@@ -449,9 +515,9 @@ namespace Pathwinder
         {
         case FileOperationInstruction::EAssociateNameWithHandle::None:
             do {
-                std::wstring erasedHandlePath;
-                if (true == OpenHandleStore::Singleton().RemoveHandle(handleToUpdate, &erasedHandlePath))
-                    Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu for path \"%s\" was erased from storage.", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(handleToUpdate), erasedHandlePath.c_str());
+                OpenHandleStore::SHandleData erasedHandleData;
+                if (true == OpenHandleStore::Singleton().RemoveHandle(handleToUpdate, &erasedHandleData))
+                    Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu associated with path \"%s\" was erased from storage.", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(handleToUpdate), erasedHandleData.associatedPath.c_str());
             } while (false);
             break;
 
@@ -474,10 +540,11 @@ namespace Pathwinder
 
         if (false == selectedPath.empty())
         {
+            successfulPath = Strings::RemoveTrailing(successfulPath, L'\\');
             selectedPath = Strings::RemoveTrailing(selectedPath, L'\\');
 
-            OpenHandleStore::Singleton().InsertOrUpdateHandle(handleToUpdate, selectedPath);
-            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu was updated in storage and is now associated with path \"%.*s\".", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(handleToUpdate), static_cast<int>(selectedPath.length()), selectedPath.data());
+            OpenHandleStore::Singleton().InsertOrUpdateHandle(handleToUpdate, {.associatedPath = selectedPath, .realOpenedPath = successfulPath});
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu was updated in storage to be opened with path \"%.*s\" and associated with path \"%.*s\".", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(handleToUpdate), static_cast<int>(successfulPath.length()), successfulPath.data(), static_cast<int>(selectedPath.length()), selectedPath.data());
         }
     }
 }
@@ -491,17 +558,17 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtClose::Hook(HANDLE Handle)
     using namespace Pathwinder;
 
 
-    auto maybeClosedHandlePath = OpenHandleStore::Singleton().GetPathForHandle(Handle);
-    if (false == maybeClosedHandlePath.has_value())
+    std::optional<OpenHandleStore::SHandleDataView> maybeClosedHandleData = OpenHandleStore::Singleton().GetDataForHandle(Handle);
+    if (false == maybeClosedHandleData.has_value())
         return Original(Handle);
 
     const unsigned int requestIdentifier = GetRequestIdentifier();
 
-    std::wstring closedHandlePath;
-    NTSTATUS closeHandleResult = OpenHandleStore::Singleton().RemoveAndCloseHandle(Handle, &closedHandlePath);
+    OpenHandleStore::SHandleData closedHandleData;
+    NTSTATUS closeHandleResult = OpenHandleStore::Singleton().RemoveAndCloseHandle(Handle, &closedHandleData);
 
     if (NT_SUCCESS(closeHandleResult))
-        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu for path \"%s\" was closed and erased from storage.", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(Handle), closedHandlePath.c_str());
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu for path \"%s\" was closed and erased from storage.", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(Handle), closedHandleData.associatedPath.c_str());
 
     return closeHandleResult;
 }
