@@ -253,7 +253,7 @@ namespace Pathwinder
     /// Contains all of the information associated with a file operation.
     struct SFileOperationContext
     {
-        FileOperationInstruction instruction;                       ///< How the redirection should be performed.
+        FileOperationInstruction instruction;                               ///< How the redirection should be performed.
         std::optional<TemporaryString> composedInputPath;                   ///< If an input path was composed, for example due to combination with a root directory, then that input path is stored here.
     };
 
@@ -377,7 +377,7 @@ namespace Pathwinder
             // Input object attributes structure specifies an open directory handle as the root directory and the handle was found in the cache.
             // Before querying for redirection it is necessary to assemble the full filename, including the root directory path.
 
-            std::wstring_view rootDirectoryHandlePath = maybeRootDirectoryHandleData.value().associatedPath;
+            std::wstring_view rootDirectoryHandlePath = maybeRootDirectoryHandleData->associatedPath;
 
             TemporaryString inputFullFilename;
             inputFullFilename << rootDirectoryHandlePath << L'\\' << inputFilename;
@@ -598,7 +598,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(PHANDLE FileHandle, A
     HANDLE newlyOpenedHandle = nullptr;
     NTSTATUS systemCallResult = NtStatus::kSuccess;
 
-    std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
+    std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath->AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
     std::wstring_view lastAttemptedPath;
 
     for (POBJECT_ATTRIBUTES objectAttributesToTry : SelectFilesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
@@ -649,7 +649,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(PHANDLE FileHandle, ACC
     HANDLE newlyOpenedHandle = nullptr;
     NTSTATUS systemCallResult = NtStatus::kSuccess;
 
-    std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath.value().AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
+    std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath->AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
     std::wstring_view lastAttemptedPath;
 
     for (POBJECT_ATTRIBUTES objectAttributesToTry : SelectFilesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
@@ -682,7 +682,26 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(HANDLE FileHa
     using namespace Pathwinder;
 
 
+    std::optional<OpenHandleStore::SHandleDataView> maybeHandleData = OpenHandleStore::Singleton().GetDataForHandle(FileHandle);
+    if (false == maybeHandleData.has_value())
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
+
     const unsigned int requestIdentifier = GetRequestIdentifier();
+
+    std::wstring_view queryFilePattern = ((nullptr == FileName) ? std::wstring_view() : Strings::NtConvertUnicodeStringToStringView(*FileName));
+    OpenHandleStore::SHandleDataView& handleData = *maybeHandleData;
+
+    if (true == queryFilePattern.empty())
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());
+    else
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with file pattern \"%.*s\" and handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", GetFunctionName(), requestIdentifier, static_cast<int>(queryFilePattern.length()), queryFilePattern.data(), reinterpret_cast<size_t>(FileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());
+
+    DirectoryEnumerationInstruction directoryEnumerationInstruction = FilesystemDirector::Singleton().GetInstructionForDirectoryEnumeration(handleData.associatedPath, handleData.realOpenedPath, queryFilePattern);
+
+    if (true == Globals::GetConfigurationData().isDryRunMode)
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
+
+    // TODO
 
     return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
 }
@@ -694,7 +713,26 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(HANDLE File
     using namespace Pathwinder;
 
 
+    std::optional<OpenHandleStore::SHandleDataView> maybeHandleData = OpenHandleStore::Singleton().GetDataForHandle(FileHandle);
+    if (false == maybeHandleData.has_value())
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
+
     const unsigned int requestIdentifier = GetRequestIdentifier();
+
+    std::wstring_view queryFilePattern = ((nullptr == FileName) ? std::wstring_view() : Strings::NtConvertUnicodeStringToStringView(*FileName));
+    OpenHandleStore::SHandleDataView& handleData = *maybeHandleData;
+
+    if (true == queryFilePattern.empty())
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());
+    else
+        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with file pattern \"%.*s\" and handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", GetFunctionName(), requestIdentifier, static_cast<int>(queryFilePattern.length()), queryFilePattern.data(), reinterpret_cast<size_t>(FileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());
+
+    DirectoryEnumerationInstruction directoryEnumerationInstruction = FilesystemDirector::Singleton().GetInstructionForDirectoryEnumeration(handleData.associatedPath, handleData.realOpenedPath, queryFilePattern);
+
+    if (true == Globals::GetConfigurationData().isDryRunMode)
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
+
+    // TODO
 
     return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
 }
