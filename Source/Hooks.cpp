@@ -288,6 +288,30 @@ namespace Pathwinder
         return FileRenameInformationAndFilename(std::move(newFileRenameInformation));
     }
 
+    /// Determines if the specified file information class value, when provided as a parameter to a directory enumeration system call, results in the enumeration of filenames in a directory.
+    /// Most of the supported file information classes will do this, but some enumerate other specific types of information other than filenames and are not valid on standard filesystem directories.
+    /// @param [in] fileInformationClass File information class enumerator to check.
+    /// @return `true` if the specified file information class results in filename enumeration, `false` otherwise.
+    static bool DoesFileInformationClassEnumerateFilenames(FILE_INFORMATION_CLASS fileInformationClass)
+    {
+        switch (fileInformationClass)
+        {
+        case SFileDirectoryInformation::kFileInformationClass:
+        case SFileFullDirectoryInformation::kFileInformationClass:
+        case SFileBothDirectoryInformation::kFileInformationClass:
+        case SFileNamesInformation::kFileInformationClass:
+        case SFileIdBothDirInformation::kFileInformationClass:
+        case SFileIdFullDirInformation::kFileInformationClass:
+        case SFileIdGlobalTxDirInformation::kFileInformationClass:
+        case SFileIdExtdDirInformation::kFileInformationClass:
+        case SFileIdExtdBothDirInformation::kFileInformationClass:
+            return true;
+
+        default:
+            return false;
+        }
+    }
+
     /// Executes any pre-operations needed ahead of invoking underlying system calls.
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
@@ -682,6 +706,9 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(HANDLE FileHa
     using namespace Pathwinder;
 
 
+    if (false == DoesFileInformationClassEnumerateFilenames(FileInformationClass))
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
+
     std::optional<OpenHandleStore::SHandleDataView> maybeHandleData = OpenHandleStore::Singleton().GetDataForHandle(FileHandle);
     if (false == maybeHandleData.has_value())
         return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
@@ -712,6 +739,9 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(HANDLE File
 {
     using namespace Pathwinder;
 
+
+    if (false == DoesFileInformationClassEnumerateFilenames(FileInformationClass))
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
 
     std::optional<OpenHandleStore::SHandleDataView> maybeHandleData = OpenHandleStore::Singleton().GetDataForHandle(FileHandle);
     if (false == maybeHandleData.has_value())
@@ -796,7 +826,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(HANDLE FileHa
     const unsigned int requestIdentifier = GetRequestIdentifier();
 
     SFileRenameInformation& unredirectedFileRenameInformation = *(reinterpret_cast<SFileRenameInformation*>(FileInformation));
-    std::wstring_view unredirectedPath = unredirectedFileRenameInformation.GetFilename();
+    std::wstring_view unredirectedPath = GetFileInformationStructFilename(unredirectedFileRenameInformation);
 
     const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, unredirectedFileRenameInformation.rootDirectory, unredirectedPath, FilesystemDirector::EFileOperationMode::CreateNewFile);
     const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
@@ -824,7 +854,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(HANDLE FileHa
         if (nullptr == renameInformationToTry)
             continue;
 
-        lastAttemptedPath = renameInformationToTry->GetFilename();
+        lastAttemptedPath = GetFileInformationStructFilename(*renameInformationToTry);
         systemCallResult = Original(FileHandle, IoStatusBlock, reinterpret_cast<PVOID>(renameInformationToTry), Length, FileInformationClass);
         Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
 
