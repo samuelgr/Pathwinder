@@ -70,7 +70,7 @@ namespace Pathwinder
         TemporaryString uppercaseStr;
 
         for (wchar_t c : str)
-            uppercaseStr += std::towupper(c);
+            uppercaseStr += static_cast<wchar_t>(std::towupper(c));
 
         return uppercaseStr;
     }
@@ -187,7 +187,7 @@ namespace Pathwinder
                 // On the target side it is necessary to enumerate whatever files are present that match the rule's file patterns.
                 // On the origin side it is necessary to enumerate whatever files are present that do not match the rule's file patterns and hence are beyond the rule's scope.
 
-                Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will merge out-of-scope files in the original query path with in-scope files enumerated from \"%.*s\".", static_cast<int>(unredirectedPath.length()), unredirectedPath.data(), static_cast<int>(directoryEnumerationRedirectRule->GetName().length()), directoryEnumerationRedirectRule->GetName().data(), static_cast<int>(redirectedPath.length()), redirectedPath.data());
+                Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will merge out-of-scope files in the origin hierarchy with in-scope files in the target hierarchy.", static_cast<int>(unredirectedPath.length()), unredirectedPath.data(), static_cast<int>(directoryEnumerationRedirectRule->GetName().length()), directoryEnumerationRedirectRule->GetName().data());
                 directoriesToEnumerate = {
                     DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, directoryEnumerationRedirectRule),
                     DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeAllExceptMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath, directoryEnumerationRedirectRule)
@@ -229,8 +229,19 @@ namespace Pathwinder
                             if (false == directoryNamesToInsert.has_value())
                                 directoryNamesToInsert.emplace();
 
-                            Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" will insert \"%.*s\", which is the origin directory of rule \"%.*s\", into the output.", static_cast<int>(directoryPath.length()), directoryPath.data(), static_cast<int>(childRule.GetOriginDirectoryName().length()), childRule.GetOriginDirectoryName().data(), static_cast<int>(childRule.GetName().length()), childRule.GetName().data());
+                            if (false == enumerationQueryFilePattern.empty())
+                                Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" will insert \"%.*s\" into the output because it is the origin directory of rule \"%.*s\" and matches enumeration file pattern \"%.*s\".", static_cast<int>(directoryPath.length()), directoryPath.data(), static_cast<int>(childRule.GetOriginDirectoryName().length()), childRule.GetOriginDirectoryName().data(), static_cast<int>(childRule.GetName().length()), childRule.GetName().data(), static_cast<int>(enumerationQueryFilePattern.length()), enumerationQueryFilePattern.data());
+                            else
+                                Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" will insert \"%.*s\" into the output because it is the origin directory of rule \"%.*s\" and no enumeration file pattern was supplied.", static_cast<int>(directoryPath.length()), directoryPath.data(), static_cast<int>(childRule.GetOriginDirectoryName().length()), childRule.GetOriginDirectoryName().data(), static_cast<int>(childRule.GetName().length()), childRule.GetName().data());
+
                             directoryNamesToInsert.value().PushBack(childRule.GetOriginDirectoryName());
+                        }
+                        else
+                        {
+                            if (false == enumerationQueryFilePattern.empty())
+                                Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Directory enumeration query for path \"%.*s\" will not insert \"%.*s\" into the output even though it is the origin directory of rule \"%.*s\" because either the target directory does not exist or the enumeration file pattern \"%.*s\" is not matched.", static_cast<int>(directoryPath.length()), directoryPath.data(), static_cast<int>(childRule.GetOriginDirectoryName().length()), childRule.GetOriginDirectoryName().data(), static_cast<int>(childRule.GetName().length()), childRule.GetName().data(), static_cast<int>(enumerationQueryFilePattern.length()), enumerationQueryFilePattern.data());
+                            else
+                                Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Directory enumeration query for path \"%.*s\" will not insert \"%.*s\" into the output even though it is the origin directory of rule \"%.*s\" because the target directory does not exist.", static_cast<int>(directoryPath.length()), directoryPath.data(), static_cast<int>(childRule.GetOriginDirectoryName().length()), childRule.GetOriginDirectoryName().data(), static_cast<int>(childRule.GetName().length()), childRule.GetName().data());
                         }
                     }
                 }

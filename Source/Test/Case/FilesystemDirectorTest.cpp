@@ -483,6 +483,28 @@ namespace PathwinderTest
         TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
+    // Creates a filesystem directory with three filesystem rules, two of which have origin directories that are direct children of the third. Of those two, one has a target directory that exists and the other does not.
+    // Requests a directory enumeration instruction and verifies that it correcly inserts only the origin directory whose associated target directory actually exists. A query pattern is also supplied that matches both origin directories.
+    TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithChildRulesAndMatchingQueryPattern)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:\\TargetA");
+
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
+            {L"2", FilesystemRule(L"C:\\Origin\\SubA", L"C:\\TargetA")},
+            {L"3", FilesystemRule(L"C:\\Origin\\SubB", L"C:\\TargetB")},
+        }));
+
+        constexpr std::wstring_view associatedPath = L"C:\\Origin";
+        constexpr std::wstring_view realOpenedPath = L"C:\\Target";
+
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::InsertExtraDirectoryNames({L"SubA"});
+        const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath, L"Sub*");
+
+        TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+    }
+
     // Creates a filesystem directory with three filesystem rules, two of which have origin directories that are direct children of the third. Of those two, one has a target directory that exists and the other does not. All three rules have file patterns, although this only matters for the top-level rule with the children.
     // Requests a directory enumeration instruction and verifies that it both correctly indicates to merge in-scope target directory contents with out-of-scope origin directory contents and correctly inserts one of the origin directories into the enumeration result.
     TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithFilePatternAndChildRules)
