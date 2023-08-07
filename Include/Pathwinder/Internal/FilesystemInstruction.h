@@ -72,14 +72,17 @@ namespace Pathwinder
                 // Nothing to do here.
             }
 
+        private:
             /// Initialization constructor.
             /// Requires values for all fields.
+            /// Not intended to be invoked externally. Objects should be created using either the default constructor or one of the suppleid factory methods.
             constexpr inline SingleDirectoryEnumerator(EDirectoryPathSource directoryPathSource, const FilesystemRule* filePatternSource, bool invertFilePatternMatches) : directoryPathSource(directoryPathSource), filePatternSource(filePatternSource), invertFilePatternMatches(invertFilePatternMatches)
             {
                 // Nothing to do here.
             }
 
 
+        public:
             // -------- OPERATORS ------------------------------------------ //
 
             /// Equality check. Primarily useful for tests.
@@ -159,6 +162,7 @@ namespace Pathwinder
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
+        /// Descriptions of how to enumerate the directories that need to be enumerated as the execution of this directory enumeration instruction.
         std::array<SingleDirectoryEnumerator, 2> directoriesToEnumerate;
 
         /// Base names of any directories that should be inserted into the enumeration result.
@@ -167,16 +171,18 @@ namespace Pathwinder
         std::optional<TemporaryVector<std::wstring_view>> directoryNamesToInsert;
 
 
-    public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
         /// Initialization constructor.
         /// Requires values for all fields.
+        /// Not intended to be invoked externally. Objects should be created using factory methods.
         constexpr inline DirectoryEnumerationInstruction(std::array<SingleDirectoryEnumerator, 2>&& directoriesToEnumerate, std::optional<TemporaryVector<std::wstring_view>>&& directoryNamesToInsert) : directoriesToEnumerate(std::move(directoriesToEnumerate)), directoryNamesToInsert(std::move(directoryNamesToInsert))
         {
             // Nothing to do here.
         }
 
+
+    public:
         // -------- OPERATORS ---------------------------------------------- //
 
         /// Equality check. Primarily useful for tests.
@@ -185,7 +191,7 @@ namespace Pathwinder
 
         // -------- CLASS METHODS ------------------------------------------ //
 
-        /// Convenience factory method for creating a directory enumeration instruction that specifies to do nothing but pass through the original enumeration query without any modifications.
+        /// Creates a directory enumeration instruction that specifies to do nothing but pass through the original enumeration query without any modifications.
         /// @return Directory enumeration instruction encoded to pass the original query through to the system without modification.
         static constexpr inline DirectoryEnumerationInstruction PassThroughUnmodifiedQuery(void)
         {
@@ -197,7 +203,7 @@ namespace Pathwinder
                 std::nullopt);
         }
 
-        /// Convenience factory method for creating a directory enumeration instruction that specifies a specific set of up to two directories to enumerate in order.
+        /// Creates a directory enumeration instruction that specifies a specific set of up to two directories to enumerate in order.
         /// The enumeration result provided back to the application will include the results of enumerating all of the directories in the supplied set.
         /// @param [in] directoriesToEnumerate Directories to be enumerated in the supplied order.
         /// @return Directory enumeration instruction encoded to request enumeration of the directories in the order provided.
@@ -206,7 +212,7 @@ namespace Pathwinder
             return DirectoryEnumerationInstruction(std::move(directoriesToEnumerate), std::nullopt);
         }
 
-        /// Convenience factory method for creating a directory enumeration instruction that specifies a specific set of individual directory names to be inserted into the enumeration results.
+        /// Creates a directory enumeration instruction that specifies a specific set of individual directory names to be inserted into the enumeration results.
         /// The enumeration result provided back to the application will be the result of the original query with all of the supplied names inserted as directories.
         /// @param [in] directoryNamesToInsert Individual directory names to be inserted into the enumeration result.
         /// @return Directory enumeration encoded to request insertion of the specific supplied directory names into the enumeration result.
@@ -220,7 +226,7 @@ namespace Pathwinder
                 std::move(directoryNamesToInsert));
         }
 
-        /// Convenience factory method for creating a directory enumeration instruction that specifies a specific set of up to two directories to enumerate in order along with a set of directory names to be inserted into the enumeration result.
+        /// Creates a directory enumeration instruction that specifies a specific set of up to two directories to enumerate in order along with a set of directory names to be inserted into the enumeration result.
         /// The enumeration result provided back to the application will include the results of enumerating all of the directories in the supplied set and with the supplied names inserted as directories.
         /// @param [in] directoriesToEnumerate Directories to be enumerated in the supplied order.
         /// @param [in] directoryNamesToInsert Individual directory names to be inserted into the enumeration result.

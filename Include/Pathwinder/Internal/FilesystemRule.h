@@ -184,6 +184,11 @@ namespace Pathwinder
             return targetDirectoryParent;
         }
 
+        inline bool HasFilePatterns(void) const
+        {
+            return (false == filePatterns.empty());
+        }
+
         /// Determines if the specified path is in scope for redirection by this rule.
         /// A path is considered "in scope" for redirection if it is a descendant of this rule's origin directory and the immediate child part of the specified path (the part right after the origin directory of this rule) matches this rule's file patterns.
         /// A path is explicitly not considered "in scope" for redirection if it is exactly equal to this rule's origin directory.

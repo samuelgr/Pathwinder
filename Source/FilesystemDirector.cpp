@@ -9,7 +9,7 @@
  *   Implementation of filesystem manipulation and application functionality.
  *****************************************************************************/
 
-#include "ApiWindows.h"
+#include "ApiWindowsInternal.h"
 #include "DebugAssert.h"
 #include "FilesystemDirector.h"
 #include "FilesystemInstruction.h"
@@ -42,6 +42,37 @@ namespace Pathwinder
         default:
             return false;
         }
+    }
+
+    /// Determines if the specified filename matches the specified file pattern. An empty file pattern is presumed to match everything.
+    /// Input filename must not contain any backslash separators, as it is intended to represent a file within a directory rather than a path.
+    /// Input file pattern must be in upper-case.
+    /// @param [in] fileName Filename to check.
+    /// @param [in] filePatternUpperCase File pattern to be used for comparison with the file name.
+    /// @return `true` if the file name matches the supplied pattern or if it is entirely empty, `false` otherwise.
+    static bool FileNameMatchesPattern(std::wstring_view fileName, std::wstring_view filePatternUpperCase)
+    {
+        if (true == filePatternUpperCase.empty())
+            return true;
+
+        UNICODE_STRING fileNameString = Strings::NtConvertStringViewToUnicodeString(fileName);
+        UNICODE_STRING filePatternString = Strings::NtConvertStringViewToUnicodeString(filePatternUpperCase);
+
+        return (TRUE == WindowsInternal::RtlIsNameInExpression(&filePatternString, &fileNameString, TRUE, nullptr));
+    }
+
+    /// Converts the specified read-only string into uppercase.
+    /// Userful primarily for application-supplied file patterns that need to be matched in a case-insensitive way and hence need to be upper-case due to an implementation quirk of the matching function.
+    /// @param [in] str String to be converted.
+    /// @return Same as the input string but with all characters converted to uppercase as appropriate.
+    static inline TemporaryString MakeUppercaseString(std::wstring_view str)
+    {
+        TemporaryString uppercaseStr;
+
+        for (wchar_t c : str)
+            uppercaseStr += std::towupper(c);
+
+        return uppercaseStr;
     }
 
     /// Determines if the specified absolute path begins with a drive letter.
@@ -88,10 +119,110 @@ namespace Pathwinder
 
     // --------
 
-    DirectoryEnumerationInstruction FilesystemDirector::GetInstructionForDirectoryEnumeration(std::wstring_view absoluteDirectoryPath, std::wstring_view enumerationQueryFilePattern) const
+    DirectoryEnumerationInstruction FilesystemDirector::GetInstructionForDirectoryEnumeration(std::wstring_view associatedPath, std::wstring_view realOpenedPath, std::wstring_view enumerationQueryFilePattern) const
     {
-        // TODO: Implement this method.
-        return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+        associatedPath = Strings::RemoveTrailing(associatedPath, L'\\');
+        realOpenedPath = Strings::RemoveTrailing(realOpenedPath, L'\\');
+
+        // If this object is queried for a directory enumeration, then that means a previous file operation resulted in a directory handle being opened using either an unredirected or a redirected path and associated with an unredirected path.
+        // There are three parts to a complete directory enumeration operation:
+        // (1) Enumerate the contents of the redirected directory path, potentially subject to file pattern matching with a filesystem rule. This captures all of the files in scope of the filesystem rule that exist on the target side.
+        // (2) Enumerate the contents of the unredirected directory path, for anything that exists on the origin side but is beyond the scope of the filesystem rule.
+        // (3) Insert specific subdirectories into the enumeration results provided back to the application. This captures filesystem rules whose origin directories do not actually exist in the real filesystem on the origin side.
+        // Parts 1 and 2 are only interesting if a redirection took place (otherwise there is no reason to worry about merging directory contents on the origin side with directory contents on the target side).
+        // Part 3 is only interesting if a redirection did not take place (otherwise the open handle already would be on the target side, and any origin directories that do not really exist on the origin side would potentially exist on the target side anyway and thus be enumerated correctly).
+
+        if (associatedPath == realOpenedPath)
+        {
+            // No redirection took place when opening the directory handle.
+            // It is only necessary to insert potential origin directories into the enumeration result.
+            // This is accomplished by traversing the rule tree to the node that represents the path associated internally with the file handle.
+            // Children of that node may contain filesystem rules, in which case those origin directories should be inserted into the enumeration results if their corresponding target directories actually exist in the real filesystem.
+
+            std::wstring_view& directoryPath = associatedPath;
+
+            const std::wstring_view directoryPathWindowsNamespacePrefix = Strings::PathGetWindowsNamespacePrefix(directoryPath);
+            const std::wstring_view directoryPathTrimmedForQuery = directoryPath.substr(directoryPathWindowsNamespacePrefix.length());
+
+            auto parentOfDirectoriesToInsert = originDirectoryIndex.TraverseTo(directoryPathTrimmedForQuery);
+            if (nullptr == parentOfDirectoriesToInsert)
+            {
+                Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Directory enumeration query for path \"%.*s\" did not match any rules.", static_cast<int>(associatedPath.length()), associatedPath.data());
+                return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+            }
+
+            TemporaryString enumerationQueryFilePatternUpperCase = MakeUppercaseString(enumerationQueryFilePattern);
+            std::optional<TemporaryVector<std::wstring_view>> directoryNamesToInsert;
+            for (const auto& childItem : parentOfDirectoriesToInsert->GetChildren())
+            {
+                if (true == childItem.second.HasData())
+                {
+                    const FilesystemRule& childRule = *(childItem.second.GetData());
+
+                    // Insertion of a rule's origin directory into the enumeration results requires that two things be true:
+                    // (1) Origin directory base name matches the application-supplied enumeration quiery file pattern (or the enumeration query file pattern is missing).
+                    // (2) Target directory exists as a real directory in the filesystem.
+
+                    const bool originDirectoryBaseNameMatchesEnumerationQuery = FileNameMatchesPattern(childRule.GetOriginDirectoryName(), enumerationQueryFilePatternUpperCase);
+                    const bool targetDirectoryExistsInRealFilesystem = FilesystemOperations::IsDirectory(childRule.GetTargetDirectoryFullPath());
+
+                    if (originDirectoryBaseNameMatchesEnumerationQuery && targetDirectoryExistsInRealFilesystem)
+                    {
+                        if (false == directoryNamesToInsert.has_value())
+                            directoryNamesToInsert.emplace();
+
+                        Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" will insert \"%.*s\", which is the origin directory of rule \"%.*s\", into the output.", static_cast<int>(directoryPath.length()), directoryPath.data(), static_cast<int>(childRule.GetOriginDirectoryName().length()), childRule.GetOriginDirectoryName().data(), static_cast<int>(childRule.GetName().length()), childRule.GetName().data());
+                        directoryNamesToInsert.value().PushBack(childRule.GetOriginDirectoryName());
+                    }
+                }
+            }
+
+            if (directoryNamesToInsert.has_value())
+                return DirectoryEnumerationInstruction::InsertExtraDirectoryNames(std::move(directoryNamesToInsert).value());
+            else
+                return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+        }
+        else
+        {
+            // A redirection took place when opening the directory handle.
+            // The open directory handle is already on the target side, so it potentially necessary to do a merge with the origin directory side.
+            // Whether or not a merge is needed depends on the scope of the filesystem rule that did the redirection. Any files outside its scope should show up on the origin side, all others should show up only if they exist on the target side.
+
+            std::wstring_view& unredirectedPath = associatedPath;
+            std::wstring_view& redirectedPath = realOpenedPath;
+
+            const std::wstring_view unredirectedPathWindowsNamespacePrefix = Strings::PathGetWindowsNamespacePrefix(unredirectedPath);
+            const std::wstring_view unredirectedPathTrimmedForQuery = unredirectedPath.substr(unredirectedPathWindowsNamespacePrefix.length());
+
+            const FilesystemRule* directoryEnumerationRedirectRule = SelectRuleForPath(unredirectedPathTrimmedForQuery);
+            if (nullptr == directoryEnumerationRedirectRule)
+            {
+                Message::OutputFormatted(Message::ESeverity::Error, L"Directory enumeration query for path \"%.*s\" did not match any rules due to an internal error.", static_cast<int>(associatedPath.length()), associatedPath.data());
+                return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+            }
+
+            if (false == directoryEnumerationRedirectRule->HasFilePatterns())
+            {
+                // This is a simplification for one potential common case in which a filesystem rule does not actually define any file patterns and hence matches all files.
+                // In this situation the easiest thing to do is just to enumerate the contents of the target side directory directly without worrying about file patterns.
+                // Because the directory handle is already open for the target side directory, there is no need to do any further enumeration processing.
+
+                Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will instead enumerate \"%.*s\".", static_cast<int>(unredirectedPath.length()), unredirectedPath.data(), static_cast<int>(directoryEnumerationRedirectRule->GetName().length()), directoryEnumerationRedirectRule->GetName().data(), static_cast<int>(redirectedPath.length()), redirectedPath.data());
+                return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+            }
+            else
+            {
+                // If the filesystem rule has one or more file patterns defined then the case is more general.
+                // On the target side it is necessary to enumerate whatever files are present that match the rule's file patterns.
+                // On the origin side it is necessary to enumerate whatever files are present that do not match the rule's file patterns and hence are beyond the rule's scope.
+
+                Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will merge out-of-scope files in the original query path with in-scope files enumerated from \"%.*s\".", static_cast<int>(unredirectedPath.length()), unredirectedPath.data(), static_cast<int>(directoryEnumerationRedirectRule->GetName().length()), directoryEnumerationRedirectRule->GetName().data(), static_cast<int>(redirectedPath.length()), redirectedPath.data());
+                return DirectoryEnumerationInstruction::EnumerateInOrder({
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, directoryEnumerationRedirectRule),
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeAllExceptMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath, directoryEnumerationRedirectRule)
+                });
+            }
+        }
     }
 
     // --------
