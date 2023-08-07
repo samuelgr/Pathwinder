@@ -141,8 +141,11 @@ namespace Pathwinder
             // The open directory handle is already on the target side, so it is potentially necessary to do a merge with the origin side.
             // Whether or not a merge is needed depends on the scope of the filesystem rule that did the redirection. Any files outside its scope should show up on the origin side, all others should show up on the target side.
 
-            std::wstring_view& unredirectedPath = associatedPath;
             std::wstring_view& redirectedPath = realOpenedPath;
+            std::wstring_view& unredirectedPath = associatedPath;
+
+            const std::wstring_view redirectedPathWindowsNamespacePrefix = Strings::PathGetWindowsNamespacePrefix(redirectedPath);
+            const std::wstring_view redirectedPathTrimmedForQuery = redirectedPath.substr(redirectedPathWindowsNamespacePrefix.length());
 
             const std::wstring_view unredirectedPathWindowsNamespacePrefix = Strings::PathGetWindowsNamespacePrefix(unredirectedPath);
             const std::wstring_view unredirectedPathTrimmedForQuery = unredirectedPath.substr(unredirectedPathWindowsNamespacePrefix.length());
@@ -153,6 +156,9 @@ namespace Pathwinder
                 Message::OutputFormatted(Message::ESeverity::Error, L"Directory enumeration query for path \"%.*s\" did not match any rules due to an internal error.", static_cast<int>(associatedPath.length()), associatedPath.data());
                 return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
             }
+
+            DebugAssert(FilesystemRule::EDirectoryCompareResult::Unrelated != directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(unredirectedPathTrimmedForQuery), "");
+            DebugAssert(FilesystemRule::EDirectoryCompareResult::Unrelated != directoryEnumerationRedirectRule->DirectoryCompareWithTarget(redirectedPathTrimmedForQuery), "");
 
             if ((false == directoryEnumerationRedirectRule->HasFilePatterns()) || (FilesystemRule::EDirectoryCompareResult::Equal != directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(unredirectedPathTrimmedForQuery)))
             {
@@ -205,7 +211,6 @@ namespace Pathwinder
             if (nullptr != parentOfDirectoriesToInsert)
             {
                 TemporaryString enumerationQueryFilePatternUpperCase = MakeUppercaseString(enumerationQueryFilePattern);
-                std::optional<TemporaryVector<std::wstring_view>> directoryNamesToInsert;
                 for (const auto& childItem : parentOfDirectoriesToInsert->GetChildren())
                 {
                     if (true == childItem.second.HasData())

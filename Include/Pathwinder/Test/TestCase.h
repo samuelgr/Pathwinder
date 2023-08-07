@@ -88,10 +88,12 @@ namespace PathwinderTest
 /// Automatically instantiates the proper test case object and registers it with the harness.
 /// Treat this macro as a function declaration; the test case is the function body.
 #define TEST_CASE_CONDITIONAL(name, cond) \
-    inline constexpr wchar_t kTestName__##name[] = L#name; \
-    ::PathwinderTest::TestCase<kTestName__##name>  testCaseInstance__##name; \
-    bool ::PathwinderTest::TestCase<kTestName__##name>::CanRun(void) const { return (cond); } \
-    void ::PathwinderTest::TestCase<kTestName__##name>::Run(void) const
+    namespace _TestCaseInternal { \
+        inline constexpr wchar_t kTestName__##name[] = L#name; \
+        ::PathwinderTest::TestCase<kTestName__##name>  testCaseInstance__##name; \
+    } \
+    bool ::PathwinderTest::TestCase<_TestCaseInternal::kTestName__##name>::CanRun(void) const { return (cond); } \
+    void ::PathwinderTest::TestCase<_TestCaseInternal::kTestName__##name>::Run(void) const
 
 /// Recommended way of creating test cases that execute unconditionally.
 /// Just provide the test case name.

@@ -164,7 +164,7 @@ namespace Pathwinder
 
         /// Initialization constructor.
         /// Requires values for all fields.
-        constexpr inline DirectoryEnumerationInstruction(std::array<SingleDirectoryEnumerator, 2>&& directoriesToEnumerate, std::optional<TemporaryVector<std::wstring_view>>&& directoryNamesToInsert) : directoriesToEnumerate(std::move(directoriesToEnumerate)), directoryNamesToInsert(std::move(directoryNamesToInsert))
+        inline DirectoryEnumerationInstruction(std::array<SingleDirectoryEnumerator, 2>&& directoriesToEnumerate, std::optional<TemporaryVector<std::wstring_view>>&& directoryNamesToInsert) : directoriesToEnumerate(std::move(directoriesToEnumerate)), directoryNamesToInsert(std::move(directoryNamesToInsert))
         {
             // Nothing to do here.
         }
@@ -173,14 +173,14 @@ namespace Pathwinder
         // -------- OPERATORS ---------------------------------------------- //
 
         /// Equality check. Primarily useful for tests.
-        constexpr inline bool operator==(const DirectoryEnumerationInstruction& other) const = default;
+        inline bool operator==(const DirectoryEnumerationInstruction& other) const = default;
 
 
         // -------- CLASS METHODS ------------------------------------------ //
 
         /// Creates a directory enumeration instruction that specifies to do nothing but pass through the original enumeration query without any modifications.
         /// @return Directory enumeration instruction encoded to pass the original query through to the system without modification.
-        static constexpr inline DirectoryEnumerationInstruction PassThroughUnmodifiedQuery(void)
+        static inline DirectoryEnumerationInstruction PassThroughUnmodifiedQuery(void)
         {
             return DirectoryEnumerationInstruction(
                 {
@@ -194,7 +194,7 @@ namespace Pathwinder
         /// The enumeration result provided back to the application will include the results of enumerating all of the directories in the supplied set.
         /// @param [in] directoriesToEnumerate Directories to be enumerated in the supplied order.
         /// @return Directory enumeration instruction encoded to request enumeration of the directories in the order provided.
-        static constexpr inline DirectoryEnumerationInstruction EnumerateInOrder(std::array<SingleDirectoryEnumerator, 2>&& directoriesToEnumerate)
+        static inline DirectoryEnumerationInstruction EnumerateInOrder(std::array<SingleDirectoryEnumerator, 2>&& directoriesToEnumerate)
         {
             return DirectoryEnumerationInstruction(std::move(directoriesToEnumerate), std::nullopt);
         }
@@ -203,7 +203,7 @@ namespace Pathwinder
         /// The enumeration result provided back to the application will be the result of the original query with all of the supplied names inserted as directories.
         /// @param [in] directoryNamesToInsert Individual directory names to be inserted into the enumeration result.
         /// @return Directory enumeration encoded to request insertion of the specific supplied directory names into the enumeration result.
-        static constexpr inline DirectoryEnumerationInstruction InsertExtraDirectoryNames(TemporaryVector<std::wstring_view>&& directoryNamesToInsert)
+        static inline DirectoryEnumerationInstruction InsertExtraDirectoryNames(TemporaryVector<std::wstring_view>&& directoryNamesToInsert)
         {
             return DirectoryEnumerationInstruction(
                 {
@@ -213,12 +213,22 @@ namespace Pathwinder
                 std::move(directoryNamesToInsert));
         }
 
+        /// Creates a directory enumeration instruction that specifies a specific set of up to two directories to enumerate in order along with a set of directory names to be inserted into the enumeration result.
+        /// The enumeration result provided back to the application will include the results of enumerating all of the directories in the supplied set and with the supplied names inserted as directories.
+        /// @param [in] directoriesToEnumerate Directories to be enumerated in the supplied order.
+        /// @param [in] directoryNamesToInsert Individual directory names to be inserted into the enumeration result.
+        /// @return Directory enumeration instruction encoded to request both enumeration of the directories in the order provided and insertion of the specific supplied directory names into the enumeration result.
+        static inline DirectoryEnumerationInstruction EnumerateInOrderAndInsertExtraDirectoryNames(std::array<SingleDirectoryEnumerator, 2>&& directoriesToEnumerate, TemporaryVector<std::wstring_view>&& directoryNamesToInsert)
+        {
+            return DirectoryEnumerationInstruction(std::move(directoriesToEnumerate), std::move(directoryNamesToInsert));
+        }
+
 
         // -------- INSTANCE METHODS --------------------------------------- //
 
         /// Obtains a read-only reference to the container of directories to be enumerated.
         /// @return Read-only reference to the container of directories to be enumerated.
-        constexpr inline const std::array<SingleDirectoryEnumerator, 2>& GetDirectoriesToEnumerate(void) const
+        inline const std::array<SingleDirectoryEnumerator, 2>& GetDirectoriesToEnumerate(void) const
         {
             return directoriesToEnumerate;
         }
@@ -226,14 +236,14 @@ namespace Pathwinder
         /// Obtains a read-only reference to the container of directory names to be inserted into the enumeration result.
         /// Does not check that directory names are actually present.
         /// @return Read-only reference to the container of directory names to insert.
-        constexpr inline const TemporaryVector<std::wstring_view>& GetDirectoryNamesToInsert(void) const
+        inline const TemporaryVector<std::wstring_view>& GetDirectoryNamesToInsert(void) const
         {
             return directoryNamesToInsert.value();
         }
 
         /// Determines if this instruction indicates that directory names should be inserted into the enumeration result.
         /// @return `true` if so, `false` if not.
-        constexpr inline bool HasDirectoryNamesToInsert(void) const
+        inline bool HasDirectoryNamesToInsert(void) const
         {
             return directoryNamesToInsert.has_value();
         }
@@ -301,7 +311,7 @@ namespace Pathwinder
         /// Initialization constructor.
         /// Requires values for all fields.
         /// Not intended to be invoked externally. Objects should generally be created using factory methods.
-        constexpr inline FileOperationInstruction(std::optional<TemporaryString>&& redirectedFilename, ETryFiles filenamesToTry, EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations, std::wstring_view extraPreOperationOperand) : redirectedFilename(std::move(redirectedFilename)), filenamesToTry(filenamesToTry), filenameHandleAssociation(filenameHandleAssociation), extraPreOperations(std::move(extraPreOperations)), extraPreOperationOperand(extraPreOperationOperand)
+        inline FileOperationInstruction(std::optional<TemporaryString>&& redirectedFilename, ETryFiles filenamesToTry, EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations, std::wstring_view extraPreOperationOperand) : redirectedFilename(std::move(redirectedFilename)), filenamesToTry(filenamesToTry), filenameHandleAssociation(filenameHandleAssociation), extraPreOperations(std::move(extraPreOperations)), extraPreOperationOperand(extraPreOperationOperand)
         {
             // Nothing to do here.
         }
@@ -310,14 +320,14 @@ namespace Pathwinder
         // -------- OPERATORS ---------------------------------------------- //
 
         /// Equality check. Primarily useful for tests.
-        constexpr inline bool operator==(const FileOperationInstruction& other) const = default;
+        inline bool operator==(const FileOperationInstruction& other) const = default;
 
 
         // -------- CLASS METHODS ------------------------------------------ //
 
         /// Creates a filesystem operation redirection instruction that indicates the request should be passed directly to the underlying system call without redirection or interception of any kind.
         /// @return File operation redirection instruction encoded to indicate that there should be no processing whatsoever.
-        static constexpr inline FileOperationInstruction NoRedirectionOrInterception(void)
+        static inline FileOperationInstruction NoRedirectionOrInterception(void)
         {
             return FileOperationInstruction(std::nullopt, ETryFiles::UnredirectedOnly, EAssociateNameWithHandle::None, {}, std::wstring_view());
         }
@@ -327,7 +337,7 @@ namespace Pathwinder
         /// @param [in] extraPreOperations Any extra pre-operations to be performed before the file operation is attempted. Optional, defaults to none.
         /// @param [in] extraPreOperationOperand Additional operand for any extra pre-operations. Optional, defaults to none.
         /// @return File operation redirection instruction encoded to indicate some additional processing needed but without redirection.
-        static constexpr inline FileOperationInstruction InterceptWithoutRedirection(EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
+        static inline FileOperationInstruction InterceptWithoutRedirection(EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
         {
             return FileOperationInstruction(std::nullopt, ETryFiles::UnredirectedOnly, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
         }
@@ -348,28 +358,28 @@ namespace Pathwinder
 
         /// Retrieves and returns the set of extra pre-operations.
         /// @return Set of extra pre-operations.
-        constexpr inline BitSetEnum<EExtraPreOperation> GetExtraPreOperations(void) const
+        inline BitSetEnum<EExtraPreOperation> GetExtraPreOperations(void) const
         {
             return extraPreOperations;
         }
 
         /// Retrieves and returns the operand for extra pre-operations.
         /// @return Operand for extra pre-operations.
-        constexpr inline std::wstring_view GetExtraPreOperationOperand(void) const
+        inline std::wstring_view GetExtraPreOperationOperand(void) const
         {
             return extraPreOperationOperand;
         }
 
         /// Retrieves and returns the filenames to be tried.
         /// @return Filenames to try.
-        constexpr inline ETryFiles GetFilenamesToTry(void) const
+        inline ETryFiles GetFilenamesToTry(void) const
         {
             return filenamesToTry;
         }
 
         /// Retrieves and returns the filename to be associated with a newly-created filesystem handle.
         /// @return Filename to associate with the newly-created filesystem handle.
-        constexpr inline EAssociateNameWithHandle GetFilenameHandleAssociation(void) const
+        inline EAssociateNameWithHandle GetFilenameHandleAssociation(void) const
         {
             return filenameHandleAssociation;
         }
@@ -383,7 +393,7 @@ namespace Pathwinder
 
         /// Checks whether or not this object has a redirected filename.
         /// @return `true` if a redirected filename is present, `false` otherwise.
-        constexpr inline bool HasRedirectedFilename(void) const
+        inline bool HasRedirectedFilename(void) const
         {
             return redirectedFilename.has_value();
         }

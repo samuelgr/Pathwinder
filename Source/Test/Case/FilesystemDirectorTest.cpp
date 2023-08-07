@@ -419,4 +419,130 @@ namespace PathwinderTest
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
+
+    // Creates a filesystem directory with a single filesystem rule without file patterns.
+    // Requests a directory enumeration instruction and verifies that it correctly indicates to enumerate the target directory without any further processing.
+    TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectory)
+    {
+        MockFilesystemOperations mockFilesystem;
+
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
+        }));
+
+        constexpr std::wstring_view associatedPath = L"C:\\Origin";
+        constexpr std::wstring_view realOpenedPath = L"C:\\Target";
+
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+        const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+        TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+    }
+
+    // Creates a filesystem directory with a single filesystem rule with file patterns.
+    // Requests a directory enumeration instruction and verifies that it correctly indicates to merge in-scope target directory contents with out-of-scope origin directory contents.
+    TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithFilePattern)
+    {
+        MockFilesystemOperations mockFilesystem;
+
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {L"*.txt", L"*.rtf"})},
+        }));
+
+        constexpr std::wstring_view associatedPath = L"C:\\Origin";
+        constexpr std::wstring_view realOpenedPath = L"C:\\Target";
+
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::EnumerateInOrder({
+            DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, director.FindRuleByName(L"1")),
+            DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeAllExceptMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath, director.FindRuleByName(L"1"))
+        });
+        const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+        TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+    }
+
+    // Creates a filesystem directory with three filesystem rules, two of which have origin directories that are direct children of the third. Of those two, one has a target directory that exists and the other does not.
+    // Requests a directory enumeration instruction and verifies that it correcly inserts only the origin directory whose associated target directory actually exists.
+    TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithChildRules)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:\\TargetA");
+
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
+            {L"2", FilesystemRule(L"C:\\Origin\\SubA", L"C:\\TargetA")},
+            {L"3", FilesystemRule(L"C:\\Origin\\SubB", L"C:\\TargetB")},
+        }));
+
+        constexpr std::wstring_view associatedPath = L"C:\\Origin";
+        constexpr std::wstring_view realOpenedPath = L"C:\\Target";
+
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::InsertExtraDirectoryNames({L"SubA"});
+        const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+        TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+    }
+
+    // Creates a filesystem directory with three filesystem rules, two of which have origin directories that are direct children of the third. Of those two, one has a target directory that exists and the other does not. All three rules have file patterns, although this only matters for the top-level rule with the children.
+    // Requests a directory enumeration instruction and verifies that it both correctly indicates to merge in-scope target directory contents with out-of-scope origin directory contents and correctly inserts one of the origin directories into the enumeration result.
+    TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithFilePatternAndChildRules)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:\\TargetA");
+
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {L"*.txt", L"*.rtf"})},
+            {L"2", FilesystemRule(L"C:\\Origin\\SubA", L"C:\\TargetA", {L"*.exe"})},
+            {L"3", FilesystemRule(L"C:\\Origin\\SubB", L"C:\\TargetB", {L"*.bat"})},
+        }));
+
+        constexpr std::wstring_view associatedPath = L"C:\\Origin";
+        constexpr std::wstring_view realOpenedPath = L"C:\\Target";
+
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::EnumerateInOrderAndInsertExtraDirectoryNames({
+            DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, director.FindRuleByName(L"1")),
+            DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeAllExceptMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath, director.FindRuleByName(L"1"))
+        }, {L"SubA"});
+        const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+        TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+    }
+
+    // Creates a filesystem directory with a single filesystem rule with no file patterns.
+    // Requests a directory enumeration instruction for a descendant of the origin directory and verifies that it correctly indicates to enumerate the target-side redirected directory without any further processing.
+    TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectory)
+    {
+        MockFilesystemOperations mockFilesystem;
+
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
+        }));
+
+        constexpr std::wstring_view associatedPath = L"C:\\Origin\\Subdir123\\AnotherDir";
+        constexpr std::wstring_view realOpenedPath = L"C:\\Target\\Subdir123\\AnotherDir";
+
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+        const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+        TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+    }
+
+    // Creates a filesystem directory with a single filesystem rule with file patterns.
+    // Requests a directory enumeration instruction for a descendant of the origin directory, which is also within its scope, and verifies that it correctly indicates to enumerate the target-side redirected directory without any further processing.
+    TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectoryWithFilePatterns)
+    {
+        MockFilesystemOperations mockFilesystem;
+
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {L"Subdir*"})},
+        }));
+
+        constexpr std::wstring_view associatedPath = L"C:\\Origin\\Subdir123\\AnotherDir";
+        constexpr std::wstring_view realOpenedPath = L"C:\\Target\\Subdir123\\AnotherDir";
+
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+        const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+        TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+    }
 }

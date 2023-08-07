@@ -124,13 +124,13 @@ namespace Pathwinder
         }
 
         /// Generates an instruction for how to execute a directory enumeration, which involves listing the contents of a directory.
-        /// Directory enumeration operations operate on directory handles that were previously opened by a file operation.
-        /// These file operations are also under the control of objects of this class. They would have some form of path associated with them per the file operation instruction and a potentially-different actual path used to open the handle.
+        /// Directory enumeration operations operate on directory handles that were previously opened by a file operation, which would itself have been executed under control of another method of this class.
+        /// Arbitrary inputs are not well-supported by this method as an implementation simplification. Both supplied paths must be related to a filesystem rule in some way, either part of the origin hierarchy or the target hierarchy.
         /// @param [in] associatedPath Path associated internally with the open directory handle.
         /// @param [in] realOpenedPath Path actually submitted to the system when the directory handle was opened.
-        /// @param [in] enumerationQueryFilePattern Optional file pattern provided along with the directory enumeration query. This would be obtained from the application's query and has the effect of limiting the output of the query to only those filenames that match.
+        /// @param [in] enumerationQueryFilePattern Optional file pattern provided along with the directory enumeration query. This would be obtained from the application's query and has the effect of limiting the output of the query to only those filenames that match. Optional and defaults to an empty file pattern, which matches all filenames.
         /// @return Instruction that provides information on how to execute the directory enumeration.
-        DirectoryEnumerationInstruction GetInstructionForDirectoryEnumeration(std::wstring_view associatedPath, std::wstring_view realOpenedPath, std::wstring_view enumerationQueryFilePattern) const;
+        DirectoryEnumerationInstruction GetInstructionForDirectoryEnumeration(std::wstring_view associatedPath, std::wstring_view realOpenedPath, std::wstring_view enumerationQueryFilePattern = std::wstring_view()) const;
 
         /// Generates an instruction for how to execute a file operation, such as opening, creating, or querying information about an individual file.
         /// @param [in] absoluteFilePath Path of the file being queried for possible redirection. A Windows namespace prefix is optional.
