@@ -21,11 +21,21 @@ namespace Pathwinder
         // -------- FUNCTIONS ---------------------------------------------- //
         // See "ApiWindowsInternal.h" for documentation.
 
+        NTSTATUS NtQueryInformationFile(HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, ULONG Length, FILE_INFORMATION_CLASS FileInformationClass)
+        {
+            static decltype(&NtQueryInformationFile) functionPtr = reinterpret_cast<decltype(&NtQueryInformationFile)>(GetInternalWindowsApiFunctionAddress("NtQueryInformationFile"));
+            DebugAssert(nullptr != functionPtr, "Failed to locate the address of the \"" __FUNCTIONW__ "\" function.");
+
+            return functionPtr(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
+        }
+
+        // --------
+
         BOOLEAN RtlIsNameInExpression(PUNICODE_STRING Expression, PUNICODE_STRING Name, BOOLEAN IgnoreCase, PWCH UpcaseTable)
         {
-            static BOOLEAN(__stdcall * functionPtr)(PUNICODE_STRING, PUNICODE_STRING, BOOLEAN, PWCH) = reinterpret_cast<BOOLEAN(__stdcall *)(PUNICODE_STRING, PUNICODE_STRING, BOOLEAN, PWCH)>(GetInternalWindowsApiFunctionAddress("RtlIsNameInExpression"));
-
+            static decltype(&RtlIsNameInExpression) functionPtr = reinterpret_cast<decltype(&RtlIsNameInExpression)>(GetInternalWindowsApiFunctionAddress("RtlIsNameInExpression"));
             DebugAssert(nullptr != functionPtr, "Failed to locate the address of the \"" __FUNCTIONW__ "\" function.");
+
             return functionPtr(Expression, Name, IgnoreCase, UpcaseTable);
         }
     }
