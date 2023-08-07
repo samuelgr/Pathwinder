@@ -323,7 +323,7 @@ namespace Pathwinder
                 /// Provides direct access to the token itself. This is safe because an iterator will either be past-the-end or have a valid token.
                 constexpr inline const std::basic_string_view<CharType>& operator*(void) const
                 {
-                    return token.value();
+                    return *token;
                 }
 
                 /// Post-increment operator.

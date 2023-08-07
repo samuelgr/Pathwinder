@@ -238,7 +238,7 @@ namespace Pathwinder
         /// @return Read-only reference to the container of directory names to insert.
         inline const TemporaryVector<std::wstring_view>& GetDirectoryNamesToInsert(void) const
         {
-            return directoryNamesToInsert.value();
+            return *directoryNamesToInsert;
         }
 
         /// Determines if this instruction indicates that directory names should be inserted into the enumeration result.
@@ -388,7 +388,7 @@ namespace Pathwinder
         /// @return Redirected filename.
         inline std::wstring_view GetRedirectedFilename(void) const
         {
-            return redirectedFilename.value();
+            return *redirectedFilename;
         }
 
         /// Checks whether or not this object has a redirected filename.

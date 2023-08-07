@@ -399,13 +399,13 @@ namespace Pathwinder
 
             for (std::optional<std::basic_string_view<CharType>> maybeNextPathComponent = Strings::TokenizeString<CharType>(tokenizeState, stringToMatch, pathDelimiters.data(), pathDelimiterCount); true == maybeNextPathComponent.has_value(); maybeNextPathComponent = Strings::TokenizeString<CharType>(tokenizeState, stringToMatch, pathDelimiters.data(), pathDelimiterCount))
             {
-                if (0 == maybeNextPathComponent.value().length())
+                if (0 == maybeNextPathComponent->length())
                     continue;
 
                 if (true == currentNode->HasData())
                     longestMatchingPrefixNode = currentNode;
 
-                const Node* nextPathChildNode = currentNode->FindChild(maybeNextPathComponent.value());
+                const Node* nextPathChildNode = currentNode->FindChild(*maybeNextPathComponent);
                 if (nullptr == nextPathChildNode)
                     break;
 

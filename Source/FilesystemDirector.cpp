@@ -234,7 +234,7 @@ namespace Pathwinder
                             else
                                 Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" will insert \"%.*s\" into the output because it is the origin directory of rule \"%.*s\" and no enumeration file pattern was supplied.", static_cast<int>(directoryPath.length()), directoryPath.data(), static_cast<int>(childRule.GetOriginDirectoryName().length()), childRule.GetOriginDirectoryName().data(), static_cast<int>(childRule.GetName().length()), childRule.GetName().data());
 
-                            directoryNamesToInsert.value().PushBack(childRule.GetOriginDirectoryName());
+                            directoryNamesToInsert->PushBack(childRule.GetOriginDirectoryName());
                         }
                         else
                         {
@@ -309,7 +309,7 @@ namespace Pathwinder
                 return FileOperationInstruction::NoRedirectionOrInterception();
             }
 
-            Message::OutputFormatted(Message::ESeverity::Info, L"File operation redirection query for path \"%.*s\" is for the origin directory of rule \"%s\" and was redirected to \"%s\".", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());
+            Message::OutputFormatted(Message::ESeverity::Info, L"File operation redirection query for path \"%.*s\" is for the origin directory of rule \"%s\" and was redirected to \"%s\".", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data(), maybeRedirectedFilePath->AsCString());
         }
         else
         {
@@ -325,10 +325,10 @@ namespace Pathwinder
                 return FileOperationInstruction::NoRedirectionOrInterception();
             }
 
-            Message::OutputFormatted(Message::ESeverity::Info, L"File operation redirection query for path \"%.*s\" matched rule \"%s\" and was redirected to \"%s\".", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data(), maybeRedirectedFilePath.value().AsCString());
+            Message::OutputFormatted(Message::ESeverity::Info, L"File operation redirection query for path \"%.*s\" matched rule \"%s\" and was redirected to \"%s\".", static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data(), selectedRule->GetName().data(), maybeRedirectedFilePath->AsCString());
         }
 
-        std::wstring_view redirectedFilePath = maybeRedirectedFilePath.value().AsStringView();
+        std::wstring_view redirectedFilePath = maybeRedirectedFilePath->AsStringView();
 
         BitSetEnum<FileOperationInstruction::EExtraPreOperation> extraPreOperations;
         std::wstring_view extraPreOperationOperand;
@@ -356,6 +356,6 @@ namespace Pathwinder
             }
         }
 
-        return FileOperationInstruction::RedirectTo(std::move(maybeRedirectedFilePath.value()), FileOperationInstruction::EAssociateNameWithHandle::Unredirected, std::move(extraPreOperations), extraPreOperationOperand);
+        return FileOperationInstruction::RedirectTo(std::move(*maybeRedirectedFilePath), FileOperationInstruction::EAssociateNameWithHandle::Unredirected, std::move(extraPreOperations), extraPreOperationOperand);
     }
 }
