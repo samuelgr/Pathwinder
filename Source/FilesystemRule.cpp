@@ -203,28 +203,6 @@ namespace Pathwinder
 
     // --------
 
-    bool FilesystemRule::IsPathInScope(std::wstring_view candidatePath) const
-    {
-        switch (DirectoryCompareWithOrigin(candidatePath))
-        {
-        case EDirectoryCompareResult::CandidateIsChild:
-        case EDirectoryCompareResult::CandidateIsDescendant:
-            break;
-
-        default:
-            return false;
-        }
-
-        std::wstring_view candidatePathFilePatternPart = Strings::RemoveLeading(candidatePath.substr(originDirectoryFullPath.length()), L'\\');
-        size_t firstSeparatorPosition = candidatePathFilePatternPart.find_first_of(L'\\');
-        if (std::wstring_view::npos != firstSeparatorPosition)
-            candidatePathFilePatternPart = candidatePathFilePatternPart.substr(0, firstSeparatorPosition);
-
-        return FileNameMatchesAnyPattern(candidatePathFilePatternPart);
-    }
-
-    // --------
-
     std::optional<TemporaryString> FilesystemRule::RedirectPathOriginToTarget(std::wstring_view candidatePathDirectoryPart, std::wstring_view candidatePathFilePart, std::wstring_view namespacePrefix, std::wstring_view extraSuffix) const
     {
         return RedirectPathInternal(candidatePathDirectoryPart, candidatePathFilePart, originDirectoryFullPath, targetDirectoryFullPath, filePatterns, namespacePrefix, extraSuffix);

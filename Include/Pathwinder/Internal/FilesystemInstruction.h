@@ -226,16 +226,6 @@ namespace Pathwinder
                 std::move(directoryNamesToInsert));
         }
 
-        /// Creates a directory enumeration instruction that specifies a specific set of up to two directories to enumerate in order along with a set of directory names to be inserted into the enumeration result.
-        /// The enumeration result provided back to the application will include the results of enumerating all of the directories in the supplied set and with the supplied names inserted as directories.
-        /// @param [in] directoriesToEnumerate Directories to be enumerated in the supplied order.
-        /// @param [in] directoryNamesToInsert Individual directory names to be inserted into the enumeration result.
-        /// @return Directory enumeration instruction encoded to request both enumeration of the directories in the order provided and insertion of the specific supplied directory names into the enumeration result.
-        static constexpr inline DirectoryEnumerationInstruction EnumerateInOrderAndInsertExtraDirectoryNames(std::array<SingleDirectoryEnumerator, 2>&& directoriesToEnumerate, TemporaryVector<std::wstring_view>&& directoryNamesToInsert)
-        {
-            return DirectoryEnumerationInstruction(std::move(directoriesToEnumerate), std::move(directoryNamesToInsert));
-        }
-
 
         // -------- INSTANCE METHODS --------------------------------------- //
 
