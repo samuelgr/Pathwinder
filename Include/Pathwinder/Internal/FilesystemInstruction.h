@@ -72,17 +72,15 @@ namespace Pathwinder
                 // Nothing to do here.
             }
 
-        private:
             /// Initialization constructor.
             /// Requires values for all fields.
-            /// Not intended to be invoked externally. Objects should be created using either the default constructor or one of the suppleid factory methods.
+            /// Not intended to be invoked externally. Objects should typically be created using either the default constructor or one of the suppleid factory methods.
             constexpr inline SingleDirectoryEnumerator(EDirectoryPathSource directoryPathSource, const FilesystemRule* filePatternSource, bool invertFilePatternMatches) : directoryPathSource(directoryPathSource), filePatternSource(filePatternSource), invertFilePatternMatches(invertFilePatternMatches)
             {
                 // Nothing to do here.
             }
 
 
-        public:
             // -------- OPERATORS ------------------------------------------ //
 
             /// Equality check. Primarily useful for tests.
@@ -127,21 +125,11 @@ namespace Pathwinder
 
             // -------- INSTANCE METHODS ----------------------------------- //
 
-            /// Selects a path for this directory enumeration operation from among the two inputs provided.
-            /// @param [in] associatedPath Path internally associated with the open directory handle being enumerated.
-            /// @param [in] realOpenedPath Path that was submitted to the underlying system call and ultimately used to open the handle to the directory being enumerated.
-            /// @return One of the two input strings provided, or an empty string view if no enumeration is to be performed at all.
-            constexpr inline std::wstring_view SelectDirectoryPath(std::wstring_view associatedPath, std::wstring_view realOpenedPath)
+            /// Retrieves and returns the enumerator that identifies the directory path source for this directory enumeration operation.
+            /// @return Directory path source enumerator.
+            constexpr inline EDirectoryPathSource GetDirectoryPathSource(void) const
             {
-                switch (directoryPathSource)
-                {
-                case EDirectoryPathSource::AssociatedPath:
-                    return associatedPath;
-                case EDirectoryPathSource::RealOpenedPath:
-                    return realOpenedPath;
-                default:
-                    return std::wstring_view();
-                }
+                return directoryPathSource;
             }
 
             /// Determines whether or not the specified filename should be included in a directory enumeration.
@@ -171,18 +159,17 @@ namespace Pathwinder
         std::optional<TemporaryVector<std::wstring_view>> directoryNamesToInsert;
 
 
+    public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
         /// Initialization constructor.
         /// Requires values for all fields.
-        /// Not intended to be invoked externally. Objects should be created using factory methods.
         constexpr inline DirectoryEnumerationInstruction(std::array<SingleDirectoryEnumerator, 2>&& directoriesToEnumerate, std::optional<TemporaryVector<std::wstring_view>>&& directoryNamesToInsert) : directoriesToEnumerate(std::move(directoriesToEnumerate)), directoryNamesToInsert(std::move(directoryNamesToInsert))
         {
             // Nothing to do here.
         }
 
 
-    public:
         // -------- OPERATORS ---------------------------------------------- //
 
         /// Equality check. Primarily useful for tests.
@@ -308,19 +295,18 @@ namespace Pathwinder
         std::wstring_view extraPreOperationOperand;
 
 
-    private:
+    public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
         /// Initialization constructor.
         /// Requires values for all fields.
-        /// Not intended to be invoked externally. Objects should be created using factory methods.
+        /// Not intended to be invoked externally. Objects should generally be created using factory methods.
         constexpr inline FileOperationInstruction(std::optional<TemporaryString>&& redirectedFilename, ETryFiles filenamesToTry, EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations, std::wstring_view extraPreOperationOperand) : redirectedFilename(std::move(redirectedFilename)), filenamesToTry(filenamesToTry), filenameHandleAssociation(filenameHandleAssociation), extraPreOperations(std::move(extraPreOperations)), extraPreOperationOperand(extraPreOperationOperand)
         {
             // Nothing to do here.
         }
 
 
-    public:
         // -------- OPERATORS ---------------------------------------------- //
 
         /// Equality check. Primarily useful for tests.
