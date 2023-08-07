@@ -453,8 +453,8 @@ namespace PathwinderTest
         constexpr std::wstring_view realOpenedPath = L"C:\\Target";
 
         const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::EnumerateInOrder({
-            DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, director.FindRuleByName(L"1")),
-            DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeAllExceptMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath, director.FindRuleByName(L"1"))
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, director.FindRuleByName(L"1")),
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllExceptMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath, director.FindRuleByName(L"1"))
         });
         const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
@@ -477,7 +477,7 @@ namespace PathwinderTest
         constexpr std::wstring_view associatedPath = L"C:\\Origin";
         constexpr std::wstring_view realOpenedPath = L"C:\\Target";
 
-        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::InsertExtraDirectoryNames({L"SubA"});
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::InsertRuleOriginDirectoryNames({*director.FindRuleByName(L"2")});
         const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
@@ -499,7 +499,7 @@ namespace PathwinderTest
         constexpr std::wstring_view associatedPath = L"C:\\Origin";
         constexpr std::wstring_view realOpenedPath = L"C:\\Target";
 
-        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::InsertExtraDirectoryNames({L"SubA"});
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::InsertRuleOriginDirectoryNames({*director.FindRuleByName(L"2")});
         const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath, L"Sub*");
 
         TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
@@ -521,10 +521,10 @@ namespace PathwinderTest
         constexpr std::wstring_view associatedPath = L"C:\\Origin";
         constexpr std::wstring_view realOpenedPath = L"C:\\Target";
 
-        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::EnumerateInOrderAndInsertExtraDirectoryNames({
-            DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, director.FindRuleByName(L"1")),
-            DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeAllExceptMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath, director.FindRuleByName(L"1"))
-        }, {L"SubA"});
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::EnumerateInOrderAndInsertRuleOriginDirectoryNames({
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, director.FindRuleByName(L"1")),
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllExceptMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath, director.FindRuleByName(L"1"))
+        }, {*director.FindRuleByName(L"2")});
         const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);

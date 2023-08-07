@@ -133,7 +133,7 @@ namespace Pathwinder
         // Parts 1 and 2 are only interesting if a redirection took place. Otherwise there is no reason to merge directory contents on the origin side with directory contents on the target side.
         // Part 3 is always potentially interesting. Whether or not a redirection took place, the path being queried for directory enumeration may have filesystem rule origin directories as direct children, and these would potentially need to be enumerated.
 
-        std::array<DirectoryEnumerationInstruction::SingleDirectoryEnumerator, 2> directoriesToEnumerate;
+        std::array<DirectoryEnumerationInstruction::SingleDirectoryEnumeration, 2> directoriesToEnumerate;
         if (associatedPath != realOpenedPath)
         {
             // This block implements parts 1 and 2.
@@ -178,7 +178,7 @@ namespace Pathwinder
 
                 Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will instead enumerate \"%.*s\".", static_cast<int>(unredirectedPath.length()), unredirectedPath.data(), static_cast<int>(directoryEnumerationRedirectRule->GetName().length()), directoryEnumerationRedirectRule->GetName().data(), static_cast<int>(redirectedPath.length()), redirectedPath.data());
                 directoriesToEnumerate = {
-                    DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeAllFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath)
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath)
                 };
             }
             else
@@ -189,13 +189,13 @@ namespace Pathwinder
 
                 Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will merge out-of-scope files in the origin hierarchy with in-scope files in the target hierarchy.", static_cast<int>(unredirectedPath.length()), unredirectedPath.data(), static_cast<int>(directoryEnumerationRedirectRule->GetName().length()), directoryEnumerationRedirectRule->GetName().data());
                 directoriesToEnumerate = {
-                    DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, directoryEnumerationRedirectRule),
-                    DirectoryEnumerationInstruction::SingleDirectoryEnumerator::IncludeAllExceptMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath, directoryEnumerationRedirectRule)
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, directoryEnumerationRedirectRule),
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllExceptMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath, directoryEnumerationRedirectRule)
                 };
             }
         }
 
-        std::optional<TemporaryVector<std::wstring_view>> directoryNamesToInsert;
+        std::optional<TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>> directoryNamesToInsert;
         do {
             // This block implements part 3.
             // It is potentially necessary to insert potential origin directories into the enumeration result.
@@ -234,7 +234,7 @@ namespace Pathwinder
                             else
                                 Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" will insert \"%.*s\" into the output because it is the origin directory of rule \"%.*s\" and no enumeration file pattern was supplied.", static_cast<int>(directoryPath.length()), directoryPath.data(), static_cast<int>(childRule.GetOriginDirectoryName().length()), childRule.GetOriginDirectoryName().data(), static_cast<int>(childRule.GetName().length()), childRule.GetName().data());
 
-                            directoryNamesToInsert->PushBack(childRule.GetOriginDirectoryName());
+                            directoryNamesToInsert->EmplaceBack(childRule);
                         }
                         else
                         {
