@@ -104,7 +104,7 @@ namespace Pathwinder
             std::call_once(initFlag, []() -> void
                 {
                     TemporaryBuffer<wchar_t> buf;
-                    GetModuleFileName(nullptr, buf.Data(), (DWORD)buf.Capacity());
+                    GetModuleFileName(nullptr, buf.Data(), static_cast<DWORD>(buf.Capacity()));
 
                     initString.assign(buf.Data());
                 }
@@ -168,7 +168,7 @@ namespace Pathwinder
             std::call_once(initFlag, []() -> void
                 {
                     TemporaryBuffer<wchar_t> buf;
-                    GetModuleFileName(Globals::GetInstanceHandle(), buf.Data(), (DWORD)buf.Capacity());
+                    GetModuleFileName(Globals::GetInstanceHandle(), buf.Data(), static_cast<DWORD>(buf.Capacity()));
 
                     initString.assign(buf.Data());
                 }
@@ -294,13 +294,32 @@ namespace Pathwinder
         // -------- FUNCTIONS ---------------------------------------------- //
         // See "Strings.h" for documentation.
 
+        template <typename CharType> int CompareCaseInsensitive(std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB)
+        {
+            for (size_t i = 0; i < std::min(strA.length(), strB.length()); ++i)
+            {
+                const wchar_t charA = ToLowercase(strA[i]);
+                const wchar_t charB = ToLowercase(strB[i]);
+
+                if (charA != charB)
+                    return (static_cast<int>(charA) - static_cast<int>(charB));
+            }
+
+            return (static_cast<int>(strA.length()) - static_cast<int>(strB.length()));
+        }
+
+        template int CompareCaseInsensitive<char>(std::string_view, std::string_view);
+        template int CompareCaseInsensitive<wchar_t>(std::wstring_view, std::wstring_view);
+
+        // --------
+
         TemporaryString ConvertStringNarrowToWide(const char* str)
         {
             TemporaryString convertedStr;
             size_t numCharsConverted = 0;
 
             if (0 == mbstowcs_s(&numCharsConverted, convertedStr.Data(), convertedStr.Capacity(), str, convertedStr.Capacity() - 1))
-                convertedStr.UnsafeSetSize((unsigned int)numCharsConverted);
+                convertedStr.UnsafeSetSize(static_cast<unsigned int>(numCharsConverted));
 
             return convertedStr;
         }
@@ -514,7 +533,7 @@ namespace Pathwinder
 
             if (0 == systemErrorLength)
             {
-                systemErrorString = FormatString(L"System error %u.", (unsigned int)systemErrorCode);
+                systemErrorString = FormatString(L"System error %u.", static_cast<unsigned int>(systemErrorCode));
             }
             else
             {

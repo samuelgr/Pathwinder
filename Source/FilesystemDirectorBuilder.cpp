@@ -61,9 +61,9 @@ namespace Pathwinder
             {
                 const FilesystemRule& newFilesystemRule = *(addFilesystemRuleResult.Value());
 
-                Message::OutputFormatted(Message::ESeverity::Info, L"Successfully created filesystem rule \"%.*s\".", (int)newFilesystemRule.GetName().length(), newFilesystemRule.GetName().data());
-                Message::OutputFormatted(Message::ESeverity::Info, L"  Origin directory = \"%.*s\"", (int)newFilesystemRule.GetOriginDirectoryFullPath().length(), newFilesystemRule.GetOriginDirectoryFullPath().data());
-                Message::OutputFormatted(Message::ESeverity::Info, L"  Target directory = \"%.*s\"", (int)newFilesystemRule.GetTargetDirectoryFullPath().length(), newFilesystemRule.GetTargetDirectoryFullPath().data());
+                Message::OutputFormatted(Message::ESeverity::Info, L"Successfully created filesystem rule \"%.*s\".", static_cast<int>(newFilesystemRule.GetName().length()), newFilesystemRule.GetName().data());
+                Message::OutputFormatted(Message::ESeverity::Info, L"  Origin directory = \"%.*s\"", static_cast<int>(newFilesystemRule.GetOriginDirectoryFullPath().length()), newFilesystemRule.GetOriginDirectoryFullPath().data());
+                Message::OutputFormatted(Message::ESeverity::Info, L"  Target directory = \"%.*s\"", static_cast<int>(newFilesystemRule.GetTargetDirectoryFullPath().length()), newFilesystemRule.GetTargetDirectoryFullPath().data());
 
                 for (const auto& filePattern : newFilesystemRule.GetFilePatterns())
                     Message::OutputFormatted(Message::ESeverity::Info, L"  File pattern = \"%s\"", filePattern.c_str());
@@ -171,12 +171,12 @@ namespace Pathwinder
     ValueOrError<const FilesystemRule*, TemporaryString> FilesystemDirectorBuilder::AddRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring>&& filePatterns)
     {
         if (true == filesystemRules.contains(ruleName))
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Constraint violation: Rule with the same name already exists.", (int)ruleName.length(), ruleName.data());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Constraint violation: Rule with the same name already exists.", static_cast<int>(ruleName.length()), ruleName.data());
 
         for (std::wstring_view filePattern : filePatterns)
         {
             if (false == IsValidFilePatternString(filePattern))
-                return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": File pattern: %s: Either empty or contains disallowed characters.", (int)ruleName.length(), ruleName.data(), filePattern.data());
+                return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": File pattern: %s: Either empty or contains disallowed characters.", static_cast<int>(ruleName.length()), ruleName.data(), filePattern.data());
         }
 
         // For each of the origin and target directories:
@@ -188,39 +188,39 @@ namespace Pathwinder
 
         Resolver::ResolvedStringOrError maybeOriginDirectoryResolvedString = Resolver::ResolveAllReferences(originDirectory);
         if (true == maybeOriginDirectoryResolvedString.HasError())
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Origin directory: %s.", (int)ruleName.length(), ruleName.data(), maybeOriginDirectoryResolvedString.Error().AsCString());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Origin directory: %s.", static_cast<int>(ruleName.length()), ruleName.data(), maybeOriginDirectoryResolvedString.Error().AsCString());
         if (false == IsValidDirectoryString(maybeOriginDirectoryResolvedString.Value()))
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Origin directory: Either empty or contains disallowed characters.", (int)ruleName.length(), ruleName.data());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Origin directory: Either empty or contains disallowed characters.", static_cast<int>(ruleName.length()), ruleName.data());
 
         TemporaryString originDirectoryFullPath = maybeOriginDirectoryResolvedString.Value();
         originDirectoryFullPath.RemoveTrailing(L'\\');
 
         if (false == originDirectoryFullPath.AsStringView().contains(L'\\'))
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Constraint violation: Origin directory cannot be a filesystem root.", (int)ruleName.length(), ruleName.data());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Constraint violation: Origin directory cannot be a filesystem root.", static_cast<int>(ruleName.length()), ruleName.data());
         if (true == originDirectoryFullPath.Empty())
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Origin directory: Failed to resolve full path: %s", (int)ruleName.length(), ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Origin directory: Failed to resolve full path: %s", static_cast<int>(ruleName.length()), ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
         if (true == originDirectoryFullPath.Overflow())
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Origin directory: Full path exceeds limit of %u characters.", (int)ruleName.length(), ruleName.data(), originDirectoryFullPath.Capacity());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Origin directory: Full path exceeds limit of %u characters.", static_cast<int>(ruleName.length()), ruleName.data(), originDirectoryFullPath.Capacity());
         if (true == HasDirectory(originDirectoryFullPath))
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Constraint violation: Origin directory is already in use as either an origin or target directory by another rule.", (int)ruleName.length(), ruleName.data());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Constraint violation: Origin directory is already in use as either an origin or target directory by another rule.", static_cast<int>(ruleName.length()), ruleName.data());
 
         Resolver::ResolvedStringOrError maybeTargetDirectoryResolvedString = Resolver::ResolveAllReferences(targetDirectory);
         if (true == maybeTargetDirectoryResolvedString.HasError())
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Target directory: %s.", (int)ruleName.length(), ruleName.data(), maybeTargetDirectoryResolvedString.Error().AsCString());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Target directory: %s.", static_cast<int>(ruleName.length()), ruleName.data(), maybeTargetDirectoryResolvedString.Error().AsCString());
         if (false == IsValidDirectoryString(maybeTargetDirectoryResolvedString.Value()))
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Target directory: Either empty or contains disallowed characters.", (int)ruleName.length(), ruleName.data());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Target directory: Either empty or contains disallowed characters.", static_cast<int>(ruleName.length()), ruleName.data());
 
         TemporaryString targetDirectoryFullPath = maybeTargetDirectoryResolvedString.Value();
         targetDirectoryFullPath.RemoveTrailing(L'\\');
 
         if (false == targetDirectoryFullPath.AsStringView().contains(L'\\'))
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Constraint violation: Target directory cannot be a filesystem root.", (int)ruleName.length(), ruleName.data());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Constraint violation: Target directory cannot be a filesystem root.", static_cast<int>(ruleName.length()), ruleName.data());
         if (true == targetDirectoryFullPath.Empty())
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Target directory: Failed to resolve full path: %s", (int)ruleName.length(), ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Target directory: Failed to resolve full path: %s", static_cast<int>(ruleName.length()), ruleName.data(), Strings::SystemErrorCodeString(GetLastError()).AsCString());
         if (true == targetDirectoryFullPath.Overflow())
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Target directory: Full path exceeds limit of %u characters.", (int)ruleName.length(), ruleName.data(), targetDirectoryFullPath.Capacity());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Target directory: Full path exceeds limit of %u characters.", static_cast<int>(ruleName.length()), ruleName.data(), targetDirectoryFullPath.Capacity());
         if (true == HasOriginDirectory(targetDirectoryFullPath))
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Constraint violation: Target directory is already in use as an origin directory by another rule.", (int)ruleName.length(), ruleName.data());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Constraint violation: Target directory is already in use as an origin directory by another rule.", static_cast<int>(ruleName.length()), ruleName.data());
 
         const auto createResult = filesystemRules.emplace(std::wstring(ruleName), FilesystemRule(originDirectoryFullPath.AsStringView(), targetDirectoryFullPath.AsStringView(), std::move(filePatterns)));
         DebugAssert(createResult.second, "FilesystemDirectorBuilder consistency check failed due to unsuccessful creation of a supposedly-unique filesystem rule.");
@@ -241,11 +241,11 @@ namespace Pathwinder
     {
         auto maybeOriginDirectory = configSection.ExtractFirstStringValue(Strings::kStrConfigurationSettingFilesystemRuleOriginDirectory);
         if (false == maybeOriginDirectory.has_value())
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Missing origin directory.", (int)ruleName.length(), ruleName.data());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Missing origin directory.", static_cast<int>(ruleName.length()), ruleName.data());
 
         auto maybeTargetDirectory = configSection.ExtractFirstStringValue(Strings::kStrConfigurationSettingFilesystemRuleTargetDirectory);
         if (false == maybeTargetDirectory.has_value())
-            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Missing target directory.", (int)ruleName.length(), ruleName.data());
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Missing target directory.", static_cast<int>(ruleName.length()), ruleName.data());
 
         auto filePatterns = configSection.ExtractStringValues(Strings::kStrConfigurationSettingFilesystemRuleFilePattern).value_or(std::vector<std::wstring>());
 

@@ -277,7 +277,7 @@ namespace Pathwinder
                 if (nullptr != knownFolderPath)
                     CoTaskMemFree(knownFolderPath);
 
-                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to obtain known folder path: error code 0x%08lx", std::wstring(name).c_str(), (unsigned long)getKnownFolderPathResult));
+                return ResolvedStringOrError::MakeError(Strings::FormatString(L"%s: Failed to obtain known folder path: error code 0x%08lx", std::wstring(name).c_str(), static_cast<unsigned long>(getKnownFolderPathResult)));
             }
             else
             {

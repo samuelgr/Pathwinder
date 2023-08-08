@@ -110,6 +110,13 @@ namespace Pathwinder
 
         // -------- FUNCTIONS ---------------------------------------------- //
 
+        /// Compares two strings without regard for the case of each individual character.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
+        /// @param [in] strA First string in the comparison.
+        /// @param [in] strB Second string in the comparison.
+        /// @return Negative number if strA is "less than" strB, positive number of strA is "greater than" strB, and 0 if the two strings are equal.
+        template <typename CharType> int CompareCaseInsensitive(std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB);
+
         /// Converts characters in a narrow character string to wide character format.
         /// @param [in] str Null-terminated string to convert.
         /// @return Result of the conversion, or an empty string on failure.
@@ -120,7 +127,7 @@ namespace Pathwinder
         /// @return Result of the conversion, or an empty string on failure.
         TemporaryBuffer<char> ConvertStringWideToNarrow(const wchar_t* str);
 
-        /// Compares two strings without regard for the case of each individual character.
+        /// Checks if two strings are equal without regard for the case of each individual character.
         /// @tparam CharType Type of character in each string, either narrow or wide.
         /// @param [in] strA First string in the comparison.
         /// @param [in] strB Second string in the comparison.
@@ -275,6 +282,31 @@ namespace Pathwinder
             }
         };
 
+        /// Case-insensitive greater-than comparator for various kinds of string representations.
+        /// This is a type-transparent comparator for all string representations that are implicitly convertable to string views.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
+        template <typename CharType> struct CaseInsensitiveGreaterThanComparator
+        {
+            using is_transparent = void;
+
+            constexpr inline bool operator()(const std::basic_string_view<CharType>& lhs, const std::basic_string_view<CharType>& rhs) const
+            {
+                return (CompareCaseInsensitive(lhs, rhs) > 0);
+            }
+        };
+
+        /// Case-insensitive less-than comparator for various kinds of string representations.
+        /// This is a type-transparent comparator for all string representations that are implicitly convertable to string views.
+        /// @tparam CharType Type of character in each string, either narrow or wide.
+        template <typename CharType> struct CaseInsensitiveLessThanComparator
+        {
+            using is_transparent = void;
+
+            constexpr inline bool operator()(const std::basic_string_view<CharType>& lhs, const std::basic_string_view<CharType>& rhs) const
+            {
+                return (CompareCaseInsensitive(lhs, rhs) < 0);
+            }
+        };
 
         /// Captures the state of a tokenization operation and exposes it via an iterator interface.
         /// Intended to be constructed directly within a range-based loop to provide simple iteration over all the tokens in a string.

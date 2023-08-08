@@ -270,7 +270,54 @@ namespace PathwinderTest
     }
 
 
-    // The following sequence of tests, which together comprise the Compare suite, exercise the string comparison operations EqualsCaseInsensitive and StartsWithCaseInsensitive.
+    // The following sequence of tests, which together comprise the Compare suite, exercise the string comparison operations CompareCaseInsensitive, EqualsCaseInsensitive, and StartsWithCaseInsensitive.
+
+    // Tests case-insensitive string comparison for equality by providing some input strings that are supposed to be equal to a fixed test string.
+    TEST_CASE(Strings_Compare_CompareCaseInsensitive_EqualToTestString)
+    {
+        constexpr std::wstring_view kTestString = L"TestStringAbCdEfG";
+        constexpr std::wstring_view kCompareInputs[] = {
+            L"TestStringAbCdEfG",
+            L"teststringabcdefg",
+            L"TESTSTRINGABCDEFG",
+            L"tEsTsTrInGaBcDeFg"
+        };
+
+        for (const auto compareInput : kCompareInputs)
+            TEST_ASSERT(Strings::CompareCaseInsensitive(compareInput, kTestString) == 0);
+    }
+
+    // Tests case-insensitive string comparison for less-than comparison by providing some input strings that are supposed to be less than a fixed test string.
+    TEST_CASE(Strings_Compare_CompareCaseInsensitive_LessThanTestString)
+    {
+        constexpr std::wstring_view kTestString = L"abcdefg";
+        constexpr std::wstring_view kCompareInputs[] = {
+            L"",
+            L"..",
+            L"aaaaaaa",
+            L"AAAAAAA",
+            L"abcdef",
+            L".abcdefg"
+        };
+
+        for (const auto compareInput : kCompareInputs)
+            TEST_ASSERT(Strings::CompareCaseInsensitive(compareInput, kTestString) < 0);
+    }
+
+    // Tests case-insensitive string comparison for greater-than comparison by providing some input strings that are supposed to be greater than a fixed test string.
+    TEST_CASE(Strings_Compare_CompareCaseInsensitive_GreaterThanTestString)
+    {
+        constexpr std::wstring_view kTestString = L"abcdefg";
+        constexpr std::wstring_view kCompareInputs[] = {
+            L"b",
+            L"B",
+            L"abcdeHg",
+            L"abcdefghijk"
+        };
+
+        for (const auto compareInput : kCompareInputs)
+            TEST_ASSERT(Strings::CompareCaseInsensitive(compareInput, kTestString) > 0);
+    }
 
     // Tests case-insensitive string equality comparison by providing some matching and some non-matching inputs.
     TEST_CASE(Strings_Compare_EqualsCaseInsensitive)

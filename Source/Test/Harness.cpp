@@ -54,7 +54,7 @@ namespace PathwinderTest
             return -1;
 
         default:
-            PrintFormatted(L"\n%u test%s defined.", (unsigned int)testCases.size(), ((1 == testCases.size()) ? L"" : L"s"));
+            PrintFormatted(L"\n%u test%s defined.", static_cast<unsigned int>(testCases.size()), ((1 == testCases.size()) ? L"" : L"s"));
             break;
         }
 
@@ -109,7 +109,7 @@ namespace PathwinderTest
         else
             PrintFormatted(L"\nFinished running %u test%s.\n", numExecutedTests, ((1 == numExecutedTests) ? L"" : L"s"));
 
-        const int numFailingTests = (int)failingTests.size();
+        const int numFailingTests = static_cast<int>(failingTests.size());
 
         if (numExecutedTests > 0)
         {

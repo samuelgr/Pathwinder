@@ -59,7 +59,7 @@ namespace Pathwinder
                 UNPROTECTED_HOOK_RECORD(NtQueryAttributesFile)
             };
 
-            Message::OutputFormatted(Message::ESeverity::Debug, L"Attempting to hook %u Windows API function(s).", (unsigned int)_countof(hookRecords));
+            Message::OutputFormatted(Message::ESeverity::Debug, L"Attempting to hook %u Windows API function(s).", static_cast<unsigned int>(_countof(hookRecords)));
 
             for (const auto& hookRecord : hookRecords)
             {
@@ -72,7 +72,7 @@ namespace Pathwinder
 
                     if (false == Hookshot::SuccessfulResult(setHookResult))
                     {
-                        Message::OutputFormatted(Message::ESeverity::ForcedInteractiveError, L"%.*s failed to set a hook for the Windows API function \"%s\" and cannot function without it.\n\nHookshot::EResult = %u", (int)Strings::kStrProductName.length(), Strings::kStrProductName.data(), hookRecord.hookProxy.GetFunctionName(), (unsigned int)setHookResult);
+                        Message::OutputFormatted(Message::ESeverity::ForcedInteractiveError, L"%.*s failed to set a hook for the Windows API function \"%s\" and cannot function without it.\n\nHookshot::EResult = %u", static_cast<int>(Strings::kStrProductName.length()), Strings::kStrProductName.data(), hookRecord.hookProxy.GetFunctionName(), static_cast<unsigned int>(setHookResult));
                         TerminateProcess(Globals::GetCurrentProcessHandle(), (UINT)-1);
                     }
                 }
