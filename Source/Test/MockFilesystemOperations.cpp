@@ -10,8 +10,6 @@
  *   for testing.
  *****************************************************************************/
 
-#pragma once
-
 #include "MockFilesystemOperations.h"
 
 #include <cwctype>

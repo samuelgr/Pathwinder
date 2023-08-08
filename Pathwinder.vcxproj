@@ -148,6 +148,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\Hooks.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
     <ClInclude Include="Include\Pathwinder\Internal\MutexWrapper.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\OpenHandleStore.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PathwinderConfigReader.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PrefixIndex.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Resolver.h" />

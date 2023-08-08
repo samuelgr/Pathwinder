@@ -10,8 +10,6 @@
  *   operations executed internally.
  *****************************************************************************/
 
-#pragma once
-
 #include "ApiWindowsInternal.h"
 #include "FilesystemOperations.h"
 #include "Hooks.h"

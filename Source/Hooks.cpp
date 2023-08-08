@@ -10,18 +10,15 @@
  *   redirection.
  *****************************************************************************/
 
-#pragma once
-
 #include "ApiBitSet.h"
-#include "ApiWindows.h"
-#include "DebugAssert.h"
+#include "ApiWindowsInternal.h"
 #include "FilesystemDirector.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemOperations.h"
 #include "Globals.h"
 #include "Hooks.h"
 #include "Message.h"
-#include "MutexWrapper.h"
+#include "OpenHandleStore.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
 
@@ -30,188 +27,20 @@
 #include <atomic>
 #include <array>
 #include <cstdint>
-#include <limits>
-#include <mutex>
 #include <optional>
-#include <shared_mutex>
-#include <string>
-#include <unordered_map>
 
 
 namespace Pathwinder
 {
     // -------- INTERNAL TYPES --------------------------------------------- //
 
-    /// Implements a concurrency-safe storage data structure for open filesystem handles.
-    class OpenHandleStore
+    /// Enumerates the possible modes for I/O using a file handle.
+    enum class EInputOutputMode
     {
-    public:
-        // -------- TYPE DEFINITIONS --------------------------------------- //
-
-        /// Read-only view of data stored about an open handle.
-        struct SHandleDataView
-        {
-            std::wstring_view associatedPath;                               ///< Path associated internally with the open handle.
-            std::wstring_view realOpenedPath;                               ///< Actual path that was opened for the handle. This could be different from the associated path based on instructions from a filesystem director.
-        };
-
-        /// Data stored about an open handle.
-        struct SHandleData
-        {
-            std::wstring associatedPath;                                    ///< Path associated internally with the open handle.
-            std::wstring realOpenedPath;                                    ///< Actual path that was opened for the handle. This could be different from the associated path based on instructions from a filesystem director.
-
-            /// Default constructor.
-            inline SHandleData(void) = default;
-
-            /// Initialization constructor.
-            /// Copy-converts from a read-only view structure.
-            explicit inline SHandleData(const SHandleDataView& dataView) : associatedPath(dataView.associatedPath), realOpenedPath(dataView.realOpenedPath)
-            {
-                // Nothing to do here.
-            }
-
-            /// Move constructor.
-            SHandleData(SHandleData&& other) = default;
-
-            /// Move assignment operator.
-            inline SHandleData& operator=(SHandleData&& other) = default;
-
-            /// Implicit conversion to a read-only view.
-            inline operator SHandleDataView(void) const
-            {
-                return {
-                    .associatedPath = associatedPath,
-                    .realOpenedPath = realOpenedPath
-                };
-            }
-        };
-
-
-    private:
-        // -------- INSTANCE VARIABLES ------------------------------------- //
-
-        /// Open handle data structure itself.
-        /// Maps from a handle to the filesystem path that was used to open it.
-        std::unordered_map<HANDLE, SHandleData> openHandles;
-
-        /// Mutex for ensuring concurrency-safe access to the open handles data structure.
-        SharedMutex openHandlesMutex;
-
-
-    public:
-        // -------- CLASS METHODS ------------------------------------------ //
-
-        /// Retrieves a reference to the singleton instance of this object.
-        /// It holds all open handles for directories that might at some point become the `RootDirectory` member of an `OBJECT_ATTRIBUTES` structure or the subject of a directory enumeration query.
-        static inline OpenHandleStore& Singleton(void)
-        {
-            static OpenHandleStore* const openHandleCache = new OpenHandleStore;
-            return *openHandleCache;
-        }
-
-
-        // -------- INSTANCE METHODS --------------------------------------- //
-
-        /// Queries the open handle store for the specified handle and retrieves a read-only view of the associated data, if the handle is found in the store.
-        /// @param [in] handleToQuery Handle for which to query.
-        /// @return Read-only view of the data associated with the handle, if the handle exists in the store.
-        inline std::optional<SHandleDataView> GetDataForHandle(HANDLE handleToQuery)
-        {
-            std::shared_lock lock(openHandlesMutex);
-
-            auto openHandleIter = openHandles.find(handleToQuery);
-            if (openHandleIter == openHandles.cend())
-                return std::nullopt;
-
-            return openHandleIter->second;
-        }
-
-        /// Inserts a new handle and corresponding path into the open handle store.
-        /// This version moves handle data into the open handle store.
-        /// @param [in] handleToInsert Handle to be inserted.
-        /// @param [in] handleData Corresponding data to store for the handle.
-        inline void InsertHandle(HANDLE handleToInsert, SHandleData&& handleData)
-        {
-            std::unique_lock lock(openHandlesMutex);
-
-            const bool insertionWasSuccessful = openHandles.emplace(handleToInsert, std::move(handleData)).second;
-            DebugAssert(true == insertionWasSuccessful, "Failed to insert a handle into storage.");
-        }
-
-        /// Inserts a new handle and corresponding path into the open handle store.
-        /// This version accepts a read-only view to be copied on insert.
-        /// @param [in] handleToInsert Handle to be inserted.
-        /// @param [in] handleData Corresponding data to store for the handle.
-        inline void InsertHandle(HANDLE handleToInsert, SHandleDataView handleData)
-        {
-            InsertHandle(handleToInsert, SHandleData(handleData));
-        }
-
-        /// Inserts a new handle and corresponding path into the open handle store or, if the handle already exists, updates its stored data.
-        /// This version moves handle data into the open handle store.
-        /// @param [in] handleToInsertOrUpdate Handle to be inserted or updated.
-        /// @param [in] handleData Corresponding data to store for the handle.
-        inline void InsertOrUpdateHandle(HANDLE handleToInsertOrUpdate, SHandleData&& handleData)
-        {
-            std::unique_lock lock(openHandlesMutex);
-
-            openHandles.insert_or_assign(handleToInsertOrUpdate, std::move(handleData)).second;
-        }
-
-        /// Inserts a new handle and corresponding path into the open handle store or, if the handle already exists, updates its stored data.
-        /// This version accepts a read-only view to be copied on assignment.
-        /// @param [in] handleToInsertOrUpdate Handle to be inserted or updated.
-        /// @param [in] handleData Corresponding data to store for the handle.
-        inline void InsertOrUpdateHandle(HANDLE handleToInsertOrUpdate, SHandleDataView handleData)
-        {
-            InsertOrUpdateHandle(handleToInsertOrUpdate, SHandleData(handleData));
-        }
-
-        /// Attempts to remove an existing handle and corresponding path from the open handle store.
-        /// @param [in] handleToRemove Handle to be removed.
-        /// @param [out] handleData Handle data object to receive ownership of the corresponding data for the handle that was removed, if not null. Only filled if this method returns `true`.
-        /// @return `true` if the handle was found and removed, `false` otherwise.
-        inline bool RemoveHandle(HANDLE handleToRemove, SHandleData* handleData)
-        {
-            std::unique_lock lock(openHandlesMutex);
-
-            auto removalIter = openHandles.find(handleToRemove);
-            if (openHandles.end() == removalIter)
-                return false;
-
-            if (nullptr == handleData)
-                openHandles.erase(removalIter);
-            else
-                *handleData = std::move(openHandles.extract(removalIter).mapped());
-
-            return true;
-        }
-
-        /// Attempts to close and subsequently remove an existing handle and corresponding path from the open handle store.
-        /// Both handle closure and removal need to be done while the lock is held, to ensure proper concurrency control.
-        /// This avoids a race condition in which a closed handle is reused and re-added to the store before the closing thread has a chance to remove it first.
-        /// @param [in] handleToRemove Handle to be removed.
-        /// @param [out] handleData Handle data object to receive ownership of the corresponding data for the handle that was removed, if not null. Only filled if the underlying system call to close the handle succeeds.
-        /// @return Result of the underlying system call to `NtClose` to close the handle.
-        inline NTSTATUS RemoveAndCloseHandle(HANDLE handleToRemove, SHandleData* handleData)
-        {
-            std::unique_lock lock(openHandlesMutex);
-
-            auto removalIter = openHandles.find(handleToRemove);
-            DebugAssert(openHandles.end() != removalIter, "Attempting to close and erase a handle that was not previously stored.");
-
-            NTSTATUS systemCallResult = Hooks::ProtectedDependency::NtClose::SafeInvoke(handleToRemove);
-            if (!(NT_SUCCESS(systemCallResult)))
-                return systemCallResult;
-
-            if (nullptr == handleData)
-                openHandles.erase(removalIter);
-            else
-                *handleData = std::move(openHandles.extract(removalIter).mapped());
-
-            return systemCallResult;
-        }
+        Unknown,                                                            ///< I/O mode is not known. This represents an error case.
+        Asynchronous,                                                       ///< I/O is asynchronous. System calls will return immediately, and completion information is provided out-of-band.
+        Synchronous,                                                        ///< I/O is synchronous. System calls will return only after the requested operation completes.
+        Count                                                               ///< Not used as a value. Identifies the number of enumerators present in this enumeration.
     };
 
     /// Holds file rename information, including the variably-sized filename, in a bytewise buffer and exposes it in a type-safe way.
@@ -436,6 +265,26 @@ namespace Pathwinder
 
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): Invoked with root directory handle %zu and relative path \"%.*s\" for which no redirection was attempted.", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(rootDirectory), static_cast<int>(inputFilename.length()), inputFilename.data());
             return {.instruction = FileOperationInstruction::NoRedirectionOrInterception(), .composedInputPath = std::nullopt};
+        }
+    }
+
+    /// Determines the input/output mode for the specified file handle.
+    /// @param [in] handle Filesystem object handle to check.
+    /// @return Input/output mode for the handle, or #EInputOutputMode::Unknown in the event of an error.
+    static EInputOutputMode GetInputOutputModeForHandle(HANDLE handle)
+    {
+        SFileModeInformation modeInformation;
+        IO_STATUS_BLOCK unusedStatusBlock{};
+
+        if (!(NT_SUCCESS(WindowsInternal::NtQueryInformationFile(handle, &unusedStatusBlock, &modeInformation, sizeof(modeInformation), SFileModeInformation::kFileInformationClass))))
+            return EInputOutputMode::Unknown;
+
+        switch (modeInformation.mode & (FILE_SYNCHRONOUS_IO_ALERT | FILE_SYNCHRONOUS_IO_NONALERT))
+        {
+        case 0:
+            return EInputOutputMode::Asynchronous;
+        default:
+            return EInputOutputMode::Synchronous;
         }
     }
 
@@ -718,6 +567,20 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(HANDLE FileHa
     std::wstring_view queryFilePattern = ((nullptr == FileName) ? std::wstring_view() : Strings::NtConvertUnicodeStringToStringView(*FileName));
     OpenHandleStore::SHandleDataView& handleData = *maybeHandleData;
 
+    switch (GetInputOutputModeForHandle(FileHandle))
+    {
+    case EInputOutputMode::Synchronous:
+        break;
+
+    case EInputOutputMode::Asynchronous:
+        Message::OutputFormatted(Message::ESeverity::Warning, L"%s(%u): Application requested asynchronous directory enumeration with handle %zu, which is unimplemented.", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle));
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
+
+    default:
+        Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Failed to determine I/O mode during directory enumeration for handle %zu.", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle));
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
+    }
+
     if (true == queryFilePattern.empty())
         Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());
     else
@@ -751,6 +614,20 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(HANDLE File
 
     std::wstring_view queryFilePattern = ((nullptr == FileName) ? std::wstring_view() : Strings::NtConvertUnicodeStringToStringView(*FileName));
     OpenHandleStore::SHandleDataView& handleData = *maybeHandleData;
+
+    switch (GetInputOutputModeForHandle(FileHandle))
+    {
+    case EInputOutputMode::Synchronous:
+        break;
+
+    case EInputOutputMode::Asynchronous:
+        Message::OutputFormatted(Message::ESeverity::Warning, L"%s(%u): Application requested asynchronous directory enumeration with handle %zu, which is unimplemented.", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle));
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
+
+    default:
+        Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Failed to determine I/O mode during directory enumeration for handle %zu.", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle));
+        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
+    }
 
     if (true == queryFilePattern.empty())
         Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());

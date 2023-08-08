@@ -125,6 +125,9 @@
     <ClInclude Include="Include\Pathwinder\Internal\ApiWindowsInternal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Include\Pathwinder\Internal\OpenHandleStore.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources\Pathwinder.rc">
