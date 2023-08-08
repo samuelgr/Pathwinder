@@ -57,7 +57,7 @@ namespace Pathwinder
             if (false == Strings::PathHasWindowsNamespacePrefix(absoluteDirectoryPath))
             {
                 maybePrefixedAbsoluteDirectoryPath = Strings::PathAddWindowsNamespacePrefix(absoluteDirectoryPath);
-                absoluteDirectoryPath = maybePrefixedAbsoluteDirectoryPath.value().AsStringView();
+                absoluteDirectoryPath = maybePrefixedAbsoluteDirectoryPath->AsStringView();
             }
 
             HANDLE directoryHandle = nullptr;
@@ -86,7 +86,7 @@ namespace Pathwinder
             if (false == Strings::PathHasWindowsNamespacePrefix(absolutePath))
             {
                 maybePrefixedAbsolutePath = Strings::PathAddWindowsNamespacePrefix(absolutePath);
-                absolutePath = maybePrefixedAbsolutePath.value().AsStringView();
+                absolutePath = maybePrefixedAbsolutePath->AsStringView();
             }
 
             SFileStatInformation absolutePathObjectInfo{};

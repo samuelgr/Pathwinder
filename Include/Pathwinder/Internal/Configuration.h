@@ -749,7 +749,7 @@ namespace Pathwinder
             inline void ClearReadErrorMessages(void)
             {
                 if (true == readErrors.has_value())
-                    readErrors.value().clear();
+                    readErrors->clear();
             }
 
             /// Clears all of the stored configuration data. Does not affect error messages.
@@ -814,7 +814,7 @@ namespace Pathwinder
             /// @return Error messages from last configuration file read attempt.
             inline const std::vector<std::wstring>& GetReadErrorMessages(void) const
             {
-                return readErrors.value();
+                return *readErrors;
             }
 
             /// Specifies whether or not any errors arose during the configuration file read attempt that produced this object.
@@ -848,7 +848,7 @@ namespace Pathwinder
                 if (false == readErrors.has_value())
                     readErrors.emplace();
 
-                readErrors.value().emplace_back(errorMessage);
+                readErrors->emplace_back(errorMessage);
             }
 
             /// Determines if this configuration data object is empty (i.e. contains no configuration data).

@@ -429,7 +429,7 @@ namespace Pathwinder
                 return -1;
 
             // If the line fits in the buffer, then either its detected length is small by comparison to the buffer size or, if it perfectly fits in the buffer, then the last character is a newline.
-            int lineLength = (int)wcsnlen(lineBuffer, lineBufferCount);
+            int lineLength = static_cast<int>(wcsnlen(lineBuffer, lineBufferCount));
             if (((lineBufferCount - 1) == lineLength) && (L'\n' != lineBuffer[lineLength - 1]))
                 return -1;
 
@@ -453,10 +453,10 @@ namespace Pathwinder
             if (memoryBufferHandle.IsEndOfInput())
                 return -1;
 
-            int nextLineLength = (int)memoryBufferHandle.remainingBuffer.find_first_of(L'\n');
+            int nextLineLength = static_cast<int>(memoryBufferHandle.remainingBuffer.find_first_of(L'\n'));
 
             if (std::wstring_view::npos == nextLineLength)
-                nextLineLength = (int)memoryBufferHandle.remainingBuffer.length();
+                nextLineLength = static_cast<int>(memoryBufferHandle.remainingBuffer.length());
             else
                 nextLineLength += 1;
 
@@ -482,7 +482,7 @@ namespace Pathwinder
                 return -1;
 
             // If the line fits in the buffer, then either its detected length is small by comparison to the buffer size or, if it perfectly fits in the buffer, then the last character is a newline.
-            int lineLength = (int)wcsnlen(lineBuffer, lineBufferCount);
+            int lineLength = static_cast<int>(wcsnlen(lineBuffer, lineBufferCount));
             if (((lineBufferCount - 1) == lineLength) && (L'\n' != lineBuffer[lineLength - 1]))
                 return -1;
 
@@ -762,7 +762,7 @@ namespace Pathwinder
         ConfigurationData ConfigurationFileReader::ReadInMemoryConfigurationFile(std::wstring_view configBuffer)
         {
             MemoryBufferHandle configBufferHandle(configBuffer);
-            return ReadConfiguration(configBufferHandle, Strings::FormatString(L"[0x%0.*zx]", (int)(2 * sizeof(size_t)), (size_t)configBuffer.data()));
+            return ReadConfiguration(configBufferHandle, Strings::FormatString(L"[0x%0.*zx]", static_cast<int>(2 * sizeof(size_t)), reinterpret_cast<size_t>(configBuffer.data())));
         }
 
         // --------

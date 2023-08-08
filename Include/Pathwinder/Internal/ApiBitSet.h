@@ -28,5 +28,5 @@ namespace Pathwinder
     /// Type alias for bit set objects that operate on enumerations.
     /// @tparam EnumType Enumeration to be represented by the bit set object.
     /// @tparam kNumBits Number of bits to be represented by the underlying bit set object, which defaults to a `Count` member of the enumeration.
-    template <typename EnumType, EnumType kNumBits = EnumType::Count, typename = std::enable_if_t<std::is_enum_v<EnumType>>> using BitSetEnum = xstd::bit_set<(size_t)kNumBits>;
+    template <typename EnumType, EnumType kNumBits = EnumType::Count, typename = std::enable_if_t<std::is_enum_v<EnumType>>> using BitSetEnum = xstd::bit_set<static_cast<size_t>(kNumBits)>;
 }

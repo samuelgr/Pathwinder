@@ -419,10 +419,10 @@ namespace Pathwinder
 
             for (auto definitionRecord = configuredDefinitionsSection.ExtractFirstName(); definitionRecord.has_value(); definitionRecord = configuredDefinitionsSection.ExtractFirstName())
             {
-                DebugAssert(Configuration::EValueType::String == definitionRecord.value().second.GetType(), "Configured definitions section contains a non-string value.");
+                DebugAssert(Configuration::EValueType::String == definitionRecord->second.GetType(), "Configured definitions section contains a non-string value.");
 
-                std::wstring definitionName = std::move(definitionRecord.value().first);
-                std::wstring definitionValue = definitionRecord.value().second.ExtractFirstStringValue().value();
+                std::wstring definitionName = std::move(definitionRecord->first);
+                std::wstring definitionValue = *definitionRecord->second.ExtractFirstStringValue();
 
                 configuredDefinitions.emplace(std::move(definitionName), std::move(definitionValue));
             }

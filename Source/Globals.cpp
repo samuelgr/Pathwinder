@@ -101,7 +101,7 @@ namespace Pathwinder
 
             if (true == maybeFilesystemDirector.has_value())
             {
-                FilesystemDirector::Singleton() = std::move(maybeFilesystemDirector.value());
+                FilesystemDirector::Singleton() = std::move(*maybeFilesystemDirector);
             }
             else
             {

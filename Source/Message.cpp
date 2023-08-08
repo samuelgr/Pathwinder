@@ -247,7 +247,7 @@ namespace Pathwinder
             // As a result, this function may be called more than once by the same thread, so a non-recursive mutex would lead to deadlock.
             static RecursiveMutex outputGuard;
 
-            EOutputMode outputModes[(int)EOutputMode::UpperBoundValue];
+            EOutputMode outputModes[static_cast<int>(EOutputMode::UpperBoundValue)];
             const int numOutputModes = DetermineOutputModes(severity, outputModes);
 
             if (numOutputModes > 0)
@@ -394,7 +394,7 @@ namespace Pathwinder
 
                 // Check all the selected output modes.
                 // If any are interactive, then this message is skipped over.
-                EOutputMode outputModes[(int)EOutputMode::UpperBoundValue];
+                EOutputMode outputModes[static_cast<int>(EOutputMode::UpperBoundValue)];
                 const int numOutputModes = DetermineOutputModes(severity, outputModes);
 
                 for (int i = 0; i < numOutputModes; ++i)

@@ -258,7 +258,7 @@ namespace Pathwinder
 
         /// Initialization constructor.
         /// Fills path delimiters using an initializer list.
-        inline PrefixIndex(std::initializer_list<std::basic_string_view<CharType>> pathDelimiterInitList) : PrefixIndex(pathDelimiterInitList.begin(), (unsigned int)pathDelimiterInitList.size())
+        inline PrefixIndex(std::initializer_list<std::basic_string_view<CharType>> pathDelimiterInitList) : PrefixIndex(pathDelimiterInitList.begin(), static_cast<unsigned int>(pathDelimiterInitList.size()))
         {
             // Nothing to do here.
         }

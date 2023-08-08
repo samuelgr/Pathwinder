@@ -249,7 +249,7 @@ namespace Pathwinder
 
         auto filePatterns = configSection.ExtractStringValues(Strings::kStrConfigurationSettingFilesystemRuleFilePattern).value_or(std::vector<std::wstring>());
 
-        return AddRule(ruleName, std::move(maybeOriginDirectory).value(), std::move(maybeTargetDirectory).value(), std::move(filePatterns));
+        return AddRule(ruleName, std::move(*maybeOriginDirectory), std::move(*maybeTargetDirectory), std::move(filePatterns));
     }
 
     // --------

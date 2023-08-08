@@ -365,7 +365,7 @@ namespace Pathwinder
             va_list args;
             va_start(args, format);
 
-            buf.UnsafeSetSize((size_t)vswprintf_s(buf.Data(), buf.Capacity(), format, args));
+            buf.UnsafeSetSize(static_cast<size_t>(vswprintf_s(buf.Data(), buf.Capacity(), format, args)));
 
             va_end(args);
 
