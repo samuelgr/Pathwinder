@@ -483,6 +483,48 @@ namespace PathwinderTest
         TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
+    // Creates a filesystem directory with multiple filesystem rules, one of which has a top-level origin directory and the others of which have origin directories that are a direct child of the top-level origin directory.
+    // All target directories also exist in the filesystem.
+    // Requests a directory enumeration instruction and verifies that it correcly inserts all of the direct child rule origin directories into the enumeration result such that the directories to be inserted are in sorted order.
+    // The sorting is expected to be by origin directory base name.
+    TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithMultipleSortedChildRules)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:\\TargetA");
+        mockFilesystem.AddDirectory(L"C:\\TargetB");
+        mockFilesystem.AddDirectory(L"C:\\TargetC");
+        mockFilesystem.AddDirectory(L"C:\\TargetD");
+        mockFilesystem.AddDirectory(L"C:\\TargetE");
+        mockFilesystem.AddDirectory(L"C:\\TargetF");
+
+        // Rule names are random and totally unordered strings to make sure that rule name is not used for sorting.
+        // Rules are inserted in arbitrary order with origin directories also out-of-order. The sorting should be on the basis of the "SubX..." part of the origin directories.
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"hLHzENdEZK", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
+            {L"FinvonNsbQ", FilesystemRule(L"C:\\Origin\\SubE1", L"C:\\TargetE")},
+            {L"PKwVeAGYUo", FilesystemRule(L"C:\\Origin\\SubC123456", L"C:\\TargetC")},
+            {L"sIyMXWTnKx", FilesystemRule(L"C:\\Origin\\SubA", L"C:\\TargetA")},
+            {L"OlwBqHThwu", FilesystemRule(L"C:\\Origin\\SubD12345678", L"C:\\TargetD")},
+            {L"jSRmdsNLMw", FilesystemRule(L"C:\\Origin\\SubB123", L"C:\\TargetB")},
+            {L"FVWrFofofc", FilesystemRule(L"C:\\Origin\\SubF12345", L"C:\\TargetF")},
+        }));
+
+        constexpr std::wstring_view associatedPath = L"C:\\Origin";
+        constexpr std::wstring_view realOpenedPath = L"C:\\Target";
+
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::InsertRuleOriginDirectoryNames({
+            *director.FindRuleByName(L"sIyMXWTnKx"),
+            *director.FindRuleByName(L"jSRmdsNLMw"),
+            *director.FindRuleByName(L"PKwVeAGYUo"),
+            *director.FindRuleByName(L"OlwBqHThwu"),
+            *director.FindRuleByName(L"FinvonNsbQ"),
+            *director.FindRuleByName(L"FVWrFofofc")
+        });
+        const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+        TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+    }
+
     // Creates a filesystem directory with three filesystem rules, two of which have origin directories that are direct children of the third. Of those two, one has a target directory that exists and the other does not.
     // Requests a directory enumeration instruction and verifies that it correcly inserts only the origin directory whose associated target directory actually exists. A query pattern is also supplied that matches both origin directories.
     TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithChildRulesAndMatchingQueryPattern)

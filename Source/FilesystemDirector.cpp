@@ -19,6 +19,7 @@
 #include "PrefixIndex.h"
 #include "Strings.h"
 
+#include <algorithm>
 #include <cwctype>
 #include <optional>
 #include <string_view>
@@ -246,6 +247,19 @@ namespace Pathwinder
                     }
                 }
             }
+
+            if (true == directoryNamesToInsert.has_value())
+            {
+                // Directory enumeration operations often present files in sorted order.
+                // To preserve this behavior, the names of directories to be inserted are sorted.
+
+                std::sort(directoryNamesToInsert->begin(), directoryNamesToInsert->end(), [](const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion& a, const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion& b) -> bool
+                    {
+                        return (Strings::CompareCaseInsensitive(a.FileNameToInsert(), b.FileNameToInsert()) < 0);
+                    }
+                );
+            }
+
         } while (false);
 
         return DirectoryEnumerationInstruction(std::move(directoriesToEnumerate), std::move(directoryNamesToInsert));
