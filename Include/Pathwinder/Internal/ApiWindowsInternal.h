@@ -319,13 +319,25 @@ namespace Pathwinder
 
     // -------- FUNCTIONS ---------------------------------------------- //
 
-    /// Convenience function for quickly accessing the stored filename in one of the many structures that uses a dangling filename field.
+    /// Retrieves the stored filename from within one of the many structures that uses a dangling filename field.
     /// @tparam FileInformationStructType Windows internal structure type that uses a wide-character dangling filename field.
     /// @param [in] fileInformationStruct Read-only reference to a structure with a wide-character dangling filename field.
     /// @return String view representation of the wide-character dangling filename field.
-    template <typename FileInformationStructType> constexpr inline std::wstring_view GetFileInformationStructFilename(const FileInformationStructType& fileInformationStruct)
+    template <typename FileInformationStructType, typename = decltype(FileInformationStructType::fileNameLength), typename = decltype(FileInformationStructType::fileName[0])> constexpr inline std::wstring_view GetFileInformationStructFilename(const FileInformationStructType& fileInformationStruct)
     {
         return std::wstring_view(fileInformationStruct.fileName, (fileInformationStruct.fileNameLength / sizeof(wchar_t)));
+    }
+
+    /// Returns a pointer to the next file information struct in a buffer containing multiple possibly variably-sized file information structures.
+    /// @tparam FileInformationStructType Windows internal structure type that is intended to be part of a buffer of contiguous structures of the same type.
+    /// @param [in] fileInformationStruct Read-only reference to a structure that is part of a buffer of contiguous structures of the same type.
+    /// @return Pointer to the next structure in the buffer, or `nullptr` if no more structures exist.
+    template <typename FileInformationStructType, typename = decltype(FileInformationStructType::nextEntryOffset)> inline FileInformationStructType* NextFileInformationStruct(const FileInformationStructType& fileInformationStruct)
+    {
+        if (0 == fileInformationStruct.nextEntryOffset)
+            return nullptr;
+
+        return reinterpret_cast<FileInformationStructType*>(reinterpret_cast<size_t>(&fileInformationStruct) + static_cast<size_t>(fileInformationStruct.nextEntryOffset));
     }
 
     namespace WindowsInternal

@@ -257,7 +257,7 @@ namespace Pathwinder
         /// The enumeration result provided back to the application will include the results of enumerating all of the directories in the supplied set.
         /// @param [in] directoriesToEnumerate Directories to be enumerated in the supplied order.
         /// @return Directory enumeration instruction encoded to request enumeration of the directories in the order provided.
-        static inline DirectoryEnumerationInstruction EnumerateInOrder(std::array<SingleDirectoryEnumeration, 2>&& directoriesToEnumerate)
+        static inline DirectoryEnumerationInstruction EnumerateDirectories(std::array<SingleDirectoryEnumeration, 2>&& directoriesToEnumerate)
         {
             return DirectoryEnumerationInstruction(std::move(directoriesToEnumerate), std::nullopt);
         }
@@ -281,7 +281,7 @@ namespace Pathwinder
         /// @param [in] directoriesToEnumerate Directories to be enumerated in the supplied order.
         /// @param [in] directoryNamesToInsert Individual directory names to be inserted into the enumeration result.
         /// @return Directory enumeration instruction encoded to request both enumeration of the directories in the order provided and insertion of the specific supplied directory names into the enumeration result.
-        static inline DirectoryEnumerationInstruction EnumerateInOrderAndInsertRuleOriginDirectoryNames(std::array<SingleDirectoryEnumeration, 2>&& directoriesToEnumerate, TemporaryVector<SingleDirectoryNameInsertion>&& directoryNamesToInsert)
+        static inline DirectoryEnumerationInstruction EnumerateDirectoriesAndInsertRuleOriginDirectoryNames(std::array<SingleDirectoryEnumeration, 2>&& directoriesToEnumerate, TemporaryVector<SingleDirectoryNameInsertion>&& directoryNamesToInsert)
         {
             return DirectoryEnumerationInstruction(std::move(directoriesToEnumerate), std::move(directoryNamesToInsert));
         }
