@@ -33,6 +33,7 @@ namespace Pathwinder
         inline constexpr NTSTATUS kPending = 0x00000103;                    ///< `STATUS_PENDING`: The operation that was requested is pending completion.
         inline constexpr NTSTATUS kObjectNameExists = 0x40000000;           ///< `STATUS_OBJECT_NAME_EXISTS`: An attempt was made to create an object but the object name already exists.
         inline constexpr NTSTATUS kBufferOverflow = 0x80000005;             ///< `STATUS_BUFFER_OVERFLOW`: The data was too large to fit into the specified buffer.
+        inline constexpr NTSTATUS kInvalidInfoClass = 0xC0000003;           ///< `STATUS_INVALID_INFO_CLASS`: The specified information class is not a valid information class for the specified object.
         inline constexpr NTSTATUS kInvalidParameter = 0xC000000D;           ///< `STATUS_INVALID_PARAMETER`: An invalid parameter was passed to a service or function.
         inline constexpr NTSTATUS kObjectNameInvalid = 0xC0000033;          ///< `STATUS_OBJECT_NAME_INVALID`: The object name is invalid.
         inline constexpr NTSTATUS kObjectNameNotFound = 0xC0000034;         ///< `STATUS_OBJECT_NAME_NOT_FOUND`: The object name is not found.

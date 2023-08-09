@@ -127,6 +127,7 @@
     <ClCompile Include="Source\Globals.cpp" />
     <ClCompile Include="Source\HookModuleMain.cpp" />
     <ClCompile Include="Source\Hooks.cpp" />
+    <ClCompile Include="Source\InProgressDirectoryEnumeration.cpp" />
     <ClCompile Include="Source\Message.cpp" />
     <ClCompile Include="Source\PathwinderConfigReader.cpp" />
     <ClCompile Include="Source\Resolver.cpp" />
@@ -146,6 +147,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemRule.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Hooks.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\InProgressDirectoryEnumeration.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
     <ClInclude Include="Include\Pathwinder\Internal\MutexWrapper.h" />
     <ClInclude Include="Include\Pathwinder\Internal\OpenHandleStore.h" />

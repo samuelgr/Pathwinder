@@ -60,6 +60,9 @@
     <ClCompile Include="Source\ApiWindowsInternal.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\InProgressDirectoryEnumeration.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resources\Pathwinder.h">
@@ -126,6 +129,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\OpenHandleStore.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Pathwinder\Internal\InProgressDirectoryEnumeration.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
