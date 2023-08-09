@@ -16,7 +16,9 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
 
 
@@ -33,6 +35,15 @@ namespace Pathwinder
 
     /// Value used for enumeration queue byte positions to represent that there is nothing left in the queue.
     static constexpr unsigned int kInvalidEnumerationBufferBytePosition = static_cast<unsigned int>(-1);
+
+    // Query flags for use with the `NtQueryDirectoryFileEx` function.
+    // These constants not defined in header files outside of the Windows driver kit.
+    // See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntquerydirectoryfileex for more information.
+    namespace QueryFlags
+    {
+        static constexpr ULONG kRestartScan = 0x00000001;                   ///< `SL_RESTART_SCAN`: The scan will start at the first entry in the directory. If this flag is not set, the scan will resume from where the last query ended.
+        static constexpr ULONG kReturnSingleEntry = 0x00000002;             ///< `SL_RETURN_SINGLE_ENTRY`: Normally the return buffer is packed with as many matching directory entries that fit. If this flag is set, the file system will return only one directory entry at a time. This does make the operation less efficient.
+    }
 
 
     // -------- INTERNAL TYPES --------------------------------------------- //
@@ -134,8 +145,8 @@ namespace Pathwinder
 
     /// Maintains a set of layout structures for the various supported file information classes for directory enumeration and returns a layout definition for a given file information class.
     /// @param [in] fileInformationClass File information class whose structure layout is needed.
-    /// @return Layout information for the specified file information class, or a default-constructed layout structure if the file information class is unsupported and therefore unknown.
-    static FileInformationStructLayout LayoutForFileInformationClass(FILE_INFORMATION_CLASS fileInformationClass)
+    /// @return Layout information for the specified file information class, if the file information class is supported.
+    static std::optional<FileInformationStructLayout> LayoutForFileInformationClass(FILE_INFORMATION_CLASS fileInformationClass)
     {
         static const std::unordered_map<FILE_INFORMATION_CLASS, FileInformationStructLayout> kFileInformationStructureLayouts = {
             FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(SFileDirectoryInformation),
@@ -152,7 +163,7 @@ namespace Pathwinder
         auto layoutIter = kFileInformationStructureLayouts.find(fileInformationClass);
         DebugAssert(layoutIter != kFileInformationStructureLayouts.cend(), "Unsupported file information class.");
         if (layoutIter == kFileInformationStructureLayouts.cend())
-            return FileInformationStructLayout();
+            return std::nullopt;
 
         return layoutIter->second;
     }
@@ -176,28 +187,135 @@ namespace Pathwinder
 
     // --------
 
-    EnumerationQueue::EnumerationQueue(HANDLE directoryHandle, FILE_INFORMATION_CLASS fileInformationClass) : directoryHandle(directoryHandle), fileInformationClass(fileInformationClass), fileInformationStructLayout(LayoutForFileInformationClass(fileInformationClass)), enumerationBuffer(), enumerationBufferBytePosition(), enumerationStatus()
+    EnumerationQueue::EnumerationQueue(std::wstring_view filePattern, HANDLE directoryHandle, FILE_INFORMATION_CLASS fileInformationClass) : directoryHandle(directoryHandle), fileInformationClass(fileInformationClass), fileInformationStructLayout(LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationBufferBytePosition(), enumerationStatus()
     {
         if (FileInformationStructLayout() == fileInformationStructLayout)
             enumerationStatus = NtStatus::kInvalidInfoClass;
         else
-            enumerationStatus = AdvanceQueueContentsInternal();
+            AdvanceQueueContentsInternal(0, filePattern);
+    }
+
+    // --------
+
+    EnumerationQueue::EnumerationQueue(EnumerationQueue&& other) : directoryHandle(std::move(other.directoryHandle)), fileInformationClass(std::move(other.fileInformationClass)), fileInformationStructLayout(std::move(other.fileInformationStructLayout)), enumerationBuffer(std::move(other.enumerationBuffer)), enumerationBufferBytePosition(std::move(other.enumerationBufferBytePosition)), enumerationStatus(std::move(other.enumerationStatus))
+    {
+        other.directoryHandle = NULL;
     }
 
     // --------
 
     EnumerationQueue::~EnumerationQueue(void)
     {
-        // TODO
+        if (NULL != directoryHandle)
+            Hooks::ProtectedDependency::NtClose::SafeInvoke(directoryHandle);
+    }
+
+
+    // -------- CLASS METHODS ---------------------------------------------- //
+    // See "InProgressDirectoryEnumeration.h" for documentation.
+
+    ValueOrError<EnumerationQueue, NTSTATUS> EnumerationQueue::CreateEnumerationQueue(std::wstring_view absoluteDirectoryPath, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view filePattern)
+    {
+        HANDLE directoryHandle = nullptr;
+
+        UNICODE_STRING absoluteDirectoryPathSystemString = Strings::NtConvertStringViewToUnicodeString(absoluteDirectoryPath);
+        OBJECT_ATTRIBUTES absoluteDirectoryPathObjectAttributes{};
+        InitializeObjectAttributes(&absoluteDirectoryPathObjectAttributes, &absoluteDirectoryPathSystemString, 0, nullptr, nullptr);
+
+        IO_STATUS_BLOCK unusedStatusBlock{};
+
+        NTSTATUS openDirectoryForEnumerationResult = Hooks::ProtectedDependency::NtOpenFile::SafeInvoke(&directoryHandle, (FILE_LIST_DIRECTORY | SYNCHRONIZE), &absoluteDirectoryPathObjectAttributes, &unusedStatusBlock, (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), (FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT));
+        if (!(NT_SUCCESS(openDirectoryForEnumerationResult)))
+            return openDirectoryForEnumerationResult;
+
+        EnumerationQueue enumerationQueue(filePattern, directoryHandle, fileInformationClass);
+        if (!(NT_SUCCESS(enumerationQueue.EnumerationStatus())))
+            return enumerationQueue.EnumerationStatus();
+
+        return enumerationQueue;
     }
 
 
     // -------- INSTANCE METHODS ------------------------------------------- //
     // See "InProgressDirectoryEnumeration.h" for documentation.
 
-    NTSTATUS EnumerationQueue::AdvanceQueueContentsInternal(void)
+    void EnumerationQueue::AdvanceQueueContentsInternal(ULONG queryFlags, std::wstring_view filePattern)
     {
-        // TODO
-        return NtStatus::kSuccess;
+        UNICODE_STRING filePatternSystemString{};
+        UNICODE_STRING* filePatternSystemStringPtr = nullptr;
+
+        if (false == filePattern.empty())
+        {
+            filePatternSystemString = Strings::NtConvertStringViewToUnicodeString(filePattern);
+            filePatternSystemStringPtr = &filePatternSystemString;
+
+            // The system captures the file pattern on first invocation.
+            // It is not necessary to keep it on subsequent invocations, and there is no guarantee the backing string will be available.
+            filePattern = std::wstring_view();
+        }
+
+        IO_STATUS_BLOCK statusBlock{};
+
+        NTSTATUS directoryEnumerationResult = Hooks::ProtectedDependency::NtQueryDirectoryFileEx::SafeInvoke(directoryHandle, NULL, NULL, NULL, &statusBlock, enumerationBuffer.Data(), enumerationBuffer.Size(), fileInformationClass, queryFlags, filePatternSystemStringPtr);
+        if (!(NT_SUCCESS(directoryEnumerationResult)))
+        {
+            // This failure block includes `STATUS_NO_MORE_FILES` in which case enumeration is complete.
+            enumerationBufferBytePosition = kInvalidEnumerationBufferBytePosition;
+            enumerationStatus = directoryEnumerationResult;
+        }
+        else if (statusBlock.Information < fileInformationStructLayout.BaseStructureSize())
+        {
+            // Not even one complete basic structure was written to the buffer.
+            // This is an unexpected condition and should not occur.
+            enumerationBufferBytePosition = kInvalidEnumerationBufferBytePosition;
+            enumerationStatus = NtStatus::kInternalError;
+        }
+        else
+        {
+            // File information structures are available.
+            enumerationBufferBytePosition = 0;
+            enumerationStatus = NtStatus::kMoreEntries;
+        }
+    }
+
+    // --------
+
+    std::wstring_view EnumerationQueue::FileNameOfFront(void) const
+    {
+        const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
+
+        return std::wstring_view(fileInformationStructLayout.FileNamePointer(enumerationEntry), (fileInformationStructLayout.ReadFileNameLength(enumerationEntry) / sizeof(wchar_t)));
+    }
+
+    // --------
+
+    unsigned int EnumerationQueue::SizeOfFront(void) const
+    {
+        const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
+
+        return fileInformationStructLayout.SizeOfStruct(enumerationEntry);
+    }
+
+    // --------
+
+    void EnumerationQueue::PopFrontTo(void* dest)
+    {
+        const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
+
+        if (nullptr != dest)
+            std::memcpy(dest, enumerationEntry, static_cast<size_t>(SizeOfFront()));
+
+        FileInformationStructLayout::TNextEntryOffset bytePositionIncrement = fileInformationStructLayout.ReadNextEntryOffset(enumerationEntry);
+        if (0 == bytePositionIncrement)
+            AdvanceQueueContentsInternal();
+        else
+            enumerationBufferBytePosition += bytePositionIncrement;
+    }
+
+    // --------
+
+    void EnumerationQueue::Restart(void)
+    {
+        AdvanceQueueContentsInternal(QueryFlags::kRestartScan);
     }
 }

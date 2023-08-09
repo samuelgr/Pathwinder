@@ -181,11 +181,18 @@ namespace Pathwinder
 
         // -------- INSTANCE METHODS --------------------------------------- //
 
+        /// Returns the base size of the file information structure whose layout is represented by this object.
+        /// @return Base structure size in bytes.
+        inline unsigned int BaseStructureSize(void) const
+        {
+            return structureBaseSizeBytes;
+        }
+
         /// Generates and returns a pointer to the trailing filename field for the specified file information structure.
         /// Performs no verification on the input pointer of data structure.
         /// @param [in] fileInformationStruct Address of the first byte of the file information structure of interest.
         /// @return Pointer to the file information structure's trailing `fileName[1]` field.
-        inline TFileName* GetFileNamePointer(void* fileInformationStruct) const
+        inline TFileName* FileNamePointer(const void* fileInformationStruct) const
         {
             return reinterpret_cast<TFileName*>(reinterpret_cast<size_t>(fileInformationStruct) + static_cast<size_t>(offsetOfFileName));
         }
@@ -194,7 +201,7 @@ namespace Pathwinder
         /// Performs no verification on the input pointer of data structure.
         /// @param [in] fileInformationStruct Address of the first byte of the file information structure of interest.
         /// @return Value of the `nextEntryOffset` field of the file information structure.
-        inline TNextEntryOffset ReadNextEntryOffset(void* fileInformationStruct) const
+        inline TNextEntryOffset ReadNextEntryOffset(const void* fileInformationStruct) const
         {
             return *reinterpret_cast<TNextEntryOffset*>(reinterpret_cast<size_t>(fileInformationStruct) + static_cast<size_t>(offsetOfNextEntryOffset));
         }
@@ -203,7 +210,7 @@ namespace Pathwinder
         /// Performs no verification on the input pointer of data structure.
         /// @param [in] fileInformationStruct Address of the first byte of the file information structure of interest.
         /// @return Value of the `fileNameLength` field of the file information structure.
-        inline TFileNameLength ReadFileNameLength(void* fileInformationStruct) const
+        inline TFileNameLength ReadFileNameLength(const void* fileInformationStruct) const
         {
             return *reinterpret_cast<TFileNameLength*>(reinterpret_cast<size_t>(fileInformationStruct) + static_cast<size_t>(offsetOfFileNameLength));
         }
@@ -212,7 +219,7 @@ namespace Pathwinder
         /// Performs no verification on the input pointer of data structure.
         /// @param [in] fileInformationStruct Address of the first byte of the file information structure of interest.
         /// @return Size, in bytes, of the specified file information structure.
-        inline unsigned int SizeOfStruct(void* fileInformationStruct) const
+        inline unsigned int SizeOfStruct(const void* fileInformationStruct) const
         {
             return std::max(structureBaseSizeBytes, offsetOfFileName + static_cast<unsigned int>(ReadFileNameLength(fileInformationStruct)));
         }
@@ -236,7 +243,7 @@ namespace Pathwinder
 
         /// Holds one or more file information structures received from the system.
         FileInformationStructBuffer enumerationBuffer;
-
+        
         /// Byte position within the enumeration buffer where the next file information structure should be read.
         unsigned int enumerationBufferBytePosition;
 
@@ -248,45 +255,30 @@ namespace Pathwinder
 
         /// Initialization constructor.
         /// Not intended for external use. Objects of this class should be created using the factory method.
-        EnumerationQueue(HANDLE directoryHandle, FILE_INFORMATION_CLASS fileInformationClass);
+        EnumerationQueue(std::wstring_view filePattern, HANDLE directoryHandle, FILE_INFORMATION_CLASS fileInformationClass);
+
 
     public:
+        /// Copy constructor. Should never be invoked.
+        EnumerationQueue(const EnumerationQueue& other) = delete;
+
+        /// Move constructor.
+        EnumerationQueue(EnumerationQueue&& other);
+
         /// Default destructor.
         ~EnumerationQueue(void);
 
 
         // -------- CLASS METHODS ------------------------------------------ //
 
-        /// Creates an enumeration queue object for the specified file information structure type using an existing open file handle for the directory.
-        /// @tparam FileInformationStructType Windows internal structure type that is intended to be part of a buffer of contiguous structures of the same type and has a dangling filename field.
-        /// @param [in] directoryHandle Open handle to the directory that is being enumerated.
-        /// @return Enumeration queue object. This version of the creation factory method always succeeds.
-        template <typename FileInformationStructType, typename = decltype(FileInformationStructType::kFileInformationClass), typename = decltype(GetFileInformationStructFilename<FileInformationStructType>), typename = decltype(NextFileInformationStruct<FileInformationStructType>)> static inline ValueOrError<EnumerationQueue, NTSTATUS> CreateEnumerationQueue(HANDLE directoryHandle)
-        {
-            return EnumerationQueue(directoryHandle, FileInformationStructType::kFileInformationClass);
-        }
-
         /// Creates an enumeration queue object for the specified file information structure type using an absolute fully-prefixed path for the directory.
         /// Attempts to open a handle to be used for directory enumeration.
         /// @tparam FileInformationStructType Windows internal structure type that is intended to be part of a buffer of contiguous structures of the same type and has a dangling filename field.
         /// @param [in] absoluteDirectoryPath Absolute path to the directory to be enumerated, including Windows namespace prefix.
+        /// @param [in] fileInformationClass Type of file information requested for each file that is enumerated.
+        /// @param [in] filePattern Optional file pattern for providing the system with a pattern to match against all returned filenames.
         /// @return Enumeration queue object on success, or a Windows error code on failure.
-        template <typename FileInformationStructType, typename = decltype(FileInformationStructType::kFileInformationClass), typename = decltype(GetFileInformationStructFilename<FileInformationStructType>), typename = decltype(NextFileInformationStruct<FileInformationStructType>)> static inline ValueOrError<EnumerationQueue, NTSTATUS> CreateEnumerationQueue(std::wstring_view absoluteDirectoryPath)
-        {
-            HANDLE directoryHandle = nullptr;
-
-            UNICODE_STRING absoluteDirectoryPathSystemString = Strings::NtConvertStringViewToUnicodeString(absoluteDirectoryPath);
-            OBJECT_ATTRIBUTES absoluteDirectoryPathObjectAttributes{};
-            InitializeObjectAttributes(&absoluteDirectoryPathObjectAttributes, &absoluteDirectoryPathSystemString, 0, nullptr, nullptr);
-
-            IO_STATUS_BLOCK unusedStatusBlock{};
-
-            NTSTATUS openDirectoryForEnumerationResult = Hooks::ProtectedDependency::NtOpenFile::SafeInvoke(&directoryHandle, (FILE_LIST_DIRECTORY | SYNCHRONIZE), &absoluteDirectoryPathObjectAttributes, &unusedStatusBlock, (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), (FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT));
-            if (!(NT_SUCCESS(openDirectoryForEnumerationResult)))
-                return openDirectoryForEnumerationResult;
-
-            return CreateEnumerationQueue(directoryHandle);
-        }
+        static ValueOrError<EnumerationQueue, NTSTATUS> CreateEnumerationQueue(std::wstring_view absoluteDirectoryPath, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view filePattern = std::wstring_view());
 
 
     private:
@@ -294,13 +286,15 @@ namespace Pathwinder
 
         /// For internal use only.
         /// Queries the system for more file information structures to be placed in the queue.
-        /// @return Result of the system call that advances the queue.
-        NTSTATUS AdvanceQueueContentsInternal(void);
+        /// Sets this object's enumeration status according to the result.
+        /// @param [in] queryFlags Optional query flags to supply along with the underlying system call. Defaults to 0 to specify no flags.
+        /// @param [in] filePattern Optional file pattern for providing the system with a pattern to match against all returned filenames. Only important on first invocation, which occurs during construction.
+        void AdvanceQueueContentsInternal(ULONG queryFlags = 0, std::wstring_view filePattern = std::wstring_view());
 
 
     public:
         /// Retrieves the status of the enumeration maintained by this object.
-        /// @return `STATUS_SUCCESS` if the enumeration is completed and there are no file information structures left, `STATUS_PENDING` if the enumeration is still in progress, or any other status code to indicate that some other error occurred while interacting with the system.
+        /// @return `STATUS_NO_MORE_FILES` if the enumeration is completed and there are no file information structures left, `STATUS_MORE_ENTRIES` if the enumeration is still in progress and more directory entries are available, or any other status code to indicate that some other error occurred while interacting with the system.
         inline NTSTATUS EnumerationStatus(void) const
         {
             return enumerationStatus;
@@ -319,6 +313,9 @@ namespace Pathwinder
         /// If copying is desired, it is the caller's responsibility to make sure the structure will fit in the specified location. This can be done by invoking #SizeOfFront first.
         /// @param [in] Optional pointer to the buffer location to receive the first file information structure. If `nullptr` then no copy is performed.
         void PopFrontTo(void* dest);
+
+        /// Causes the enumeration to be restarted from the beginning.
+        void Restart(void);
     };
 
     /// Holds state and supports insertion of directory names into the output of a larger directory enumeration operation.
