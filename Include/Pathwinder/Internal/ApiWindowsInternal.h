@@ -15,6 +15,8 @@
 
 #include "ApiWindows.h"
 
+#include <algorithm>
+#include <cwchar>
 #include <string_view>
 #include <winternl.h>
 
@@ -30,6 +32,7 @@ namespace Pathwinder
         inline constexpr NTSTATUS kSuccess = 0x00000000;                    ///< `STATUS_SUCCESS`: The operation completed successfully.
         inline constexpr NTSTATUS kPending = 0x00000103;                    ///< `STATUS_PENDING`: The operation that was requested is pending completion.
         inline constexpr NTSTATUS kObjectNameExists = 0x40000000;           ///< `STATUS_OBJECT_NAME_EXISTS`: An attempt was made to create an object but the object name already exists.
+        inline constexpr NTSTATUS kBufferOverflow = 0x80000005;             ///< `STATUS_BUFFER_OVERFLOW`: The data was too large to fit into the specified buffer.
         inline constexpr NTSTATUS kInvalidParameter = 0xC000000D;           ///< `STATUS_INVALID_PARAMETER`: An invalid parameter was passed to a service or function.
         inline constexpr NTSTATUS kObjectNameInvalid = 0xC0000033;          ///< `STATUS_OBJECT_NAME_INVALID`: The object name is invalid.
         inline constexpr NTSTATUS kObjectNameNotFound = 0xC0000034;         ///< `STATUS_OBJECT_NAME_NOT_FOUND`: The object name is not found.
@@ -129,6 +132,26 @@ namespace Pathwinder
         BOOLEAN directory;
     };
 
+    /// Contains information about a file. Same layout as `FILE_INTERNAL_INFORMATION` from the Windows driver kit.
+    /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_internal_information for more information.
+    struct SFileInternalInformation
+    {
+        static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(6);
+
+        LARGE_INTEGER indexNumber;
+    };
+
+    /// Contains information about a file. Same layout as `FILE_EA_INFORMATION` from the Windows driver kit.
+    /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_ea_information for more information.
+    struct SFileExtendedAttributeInformation
+    {
+        static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(7);
+
+        ULONG eaSize;
+    };
+
+
+
     /// Contains information about a file. Same layout as `FILE_ACCESS_INFORMATION` from the Windows driver kit.
     /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_access_information for more information.
     struct SFileAccessInformation
@@ -176,6 +199,15 @@ namespace Pathwinder
         WCHAR fileName[1];
     };
 
+    /// Contains information about a file. Same layout as `FILE_POSITION_INFORMATION` from the Windows driver kit.
+    /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_file_position_information for more information.
+    struct SFilePositionInformation
+    {
+        static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(14);
+
+        LARGE_INTEGER currentByteOffset;
+    };
+
     /// Contains information about a file. Same layout as `FILE_MODE_INFORMATION` from the Windows driver kit.
     /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_mode_information for more information.
     struct SFileModeInformation
@@ -183,6 +215,32 @@ namespace Pathwinder
         static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(16);
 
         ULONG mode;
+    };
+
+    /// Contains information about a file. Same layout as `FILE_ALIGNMENT_INFORMATION` from the Windows driver kit.
+    /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddk/ns-ntddk-_file_alignment_information for more information.
+    struct SFileAlignmentInformation
+    {
+        static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(17);
+
+        ULONG alignmentRequirement;
+    };
+
+    /// Contains information about a file. Same layout as `FILE_ALL_INFORMATION` from the Windows driver kit.
+    /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddk/ns-ntddk-_file_alignment_information for more information.
+    struct SFileAllInformation
+    {
+        static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(18);
+
+        SFileBasicInformation basicInformation;
+        SFileStandardInformation standardInformation;
+        SFileInternalInformation internalInformation;
+        SFileExtendedAttributeInformation eaInformation;
+        SFileAccessInformation accessInformation;
+        SFilePositionInformation positionInformation;
+        SFileModeInformation modeInformation;
+        SFileAlignmentInformation alignmentInformation;
+        SFileNameInformation nameInformation;
     };
 
     /// Contains information about a file in a directory. Same layout as `FILE_ID_BOTH_DIR_INFORMATION` from the Windows driver kit.
@@ -340,12 +398,42 @@ namespace Pathwinder
         return reinterpret_cast<FileInformationStructType*>(reinterpret_cast<size_t>(&fileInformationStruct) + static_cast<size_t>(fileInformationStruct.nextEntryOffset));
     }
 
+    /// Changes the stored filename within one of the many structures that uses a dangling filename field.
+    /// On output, the filename member is updated to represent the specified filename string, but only up to whatever number of characters fit in the buffer containing the structure.
+    /// Regardless, the length field is updated to represent the number of characters needed to represent the entire string.
+    /// @tparam FileInformationStructType Windows internal structure type that uses a wide-character dangling filename field.
+    /// @param [in,out] fileInformationStruct Mutable reference to a structure with a wide-character dangling filename field.
+    /// @param [in] bufferSizeBytes Total size of the buffer containing the file information structure, in bytes.
+    /// @param [in] filename Filename to be set in the file information structure.
+    /// @return Number of characters written. If this is less than the number of characters in the input filename string then the buffer was too small to hold the entire filename.
+    template <typename FileInformationStructType, typename = decltype(FileInformationStructType::fileNameLength), typename = decltype(FileInformationStructType::fileName[0])> inline size_t SetFileInformationStructFilename(FileInformationStructType& fileInformationStruct, size_t bufferSizeBytes, std::wstring_view filename)
+    {
+        wchar_t* const filenameBuffer = fileInformationStruct.fileName;
+        const size_t filenameBufferCapacityChars = (bufferSizeBytes - offsetof(FileInformationStructType, fileName)) / sizeof(wchar_t);
+
+        const size_t filenameNumberOfBytesNeeded = (filename.length() * sizeof(wchar_t));
+        const size_t filenameNumberOfCharsToWrite = std::min(filenameBufferCapacityChars, filename.length());
+
+        std::wmemcpy(filenameBuffer, filename.data(), filenameNumberOfCharsToWrite);
+        fileInformationStruct.fileNameLength = static_cast<decltype(fileInformationStruct.fileNameLength)>(filenameNumberOfBytesNeeded);
+
+        return filenameNumberOfCharsToWrite;
+    }
+
+    /// Computes the size, in bytes, of the specified filename information structure of a type which uses a dangling filename field.
+    /// @tparam FileInformationStructType Windows internal structure type that uses a wide-character dangling filename field.
+    /// @param [in] fileInformationStruct Read-only reference to a structure that uses a wide-character dangling filename field.
+    /// @return Size of the specified file information structure, in bytes.
+    template <typename FileInformationStructType, typename = decltype(FileInformationStructType::fileNameLength), typename = decltype(FileInformationStructType::fileName[0])> constexpr inline size_t SizeOfFileInformationStructWithFilename(const FileInformationStructType& fileInformationStruct)
+    {
+        const size_t structureBaseSize = sizeof(FileInformationStructType);
+        const size_t structureSizeFromFilenameLength = offsetof(FileInformationStructType, fileName) + fileInformationStruct.fileNameLength;
+
+        return std::max(structureBaseSize, structureSizeFromFilenameLength);
+    }
+
     namespace WindowsInternal
     {
-        /// Wrapper around the internal `RtlIsNameInExpression` function, which is in the Windows driver kit.
-        /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntqueryinformationfile for more information.
-        NTSTATUS NtQueryInformationFile(HANDLE FileHandle, PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation, ULONG Length, FILE_INFORMATION_CLASS FileInformationClass);
-
         /// Wrapper around the internal `RtlIsNameInExpression` function, which has no associated header file and requires dynamically linking.
         /// See https://learn.microsoft.com/en-us/windows/win32/devnotes/rtlisnameinexpression for more information.
         BOOLEAN RtlIsNameInExpression(PUNICODE_STRING Expression, PUNICODE_STRING Name, BOOLEAN IgnoreCase, PWCH UpcaseTable);

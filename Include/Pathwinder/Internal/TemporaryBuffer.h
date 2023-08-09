@@ -34,7 +34,7 @@ namespace Pathwinder
     class TemporaryBufferBase
     {
     public:
-        // -------- CONSTANTS -------------------------------------------------- //
+        // -------- CONSTANTS ---------------------------------------------- //
 
         /// Specifies the total size of all temporary buffers, in bytes.
         static constexpr unsigned int kBuffersTotalNumBytes = 4 * 1024 * 1024;

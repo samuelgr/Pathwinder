@@ -114,6 +114,9 @@ namespace Pathwinder
         // See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntqueryinformationbyname for more information.
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(NtQueryInformationByName, NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES, PIO_STATUS_BLOCK, PVOID, ULONG, FILE_INFORMATION_CLASS));
 
+        // See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntqueryinformationfile for more information.
+        PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(NtQueryInformationFile, NTSTATUS(__stdcall)(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG, FILE_INFORMATION_CLASS));
+
         // See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntsetinformationfile for more information.
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(NtSetInformationFile, NTSTATUS(__stdcall)(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG, FILE_INFORMATION_CLASS));
 
