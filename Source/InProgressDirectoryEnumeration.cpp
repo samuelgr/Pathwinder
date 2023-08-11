@@ -10,9 +10,11 @@
  *   directory enumeration operations and maintaining all required state.
  *****************************************************************************/
 
+#include "BufferPool.h"
 #include "InProgressDirectoryEnumeration.h"
 #include "Hooks.h"
 #include "MutexWrapper.h"
+#include "ValueOrError.h"
 
 #include <array>
 #include <cstdint>
@@ -46,101 +48,6 @@ namespace Pathwinder
     }
 
 
-    // -------- INTERNAL TYPES --------------------------------------------- //
-
-    /// Manages allocation and deallocation of the backing buffers used for holding file information structures.
-    /// Implemented as a singleton object.
-    class FileInformationStructBufferManager
-    {
-    private:
-        // -------- INSTANCE VARIABLES ------------------------------------- //
-
-        /// Holds available buffers that are already allocated and can be distributed as needed.
-        std::array<uint8_t*, FileInformationStructBuffer::kBufferPoolMaxSize> availableBuffers;
-
-        /// Number of available buffers.
-        unsigned int numAvailableBuffers;
-
-        /// Mutex used to ensure concurrency control over temporary buffer allocation and deallocation.
-        Mutex allocationMutex;
-
-
-        // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
-
-        /// Default constructor. Objects cannot be constructed externally.
-        inline FileInformationStructBufferManager(void) : availableBuffers(), numAvailableBuffers(0), allocationMutex()
-        {
-            AllocateMoreBuffers();
-        }
-
-        /// Copy constructor. Should never be invoked.
-        FileInformationStructBufferManager(const FileInformationStructBufferManager& other) = delete;
-
-
-    public:
-        // -------- CLASS METHODS ------------------------------------------ //
-
-        /// Returns a reference to the singleton instance of this class.
-        /// @return Reference to the singleton instance.
-        static FileInformationStructBufferManager& Singleton(void)
-        {
-            static FileInformationStructBufferManager fileInformationStructBufferManager;
-            return fileInformationStructBufferManager;
-        }
-
-
-    private:
-        // -------- INSTANCE METHODS --------------------------------------- //
-
-        /// Allocates more buffers and places them into the available buffers data structure.
-        /// Not concurrency-safe. Intended to be invoked as part of an otherwise-guarded operation.
-        void AllocateMoreBuffers(void)
-        {
-            for (unsigned int i = 0; i < FileInformationStructBuffer::kBufferAllocationGranularity; ++i)
-            {
-                if (numAvailableBuffers == FileInformationStructBuffer::kBufferPoolMaxSize)
-                    break;
-
-                availableBuffers[numAvailableBuffers] = new uint8_t[FileInformationStructBuffer::kBytesPerFileInformationStructBuffer];
-                numAvailableBuffers += 1;
-            }
-        }
-
-    public:
-        /// Allocates a buffer for the caller to use.
-        /// @return Buffer that the caller can use.
-        uint8_t* Allocate(void)
-        {
-            std::scoped_lock lock(allocationMutex);
-
-            if (0 == numAvailableBuffers)
-                AllocateMoreBuffers();
-
-            numAvailableBuffers -= 1;
-            uint8_t* nextFreeBuffer = availableBuffers[numAvailableBuffers];
-
-            return nextFreeBuffer;
-        }
-
-        /// Deallocates a buffer once the caller is finished with it.
-        /// @param [in] Previously-allocated buffer that the caller is returning.
-        void Free(uint8_t* buffer)
-        {
-            std::scoped_lock lock(allocationMutex);
-
-            if (numAvailableBuffers == FileInformationStructBuffer::kBufferPoolMaxSize)
-            {
-                delete[] buffer;
-            }
-            else
-            {
-                availableBuffers[numAvailableBuffers] = buffer;
-                numAvailableBuffers += 1;
-            }
-        }
-    };
-
-
     // -------- INTERNAL FUNCTIONS ----------------------------------------- //
 
     /// Maintains a set of layout structures for the various supported file information classes for directory enumeration and returns a layout definition for a given file information class.
@@ -168,11 +75,53 @@ namespace Pathwinder
         return layoutIter->second;
     }
 
+    /// Opens the specified directory for synchronous enumeration.
+    /// @param [in] absoluteDirectoryPath Absolute path to the directory to be opened, including Windows namespace prefix.
+    /// @return Handle for the directory file on success, Windows error code on failure.
+    static ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(std::wstring_view absoluteDirectoryPath)
+    {
+        HANDLE directoryHandle = nullptr;
+
+        UNICODE_STRING absoluteDirectoryPathSystemString = Strings::NtConvertStringViewToUnicodeString(absoluteDirectoryPath);
+        OBJECT_ATTRIBUTES absoluteDirectoryPathObjectAttributes{};
+        InitializeObjectAttributes(&absoluteDirectoryPathObjectAttributes, &absoluteDirectoryPathSystemString, 0, nullptr, nullptr);
+
+        IO_STATUS_BLOCK unusedStatusBlock{};
+
+        NTSTATUS openDirectoryForEnumerationResult = Hooks::ProtectedDependency::NtOpenFile::SafeInvoke(&directoryHandle, (FILE_LIST_DIRECTORY | SYNCHRONIZE), &absoluteDirectoryPathObjectAttributes, &unusedStatusBlock, (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), (FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT));
+        if (!(NT_SUCCESS(openDirectoryForEnumerationResult)))
+            return openDirectoryForEnumerationResult;
+
+        return directoryHandle;
+    }
+
+    /// Obtains information about the specified file by asking the system to enumerate.
+    /// @param [in] absoluteDirectoryPath Absolute path to the directory containing the file to be enumerated, including Windows namespace prefix.
+    /// @param [in] fileName Name of the file within the directory. Must not contain any wildcards or backslashes.
+    /// @param [in] fileInformationClass Type of information to obtain about the specified file.
+    /// @param [in] enumerationBuffer Buffer into which to write the information received about the file.
+    /// @param [in] enumerationBufferCapacityBytes Size of the destination buffer, in bytes.
+    /// @return Windows error code identifying the result of the operation.
+    NTSTATUS QuerySingleFileEnumerationInformation(std::wstring_view absoluteDirectoryPath, std::wstring_view fileName, FILE_INFORMATION_CLASS fileInformationClass, void* enumerationBuffer, unsigned int enumerationBufferCapacityBytes)
+    {
+        auto maybeDirectoryHandle = OpenDirectoryForEnumeration(absoluteDirectoryPath);
+        if (true == maybeDirectoryHandle.HasError())
+            return maybeDirectoryHandle.Error();
+
+        UNICODE_STRING fileNameSystemString = Strings::NtConvertStringViewToUnicodeString(fileName);
+        IO_STATUS_BLOCK unusedStatusBlock{};
+
+        NTSTATUS directoryEnumResult = Hooks::ProtectedDependency::NtQueryDirectoryFileEx::SafeInvoke(maybeDirectoryHandle.Value(), NULL, NULL, NULL, &unusedStatusBlock, enumerationBuffer, static_cast<ULONG>(enumerationBufferCapacityBytes), fileInformationClass, 0, &fileNameSystemString);
+        Hooks::ProtectedDependency::NtClose::SafeInvoke(maybeDirectoryHandle.Value());
+
+        return directoryEnumResult;
+    }
+
 
     // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
     // See "InProgressDirectoryEnumeration.h" for documentation.
 
-    FileInformationStructBuffer::FileInformationStructBuffer(void) : buffer(FileInformationStructBufferManager::Singleton().Allocate())
+    FileInformationStructBuffer::FileInformationStructBuffer(void) : buffer(bufferPool.Allocate())
     {
         // Nothing to do here.
     }
@@ -182,7 +131,7 @@ namespace Pathwinder
     FileInformationStructBuffer::~FileInformationStructBuffer(void)
     {
         if (nullptr != buffer)
-            FileInformationStructBufferManager::Singleton().Free(buffer);
+            bufferPool.Free(buffer);
     }
 
     // --------
@@ -216,19 +165,11 @@ namespace Pathwinder
 
     ValueOrError<EnumerationQueue, NTSTATUS> EnumerationQueue::CreateEnumerationQueue(std::wstring_view absoluteDirectoryPath, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view filePattern)
     {
-        HANDLE directoryHandle = nullptr;
+        auto maybeDirectoryHandle = OpenDirectoryForEnumeration(absoluteDirectoryPath);
+        if (true == maybeDirectoryHandle.HasError())
+            return maybeDirectoryHandle.Error();
 
-        UNICODE_STRING absoluteDirectoryPathSystemString = Strings::NtConvertStringViewToUnicodeString(absoluteDirectoryPath);
-        OBJECT_ATTRIBUTES absoluteDirectoryPathObjectAttributes{};
-        InitializeObjectAttributes(&absoluteDirectoryPathObjectAttributes, &absoluteDirectoryPathSystemString, 0, nullptr, nullptr);
-
-        IO_STATUS_BLOCK unusedStatusBlock{};
-
-        NTSTATUS openDirectoryForEnumerationResult = Hooks::ProtectedDependency::NtOpenFile::SafeInvoke(&directoryHandle, (FILE_LIST_DIRECTORY | SYNCHRONIZE), &absoluteDirectoryPathObjectAttributes, &unusedStatusBlock, (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), (FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT));
-        if (!(NT_SUCCESS(openDirectoryForEnumerationResult)))
-            return openDirectoryForEnumerationResult;
-
-        EnumerationQueue enumerationQueue(filePattern, directoryHandle, fileInformationClass);
+        EnumerationQueue enumerationQueue(filePattern, maybeDirectoryHandle.Value(), fileInformationClass);
         if (!(NT_SUCCESS(enumerationQueue.EnumerationStatus())))
             return enumerationQueue.EnumerationStatus();
 
@@ -280,6 +221,18 @@ namespace Pathwinder
 
     // --------
 
+    unsigned int EnumerationQueue::CopyFront(void* dest, unsigned int capacityBytes)
+    {
+        const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
+
+        unsigned int numBytesToCopy = std::min(SizeOfFront(), capacityBytes);
+        std::memcpy(dest, enumerationEntry, static_cast<size_t>(numBytesToCopy));
+
+        return numBytesToCopy;
+    }
+
+    // --------
+
     std::wstring_view EnumerationQueue::FileNameOfFront(void) const
     {
         const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
@@ -298,12 +251,9 @@ namespace Pathwinder
 
     // --------
 
-    void EnumerationQueue::PopFrontTo(void* dest)
+    void EnumerationQueue::PopFront(void)
     {
         const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
-
-        if (nullptr != dest)
-            std::memcpy(dest, enumerationEntry, static_cast<size_t>(SizeOfFront()));
 
         FileInformationStructLayout::TNextEntryOffset bytePositionIncrement = fileInformationStructLayout.ReadNextEntryOffset(enumerationEntry);
         if (0 == bytePositionIncrement)

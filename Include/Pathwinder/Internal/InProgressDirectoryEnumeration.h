@@ -11,6 +11,7 @@
  *****************************************************************************/
 
 #include "ApiWindowsInternal.h"
+#include "BufferPool.h"
 #include "DebugAssert.h"
 #include "Hooks.h"
 #include "Strings.h"
@@ -45,6 +46,12 @@ namespace Pathwinder
 
 
     private:
+        // -------- CLASS VARIABLES ---------------------------------------- //
+
+        /// Manages the pool of backing buffers.
+        static inline BufferPool<kBytesPerFileInformationStructBuffer, kBufferAllocationGranularity, kBufferPoolMaxSize> bufferPool;
+
+
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
         /// Pointer to the buffer space.
@@ -293,6 +300,12 @@ namespace Pathwinder
 
 
     public:
+        /// Copies the first file information structure from the queue to the specified location, up to the specified number of bytes.
+        /// @param [in] dest Pointer to the buffer location to receive the first file information structure.
+        /// @param [in] capacityBytes Maximum number of bytes to copy to the destination buffer.
+        /// @return Number of bytes copied. This will the capacity of the buffer or the size of the first file information structure in the queue, whichever is smaller in value.
+        unsigned int CopyFront(void* dest, unsigned int capacityBytes);
+
         /// Retrieves the status of the enumeration maintained by this object.
         /// @return `STATUS_NO_MORE_FILES` if the enumeration is completed and there are no file information structures left, `STATUS_MORE_ENTRIES` if the enumeration is still in progress and more directory entries are available, or any other status code to indicate that some other error occurred while interacting with the system.
         inline NTSTATUS EnumerationStatus(void) const
@@ -309,10 +322,8 @@ namespace Pathwinder
         /// @return Size, in bytes, of the first file information structure, or 0 if there are no file information structures vailable.
         unsigned int SizeOfFront(void) const;
 
-        /// Removes the first file information structure from the queue and optionally copies it to the specified location.
-        /// If copying is desired, it is the caller's responsibility to make sure the structure will fit in the specified location. This can be done by invoking #SizeOfFront first.
-        /// @param [in] Optional pointer to the buffer location to receive the first file information structure. If `nullptr` then no copy is performed.
-        void PopFrontTo(void* dest);
+        /// Removes the first file information structure from the queue.
+        void PopFront(void);
 
         /// Causes the enumeration to be restarted from the beginning.
         void Restart(void);
