@@ -22,6 +22,8 @@ namespace Pathwinder
 {
     /// Manages a pool of fixed-size dynamically-allocated buffers.
     /// Allocates as many as needed but only holds up to a specified number of buffers once they are returned.
+    /// Objects of this class are intended to be long-lived, ideally right up until program termination.
+    /// They do not deallocate free buffers in the pool on destruction, nor do they ever attempt to reclaim buffers that have been allocated but not yet freed.
     /// @tparam kBytesPerBuffer Size of each buffer, in bytes.
     /// @tparam kAllocationGranularity Number of buffers to allocate initially and each time the pool is exhausted and more are needed.
     /// @tparam kPoolSize Maximum number of buffers to hold in the pool. If more buffers are needed beyond this number, then they will be deallocated when freed instead of returned to the pool.

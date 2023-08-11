@@ -178,7 +178,7 @@ namespace Pathwinder
             // -------- INSTANCE METHODS ----------------------------------- //
 
             /// Retrieves and returns the absolute path of the directory whose information should be used to fill in the non-filename fields in the relevant file information structures being supplied back to the application.
-            /// @return Absolute path of the directory to use for file information.
+            /// @return Absolute path of the directory to use for file information. Not guaranteed to begin with a Windows namespace prefix.
             inline std::wstring_view DirectoryInformationSourceAbsolutePath(void) const
             {
                 return filesystemRule->GetTargetDirectoryFullPath();
@@ -186,7 +186,7 @@ namespace Pathwinder
 
             /// Retrieves and returns the directory part of the absolute path of the directory whose information should be used to fill in the non-filename fields in the relevant file information structures being supplied back to the application.
             /// This is otherwise known as the absolute path of the parent of the directory whose information is needed.
-            /// @return Directory part of the absolute path of the directory to use for file information.
+            /// @return Directory part of the absolute path of the directory to use for file information. Not guaranteed to begin with a Windows namespace prefix.
             inline std::wstring_view DirectoryInformationSourceDirectoryPart(void) const
             {
                 return filesystemRule->GetTargetDirectoryParent();

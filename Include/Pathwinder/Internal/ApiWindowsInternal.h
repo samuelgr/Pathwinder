@@ -407,7 +407,7 @@ namespace Pathwinder
     /// On output, the filename member is updated to represent the specified filename string, but only up to whatever number of characters fit in the buffer containing the structure.
     /// Regardless, the length field is updated to represent the number of characters needed to represent the entire string.
     /// @tparam FileInformationStructType Windows internal structure type that uses a wide-character dangling filename field.
-    /// @param [in,out] fileInformationStruct Mutable reference to a structure with a wide-character dangling filename field.
+    /// @param [in, out] fileInformationStruct Mutable reference to a structure with a wide-character dangling filename field.
     /// @param [in] bufferSizeBytes Total size of the buffer containing the file information structure, in bytes.
     /// @param [in] filename Filename to be set in the file information structure.
     /// @return Number of characters written. If this is less than the number of characters in the input filename string then the buffer was too small to hold the entire filename.

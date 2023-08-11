@@ -53,7 +53,6 @@ namespace Pathwinder
         static inline NTSTATUS EnsureDirectoryExists(std::wstring_view absoluteDirectoryPath)
         {
             std::optional<TemporaryString> maybePrefixedAbsoluteDirectoryPath = std::nullopt;
-
             if (false == Strings::PathHasWindowsNamespacePrefix(absoluteDirectoryPath))
             {
                 maybePrefixedAbsoluteDirectoryPath = Strings::PathAddWindowsNamespacePrefix(absoluteDirectoryPath);
