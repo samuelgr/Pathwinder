@@ -16,11 +16,25 @@
 #include "Message.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
+#include "ValueOrError.h"
 
 #include <cwctype>
 #include <limits>
 #include <optional>
 #include <string_view>
+
+
+// -------- MACROS --------------------------------------------------------- //
+
+/// Ensures that the specified function parameter, which is a string view, has a Windows namespace prefix.
+/// This is a common requirement when invoking any Windows system calls.
+#define ENSURE_ABSOLUTE_PATH_PARAM_HAS_WINDOWS_NAMESPCE_PREFIX(param) \
+    std::optional<TemporaryString> _internal_maybePrefixed_##param = std::nullopt; \
+    if (false == Strings::PathHasWindowsNamespacePrefix(param)) \
+    { \
+        _internal_maybePrefixed_##param = Strings::PathAddWindowsNamespacePrefix(param); \
+        param = _internal_maybePrefixed_##param->AsStringView(); \
+    }
 
 
 namespace Pathwinder
@@ -52,12 +66,7 @@ namespace Pathwinder
         /// @return Result of the system call that ensures the specified directory exists.
         static inline NTSTATUS EnsureDirectoryExists(std::wstring_view absoluteDirectoryPath)
         {
-            std::optional<TemporaryString> maybePrefixedAbsoluteDirectoryPath = std::nullopt;
-            if (false == Strings::PathHasWindowsNamespacePrefix(absoluteDirectoryPath))
-            {
-                maybePrefixedAbsoluteDirectoryPath = Strings::PathAddWindowsNamespacePrefix(absoluteDirectoryPath);
-                absoluteDirectoryPath = maybePrefixedAbsoluteDirectoryPath->AsStringView();
-            }
+            ENSURE_ABSOLUTE_PATH_PARAM_HAS_WINDOWS_NAMESPCE_PREFIX(absoluteDirectoryPath);
 
             HANDLE directoryHandle = nullptr;
 
@@ -80,13 +89,7 @@ namespace Pathwinder
         /// @return File attributes, or `INVALID_FILE_ATTRIBUTES` in the event of an error.
         static DWORD GetAttributesForPath(std::wstring_view absolutePath)
         {
-            std::optional<TemporaryString> maybePrefixedAbsolutePath = std::nullopt;
-
-            if (false == Strings::PathHasWindowsNamespacePrefix(absolutePath))
-            {
-                maybePrefixedAbsolutePath = Strings::PathAddWindowsNamespacePrefix(absolutePath);
-                absolutePath = maybePrefixedAbsolutePath->AsStringView();
-            }
+            ENSURE_ABSOLUTE_PATH_PARAM_HAS_WINDOWS_NAMESPCE_PREFIX(absolutePath);
 
             SFileStatInformation absolutePathObjectInfo{};
 
@@ -134,6 +137,13 @@ namespace Pathwinder
 
         // -------- FUNCTIONS ---------------------------------------------- //
         // See "FilesystemOperations.h" for documentation.
+
+        void CloseHandle(HANDLE handle)
+        {
+            Hooks::ProtectedDependency::NtClose::SafeInvoke(handle);
+        }
+
+        // --------
 
         intptr_t CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath)
         {
@@ -223,6 +233,66 @@ namespace Pathwinder
             }
             
             return AttributesIndicateFileExistsAndIsDirectory(pathAttributes);
+        }
+
+        // --------
+
+        ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(std::wstring_view absoluteDirectoryPath)
+        {
+            ENSURE_ABSOLUTE_PATH_PARAM_HAS_WINDOWS_NAMESPCE_PREFIX(absoluteDirectoryPath);
+
+            HANDLE directoryHandle = nullptr;
+
+            UNICODE_STRING absoluteDirectoryPathSystemString = Strings::NtConvertStringViewToUnicodeString(absoluteDirectoryPath);
+            OBJECT_ATTRIBUTES absoluteDirectoryPathObjectAttributes{};
+            InitializeObjectAttributes(&absoluteDirectoryPathObjectAttributes, &absoluteDirectoryPathSystemString, 0, nullptr, nullptr);
+
+            IO_STATUS_BLOCK unusedStatusBlock{};
+
+            NTSTATUS openDirectoryForEnumerationResult = Hooks::ProtectedDependency::NtOpenFile::SafeInvoke(&directoryHandle, (FILE_LIST_DIRECTORY | SYNCHRONIZE), &absoluteDirectoryPathObjectAttributes, &unusedStatusBlock, (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), (FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT));
+            if (!(NT_SUCCESS(openDirectoryForEnumerationResult)))
+                return openDirectoryForEnumerationResult;
+
+            return directoryHandle;
+        }
+
+        // --------
+
+        NTSTATUS PartialEnumerateDirectoryContents(HANDLE directoryHandle, FILE_INFORMATION_CLASS fileInformationClass, void* enumerationBuffer, unsigned int enumerationBufferCapacityBytes, ULONG queryFlags, std::wstring_view filePattern)
+        {
+            UNICODE_STRING filePatternSystemString{};
+            UNICODE_STRING* filePatternSystemStringPtr = nullptr;
+
+            if (false == filePattern.empty())
+            {
+                filePatternSystemString = Strings::NtConvertStringViewToUnicodeString(filePattern);
+                filePatternSystemStringPtr = &filePatternSystemString;
+            }
+
+            IO_STATUS_BLOCK statusBlock{};
+
+            NTSTATUS directoryEnumerationResult = Hooks::ProtectedDependency::NtQueryDirectoryFileEx::SafeInvoke(directoryHandle, NULL, NULL, NULL, &statusBlock, enumerationBuffer, enumerationBufferCapacityBytes, fileInformationClass, queryFlags, filePatternSystemStringPtr);
+            if (NT_SUCCESS(directoryEnumerationResult) && (0 == statusBlock.Information))
+                return NtStatus::kBufferTooSmall;
+
+            return directoryEnumerationResult;
+        }
+
+        // --------
+
+        NTSTATUS QuerySingleFileDirectoryInformation(std::wstring_view absoluteDirectoryPath, std::wstring_view fileName, FILE_INFORMATION_CLASS fileInformationClass, void* enumerationBuffer, unsigned int enumerationBufferCapacityBytes)
+        {
+            auto maybeDirectoryHandle = OpenDirectoryForEnumeration(absoluteDirectoryPath);
+            if (true == maybeDirectoryHandle.HasError())
+                return maybeDirectoryHandle.Error();
+
+            UNICODE_STRING fileNameSystemString = Strings::NtConvertStringViewToUnicodeString(fileName);
+            IO_STATUS_BLOCK unusedStatusBlock{};
+
+            NTSTATUS directoryEnumResult = Hooks::ProtectedDependency::NtQueryDirectoryFileEx::SafeInvoke(maybeDirectoryHandle.Value(), NULL, NULL, NULL, &unusedStatusBlock, enumerationBuffer, static_cast<ULONG>(enumerationBufferCapacityBytes), fileInformationClass, 0, &fileNameSystemString);
+            Hooks::ProtectedDependency::NtClose::SafeInvoke(maybeDirectoryHandle.Value());
+
+            return directoryEnumResult;
         }
     }
 }

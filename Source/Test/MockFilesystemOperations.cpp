@@ -10,7 +10,9 @@
  *   for testing.
  *****************************************************************************/
 
+#include "ApiWindows.h"
 #include "MockFilesystemOperations.h"
+#include "ValueOrError.h"
 
 #include <cwctype>
 #include <string>
@@ -75,6 +77,13 @@ namespace PathwinderTest
     // -------- MOCK INSTANCE METHODS -------------------------------------- //
     // See "FilesystemOperations.h" for documentation.
 
+    void MockFilesystemOperations::CloseHandle(HANDLE handle)
+    {
+        TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
+    }
+
+    // --------
+
     intptr_t MockFilesystemOperations::CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath)
     {
         TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
@@ -104,6 +113,27 @@ namespace PathwinderTest
     {
         return filesystemContents.contains(absolutePath);
     }
+
+    // --------
+
+    Pathwinder::ValueOrError<HANDLE, NTSTATUS> MockFilesystemOperations::OpenDirectoryForEnumeration(std::wstring_view absoluteDirectoryPath)
+    {
+        TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
+    }
+
+    // --------
+
+    NTSTATUS MockFilesystemOperations::PartialEnumerateDirectoryContents(HANDLE directoryHandle, FILE_INFORMATION_CLASS fileInformationClass, void* enumerationBuffer, unsigned int enumerationBufferCapacityBytes, ULONG queryFlags, std::wstring_view filePattern)
+    {
+        TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
+    }
+
+    // --------
+
+    NTSTATUS MockFilesystemOperations::QuerySingleFileDirectoryInformation(std::wstring_view absoluteDirectoryPath, std::wstring_view fileName, FILE_INFORMATION_CLASS fileInformationClass, void* enumerationBuffer, unsigned int enumerationBufferCapacityBytes)
+    {
+        TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
+    }
 }
 
 
@@ -116,6 +146,13 @@ namespace Pathwinder
 
         // -------- MOCK FUNCTIONS ----------------------------------------- //
         // Invocations are forwarded to mock instance methods.
+
+        void CloseHandle(HANDLE handle)
+        {
+            MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, CloseHandle, handle);
+        }
+
+        // --------
 
         intptr_t CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath)
         {
@@ -134,6 +171,27 @@ namespace Pathwinder
         bool IsDirectory(std::wstring_view absolutePath)
         {
             MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, IsDirectory, absolutePath);
+        }
+
+        // --------
+
+        Pathwinder::ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(std::wstring_view absoluteDirectoryPath)
+        {
+            MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, OpenDirectoryForEnumeration, absoluteDirectoryPath);
+        }
+
+        // --------
+
+        NTSTATUS PartialEnumerateDirectoryContents(HANDLE directoryHandle, FILE_INFORMATION_CLASS fileInformationClass, void* enumerationBuffer, unsigned int enumerationBufferCapacityBytes, ULONG queryFlags, std::wstring_view filePattern)
+        {
+            MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, PartialEnumerateDirectoryContents, directoryHandle, fileInformationClass, enumerationBuffer, enumerationBufferCapacityBytes, queryFlags, filePattern);
+        }
+
+        // --------
+
+        NTSTATUS QuerySingleFileDirectoryInformation(std::wstring_view absoluteDirectoryPath, std::wstring_view fileName, FILE_INFORMATION_CLASS fileInformationClass, void* enumerationBuffer, unsigned int enumerationBufferCapacityBytes)
+        {
+            MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, QuerySingleFileDirectoryInformation, absoluteDirectoryPath, fileName, fileInformationClass, enumerationBuffer, enumerationBufferCapacityBytes);
         }
     }
 }

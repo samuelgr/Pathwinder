@@ -12,9 +12,11 @@
 
 #pragma once
 
+#include "ApiWindows.h"
 #include "FilesystemOperations.h"
 #include "MockFreeFunctionContext.h"
 #include "Strings.h"
+#include "ValueOrError.h"
 
 #include <string>
 #include <string_view>
@@ -91,8 +93,12 @@ namespace PathwinderTest
         // -------- MOCK INSTANCE METHODS ---------------------------------- //
         // See "FilesystemOperations.h" for documentation.
 
+        void CloseHandle(HANDLE handle);
         intptr_t CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath);
         bool Exists(std::wstring_view absolutePath);
         bool IsDirectory(std::wstring_view absolutePath);
+        Pathwinder::ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(std::wstring_view absoluteDirectoryPath);
+        NTSTATUS PartialEnumerateDirectoryContents(HANDLE directoryHandle, FILE_INFORMATION_CLASS fileInformationClass, void* enumerationBuffer, unsigned int enumerationBufferCapacityBytes, ULONG queryFlags, std::wstring_view filePattern);
+        NTSTATUS QuerySingleFileDirectoryInformation(std::wstring_view absoluteDirectoryPath, std::wstring_view fileName, FILE_INFORMATION_CLASS fileInformationClass, void* enumerationBuffer, unsigned int enumerationBufferCapacityBytes);
     };
 }

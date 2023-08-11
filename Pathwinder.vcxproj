@@ -120,6 +120,7 @@
     <ClCompile Include="Source\ApiWindows.cpp" />
     <ClCompile Include="Source\ApiWindowsInternal.cpp" />
     <ClCompile Include="Source\Configuration.cpp" />
+    <ClCompile Include="Source\FileInformationStruct.cpp" />
     <ClCompile Include="Source\FilesystemDirector.cpp" />
     <ClCompile Include="Source\FilesystemDirectorBuilder.cpp" />
     <ClCompile Include="Source\FilesystemOperations.cpp" />
@@ -141,6 +142,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\BufferPool.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Configuration.h" />
     <ClInclude Include="Include\Pathwinder\Internal\DebugAssert.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\FileInformationStruct.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirector.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirectorBuilder.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemInstruction.h" />

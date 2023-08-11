@@ -10,25 +10,20 @@
  *   directory enumeration operations and maintaining all required state.
  *****************************************************************************/
 
+#include "ApiWindowsInternal.h"
 #include "BufferPool.h"
+#include "FileInformationStruct.h"
+#include "FilesystemOperations.h"
 #include "InProgressDirectoryEnumeration.h"
-#include "Hooks.h"
 #include "MutexWrapper.h"
+#include "Strings.h"
 #include "ValueOrError.h"
 
-#include <array>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
 #include <optional>
 #include <unordered_map>
-
-
-// -------- MACROS --------------------------------------------------------- //
-
-/// Produces a key-value pair definition for a file information class and the associatied structure's layout information.
-#define FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(structname) \
-    {structname::kFileInformationClass, FileInformationStructLayout(sizeof(structname), offsetof(structname, nextEntryOffset), offsetof(structname, fileNameLength), offsetof(structname, fileName))}
 
 
 namespace Pathwinder
@@ -48,87 +43,10 @@ namespace Pathwinder
     }
 
 
-    // -------- INTERNAL FUNCTIONS ----------------------------------------- //
-
-    /// Maintains a set of layout structures for the various supported file information classes for directory enumeration and returns a layout definition for a given file information class.
-    /// @param [in] fileInformationClass File information class whose structure layout is needed.
-    /// @return Layout information for the specified file information class, if the file information class is supported.
-    static std::optional<FileInformationStructLayout> LayoutForFileInformationClass(FILE_INFORMATION_CLASS fileInformationClass)
-    {
-        static const std::unordered_map<FILE_INFORMATION_CLASS, FileInformationStructLayout> kFileInformationStructureLayouts = {
-            FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(SFileDirectoryInformation),
-            FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(SFileFullDirectoryInformation),
-            FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(SFileBothDirectoryInformation),
-            FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(SFileNamesInformation),
-            FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(SFileIdBothDirInformation),
-            FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(SFileIdFullDirInformation),
-            FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(SFileIdGlobalTxDirInformation),
-            FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(SFileIdExtdDirInformation),
-            FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(SFileIdExtdBothDirInformation)
-        };
-
-        auto layoutIter = kFileInformationStructureLayouts.find(fileInformationClass);
-        DebugAssert(layoutIter != kFileInformationStructureLayouts.cend(), "Unsupported file information class.");
-        if (layoutIter == kFileInformationStructureLayouts.cend())
-            return std::nullopt;
-
-        return layoutIter->second;
-    }
-
-    /// Opens the specified directory for synchronous enumeration.
-    /// @param [in] absoluteDirectoryPath Absolute path to the directory to be opened, including Windows namespace prefix.
-    /// @return Handle for the directory file on success, Windows error code on failure.
-    static ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(std::wstring_view absoluteDirectoryPath)
-    {
-        HANDLE directoryHandle = nullptr;
-
-        UNICODE_STRING absoluteDirectoryPathSystemString = Strings::NtConvertStringViewToUnicodeString(absoluteDirectoryPath);
-        OBJECT_ATTRIBUTES absoluteDirectoryPathObjectAttributes{};
-        InitializeObjectAttributes(&absoluteDirectoryPathObjectAttributes, &absoluteDirectoryPathSystemString, 0, nullptr, nullptr);
-
-        IO_STATUS_BLOCK unusedStatusBlock{};
-
-        NTSTATUS openDirectoryForEnumerationResult = Hooks::ProtectedDependency::NtOpenFile::SafeInvoke(&directoryHandle, (FILE_LIST_DIRECTORY | SYNCHRONIZE), &absoluteDirectoryPathObjectAttributes, &unusedStatusBlock, (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), (FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT));
-        if (!(NT_SUCCESS(openDirectoryForEnumerationResult)))
-            return openDirectoryForEnumerationResult;
-
-        return directoryHandle;
-    }
-
-    /// Obtains information about the specified file by asking the system to enumerate.
-    /// @param [in] absoluteDirectoryPath Absolute path to the directory containing the file to be enumerated. Windows namespace prefix is not required.
-    /// @param [in] fileName Name of the file within the directory. Must not contain any wildcards or backslashes.
-    /// @param [in] fileInformationClass Type of information to obtain about the specified file.
-    /// @param [in] enumerationBuffer Buffer into which to write the information received about the file.
-    /// @param [in] enumerationBufferCapacityBytes Size of the destination buffer, in bytes.
-    /// @return Windows error code identifying the result of the operation.
-    NTSTATUS QuerySingleFileEnumerationInformation(std::wstring_view absoluteDirectoryPath, std::wstring_view fileName, FILE_INFORMATION_CLASS fileInformationClass, void* enumerationBuffer, unsigned int enumerationBufferCapacityBytes)
-    {
-        std::optional<TemporaryString> maybePrefixedAbsoluteDirectoryPath = std::nullopt;
-        if (false == Strings::PathHasWindowsNamespacePrefix(absoluteDirectoryPath))
-        {
-            maybePrefixedAbsoluteDirectoryPath = Strings::PathAddWindowsNamespacePrefix(absoluteDirectoryPath);
-            absoluteDirectoryPath = maybePrefixedAbsoluteDirectoryPath->AsStringView();
-        }
-
-        auto maybeDirectoryHandle = OpenDirectoryForEnumeration(absoluteDirectoryPath);
-        if (true == maybeDirectoryHandle.HasError())
-            return maybeDirectoryHandle.Error();
-
-        UNICODE_STRING fileNameSystemString = Strings::NtConvertStringViewToUnicodeString(fileName);
-        IO_STATUS_BLOCK unusedStatusBlock{};
-
-        NTSTATUS directoryEnumResult = Hooks::ProtectedDependency::NtQueryDirectoryFileEx::SafeInvoke(maybeDirectoryHandle.Value(), NULL, NULL, NULL, &unusedStatusBlock, enumerationBuffer, static_cast<ULONG>(enumerationBufferCapacityBytes), fileInformationClass, 0, &fileNameSystemString);
-        Hooks::ProtectedDependency::NtClose::SafeInvoke(maybeDirectoryHandle.Value());
-
-        return directoryEnumResult;
-    }
-
-
     // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
     // See "InProgressDirectoryEnumeration.h" for documentation.
 
-    EnumerationQueue::EnumerationQueue(std::wstring_view absoluteDirectoryPath, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view filePattern) : directoryHandle(NULL), fileInformationClass(fileInformationClass), fileInformationStructLayout(LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationBufferBytePosition(), enumerationStatus()
+    EnumerationQueue::EnumerationQueue(std::wstring_view absoluteDirectoryPath, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view filePattern) : directoryHandle(NULL), fileInformationClass(fileInformationClass), fileInformationStructLayout(FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationBufferBytePosition(), enumerationStatus()
     {
         if (FileInformationStructLayout() == fileInformationStructLayout)
         {
@@ -136,7 +54,7 @@ namespace Pathwinder
             return;
         }
         
-        auto maybeDirectoryHandle = OpenDirectoryForEnumeration(absoluteDirectoryPath);
+        auto maybeDirectoryHandle = FilesystemOperations::OpenDirectoryForEnumeration(absoluteDirectoryPath);
         if (true == maybeDirectoryHandle.HasError())
         {
             enumerationStatus = maybeDirectoryHandle.Error();
@@ -159,12 +77,12 @@ namespace Pathwinder
     EnumerationQueue::~EnumerationQueue(void)
     {
         if (NULL != directoryHandle)
-            Hooks::ProtectedDependency::NtClose::SafeInvoke(directoryHandle);
+            FilesystemOperations::CloseHandle(directoryHandle);
     }
 
     // --------
 
-    NameInsertionQueue::NameInsertionQueue(TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&& nameInsertionQueue, FILE_INFORMATION_CLASS fileInformationClass) : nameInsertionQueue(std::move(nameInsertionQueue)), nameInsertionQueuePosition(0), fileInformationClass(fileInformationClass), fileInformationStructLayout(LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationStatus()
+    NameInsertionQueue::NameInsertionQueue(TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&& nameInsertionQueue, FILE_INFORMATION_CLASS fileInformationClass) : nameInsertionQueue(std::move(nameInsertionQueue)), nameInsertionQueuePosition(0), fileInformationClass(fileInformationClass), fileInformationStructLayout(FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationStatus()
     {
         if (FileInformationStructLayout() == fileInformationStructLayout)
         {
@@ -181,30 +99,12 @@ namespace Pathwinder
 
     void EnumerationQueue::AdvanceQueueContentsInternal(ULONG queryFlags, std::wstring_view filePattern)
     {
-        UNICODE_STRING filePatternSystemString{};
-        UNICODE_STRING* filePatternSystemStringPtr = nullptr;
-
-        if (false == filePattern.empty())
-        {
-            filePatternSystemString = Strings::NtConvertStringViewToUnicodeString(filePattern);
-            filePatternSystemStringPtr = &filePatternSystemString;
-        }
-
-        IO_STATUS_BLOCK statusBlock{};
-
-        NTSTATUS directoryEnumerationResult = Hooks::ProtectedDependency::NtQueryDirectoryFileEx::SafeInvoke(directoryHandle, NULL, NULL, NULL, &statusBlock, enumerationBuffer.Data(), enumerationBuffer.Size(), fileInformationClass, queryFlags, filePatternSystemStringPtr);
+        NTSTATUS directoryEnumerationResult = FilesystemOperations::PartialEnumerateDirectoryContents(directoryHandle, fileInformationClass, enumerationBuffer.Data(), enumerationBuffer.Size(), queryFlags, filePattern);
         if (!(NT_SUCCESS(directoryEnumerationResult)))
         {
             // This failure block includes `STATUS_NO_MORE_FILES` in which case enumeration is complete.
             enumerationBufferBytePosition = kInvalidEnumerationBufferBytePosition;
             enumerationStatus = directoryEnumerationResult;
-        }
-        else if (statusBlock.Information < fileInformationStructLayout.BaseStructureSize())
-        {
-            // Not even one complete basic structure was written to the buffer.
-            // This is an unexpected condition and should not occur.
-            enumerationBufferBytePosition = kInvalidEnumerationBufferBytePosition;
-            enumerationStatus = NtStatus::kInternalError;
         }
         else
         {
@@ -216,6 +116,27 @@ namespace Pathwinder
 
     // --------
 
+    void NameInsertionQueue::AdvanceQueueContentsInternal(void)
+    {
+        const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion& nameInsertion = nameInsertionQueue[nameInsertionQueuePosition];
+
+        NTSTATUS nameInsertionQueryResult = FilesystemOperations::QuerySingleFileDirectoryInformation(nameInsertion.DirectoryInformationSourceDirectoryPart(), nameInsertion.DirectoryInformationSourceFilePart(), fileInformationClass, enumerationBuffer.Data(), enumerationBuffer.Size());
+        if (!(NT_SUCCESS(nameInsertionQueryResult)))
+            enumerationStatus = nameInsertionQueryResult;
+
+        fileInformationStructLayout.WriteFileName(enumerationBuffer.Data(), nameInsertion.FileNameToInsert(), enumerationBuffer.Size());
+        nameInsertionQueuePosition += 1;
+
+        if (nameInsertionQueuePosition == nameInsertionQueue.Size())
+            enumerationStatus = NtStatus::kNoMoreFiles;
+        else
+            enumerationStatus = NtStatus::kMoreEntries;
+    }
+
+
+    // -------- CONCRETE INSTANCE METHODS ---------------------------------- //
+    // See "InProgressDirectoryEnumeration.h" for documentation.
+
     unsigned int EnumerationQueue::CopyFront(void* dest, unsigned int capacityBytes)
     {
         const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
@@ -224,6 +145,13 @@ namespace Pathwinder
         std::memcpy(dest, enumerationEntry, static_cast<size_t>(numBytesToCopy));
 
         return numBytesToCopy;
+    }
+
+    // --------
+
+    NTSTATUS EnumerationQueue::EnumerationStatus(void) const
+    {
+        return enumerationStatus;
     }
 
     // --------
@@ -266,31 +194,19 @@ namespace Pathwinder
 
     // --------
 
-    void NameInsertionQueue::AdvanceQueueContentsInternal(void)
-    {
-        const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion& nameInsertion = nameInsertionQueue[nameInsertionQueuePosition];
-
-        NTSTATUS nameInsertionQueryResult = QuerySingleFileEnumerationInformation(nameInsertion.DirectoryInformationSourceDirectoryPart(), nameInsertion.DirectoryInformationSourceFilePart(), fileInformationClass, enumerationBuffer.Data(), enumerationBuffer.Size());
-        if (!(NT_SUCCESS(nameInsertionQueryResult)))
-            enumerationStatus = nameInsertionQueryResult;
-
-        fileInformationStructLayout.WriteFileName(enumerationBuffer.Data(), nameInsertion.FileNameToInsert(), enumerationBuffer.Size());
-        nameInsertionQueuePosition += 1;
-
-        if (nameInsertionQueuePosition == nameInsertionQueue.Size())
-            enumerationStatus = NtStatus::kNoMoreFiles;
-        else
-            enumerationStatus = NtStatus::kMoreEntries;
-    }
-
-    // --------
-
     unsigned int NameInsertionQueue::CopyFront(void* dest, unsigned int capacityBytes)
     {
         const unsigned int numBytesToCopy = std::min(SizeOfFront(), capacityBytes);
         std::memcpy(dest, enumerationBuffer.Data(), static_cast<size_t>(numBytesToCopy));
 
         return numBytesToCopy;
+    }
+
+    // --------
+
+    NTSTATUS NameInsertionQueue::EnumerationStatus(void) const
+    {
+        return enumerationStatus;
     }
 
     // --------

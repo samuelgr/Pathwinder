@@ -63,6 +63,9 @@
     <ClCompile Include="Source\InProgressDirectoryEnumeration.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\FileInformationStruct.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resources\Pathwinder.h">
@@ -135,6 +138,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\BufferPool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Pathwinder\Internal\FileInformationStruct.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -11,269 +11,60 @@
  *****************************************************************************/
 
 #include "ApiWindowsInternal.h"
-#include "BufferPool.h"
-#include "DebugAssert.h"
+#include "FileInformationStruct.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemRule.h"
-#include "Hooks.h"
-#include "Strings.h"
 #include "TemporaryBuffer.h"
-#include "ValueOrError.h"
-
-#include <algorithm>
-#include <cstdint>
-#include <cstring>
-#include <utility>
 
 #pragma once
 
 
 namespace Pathwinder
 {
-    /// Implements a byte-wise buffer for holding multiple file information structures without regard for their type or individual size.
-    /// Internally allocates and maintains a pool of fixed-size buffers, which can grow as needed.
-    class FileInformationStructBuffer
+    /// Interface for all queue types, each of which implements a single operation that is part of a larger directory enumeration.
+    /// Defines a queue-like interface that can be used to access the contained file information structures one at a time as they become available.
+    class ISingleOperationQueue
     {
     public:
-        // -------- CONSTANTS ---------------------------------------------- //
-
-        /// Size of each file information structure buffer, in bytes.
-        /// Maximum of 64kB can be supported, based on third-party observed behavior of the various directory enumeration system calls.
-        static constexpr unsigned int kBytesPerBuffer = 64 * 1024;
-
-        /// Number of buffers to allocate initially and each time the pool is exhausted and more are needed.
-        static constexpr unsigned int kBufferAllocationGranularity = 4;
-
-        /// Maximum number of buffers to hold in the pool.
-        /// If more buffers are needed beyond this number, for example due to a large number of parallel directory enumeration requests, then they will be deallocated instead of returned to the pool.
-        static constexpr unsigned int kBufferPoolSize = 64;
-
-
-    private:
-        // -------- CLASS VARIABLES ---------------------------------------- //
-
-        /// Manages the pool of backing buffers.
-        static inline BufferPool<kBytesPerBuffer, kBufferAllocationGranularity, kBufferPoolSize> bufferPool;
-
-
-        // -------- INSTANCE VARIABLES ------------------------------------- //
-
-        /// Pointer to the buffer space.
-        uint8_t* buffer;
-
-
-    public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
-
-        /// Default constructor.
-        inline FileInformationStructBuffer(void) : buffer(bufferPool.Allocate())
-        {
-            // Nothing to do here.
-        }
 
         /// Default destructor.
-        inline ~FileInformationStructBuffer(void)
-        {
-            if (nullptr != buffer)
-                bufferPool.Free(buffer);
-        }
-
-        /// Copy constructor. Should never be invoked.
-        FileInformationStructBuffer(const FileInformationStructBuffer& other) = delete;
-
-        /// Move constructor.
-        inline FileInformationStructBuffer(FileInformationStructBuffer&& other) : buffer(nullptr)
-        {
-            *this = std::move(other);
-        }
+        virtual ~ISingleOperationQueue(void) = default;
 
 
-        // -------- OPERATORS ---------------------------------------------- //
+        // -------- ABSTRACT INSTANCE METHODS ------------------------------ //
 
-        /// Move assignment operator.
-        inline FileInformationStructBuffer& operator=(FileInformationStructBuffer&& other)
-        {
-            std::swap(buffer, other.buffer);
-            return *this;
-        }
+        /// Copies the first file information structure from the queue to the specified location, up to the specified number of bytes.
+        /// @param [in] dest Pointer to the buffer location to receive the first file information structure.
+        /// @param [in] capacityBytes Maximum number of bytes to copy to the destination buffer.
+        /// @return Number of bytes copied. This will the capacity of the buffer or the size of the first file information structure in the queue, whichever is smaller in value.
+        virtual unsigned int CopyFront(void* dest, unsigned int capacityBytes) = 0;
 
-        /// Array indexing operator, constant version.
-        /// In debug builds this will check that the index is within bounds of the buffer capacity.
-        inline const uint8_t& operator[](unsigned int index) const
-        {
-            DebugAssert(index < Size(), "Index is out of bounds.");
-            return Data()[index];
-        }
+        /// Retrieves the status of the enumeration maintained by this object.
+        /// @return `STATUS_NO_MORE_FILES` if the enumeration is completed and there are no file information structures left, `STATUS_MORE_ENTRIES` if the enumeration is still in progress and more directory entries are available, or any other status code to indicate that some other error occurred while interacting with the system.
+        virtual NTSTATUS EnumerationStatus(void) const = 0;
 
-        /// Array indexing operator, mutable version.
-        /// In debug builds this will check that the index is within bounds of the buffer capacity.
-        inline uint8_t& operator[](unsigned int index)
-        {
-            DebugAssert(index < Size(), "Index is out of bounds.");
-            return Data()[index];
-        }
+        /// Retrieves the filename from the first file information structure in the queue.
+        /// @return Filename from the first file information structure, or an empty string if there are no file information structures available.
+        virtual std::wstring_view FileNameOfFront(void) const = 0;
 
+        /// Determines the size, in bytes, of the first file information structure in the queue.
+        /// Because file information structures contain varying-length filenames, even though the type of struct is the same the size may differ from instance to instance.
+        /// @return Size, in bytes, of the first file information structure, or 0 if there are no file information structures vailable.
+        virtual unsigned int SizeOfFront(void) const = 0;
 
-        // -------- INSTANCE METHODS --------------------------------------- //
+        /// Removes the first file information structure from the queue.
+        virtual void PopFront(void) = 0;
 
-        /// Retrieves a pointer to the buffer itself, constant version.
-        /// @return Pointer to the buffer.
-        inline const uint8_t* Data(void) const
-        {
-            return buffer;
-        }
-
-        /// Retrieves a pointer to the buffer itself, mutable version.
-        /// @return Pointer to the buffer.
-        inline uint8_t* Data(void)
-        {
-            return buffer;
-        }
-
-        /// Retrieves the size of the buffer, in bytes.
-        /// @return Size of the buffer, in bytes.
-        constexpr inline unsigned int Size(void) const
-        {
-            return kBytesPerBuffer;
-        }
-    };
-
-    /// Describes the layout of a file information structure for a given file information class.
-    /// Reads relevant fields and performs additional useful computations.
-    class FileInformationStructLayout
-    {
-    public:
-        // -------- TYPE DEFINITIONS --------------------------------------- //
-
-        /// Type used to represent the `nextEntryOffset` field of file information structures.
-        typedef ULONG TNextEntryOffset;
-
-        /// Type used to represent the `fileNameLength` field of file information structures.
-        typedef ULONG TFileNameLength;
-
-        /// Type used to represent the `fileName[1]` field of file information structures.
-        typedef WCHAR TFileNameChar;
-
-
-    private:
-        // -------- INSTANCE VARIABLES ------------------------------------- //
-
-        /// Base size of the entire structure, in bytes, without considering the variable length of the trailing filename field.
-        unsigned int structureBaseSizeBytes;
-
-        /// Byte offset of the `nextEntryOffset` field of the file information structure.
-        unsigned int offsetOfNextEntryOffset;
-
-        /// Byte offset of the `fileNameLength` field of the file information structure.
-        unsigned int offsetOfFileNameLength;
-
-        /// Byte offset of the `fileName[1]` field of the file information structure.
-        unsigned int offsetOfFileName;
-
-
-    public:
-        // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
-
-        /// Default constructor.
-        constexpr inline FileInformationStructLayout(void) : structureBaseSizeBytes(), offsetOfNextEntryOffset(), offsetOfFileNameLength(), offsetOfFileName()
-        {
-            // Nothing to do here.
-        }
-
-        /// Initialization constructor.
-        /// Requires values for most fields. This class is intended for internal use and is not generally intended to be invoked externally.
-        constexpr inline FileInformationStructLayout(unsigned int structureBaseSizeBytes, unsigned int offsetOfNextEntryOffset, unsigned int offsetOfFileNameLength, unsigned int offsetOfFileName) : structureBaseSizeBytes(structureBaseSizeBytes), offsetOfNextEntryOffset(offsetOfNextEntryOffset), offsetOfFileNameLength(offsetOfFileNameLength), offsetOfFileName(offsetOfFileName)
-        {
-            // Nothing to do here.
-        }
-
-
-        // -------- OPERATORS ---------------------------------------------- //
-
-        /// Equality check.
-        inline bool operator==(const FileInformationStructLayout& other) const = default;
-
-
-        // -------- INSTANCE METHODS --------------------------------------- //
-
-        /// Returns the base size of the file information structure whose layout is represented by this object.
-        /// @return Base structure size in bytes.
-        inline unsigned int BaseStructureSize(void) const
-        {
-            return structureBaseSizeBytes;
-        }
-
-        /// Generates and returns a pointer to the trailing filename field for the specified file information structure.
-        /// Performs no verification on the input pointer or data structure.
-        /// @param [in] fileInformationStruct Address of the first byte of the file information structure of interest.
-        /// @return Pointer to the file information structure's trailing `fileName[1]` field.
-        inline TFileNameChar* FileNamePointer(const void* fileInformationStruct) const
-        {
-            return reinterpret_cast<TFileNameChar*>(reinterpret_cast<size_t>(fileInformationStruct) + static_cast<size_t>(offsetOfFileName));
-        }
-
-        /// Reads the `nextEntryOffset` field from the specified file information structure.
-        /// Performs no verification on the input pointer or data structure.
-        /// @param [in] fileInformationStruct Address of the first byte of the file information structure of interest.
-        /// @return Value of the `nextEntryOffset` field of the file information structure.
-        inline TNextEntryOffset ReadNextEntryOffset(const void* fileInformationStruct) const
-        {
-            return *reinterpret_cast<TNextEntryOffset*>(reinterpret_cast<size_t>(fileInformationStruct) + static_cast<size_t>(offsetOfNextEntryOffset));
-        }
-
-        /// Reads the `fileNameLength` field from the specified file information structure.
-        /// Performs no verification on the input pointer or data structure.
-        /// @param [in] fileInformationStruct Address of the first byte of the file information structure of interest.
-        /// @return Value of the `fileNameLength` field of the file information structure.
-        inline TFileNameLength ReadFileNameLength(const void* fileInformationStruct) const
-        {
-            return *reinterpret_cast<TFileNameLength*>(reinterpret_cast<size_t>(fileInformationStruct) + static_cast<size_t>(offsetOfFileNameLength));
-        }
-
-        /// Converts the trailing `fileName` field from the specified file information structure into a string view.
-        /// Performs no verification on the input pointer or data structure.
-        /// @param [in] fileInformationStruct Address of the first byte of the file information structure of interest.
-        /// @return String view that can be used to read the trailing `fileName` field of the file information structure.
-        std::basic_string_view<TFileNameChar> ReadFileName(const void* fileInformationStruct) const
-        {
-            return std::wstring_view(FileNamePointer(fileInformationStruct), (ReadFileNameLength(fileInformationStruct) / sizeof(TFileNameChar)));
-        }
-
-        /// Computes the size, in bytes, of the specified file information structure including its trailing filename field.
-        /// Performs no verification on the input pointer or data structure.
-        /// @param [in] fileInformationStruct Address of the first byte of the file information structure of interest.
-        /// @return Size, in bytes, of the specified file information structure.
-        inline unsigned int SizeOfStruct(const void* fileInformationStruct) const
-        {
-            return std::max(structureBaseSizeBytes, offsetOfFileName + static_cast<unsigned int>(ReadFileNameLength(fileInformationStruct)));
-        }
-
-        /// Writes the `fileNameLength` field for the specified file information structure.
-        /// Performs no verification on the input pointer or data structure.
-        /// @param [in, out] fileInformationStruct Address of the first byte of the file information structure of interest.
-        /// @param [in] newFileNameLength New value to be written to the `fileNameLength` field.
-        inline void WriteFileNameLength(void* fileInformationStruct, TFileNameLength newFileNameLength) const
-        {
-            *(reinterpret_cast<TFileNameLength*>(reinterpret_cast<size_t>(fileInformationStruct) + static_cast<size_t>(offsetOfFileNameLength))) = newFileNameLength;
-        }
-
-        /// Writes the trailing `fileName` field for the specified file information structure.
-        /// Performs no verification on the input pointer or data structure.
-        /// @param [in, out] fileInformationStruct Address of the first byte of the file information structure of interest.
-        /// @param [in] newFileName New value to be written to the trailing `fileName` field.
-        /// @param [in] bufferCapacityBytes Total capacity of the buffer in which the file information structure itself is located, including the amount of space already occupied by the file information structure.
-        inline void WriteFileName(void* fileInformationStruct, std::basic_string_view<TFileNameChar> newFileName, unsigned int bufferCapacityBytes)
-        {
-            const unsigned int numBytesToWrite = std::min((bufferCapacityBytes - offsetOfFileName), static_cast<unsigned int>(newFileName.length() * sizeof(TFileNameChar)));
-
-            std::memcpy(FileNamePointer(fileInformationStruct), newFileName.data(), numBytesToWrite);
-            WriteFileNameLength(fileInformationStruct, numBytesToWrite);
-        }
+        /// Causes the enumeration to be restarted from the beginning.
+        virtual void Restart(void) = 0;
     };
 
     /// Holds state and supports enumeration of a single directory within the context of a larger directory enumeration operation.
+    /// Provides a queue-like interface whereby the entire enumerated contents of the single directory can be accessed one file information structure at a time.
+    /// Fetches up to a single #FileInformationStructBuffer worth of file information structures from the system at any given time, and automatically fetches the next batch once the current batch has already been fully popped from the queue.
     /// Not concurrency-safe. Methods should be invoked under external concurrency control, if needed.
-    class EnumerationQueue
+    class EnumerationQueue : public ISingleOperationQueue
     {
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
@@ -313,7 +104,7 @@ namespace Pathwinder
         EnumerationQueue(EnumerationQueue&& other);
 
         /// Default destructor.
-        ~EnumerationQueue(void);
+        ~EnumerationQueue(void) override;
 
 
     private:
@@ -328,38 +119,21 @@ namespace Pathwinder
 
 
     public:
-        /// Copies the first file information structure from the queue to the specified location, up to the specified number of bytes.
-        /// @param [in] dest Pointer to the buffer location to receive the first file information structure.
-        /// @param [in] capacityBytes Maximum number of bytes to copy to the destination buffer.
-        /// @return Number of bytes copied. This will the capacity of the buffer or the size of the first file information structure in the queue, whichever is smaller in value.
-        unsigned int CopyFront(void* dest, unsigned int capacityBytes);
+        // -------- CONCRETE INSTANCE METHODS ------------------------------ //
+        // See above for documentation.
 
-        /// Retrieves the status of the enumeration maintained by this object.
-        /// @return `STATUS_NO_MORE_FILES` if the enumeration is completed and there are no file information structures left, `STATUS_MORE_ENTRIES` if the enumeration is still in progress and more directory entries are available, or any other status code to indicate that some other error occurred while interacting with the system.
-        inline NTSTATUS EnumerationStatus(void) const
-        {
-            return enumerationStatus;
-        }
-
-        /// Retrieves the filename from the first file information structure in the queue.
-        /// @return Filename from the first file information structure, or an empty string if there are no file information structures available.
-        std::wstring_view FileNameOfFront(void) const;
-
-        /// Determines the size, in bytes, of the first file information structure in the queue.
-        /// Because file information structures contain varying-length filenames, even though the type of struct is the same the size may differ from instance to instance.
-        /// @return Size, in bytes, of the first file information structure, or 0 if there are no file information structures vailable.
-        unsigned int SizeOfFront(void) const;
-
-        /// Removes the first file information structure from the queue.
-        void PopFront(void);
-
-        /// Causes the enumeration to be restarted from the beginning.
-        void Restart(void);
+        unsigned int CopyFront(void* dest, unsigned int capacityBytes) override;
+        NTSTATUS EnumerationStatus(void) const override;
+        std::wstring_view FileNameOfFront(void) const override;
+        unsigned int SizeOfFront(void) const override;
+        void PopFront(void) override;
+        void Restart(void) override;
     };
 
     /// Holds state and supports insertion of directory names into the output of a larger directory enumeration operation.
+    /// Requires an externally-supplied ordered list of name insertion instructions, which are offered as file information structures one at a time using a queue-like interface.
     /// Not concurrency-safe. Methods should be invoked under external concurrency control, if needed.
-    class NameInsertionQueue
+    class NameInsertionQueue : public ISingleOperationQueue
     {
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
@@ -406,36 +180,22 @@ namespace Pathwinder
 
 
     public:
-        /// Copies the first file information structure from the queue to the specified location, up to the specified number of bytes.
-        /// @param [in] dest Pointer to the buffer location to receive the first file information structure.
-        /// @param [in] capacityBytes Maximum number of bytes to copy to the destination buffer.
-        /// @return Number of bytes copied. This will the capacity of the buffer or the size of the first file information structure in the queue, whichever is smaller in value.
-        unsigned int CopyFront(void* dest, unsigned int capacityBytes);
+        // -------- CONCRETE INSTANCE METHODS ------------------------------ //
+        // See above for documentation.
 
-        /// Retrieves the status of the enumeration maintained by this object.
-        /// @return `STATUS_NO_MORE_FILES` if the enumeration is completed and there are no file information structures left, `STATUS_MORE_ENTRIES` if the enumeration is still in progress and more directory entries are available, or any other status code to indicate that some other error occurred while interacting with the system.
-        inline NTSTATUS EnumerationStatus(void) const
-        {
-            return enumerationStatus;
-        }
-
-        /// Retrieves the filename from the first file information structure in the queue.
-        /// @return Filename from the first file information structure, or an empty string if there are no file information structures available.
-        std::wstring_view FileNameOfFront(void) const;
-
-        /// Determines the size, in bytes, of the first file information structure in the queue.
-        /// Because file information structures contain varying-length filenames, even though the type of struct is the same the size may differ from instance to instance.
-        /// @return Size, in bytes, of the first file information structure, or 0 if there are no file information structures vailable.
-        unsigned int SizeOfFront(void) const;
-
-        /// Removes the first file information structure from the queue.
-        void PopFront(void);
-
-        /// Causes the enumeration to be restarted from the beginning.
-        void Restart(void);
+        unsigned int CopyFront(void* dest, unsigned int capacityBytes) override;
+        NTSTATUS EnumerationStatus(void) const override;
+        std::wstring_view FileNameOfFront(void) const override;
+        unsigned int SizeOfFront(void) const override;
+        void PopFront(void) override;
+        void Restart(void) override;
     };
 
     /// Contains all of the state necessary to represent a directory enumeration operation being executed according to a directory enumeration instruction.
+    /// A directory enumeration instruction can specify that one or more real directories be enumerated and that a specific set of filenames additionally be inserted into the overall directory enumeration results.
+    /// Objects of this class maintain multiple directory enumeration queues, one or more for real directory enumeration and one for filename insertion, and merges them into a single stream of file informaiton structures using a queue-like interface.
+    /// It is assumed that the individual directory enumeration queues offer file information structures in case-insensitive alphabetical order by filename, and hence the merge occurs on this basis.
+    /// However, it is not detrimental to the correctness of the overall directory enumeration operation if the incoming queues do not provide file information structures in sorted order, this will just mean that the single outgoing stream is also not completely sorted.
     /// Not concurrency-safe. Methods should be invoked under external concurrency control, if needed.
     class DirectoryEnumerationContext
     {
