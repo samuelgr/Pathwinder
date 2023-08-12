@@ -26,15 +26,14 @@ namespace PathwinderTest
 
     // -------- INTERNAL FUNCTIONS ----------------------------------------- //
 
-    /// Converts a structure size, in bytes, to a wide-character index for the last wide character in a trailing `fileName` field.
-    /// Assumes that all structure sizes are evenly divisible by the size of a wide character.
-    /// Works only when the trailing `fileName` field is actually large enough to extend the size of the structure beyond its base size.
-    /// To read the wide character at the returned index, treat the entire structure as an array of wide characters and then access the array at that index.
-    /// @param [in] structSizeInBytes Structure size in bytes, including the trailing `fileName` field.
-    /// @return Index of the last wide character in a trailing `fileName` field, relative to the start address of the structure.
-    static constexpr unsigned int StructSizeToLastWideCharacterIndex(unsigned int structSizeInBytes)
+    /// Allocates and initializes the contents of a file information structure buffer object for use in test cases.
+    /// Initialization simply involves writing 0 to the entire buffer.
+    /// @return Newly-initialized file information structure buffer.
+    static inline FileInformationStructBuffer InitializeFileInformationStructBuffer(void)
     {
-        return (structSizeInBytes / sizeof(wchar_t)) - 1;
+        FileInformationStructBuffer buffer;
+        std::memset(buffer.Data(), 0, static_cast<size_t>(buffer.Size()));
+        return buffer;
     }
 
     /// Reads and returns the last wide character in a trailing `fileName` field from a file information struct whose size in bytes is known.
@@ -45,17 +44,8 @@ namespace PathwinderTest
     /// @return Last wide character in the trailing `fileName` field of the file information structure.
     static inline wchar_t LastWideCharacterInFileName(const void* fileInformationStruct, unsigned int structSizeInBytes)
     {
-        return (reinterpret_cast<const wchar_t*>(fileInformationStruct))[StructSizeToLastWideCharacterIndex(structSizeInBytes)];
-    }
-
-    /// Allocates and initializes the contents of a file information structure buffer object for use in test cases.
-    /// Initialization simply involves writing 0 to the entire buffer.
-    /// @return Newly-initialized file information structure buffer.
-    static inline FileInformationStructBuffer InitializeFileInformationStructBuffer(void)
-    {
-        FileInformationStructBuffer buffer;
-        std::memset(buffer.Data(), 0, static_cast<size_t>(buffer.Size()));
-        return buffer;
+        const unsigned int lastWideCharacterIndex = (structSizeInBytes / sizeof(wchar_t)) - 1;
+        return (reinterpret_cast<const wchar_t*>(fileInformationStruct))[lastWideCharacterIndex];
     }
 
 
@@ -224,11 +214,17 @@ namespace PathwinderTest
         auto testStructBuffer = InitializeFileInformationStructBuffer();
         auto testStruct = reinterpret_cast<FileInformationStructType*>(testStructBuffer.Data());
 
+        // A freshly-initialized file information structure's size should be equal to the structure's base size.
         FileInformationStructLayout testStructLayout = FileInformationStructLayout::LayoutForFileInformationClass(testFileInformationClass).value();
+        TEST_ASSERT(sizeof(FileInformationStructType) == testStructLayout.SizeOfStruct(testStruct));
 
+        // If the filename fits into the space already allocated in the structure itself then the structure's size should be equal to the structure's base size.
+        testStruct->fileNameLength = _countof(FileInformationStructType::fileName);
+        TEST_ASSERT(sizeof(FileInformationStructType) == testStructLayout.SizeOfStruct(testStruct));
+
+        // If the filename extends beyond the structure's base size then the size of the structure should exactly lead to the last character in the filename field.
         std::wmemcpy(testStructLayout.FileNamePointer(testStruct), testValue.data(), testValue.length());
         testStruct->fileNameLength = static_cast<ULONG>(testValue.length() * sizeof(testValue[0]));
-
         TEST_ASSERT(LastWideCharacterInFileName(testStruct, testStructLayout.SizeOfStruct(testStruct)) == testValue.back());
     }
     TEST_CASE(FileInformationStructLayout_SizeOfStruct)

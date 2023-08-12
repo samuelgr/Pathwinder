@@ -218,6 +218,14 @@ namespace Pathwinder
             return reinterpret_cast<TFileNameChar*>(reinterpret_cast<size_t>(fileInformationStruct) + static_cast<size_t>(offsetOfFileName));
         }
 
+        /// Computes the hypothetical size, in bytes, of a file information structure if its trailing filename field had the specified length.
+        /// @param [in] fileNameLengthBytes Hypothetical length of the trailing filename field, in bytes.
+        /// @return Hypothetical size, in bytes, of a file information structure.
+        inline unsigned int HypotheticalSizeForFileNameLength(unsigned int fileNameLengthBytes) const
+        {
+            return std::max(structureBaseSizeBytes, offsetOfFileName + fileNameLengthBytes);
+        }
+
         /// Reads the `nextEntryOffset` field from the specified file information structure.
         /// Performs no verification on the input pointer or data structure.
         /// @param [in] fileInformationStruct Address of the first byte of the file information structure of interest.
@@ -251,7 +259,7 @@ namespace Pathwinder
         /// @return Size, in bytes, of the specified file information structure.
         inline unsigned int SizeOfStruct(const void* fileInformationStruct) const
         {
-            return std::max(structureBaseSizeBytes, offsetOfFileName + static_cast<unsigned int>(ReadFileNameLength(fileInformationStruct)));
+            return HypotheticalSizeForFileNameLength(static_cast<unsigned int>(ReadFileNameLength(fileInformationStruct)));
         }
 
         /// Updates the `nextEntryOffset` field for the specified file information structure using the known size of that structure.
