@@ -204,6 +204,7 @@ namespace PathwinderTest
         const unsigned int maxElementsToWrite = ((queryFlags & Pathwinder::QueryFlag::kReturnSingleEntry) ? 1 : std::numeric_limits<unsigned int>::max());
         unsigned int numElementsWritten = 0;
         unsigned int bufferBytePosition = 0;
+        void* lastElementWritten = nullptr;
         
         // Taking references to these iterators ensures they can be updated automatically each iteration of the loop that does the enumeration itself.
         auto& nextItemIterator = directoryEnumerationStateIter->second.nextItemIterator;
@@ -221,7 +222,7 @@ namespace PathwinderTest
             const unsigned int currentBufferCapacity = enumerationBufferCapacityBytes - bufferBytePosition;
 
             unsigned int bytesNeededForCurrentElement = fileInformationStructLayout.HypotheticalSizeForFileNameLength(static_cast<unsigned int>(currentFileName.length() * sizeof(currentFileName[0])));
-            if (bytesNeededForCurrentElement < currentBufferCapacity)
+            if (bytesNeededForCurrentElement > currentBufferCapacity)
             {
                 // Buffer overflow would occur if another element were written.
                 // If no structures were written, then this is an error condition, and a corresponding code needs to be returned.
@@ -237,12 +238,14 @@ namespace PathwinderTest
 
             numElementsWritten += 1;
             bufferBytePosition += bytesNeededForCurrentElement;
+            lastElementWritten = currentBuffer;
         }
 
         // If at the end of the enumeration loop there were no files enumerated then the reason is that no files were found to be enumerated.
         if (0 == numElementsWritten)
             return Pathwinder::NtStatus::kNoMoreFiles;
 
+        fileInformationStructLayout.ClearNextEntryOffset(lastElementWritten);
         return Pathwinder::NtStatus::kSuccess;
     }
 
@@ -257,11 +260,11 @@ namespace PathwinderTest
 
         const auto directoryContentsIter = filesystemContents.find(absoluteDirectoryPath);
         if (filesystemContents.cend() == directoryContentsIter)
-            TEST_FAILED_BECAUSE(L"%s: Attempting to query for single-file directory information for a file in a directory that does not exist.", __FUNCTIONW__);
+            return Pathwinder::NtStatus::kObjectNameNotFound;
         const auto& directoryContents = directoryContentsIter->second;
 
         if (directoryContents.cend() == directoryContents.find(fileName))
-            TEST_FAILED_BECAUSE(L"%s: Attempting to query for single-file directory information for a file that does not exist.", __FUNCTIONW__);
+            return Pathwinder::NtStatus::kObjectNameNotFound;
 
         // For testing purposes, it is sufficient to fill the entire file information structure space with a fake value and then overwrite the relevant fields.
         unsigned int bytesNeeded = fileInformationStructLayout.HypotheticalSizeForFileNameLength(static_cast<unsigned int>(fileName.length() * sizeof(fileName[0])));

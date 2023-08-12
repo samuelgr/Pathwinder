@@ -5,7 +5,7 @@
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
  *************************************************************************//**
- * @file FileInformationStruct.cpp
+ * @file FileInformationStructTest.cpp
  *   Unit tests for all functionality related to manipulating file
  *   information structures used by Windows system calls.
  *****************************************************************************/
@@ -98,6 +98,31 @@ namespace PathwinderTest
             const unsigned int actualOutput = maybeLayout->BaseStructureSize();
             TEST_ASSERT(actualOutput == expectedOutput);
         }
+    }
+
+    // Verifies that the next entry offset field can be correctly cleared.
+    template <typename FileInformationStructType> static void TestCaseBodyClearNextEntryOffset(void)
+    {
+        constexpr FILE_INFORMATION_CLASS testFileInformationClass = FileInformationStructType::kFileInformationClass;
+
+        FileInformationStructType testStruct{};
+        std::memset(&testStruct, 0xff, sizeof(testStruct));
+
+        FileInformationStructLayout testStructLayout = FileInformationStructLayout::LayoutForFileInformationClass(testFileInformationClass).value();
+        testStructLayout.ClearNextEntryOffset(&testStruct);
+        TEST_ASSERT(0 == testStruct.nextEntryOffset);
+    }
+    TEST_CASE(FileInformationStructLayout_ClearNextEntryOffset)
+    {
+        TestCaseBodyClearNextEntryOffset<SFileDirectoryInformation>();
+        TestCaseBodyClearNextEntryOffset<SFileFullDirectoryInformation>();
+        TestCaseBodyClearNextEntryOffset<SFileBothDirectoryInformation>();
+        TestCaseBodyClearNextEntryOffset<SFileNamesInformation>();
+        TestCaseBodyClearNextEntryOffset<SFileIdBothDirectoryInformation>();
+        TestCaseBodyClearNextEntryOffset<SFileIdFullDirectoryInformation>();
+        TestCaseBodyClearNextEntryOffset<SFileIdGlobalTxDirectoryInformation>();
+        TestCaseBodyClearNextEntryOffset<SFileIdExtdDirectoryInformation>();
+        TestCaseBodyClearNextEntryOffset<SFileIdExtdBothDirectoryInformation>();
     }
 
     // Verifies that file name pointers are reported correctly.

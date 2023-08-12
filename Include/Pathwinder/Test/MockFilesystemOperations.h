@@ -93,6 +93,12 @@ namespace PathwinderTest
         /// Default constructor.
         MockFilesystemOperations(void);
 
+        /// Copy constructor. Should never be invoked.
+        MockFilesystemOperations(const MockFilesystemOperations& other) = delete;
+
+        /// Move constructor.
+        MockFilesystemOperations(MockFilesystemOperations&& other) = default;
+
 
     private:
         // -------- INSTANCE METHODS --------------------------------------- //

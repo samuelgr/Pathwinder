@@ -209,6 +209,15 @@ namespace Pathwinder
             return structureBaseSizeBytes;
         }
 
+        /// Sets the `nextEntryOffset` field to 0 for the specified file information structure.
+        /// This is useful for file information structures that are the last in a buffer of contiguous file information structures.
+        /// Performs no verification on the input pointer or data structure.
+        /// @param [in, out] fileInformationStruct Address of the first byte of the file information structure of interest.
+        inline void ClearNextEntryOffset(void* fileInformationStruct) const
+        {
+            *(reinterpret_cast<TNextEntryOffset*>(reinterpret_cast<size_t>(fileInformationStruct) + static_cast<size_t>(offsetOfNextEntryOffset))) = 0;
+        }
+
         /// Generates and returns a pointer to the trailing filename field for the specified file information structure.
         /// Performs no verification on the input pointer or data structure.
         /// @param [in] fileInformationStruct Address of the first byte of the file information structure of interest.
