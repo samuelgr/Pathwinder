@@ -18,6 +18,7 @@
 #include "Strings.h"
 #include "ValueOrError.h"
 
+#include <map>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -43,18 +44,28 @@ namespace PathwinderTest
         /// This forms the "value" part of a key-value store representing a filesystem, so the name is not necessary here. Rather, it is the "key" part.
         struct SFilesystemEntity
         {
-            EFilesystemEntityType type;
-            unsigned int sizeInBytes;
+            EFilesystemEntityType type;                                     ///< Type of filesystem entity represented. One of the enumerators.
+            unsigned int sizeInBytes;                                       ///< Size, in bytes, of the mock filesystem entity.
         };
 
         /// Type alias for the contents of an individual directory.
         /// Key is a filename and value is the file's metadata.
-        typedef std::unordered_map <std::wstring, SFilesystemEntity, Pathwinder::Strings::CaseInsensitiveHasher<wchar_t>, Pathwinder::Strings::CaseInsensitiveEqualityComparator<wchar_t>> TDirectoryContents;
+        /// Sorting is required for this type because directory enumeration operations typically produce data in case-insensitive sorted order by filename.
+        typedef std::map <std::wstring, SFilesystemEntity, Pathwinder::Strings::CaseInsensitiveLessThanComparator<wchar_t>> TDirectoryContents;
 
         /// Type alias for the contents of an entire mock filesystem.
         /// Key is a directory name and value is the directory's contents.
         /// This is a single-level data structure whereby all directories of arbitrary depth in the hierarchy are represented by name in this data structure.
         typedef std::unordered_map<std::wstring, TDirectoryContents, Pathwinder::Strings::CaseInsensitiveHasher<wchar_t>, Pathwinder::Strings::CaseInsensitiveEqualityComparator<wchar_t>> TFilesystemContents;
+
+        /// Represents the state of an in-progress mock directory enumeration.
+        struct SDirectoryEnumerationState
+        {
+            std::wstring filePattern;                                       ///< File pattern provided at the start of the directory enumeration operation. Used to filter filenames that are enumerated.
+            TDirectoryContents::const_iterator nextItemIterator;            ///< Iterator for the next item to enumerate.
+            TDirectoryContents::const_iterator beginIterator;               ///< Iterator that represents the first item in the directory contents.
+            TDirectoryContents::const_iterator endIterator;                 ///< Iterator that represents the one-past-the-end item in the directory contents.
+        };
 
 
         // -------- INSTANCE VARIABLES ------------------------------------- //
@@ -63,7 +74,27 @@ namespace PathwinderTest
         /// Top-level map key is an absolute directory name and value is a set of directory contents.
         TFilesystemContents filesystemContents;
 
+        /// Open file handles for directories.
+        /// Maps from handle to directory full path.
+        std::unordered_map<HANDLE, std::wstring_view> openDirectoryHandles;
 
+        /// In-progress directory enumerations.
+        /// Maps from handle to directory enumeration state.
+        std::unordered_map<HANDLE, SDirectoryEnumerationState> inProgressDirectoryEnumerations;
+
+        /// Next handle value to use when opening a directory handle.
+        /// Used to ensure handle values are all locally unique. The actual value is opaque.
+        size_t nextHandleValue;
+
+
+    public:
+        // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
+
+        /// Default constructor.
+        MockFilesystemOperations(void);
+
+
+    private:
         // -------- INSTANCE METHODS --------------------------------------- //
 
         /// Inserts a filesystem entity and all of its parent directories into the fake filesystem.

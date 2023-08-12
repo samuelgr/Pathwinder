@@ -285,7 +285,7 @@ namespace Pathwinder
         /// @param [in, out] fileInformationStruct Address of the first byte of the file information structure of interest.
         /// @param [in] newFileName New value to be written to the trailing `fileName` field.
         /// @param [in] bufferCapacityBytes Total capacity of the buffer in which the file information structure itself is located, including the amount of space already occupied by the file information structure.
-        inline void WriteFileName(void* fileInformationStruct, std::basic_string_view<TFileNameChar> newFileName, unsigned int bufferCapacityBytes)
+        inline void WriteFileName(void* fileInformationStruct, std::basic_string_view<TFileNameChar> newFileName, unsigned int bufferCapacityBytes) const
         {
             const unsigned int numBytesToWrite = std::min((bufferCapacityBytes - offsetOfFileName), static_cast<unsigned int>(newFileName.length() * sizeof(TFileNameChar)));
 

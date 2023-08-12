@@ -10,11 +10,15 @@
  *   for testing.
  *****************************************************************************/
 
-#include "ApiWindows.h"
+#include "ApiWindowsInternal.h"
+#include "FileInformationStruct.h"
 #include "MockFilesystemOperations.h"
+#include "Strings.h"
 #include "ValueOrError.h"
 
+#include <cstring>
 #include <cwctype>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -22,6 +26,35 @@
 
 namespace PathwinderTest
 {
+    // -------- INTERNAL FUNCTIONS ------------------------------------- //
+
+    /// Determines if the specified filename matches the specified file pattern. An empty file pattern is presumed to match everything.
+    /// Input filename must not contain any backslash separators, as it is intended to represent a file within a directory rather than a path.
+    /// Input file pattern must be in upper-case.
+    /// @param [in] fileName Filename to check.
+    /// @param [in] filePatternUpperCase File pattern to be used for comparison with the file name.
+    /// @return `true` if the file name matches the supplied pattern or if it is entirely empty, `false` otherwise.
+    static bool FileNameMatchesPattern(std::wstring_view fileName, std::wstring_view filePatternUpperCase)
+    {
+        if (true == filePatternUpperCase.empty())
+            return true;
+
+        UNICODE_STRING fileNameString = Pathwinder::Strings::NtConvertStringViewToUnicodeString(fileName);
+        UNICODE_STRING filePatternString = Pathwinder::Strings::NtConvertStringViewToUnicodeString(filePatternUpperCase);
+
+        return (TRUE == Pathwinder::WindowsInternal::RtlIsNameInExpression(&filePatternString, &fileNameString, TRUE, nullptr));
+    }
+
+
+    // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
+    // See "MockFilesystemOperations.h" for documentation.
+
+    MockFilesystemOperations::MockFilesystemOperations(void) : filesystemContents(), openDirectoryHandles(), inProgressDirectoryEnumerations(), nextHandleValue(1000)
+    {
+        // Nothing to do here.
+    }
+
+
     // -------- INSTANCE METHODS --------------------------------------- //
     // See "MockFilesystemOperations.h" for documentation.
 
@@ -34,18 +67,13 @@ namespace PathwinderTest
         switch (type)
         {
         case EFilesystemEntityType::File:
-            do {
-                if (std::wstring_view::npos == lastBackslashIndex)
-                    TEST_FAILED_BECAUSE(L"%s: Missing '\\' in absolute path \"%.*s\" when adding a file to a fake filesystem.", __FUNCTIONW__, static_cast<int>(absolutePath.length()), absolutePath.data());
-            } while (false);
+            if (std::wstring_view::npos == lastBackslashIndex)
+                TEST_FAILED_BECAUSE(L"%s: Missing '\\' in absolute path \"%.*s\" when adding a file to a fake filesystem.", __FUNCTIONW__, static_cast<int>(absolutePath.length()), absolutePath.data());
             break;
 
         case EFilesystemEntityType::Directory:
-            do {
-                auto directoryIter = filesystemContents.find(currentPathView);
-                if (filesystemContents.end() == directoryIter)
-                    directoryIter = filesystemContents.insert({std::wstring(currentPathView), TDirectoryContents()}).first;
-            } while (false);
+            if (false == filesystemContents.contains(currentPathView))
+                filesystemContents.emplace(std::wstring(currentPathView), TDirectoryContents());
             break;
 
         default:
@@ -79,7 +107,11 @@ namespace PathwinderTest
 
     void MockFilesystemOperations::CloseHandle(HANDLE handle)
     {
-        TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
+        const auto directoryHandleIter = openDirectoryHandles.find(handle);
+        if (openDirectoryHandles.cend() == directoryHandleIter)
+            TEST_FAILED_BECAUSE(L"%s: Attempting to close a handle that is not open.", __FUNCTIONW__);
+
+        openDirectoryHandles.erase(directoryHandleIter);
     }
 
     // --------
@@ -118,21 +150,128 @@ namespace PathwinderTest
 
     Pathwinder::ValueOrError<HANDLE, NTSTATUS> MockFilesystemOperations::OpenDirectoryForEnumeration(std::wstring_view absoluteDirectoryPath)
     {
-        TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
+        const auto directoryIter = filesystemContents.find(absoluteDirectoryPath);
+        if (filesystemContents.cend() == directoryIter)
+            return Pathwinder::NtStatus::kObjectNameNotFound;
+
+        const HANDLE handleValue = reinterpret_cast<HANDLE>(nextHandleValue++);
+        const bool insertWasSuccessful = openDirectoryHandles.emplace(handleValue, std::wstring_view(directoryIter->first)).second;
+
+        if (false == insertWasSuccessful)
+            TEST_FAILED_BECAUSE("%s: Internal implementation error due to failure to insert a handle value that is expected to be unique.", __FUNCTIONW__);
+
+        return handleValue;
     }
 
     // --------
 
     NTSTATUS MockFilesystemOperations::PartialEnumerateDirectoryContents(HANDLE directoryHandle, FILE_INFORMATION_CLASS fileInformationClass, void* enumerationBuffer, unsigned int enumerationBufferCapacityBytes, ULONG queryFlags, std::wstring_view filePattern)
     {
-        TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
+        const auto maybeFileInformationStructLayout = Pathwinder::FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass);
+        if (false == maybeFileInformationStructLayout.has_value())
+            TEST_FAILED_BECAUSE(L"%s: Attempting to enumerate a directory using unsupported file information class %zu.", __FUNCTIONW__, static_cast<size_t>(fileInformationClass));
+        const auto& fileInformationStructLayout = *maybeFileInformationStructLayout;
+
+        auto directoryEnumerationStateIter = inProgressDirectoryEnumerations.find(directoryHandle);
+        if (inProgressDirectoryEnumerations.cend() == directoryEnumerationStateIter)
+        {
+            const auto directoryHandleIter = openDirectoryHandles.find(directoryHandle);
+            if (openDirectoryHandles.cend() == directoryHandleIter)
+                TEST_FAILED_BECAUSE(L"%s: Attempting to enumerate a directory using invalid directory handle %zu.", __FUNCTIONW__, reinterpret_cast<size_t>(directoryHandle));
+            std::wstring_view directoryToEnumerate = directoryHandleIter->second;
+
+            const auto directoryContentsIter = filesystemContents.find(directoryToEnumerate);
+            if (filesystemContents.cend() == directoryContentsIter)
+                TEST_FAILED_BECAUSE(L"%s: Internal implementation error due to failure to locate the directory contents for \"%.*s\" even though a valid open handle exists for it.", __FUNCTIONW__, static_cast<int>(directoryToEnumerate.length()), directoryToEnumerate.data());
+            const auto& directoryContents = directoryContentsIter->second;
+
+            std::wstring filePatternString(filePattern);
+            for (size_t i = 0; i < filePatternString.size(); ++i)
+                filePatternString[i] = std::towupper(filePattern[i]);
+            
+            auto createDirectoryEnumerationStateResult = inProgressDirectoryEnumerations.emplace(directoryHandle, SDirectoryEnumerationState{.filePattern = std::move(filePatternString), .nextItemIterator = directoryContents.cbegin(), .beginIterator = directoryContents.cbegin(), .endIterator = directoryContents.cend()});
+            if (false == createDirectoryEnumerationStateResult.second)
+                TEST_FAILED_BECAUSE("%s: Internal implementation error due to failure to create a new directory enumeration state object.", __FUNCTIONW__);
+
+            directoryEnumerationStateIter = createDirectoryEnumerationStateResult.first;
+        }
+
+        // Restarting a scan just means resetting the next item to be enumerated.
+        // Other aspects of the enumeration state are not affected by this query flag.
+        if (queryFlags & Pathwinder::QueryFlag::kRestartScan)
+            directoryEnumerationStateIter->second.nextItemIterator = directoryEnumerationStateIter->second.beginIterator;
+
+        const unsigned int maxElementsToWrite = ((queryFlags & Pathwinder::QueryFlag::kReturnSingleEntry) ? 1 : std::numeric_limits<unsigned int>::max());
+        unsigned int numElementsWritten = 0;
+        unsigned int bufferBytePosition = 0;
+        
+        // Taking references to these iterators ensures they can be updated automatically each iteration of the loop that does the enumeration itself.
+        auto& nextItemIterator = directoryEnumerationStateIter->second.nextItemIterator;
+        const auto& endIterator = directoryEnumerationStateIter->second.endIterator;
+        
+        std::wstring_view enumerationFilePattern = directoryEnumerationStateIter->second.filePattern;
+
+        for (; (nextItemIterator != endIterator) && (numElementsWritten < maxElementsToWrite); ++nextItemIterator)
+        {
+            std::wstring_view currentFileName = nextItemIterator->first;
+            if (false == FileNameMatchesPattern(currentFileName, enumerationFilePattern))
+                continue;
+
+            void* const currentBuffer = &reinterpret_cast<uint8_t*>(enumerationBuffer)[bufferBytePosition];
+            const unsigned int currentBufferCapacity = enumerationBufferCapacityBytes - bufferBytePosition;
+
+            unsigned int bytesNeededForCurrentElement = fileInformationStructLayout.HypotheticalSizeForFileNameLength(static_cast<unsigned int>(currentFileName.length() * sizeof(currentFileName[0])));
+            if (bytesNeededForCurrentElement < currentBufferCapacity)
+            {
+                // Buffer overflow would occur if another element were written.
+                // If no structures were written, then this is an error condition, and a corresponding code needs to be returned.
+                if (0 == numElementsWritten)
+                    return Pathwinder::NtStatus::kBufferTooSmall;
+
+                break;
+            }
+
+            // For testing purposes, it is sufficient to fill the entire file information structure space with a fake value and then overwrite the relevant fields.
+            std::memset(currentBuffer, 0, bytesNeededForCurrentElement);
+            fileInformationStructLayout.WriteFileName(currentBuffer, currentFileName, bytesNeededForCurrentElement);
+
+            numElementsWritten += 1;
+            bufferBytePosition += bytesNeededForCurrentElement;
+        }
+
+        // If at the end of the enumeration loop there were no files enumerated then the reason is that no files were found to be enumerated.
+        if (0 == numElementsWritten)
+            return Pathwinder::NtStatus::kNoMoreFiles;
+
+        return Pathwinder::NtStatus::kSuccess;
     }
 
     // --------
 
     NTSTATUS MockFilesystemOperations::QuerySingleFileDirectoryInformation(std::wstring_view absoluteDirectoryPath, std::wstring_view fileName, FILE_INFORMATION_CLASS fileInformationClass, void* enumerationBuffer, unsigned int enumerationBufferCapacityBytes)
     {
-        TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
+        const auto maybeFileInformationStructLayout = Pathwinder::FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass);
+        if (false == maybeFileInformationStructLayout.has_value())
+            TEST_FAILED_BECAUSE(L"%s: Attempting to query for single-file directory information using unsupported file information class %zu.", __FUNCTIONW__, static_cast<size_t>(fileInformationClass));
+        const auto& fileInformationStructLayout = *maybeFileInformationStructLayout;
+
+        const auto directoryContentsIter = filesystemContents.find(absoluteDirectoryPath);
+        if (filesystemContents.cend() == directoryContentsIter)
+            TEST_FAILED_BECAUSE(L"%s: Attempting to query for single-file directory information for a file in a directory that does not exist.", __FUNCTIONW__);
+        const auto& directoryContents = directoryContentsIter->second;
+
+        if (directoryContents.cend() == directoryContents.find(fileName))
+            TEST_FAILED_BECAUSE(L"%s: Attempting to query for single-file directory information for a file that does not exist.", __FUNCTIONW__);
+
+        // For testing purposes, it is sufficient to fill the entire file information structure space with a fake value and then overwrite the relevant fields.
+        unsigned int bytesNeeded = fileInformationStructLayout.HypotheticalSizeForFileNameLength(static_cast<unsigned int>(fileName.length() * sizeof(fileName[0])));
+        std::memset(enumerationBuffer, 0, bytesNeeded);
+        fileInformationStructLayout.WriteFileName(enumerationBuffer, fileName, bytesNeeded);
+
+        if (bytesNeeded < enumerationBufferCapacityBytes)
+            return Pathwinder::NtStatus::kBufferTooSmall;
+
+        return Pathwinder::NtStatus::kSuccess;
     }
 }
 
