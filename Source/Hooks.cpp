@@ -129,11 +129,11 @@ namespace Pathwinder
         case SFileFullDirectoryInformation::kFileInformationClass:
         case SFileBothDirectoryInformation::kFileInformationClass:
         case SFileNamesInformation::kFileInformationClass:
-        case SFileIdBothDirInformation::kFileInformationClass:
-        case SFileIdFullDirInformation::kFileInformationClass:
-        case SFileIdGlobalTxDirInformation::kFileInformationClass:
-        case SFileIdExtdDirInformation::kFileInformationClass:
-        case SFileIdExtdBothDirInformation::kFileInformationClass:
+        case SFileIdBothDirectoryInformation::kFileInformationClass:
+        case SFileIdFullDirectoryInformation::kFileInformationClass:
+        case SFileIdGlobalTxDirectoryInformation::kFileInformationClass:
+        case SFileIdExtdDirectoryInformation::kFileInformationClass:
+        case SFileIdExtdBothDirectoryInformation::kFileInformationClass:
             return true;
 
         default:

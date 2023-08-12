@@ -254,16 +254,25 @@ namespace Pathwinder
             return std::max(structureBaseSizeBytes, offsetOfFileName + static_cast<unsigned int>(ReadFileNameLength(fileInformationStruct)));
         }
 
-        /// Writes the `fileNameLength` field for the specified file information structure.
+        /// Updates the `nextEntryOffset` field for the specified file information structure using the known size of that structure.
+        /// Performs no verification on the input pointer or data structure.
+        /// @param [in, out] fileInformationStruct Address of the first byte of the file information structure of interest.
+        inline void UpdateNextEntryOffset(void* fileInformationStruct) const
+        {
+            *(reinterpret_cast<TNextEntryOffset*>(reinterpret_cast<size_t>(fileInformationStruct) + static_cast<size_t>(offsetOfNextEntryOffset))) = SizeOfStruct(fileInformationStruct);
+        }
+
+        /// Writes the `fileNameLength` field for the specified file information structure and updates the associated structure field `nextEntryOffset` to maintain consistency.
         /// Performs no verification on the input pointer or data structure.
         /// @param [in, out] fileInformationStruct Address of the first byte of the file information structure of interest.
         /// @param [in] newFileNameLength New value to be written to the `fileNameLength` field.
         inline void WriteFileNameLength(void* fileInformationStruct, TFileNameLength newFileNameLength) const
         {
             *(reinterpret_cast<TFileNameLength*>(reinterpret_cast<size_t>(fileInformationStruct) + static_cast<size_t>(offsetOfFileNameLength))) = newFileNameLength;
+            UpdateNextEntryOffset(fileInformationStruct);
         }
 
-        /// Writes the trailing `fileName` field for the specified file information structure.
+        /// Writes the trailing `fileName` field for the specified file information structure and updates associated structure fields (`nextEntryOffset` and `fileNameLength`) to maintain consistency.
         /// Performs no verification on the input pointer or data structure.
         /// @param [in, out] fileInformationStruct Address of the first byte of the file information structure of interest.
         /// @param [in] newFileName New value to be written to the trailing `fileName` field.

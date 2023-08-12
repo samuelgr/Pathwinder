@@ -127,6 +127,7 @@
     <ClCompile Include="Source\Resolver.cpp" />
     <ClCompile Include="Source\Strings.cpp" />
     <ClCompile Include="Source\TemporaryBuffer.cpp" />
+    <ClCompile Include="Source\Test\Case\FileInformationStructTest.cpp" />
     <ClCompile Include="Source\Test\Case\FilesystemDirectorBuilderTest.cpp" />
     <ClCompile Include="Source\Test\Case\FilesystemDirectorTest.cpp" />
     <ClCompile Include="Source\Test\Case\FilesystemRuleTest.cpp" />

@@ -250,7 +250,7 @@ namespace Pathwinder
 
     /// Contains information about a file in a directory. Same layout as `FILE_ID_BOTH_DIR_INFORMATION` from the Windows driver kit.
     /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_id_both_dir_information for more information.
-    struct SFileIdBothDirInformation
+    struct SFileIdBothDirectoryInformation
     {
         static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(37);
 
@@ -273,7 +273,7 @@ namespace Pathwinder
 
     /// Contains information about a file in a directory. Same layout as `FILE_ID_FULL_DIR_INFORMATION` from the Windows driver kit.
     /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_id_full_dir_information for more information.
-    struct SFileIdFullDirInformation
+    struct SFileIdFullDirectoryInformation
     {
         static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(38);
 
@@ -294,7 +294,7 @@ namespace Pathwinder
 
     /// Contains information about a file in a directory. Same layout as `FILE_ID_GLOBAL_TX_DIR_INFORMATION` from the Windows driver kit.
     /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_id_global_tx_dir_information for more information.
-    struct SFileIdGlobalTxDirInformation
+    struct SFileIdGlobalTxDirectoryInformation
     {
         static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(50);
 
@@ -316,7 +316,7 @@ namespace Pathwinder
 
     /// Contains information about a file in a directory. Same layout as `FILE_ID_EXTD_DIR_INFORMATION` from the Windows driver kit.
     /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-file_id_extd_dir_information for more information.
-    struct SFileIdExtdDirInformation
+    struct SFileIdExtdDirectoryInformation
     {
         static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(60);
 
@@ -338,7 +338,7 @@ namespace Pathwinder
 
     /// Contains information about a file in a directory. Same layout as `FILE_ID_EXTD_BOTH_DIR_INFORMATION` from the Windows driver kit.
     /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_id_extd_both_dir_information for more information.
-    struct SFileIdExtdBothDirInformation
+    struct SFileIdExtdBothDirectoryInformation
     {
         static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(63);
 
