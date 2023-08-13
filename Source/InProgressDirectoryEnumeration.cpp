@@ -15,13 +15,12 @@
 #include "FileInformationStruct.h"
 #include "FilesystemOperations.h"
 #include "InProgressDirectoryEnumeration.h"
-#include "MutexWrapper.h"
 #include "Strings.h"
 #include "ValueOrError.h"
 
+#include <array>
 #include <cstdint>
 #include <cstring>
-#include <mutex>
 #include <optional>
 #include <unordered_map>
 
@@ -37,7 +36,7 @@ namespace Pathwinder
     // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
     // See "InProgressDirectoryEnumeration.h" for documentation.
 
-    EnumerationQueue::EnumerationQueue(DirectoryEnumerationInstruction::SingleDirectoryEnumeration matchInstruction, std::wstring_view absoluteDirectoryPath, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view filePattern) : matchInstruction(matchInstruction), directoryHandle(NULL), fileInformationClass(fileInformationClass), fileInformationStructLayout(FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationBufferBytePosition(), enumerationStatus()
+    EnumerationQueue::EnumerationQueue(DirectoryEnumerationInstruction::SingleDirectoryEnumeration matchInstruction, std::wstring_view absoluteDirectoryPath, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view filePattern) : IDirectoryOperationQueue(), matchInstruction(matchInstruction), directoryHandle(NULL), fileInformationClass(fileInformationClass), fileInformationStructLayout(FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationBufferBytePosition(), enumerationStatus()
     {
         if (FileInformationStructLayout() == fileInformationStructLayout)
         {
@@ -60,7 +59,7 @@ namespace Pathwinder
 
     // --------
 
-    EnumerationQueue::EnumerationQueue(EnumerationQueue&& other) : matchInstruction(std::move(other.matchInstruction)), directoryHandle(std::move(other.directoryHandle)), fileInformationClass(std::move(other.fileInformationClass)), fileInformationStructLayout(std::move(other.fileInformationStructLayout)), enumerationBuffer(std::move(other.enumerationBuffer)), enumerationBufferBytePosition(std::move(other.enumerationBufferBytePosition)), enumerationStatus(std::move(other.enumerationStatus))
+    EnumerationQueue::EnumerationQueue(EnumerationQueue&& other) : IDirectoryOperationQueue(), matchInstruction(std::move(other.matchInstruction)), directoryHandle(std::move(other.directoryHandle)), fileInformationClass(std::move(other.fileInformationClass)), fileInformationStructLayout(std::move(other.fileInformationStructLayout)), enumerationBuffer(std::move(other.enumerationBuffer)), enumerationBufferBytePosition(std::move(other.enumerationBufferBytePosition)), enumerationStatus(std::move(other.enumerationStatus))
     {
         other.directoryHandle = NULL;
     }
@@ -75,7 +74,7 @@ namespace Pathwinder
 
     // --------
 
-    NameInsertionQueue::NameInsertionQueue(TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&& nameInsertionQueue, FILE_INFORMATION_CLASS fileInformationClass) : nameInsertionQueue(std::move(nameInsertionQueue)), nameInsertionQueuePosition(0), fileInformationClass(fileInformationClass), fileInformationStructLayout(FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationStatus()
+    NameInsertionQueue::NameInsertionQueue(TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&& nameInsertionQueue, FILE_INFORMATION_CLASS fileInformationClass) : IDirectoryOperationQueue(), nameInsertionQueue(std::move(nameInsertionQueue)), nameInsertionQueuePosition(0), fileInformationClass(fileInformationClass), fileInformationStructLayout(FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationStatus()
     {
         if (FileInformationStructLayout() == fileInformationStructLayout)
         {
@@ -84,6 +83,13 @@ namespace Pathwinder
         }
 
         Restart();
+    }
+
+    // --------
+
+    MergedFileInformationQueue::MergedFileInformationQueue(std::array<std::unique_ptr<IDirectoryOperationQueue>, 3>&& queuesToMerge) : IDirectoryOperationQueue(), queuesToMerge(std::move(queuesToMerge)), frontElementSourceQueue(nullptr)
+    {
+        SelectFrontElementSourceQueueInternal();
     }
 
 
@@ -184,11 +190,31 @@ namespace Pathwinder
         enumerationStatus = NtStatus::kMoreEntries;
     }
 
+    // --------
+
+    void MergedFileInformationQueue::SelectFrontElementSourceQueueInternal(void)
+    {
+        IDirectoryOperationQueue* nextFrontQueueCandidate = nullptr;
+
+        // The next front element will come from whichever queue is present, has more entries, and sorts lowest using case-insensitive sorting.
+        // If all queues are already done then there will be no next front element.
+        for (const auto& underlyingQueue : queuesToMerge)
+        {
+            if ((nullptr == underlyingQueue) || (NtStatus::kMoreEntries != underlyingQueue->EnumerationStatus()))
+                continue;
+
+            if ((nullptr == nextFrontQueueCandidate) || (Strings::CompareCaseInsensitive(underlyingQueue->FileNameOfFront(), nextFrontQueueCandidate->FileNameOfFront()) < 0))
+                nextFrontQueueCandidate = underlyingQueue.get();
+        }
+
+        frontElementSourceQueue = nextFrontQueueCandidate;
+    }
+
 
     // -------- CONCRETE INSTANCE METHODS ---------------------------------- //
     // See "InProgressDirectoryEnumeration.h" for documentation.
 
-    unsigned int EnumerationQueue::CopyFront(void* dest, unsigned int capacityBytes)
+    unsigned int EnumerationQueue::CopyFront(void* dest, unsigned int capacityBytes) const
     {
         const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
 
@@ -241,7 +267,7 @@ namespace Pathwinder
 
     // --------
 
-    unsigned int NameInsertionQueue::CopyFront(void* dest, unsigned int capacityBytes)
+    unsigned int NameInsertionQueue::CopyFront(void* dest, unsigned int capacityBytes) const
     {
         const unsigned int numBytesToCopy = std::min(SizeOfFront(), capacityBytes);
         std::memcpy(dest, enumerationBuffer.Data(), static_cast<size_t>(numBytesToCopy));
@@ -289,5 +315,74 @@ namespace Pathwinder
 
         nameInsertionQueuePosition = 0;
         AdvanceQueueContentsInternal();
+    }
+
+    // --------
+
+    unsigned int MergedFileInformationQueue::CopyFront(void* dest, unsigned int capacityBytes) const
+    {
+        return frontElementSourceQueue->CopyFront(dest, capacityBytes);
+    }
+
+    // --------
+
+    NTSTATUS MergedFileInformationQueue::EnumerationStatus(void) const
+    {
+        // If any queue reports an error then the overall status is that error.
+        // Otherwise, it is possible to determine whether or not enumeration is finished based on the front element source queue pointer being `nullptr` or not.
+        for (const auto& underlyingQueue : queuesToMerge)
+        {
+            if (nullptr == underlyingQueue)
+                continue;
+
+            const NTSTATUS underlyingQueueStatus = underlyingQueue->EnumerationStatus();
+            switch (underlyingQueue->EnumerationStatus())
+            {
+            case NtStatus::kNoMoreFiles:
+                break;
+
+            default:
+                return underlyingQueueStatus;
+            }
+        }
+
+        if (nullptr == frontElementSourceQueue)
+            return NtStatus::kNoMoreFiles;
+
+        return NtStatus::kMoreEntries;
+    }
+
+    // --------
+
+    std::wstring_view MergedFileInformationQueue::FileNameOfFront(void) const
+    {
+        return frontElementSourceQueue->FileNameOfFront();
+    }
+
+    // --------
+
+    unsigned int MergedFileInformationQueue::SizeOfFront(void) const
+    {
+        return frontElementSourceQueue->SizeOfFront();
+    }
+
+    // --------
+
+    void MergedFileInformationQueue::PopFront(void)
+    {
+        frontElementSourceQueue->PopFront();
+    }
+
+    // --------
+
+    void MergedFileInformationQueue::Restart(void)
+    {
+        for (const auto& underlyingQueue : queuesToMerge)
+        {
+            if (nullptr == underlyingQueue)
+                continue;
+
+            underlyingQueue->Restart();
+        }
     }
 }

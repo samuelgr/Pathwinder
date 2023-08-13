@@ -10,6 +10,10 @@
  *   in-progress directory enumeration operations and hold all required state.
  *****************************************************************************/
 
+#include <array>
+#include <memory>
+#include <optional>
+
 #include "ApiWindowsInternal.h"
 #include "FileInformationStruct.h"
 #include "FilesystemInstruction.h"
@@ -23,13 +27,13 @@ namespace Pathwinder
 {
     /// Interface for all queue types, each of which implements a single operation that is part of a larger directory enumeration.
     /// Defines a queue-like interface that can be used to access the contained file information structures one at a time as they become available.
-    class ISingleOperationQueue
+    class IDirectoryOperationQueue
     {
     public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
         /// Default destructor.
-        virtual ~ISingleOperationQueue(void) = default;
+        virtual ~IDirectoryOperationQueue(void) = default;
 
 
         // -------- ABSTRACT INSTANCE METHODS ------------------------------ //
@@ -38,7 +42,7 @@ namespace Pathwinder
         /// @param [in] dest Pointer to the buffer location to receive the first file information structure.
         /// @param [in] capacityBytes Maximum number of bytes to copy to the destination buffer.
         /// @return Number of bytes copied. This will the capacity of the buffer or the size of the first file information structure in the queue, whichever is smaller in value.
-        virtual unsigned int CopyFront(void* dest, unsigned int capacityBytes) = 0;
+        virtual unsigned int CopyFront(void* dest, unsigned int capacityBytes) const = 0;
 
         /// Retrieves the status of the enumeration maintained by this object.
         /// @return `STATUS_NO_MORE_FILES` if the enumeration is completed and there are no file information structures left, `STATUS_MORE_ENTRIES` if the enumeration is still in progress and more directory entries are available, or any other status code to indicate that some other error occurred while interacting with the system.
@@ -64,7 +68,7 @@ namespace Pathwinder
     /// Provides a queue-like interface whereby the entire enumerated contents of the single directory can be accessed one file information structure at a time.
     /// Fetches up to a single #FileInformationStructBuffer worth of file information structures from the system at any given time, and automatically fetches the next batch once the current batch has already been fully popped from the queue.
     /// Not concurrency-safe. Methods should be invoked under external concurrency control, if needed.
-    class EnumerationQueue : public ISingleOperationQueue
+    class EnumerationQueue : public IDirectoryOperationQueue
     {
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
@@ -135,7 +139,7 @@ namespace Pathwinder
         // -------- CONCRETE INSTANCE METHODS ------------------------------ //
         // See above for documentation.
 
-        unsigned int CopyFront(void* dest, unsigned int capacityBytes) override;
+        unsigned int CopyFront(void* dest, unsigned int capacityBytes) const override;
         NTSTATUS EnumerationStatus(void) const override;
         std::wstring_view FileNameOfFront(void) const override;
         unsigned int SizeOfFront(void) const override;
@@ -146,7 +150,7 @@ namespace Pathwinder
     /// Holds state and supports insertion of directory names into the output of a larger directory enumeration operation.
     /// Requires an externally-supplied ordered list of name insertion instructions, which are offered as file information structures one at a time using a queue-like interface.
     /// Not concurrency-safe. Methods should be invoked under external concurrency control, if needed.
-    class NameInsertionQueue : public ISingleOperationQueue
+    class NameInsertionQueue : public IDirectoryOperationQueue
     {
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
@@ -196,7 +200,7 @@ namespace Pathwinder
         // -------- CONCRETE INSTANCE METHODS ------------------------------ //
         // See above for documentation.
 
-        unsigned int CopyFront(void* dest, unsigned int capacityBytes) override;
+        unsigned int CopyFront(void* dest, unsigned int capacityBytes) const override;
         NTSTATUS EnumerationStatus(void) const override;
         std::wstring_view FileNameOfFront(void) const override;
         unsigned int SizeOfFront(void) const override;
@@ -204,14 +208,55 @@ namespace Pathwinder
         void Restart(void) override;
     };
 
-    /// Contains all of the state necessary to represent a directory enumeration operation being executed according to a directory enumeration instruction.
-    /// A directory enumeration instruction can specify that one or more real directories be enumerated and that a specific set of filenames additionally be inserted into the overall directory enumeration results.
-    /// Objects of this class maintain multiple directory enumeration queues, one or more for real directory enumeration and one for filename insertion, and merges them into a single stream of file informaiton structures using a queue-like interface.
+    /// Maintains multiple directory enumeration queues and merges them into a single stream of file informaiton structures using a queue-like interface.
+    /// All underlying queues need to be created with the same file information class, as this class does not need that information and is totally agnostic to it.
     /// It is assumed that the individual directory enumeration queues offer file information structures in case-insensitive alphabetical order by filename, and hence the merge occurs on this basis.
     /// However, it is not detrimental to the correctness of the overall directory enumeration operation if the incoming queues do not provide file information structures in sorted order, this will just mean that the single outgoing stream is also not completely sorted.
     /// Not concurrency-safe. Methods should be invoked under external concurrency control, if needed.
-    class DirectoryEnumerationContext
+    class MergedFileInformationQueue : public IDirectoryOperationQueue
     {
-        // TODO
+    public:
+        // -------- CONSTANTS ---------------------------------------------- //
+
+        /// Maximum number of queues allowed to be merged as part of a directory enumeration operation.
+        /// This could theoretically be a template parameter, but avoiding templates facilitates placing the implementation into a separate source file. Furthermore, only one value is ever needed project-wide.
+        static constexpr unsigned int kNumQueuesToMerge = 3;
+
+
+    private:
+        // -------- INSTANCE VARIABLES ------------------------------------- //
+
+        /// Queues to be merged.
+        std::array<std::unique_ptr<IDirectoryOperationQueue>, 3> queuesToMerge;
+
+        /// Queue which will provide the next element of the merged queues.
+        IDirectoryOperationQueue* frontElementSourceQueue;
+
+
+    public:
+        // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
+
+        /// Initialization constructor.
+        /// Requires underlying directory operation queues.
+        MergedFileInformationQueue(std::array<std::unique_ptr<IDirectoryOperationQueue>, 3>&& queuesToMerge);
+
+    private:
+        // -------- INSTANCE METHODS --------------------------------------- //
+
+        /// For internal use only.
+        /// Selects which of the queues being merged will provide the next element.
+        void SelectFrontElementSourceQueueInternal(void);
+
+
+    public:
+        // -------- CONCRETE INSTANCE METHODS ------------------------------ //
+        // See above for documentation.
+
+        unsigned int CopyFront(void* dest, unsigned int capacityBytes) const override;
+        NTSTATUS EnumerationStatus(void) const override;
+        std::wstring_view FileNameOfFront(void) const override;
+        unsigned int SizeOfFront(void) const override;
+        void PopFront(void) override;
+        void Restart(void) override;
     };
 }
