@@ -53,7 +53,9 @@ namespace Pathwinder
         }
 
         directoryHandle = maybeDirectoryHandle.Value();
+
         AdvanceQueueContentsInternal(0, filePattern);
+        SkipNonMatchingItemsInternal();
     }
 
     // --------
@@ -99,13 +101,35 @@ namespace Pathwinder
         }
         else
         {
-            // File information structures are available, but some might need to be skipped over.
+            // File information structures are available.
             enumerationBufferBytePosition = 0;
             enumerationStatus = NtStatus::kMoreEntries;
-
-            if (false == matchInstruction.ShouldIncludeInDirectoryEnumeration(FileNameOfFront()))
-                PopFront();
         }
+    }
+
+    // --------
+
+    void EnumerationQueue::PopFrontInternal(void)
+    {
+        const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
+
+        FileInformationStructLayout::TNextEntryOffset bytePositionIncrement = fileInformationStructLayout.ReadNextEntryOffset(enumerationEntry);
+        if (0 == bytePositionIncrement)
+        {
+            AdvanceQueueContentsInternal();
+        }
+        else
+        {
+            enumerationBufferBytePosition += bytePositionIncrement;
+        }
+    }
+
+    // --------
+
+    void EnumerationQueue::SkipNonMatchingItemsInternal(void)
+    {
+        while ((NT_SUCCESS(enumerationStatus)) && ((false == matchInstruction.ShouldIncludeInDirectoryEnumeration(FileNameOfFront()))))
+            PopFrontInternal();
     }
 
     // --------
@@ -203,20 +227,8 @@ namespace Pathwinder
 
     void EnumerationQueue::PopFront(void)
     {
-        const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
-
-        FileInformationStructLayout::TNextEntryOffset bytePositionIncrement = fileInformationStructLayout.ReadNextEntryOffset(enumerationEntry);
-        if (0 == bytePositionIncrement)
-        {
-            AdvanceQueueContentsInternal();
-        }
-        else
-        {
-            enumerationBufferBytePosition += bytePositionIncrement;
-
-            if (false == matchInstruction.ShouldIncludeInDirectoryEnumeration(FileNameOfFront()))
-                PopFront();
-        }
+        PopFrontInternal();
+        SkipNonMatchingItemsInternal();
     }
 
     // --------
@@ -224,6 +236,7 @@ namespace Pathwinder
     void EnumerationQueue::Restart(void)
     {
         AdvanceQueueContentsInternal(QueryFlag::kRestartScan);
+        SkipNonMatchingItemsInternal();
     }
 
     // --------

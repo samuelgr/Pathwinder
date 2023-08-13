@@ -122,6 +122,14 @@ namespace Pathwinder
         /// @param [in] filePattern Optional file pattern for providing the system with a pattern to match against all returned filenames. Only important on first invocation, which occurs during construction.
         void AdvanceQueueContentsInternal(ULONG queryFlags = 0, std::wstring_view filePattern = std::wstring_view());
 
+        /// For internal use only.
+        /// Pops a single element from the front of the queue.
+        void PopFrontInternal(void);
+
+        /// For internal use only.
+        /// Repeatedly pops non-matching elements from the front of the queue.
+        void SkipNonMatchingItemsInternal(void);
+
 
     public:
         // -------- CONCRETE INSTANCE METHODS ------------------------------ //
