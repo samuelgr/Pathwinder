@@ -132,6 +132,25 @@ namespace Pathwinder
                 return directoryPathSource;
             }
 
+            /// Selects a directory path from among those provided as input, using the directory path source enumerator to make the decision.
+            /// @param [in] associatedPath Absolute path internally associated with the handle to the directory that is open for enumeration.
+            /// @param [in] realOpenedPath Absolute path that was actually opened when creating the handle to the directory that is open for enumeration.
+            /// @return One of the two parameters, based on the directory path source enumerator, or an empty string if the enumerator is invalid.
+            inline std::wstring_view SelectDirectoryPath(std::wstring_view associatedPath, std::wstring_view realOpenedPath) const
+            {
+                switch (GetDirectoryPathSource())
+                {
+                case EDirectoryPathSource::AssociatedPath:
+                    return associatedPath;
+
+                case EDirectoryPathSource::RealOpenedPath:
+                    return realOpenedPath;
+
+                default:
+                    return std::wstring_view();
+                }
+            }
+
             /// Determines whether or not the specified filename should be included in a directory enumeration.
             /// If a filesystem rule is present then it is checked for a file pattern match and the result is either inverted or not, as appropriate.
             /// Otherwise it is presumed that there is no restriction on the files to include.
@@ -288,6 +307,16 @@ namespace Pathwinder
 
 
         // -------- INSTANCE METHODS --------------------------------------- //
+
+        /// Extracts the container of directory names to be inserted into the enumeration result.
+        /// Does not check that directory names are actually present.
+        /// @return Container of directory names to insert, extracted using move semantics.
+        inline TemporaryVector<SingleDirectoryNameInsertion> ExtractDirectoryNamesToInsert(void)
+        {
+            TemporaryVector<SingleDirectoryNameInsertion> extractedDirectoryNamesToInsert(std::move(*directoryNamesToInsert));
+            directoryNamesToInsert.reset();
+            return extractedDirectoryNamesToInsert;
+        }
 
         /// Obtains a read-only reference to the container of directories to be enumerated.
         /// @return Read-only reference to the container of directories to be enumerated.

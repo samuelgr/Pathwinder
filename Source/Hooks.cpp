@@ -118,16 +118,6 @@ namespace Pathwinder
         return FileRenameInformationAndFilename(std::move(newFileRenameInformation));
     }
 
-    /// Creates a directory enumeration queue object based on the supplied directory enumeration instruction.
-    /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
-    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
-    /// @param [in] instruction Instruction that specifies how to implement the directory enumeration operation and hence determines which queue or queues are needed.
-    /// @param [in] queryFilePattern File pattern to supply to any created queues when they are first created.
-    static std::unique_ptr<IDirectoryOperationQueue> CreateDirectoryEnumerationQueueForInstruction(const wchar_t* functionName, unsigned int functionRequestIdentifier, const DirectoryEnumerationInstruction& instruction, std::wstring_view queryFilePattern)
-    {
-        return nullptr;
-    }
-
     /// Executes any pre-operations needed ahead of invoking underlying system calls.
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
@@ -463,7 +453,7 @@ namespace Pathwinder
                 return std::nullopt;
             }
 
-            std::unique_ptr<IDirectoryOperationQueue> directoryOperationQueueUniquePtr = CreateDirectoryEnumerationQueueForInstruction(functionName, requestIdentifier, directoryEnumerationInstruction, queryFilePattern);
+            std::unique_ptr<IDirectoryOperationQueue> directoryOperationQueueUniquePtr = CreateDirectoryOperationQueueForInstruction(directoryEnumerationInstruction, fileInformationClass, queryFilePattern, handleData.associatedPath, handleData.realOpenedPath);
             maybeDirectoryOperationQueue = directoryOperationQueueUniquePtr.get();
             newDirectoryEnumerationQueueWasCreated = true;
 

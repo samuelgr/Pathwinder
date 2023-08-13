@@ -232,7 +232,7 @@ namespace Pathwinder
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
         /// Queues to be merged.
-        std::array<std::unique_ptr<IDirectoryOperationQueue>, 3> queuesToMerge;
+        std::array<std::unique_ptr<IDirectoryOperationQueue>, kNumQueuesToMerge> queuesToMerge;
 
         /// Queue which will provide the next element of the merged queues.
         IDirectoryOperationQueue* frontElementSourceQueue;
@@ -243,7 +243,8 @@ namespace Pathwinder
 
         /// Initialization constructor.
         /// Requires underlying directory operation queues.
-        MergedFileInformationQueue(std::array<std::unique_ptr<IDirectoryOperationQueue>, 3>&& queuesToMerge);
+        MergedFileInformationQueue(std::array<std::unique_ptr<IDirectoryOperationQueue>, kNumQueuesToMerge>&& queuesToMerge);
+
 
     private:
         // -------- INSTANCE METHODS --------------------------------------- //
@@ -251,6 +252,17 @@ namespace Pathwinder
         /// For internal use only.
         /// Selects which of the queues being merged will provide the next element.
         void SelectFrontElementSourceQueueInternal(void);
+
+    public:
+        /// Retrieves and returns a pointer to the underlying queue at the specified index.
+        /// Intended for tests. Provides read-only access.
+        /// @param [in] index Index of the underlying queue of interest.
+        /// @return Read-only pointer to the corresponding underlying queue object.
+        inline const IDirectoryOperationQueue* GetUnderlyingQueue(unsigned int index) const
+        {
+            DebugAssert(static_cast<size_t>(index) < queuesToMerge.size(), "Underlying queue index is out of bounds.");
+            return queuesToMerge[index].get();
+        }
 
 
     public:
@@ -264,4 +276,13 @@ namespace Pathwinder
         void Restart(std::wstring_view queryFilePattern = std::wstring_view()) override;
         unsigned int SizeOfFront(void) const override;
     };
+
+    /// Creates a directory operation queue object based on the supplied directory enumeration instruction.
+    /// @param [in] instruction Instruction that specifies how to implement the directory enumeration operation and hence determines which queue or queues are needed.
+    /// @param [in] fileInformationClass Type of information to request from the system when querying for file information structures.
+    /// @param [in] queryFilePattern File pattern to supply to any created queues when they are first created.
+    /// @param [in] handleAssociatedPath Absolute path internally associated with the handle to the directory that is open for enumeration.
+    /// @param [in] handleRealOpenedPath Absolute path that was actually opened when creating the handle to the directory that is open for enumeration.
+    /// @return Directory operation queue that will implement the instruction, or `nullptr` if the instruction is a no-op and the represented enumeration can just be forwarded to the system.
+    std::unique_ptr<IDirectoryOperationQueue> CreateDirectoryOperationQueueForInstruction(DirectoryEnumerationInstruction& instruction, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view queryFilePattern, std::wstring_view handleAssociatedPath, std::wstring_view handleRealOpenedPath);
 }
