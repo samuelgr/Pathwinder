@@ -37,7 +37,7 @@ namespace Pathwinder
     // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
     // See "InProgressDirectoryEnumeration.h" for documentation.
 
-    EnumerationQueue::EnumerationQueue(std::wstring_view absoluteDirectoryPath, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view filePattern) : directoryHandle(NULL), fileInformationClass(fileInformationClass), fileInformationStructLayout(FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationBufferBytePosition(), enumerationStatus()
+    EnumerationQueue::EnumerationQueue(DirectoryEnumerationInstruction::SingleDirectoryEnumeration matchInstruction, std::wstring_view absoluteDirectoryPath, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view filePattern) : matchInstruction(matchInstruction), directoryHandle(NULL), fileInformationClass(fileInformationClass), fileInformationStructLayout(FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationBufferBytePosition(), enumerationStatus()
     {
         if (FileInformationStructLayout() == fileInformationStructLayout)
         {
@@ -58,7 +58,7 @@ namespace Pathwinder
 
     // --------
 
-    EnumerationQueue::EnumerationQueue(EnumerationQueue&& other) : directoryHandle(std::move(other.directoryHandle)), fileInformationClass(std::move(other.fileInformationClass)), fileInformationStructLayout(std::move(other.fileInformationStructLayout)), enumerationBuffer(std::move(other.enumerationBuffer)), enumerationBufferBytePosition(std::move(other.enumerationBufferBytePosition)), enumerationStatus(std::move(other.enumerationStatus))
+    EnumerationQueue::EnumerationQueue(EnumerationQueue&& other) : matchInstruction(std::move(other.matchInstruction)), directoryHandle(std::move(other.directoryHandle)), fileInformationClass(std::move(other.fileInformationClass)), fileInformationStructLayout(std::move(other.fileInformationStructLayout)), enumerationBuffer(std::move(other.enumerationBuffer)), enumerationBufferBytePosition(std::move(other.enumerationBufferBytePosition)), enumerationStatus(std::move(other.enumerationStatus))
     {
         other.directoryHandle = NULL;
     }
@@ -99,9 +99,12 @@ namespace Pathwinder
         }
         else
         {
-            // File information structures are available.
+            // File information structures are available, but some might need to be skipped over.
             enumerationBufferBytePosition = 0;
             enumerationStatus = NtStatus::kMoreEntries;
+
+            if (false == matchInstruction.ShouldIncludeInDirectoryEnumeration(FileNameOfFront()))
+                PopFront();
         }
     }
 
@@ -204,9 +207,16 @@ namespace Pathwinder
 
         FileInformationStructLayout::TNextEntryOffset bytePositionIncrement = fileInformationStructLayout.ReadNextEntryOffset(enumerationEntry);
         if (0 == bytePositionIncrement)
+        {
             AdvanceQueueContentsInternal();
+        }
         else
+        {
             enumerationBufferBytePosition += bytePositionIncrement;
+
+            if (false == matchInstruction.ShouldIncludeInDirectoryEnumeration(FileNameOfFront()))
+                PopFront();
+        }
     }
 
     // --------

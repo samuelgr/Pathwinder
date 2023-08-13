@@ -69,6 +69,11 @@ namespace Pathwinder
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
+        /// Instruction that determines which files should be skipped and which files should be presented to the application.
+        /// This is in addition to any matching done by the file pattern included as part of the original directory enumeration query.
+        /// System call users are permitted to specify a file pattern, and match instructions would potentially include additional file patterns based on how the filesystem rules are set up.
+        DirectoryEnumerationInstruction::SingleDirectoryEnumeration matchInstruction;
+
         /// Directory handle to be used when querying the system for file information structures.
         HANDLE directoryHandle;
 
@@ -80,7 +85,7 @@ namespace Pathwinder
 
         /// Holds one or more file information structures received from the system.
         FileInformationStructBuffer enumerationBuffer;
-        
+
         /// Byte position within the enumeration buffer where the next file information structure should be read.
         unsigned int enumerationBufferBytePosition;
 
@@ -93,9 +98,9 @@ namespace Pathwinder
 
         /// Initialization constructor.
         /// Attempts to open a handle to be used for directory enumeration.
-        /// Requires an absolute path to the directory to be enumerated (including Windows namespace prefix) and a file information class to specify the type of file information sought.
+        /// Requires an instruction, an absolute path to the directory to be enumerated (including Windows namespace prefix) and a file information class to specify the type of file information sought.
         /// Optionally supports a file pattern to limit the enumeration to just those files that match.
-        EnumerationQueue(std::wstring_view absoluteDirectoryPath, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view filePattern = std::wstring_view());
+        EnumerationQueue(DirectoryEnumerationInstruction::SingleDirectoryEnumeration matchInstruction, std::wstring_view absoluteDirectoryPath, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view filePattern = std::wstring_view());
 
         /// Copy constructor. Should never be invoked.
         EnumerationQueue(const EnumerationQueue& other) = delete;

@@ -24,6 +24,42 @@ namespace PathwinderTest
     using namespace ::Pathwinder;
 
 
+    // -------- INTERNAL FUNCTIONS ----------------------------------------- //
+
+    /// Generates and returns a filesystem rule that is intended to function as a file pattern source.
+    /// For these tests the origin and target directories are not useful.
+    /// @param [in] filePattern File pattern to include with the rule.
+    /// @return Filesystem rule object with the specified file pattern.
+    static inline FilesystemRule CreateFilePatternSourceRule(std::wstring_view filePattern)
+    {
+        return FilesystemRule(L"", L"", {std::wstring(filePattern)});
+    }
+
+    /// Generates and returns a single directory enumeration instruction that basically acts as a no-op and includes all filenames.
+    /// For these tests the directory path source is not useful.
+    /// @return Single directory enumeration instruction that includes all filenames.
+    static inline DirectoryEnumerationInstruction::SingleDirectoryEnumeration InstructionToIncludeAllFiles(void)
+    {
+        return DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::None);
+    }
+
+    /// Generates and returns a single directory enumeration instruction that includes only those filenames that match a file pattern associated with the specified rule.
+    /// For these tests the directory path source is not useful.
+    /// @return Single directory enumeration instruction that includes only those files that match the specified filesystem rule's file patterns.
+    static inline DirectoryEnumerationInstruction::SingleDirectoryEnumeration InstructionToIncludeMatchingFiles(const FilesystemRule& filePatternSource)
+    {
+        return DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::None, filePatternSource);
+    }
+
+    /// Generates and returns a single directory enumeration instruction that includes only those filenames that do not match a file pattern associated with the specified rule.
+    /// For these tests the directory path source is not useful.
+    /// @return Single directory enumeration instruction that includes only those files that do not match the specified filesystem rule's file patterns.
+    static inline DirectoryEnumerationInstruction::SingleDirectoryEnumeration InstructionToExcludeMatchingFiles(const FilesystemRule& filePatternSource)
+    {
+        return DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllExceptMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::None, filePatternSource);
+    }
+
+
     // -------- TEST CASES ------------------------------------------------- //
 
     // Creates a directory with a small number of files and expects that they are all enumerated.
@@ -31,11 +67,13 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kDirectoryName = L"C:\\Directory";
         constexpr std::wstring_view kFileNames[] = {
+            L"asdf.txt",
             L"File1.txt",
             L"File2.txt",
             L"File3.txt",
             L"File4.txt",
-            L"File5.txt"
+            L"File5.txt",
+            L"zZz.txt"
         };
 
         MockFilesystemOperations mockFilesystem;
@@ -46,7 +84,7 @@ namespace PathwinderTest
             mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
         }
 
-        EnumerationQueue enumerationQueue(L"C:\\Directory", SFileNamesInformation::kFileInformationClass);
+        EnumerationQueue enumerationQueue(InstructionToIncludeAllFiles(), L"C:\\Directory", SFileNamesInformation::kFileInformationClass);
 
         for (auto fileName : kFileNames)
         {
@@ -64,11 +102,13 @@ namespace PathwinderTest
     {
         constexpr std::wstring_view kDirectoryName = L"C:\\Directory";
         constexpr std::wstring_view kFileNames[] = {
+            L"asdf.txt",
             L"File1.txt",
             L"File2.txt",
             L"File3.txt",
             L"File4.txt",
-            L"File5.txt"
+            L"File5.txt",
+            L"zZz.txt"
         };
 
         MockFilesystemOperations mockFilesystem;
@@ -79,7 +119,7 @@ namespace PathwinderTest
             mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
         }
 
-        EnumerationQueue enumerationQueue(L"C:\\Directory", SFileNamesInformation::kFileInformationClass);
+        EnumerationQueue enumerationQueue(InstructionToIncludeAllFiles(), L"C:\\Directory", SFileNamesInformation::kFileInformationClass);
 
         for (int i = 0; i < _countof(kFileNames) - 2; ++i)
         {
@@ -100,10 +140,10 @@ namespace PathwinderTest
         TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
     }
 
-    // Creates a directory with a small number of files and expects that only files that match the file pattern are enumerated.
-    TEST_CASE(EnumerationQueue_EnumerateOnlyMatchingFiles)
+    // Creates a directory with a small number of files and expects that only files that match the file pattern, supplied as part of the original query, are enumerated.
+    TEST_CASE(EnumerationQueue_EnumerateOnlyQueryMatchingFiles)
     {
-        constexpr std::wstring_view kFilePattern = L"*.txt";
+        constexpr std::wstring_view kQueryFilePattern = L"*.txt";
         constexpr std::wstring_view kDirectoryName = L"C:\\Directory";
         constexpr std::wstring_view kMatchingFileNames[] = {
             L"asdf.txt",
@@ -116,7 +156,7 @@ namespace PathwinderTest
         };
         constexpr std::wstring_view kNonMatchingFileNames[] = {
             L"SomeOtherFile.bin",
-            L"File.log",
+            L"File0.log",
             L"Program.exe"
         };
 
@@ -134,7 +174,7 @@ namespace PathwinderTest
             mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
         }
 
-        EnumerationQueue enumerationQueue(L"C:\\Directory", SFileNamesInformation::kFileInformationClass, kFilePattern);
+        EnumerationQueue enumerationQueue(InstructionToIncludeAllFiles(), L"C:\\Directory", SFileNamesInformation::kFileInformationClass, kQueryFilePattern);
 
         for (auto fileName : kMatchingFileNames)
         {
@@ -146,6 +186,159 @@ namespace PathwinderTest
         TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
     }
 
+    // Creates a directory with a small number of files and expects that only files that match the file pattern, supplied in a filesystem rule, are enumerated.
+    TEST_CASE(EnumerationQueue_EnumerateOnlyRuleMatchingFiles)
+    {
+        constexpr std::wstring_view kRuleFilePattern = L"File*";
+        constexpr std::wstring_view kDirectoryName = L"C:\\Directory";
+        constexpr std::wstring_view kMatchingFileNames[] = {
+            L"File0.log",
+            L"File1.txt",
+            L"File2.txt",
+            L"File3.txt",
+            L"File4.txt",
+            L"File5.txt",
+        };
+        constexpr std::wstring_view kNonMatchingFileNames[] = {
+            L"asdf.txt",
+            L"SomeOtherFile.bin",
+            L"Program.exe"
+            L"zZz.txt"
+        };
+
+        MockFilesystemOperations mockFilesystem;
+        for (auto fileName : kMatchingFileNames)
+        {
+            TemporaryString fileAbsolutePath;
+            fileAbsolutePath << kDirectoryName << L'\\' << fileName;
+            mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
+        }
+        for (auto fileName : kNonMatchingFileNames)
+        {
+            TemporaryString fileAbsolutePath;
+            fileAbsolutePath << kDirectoryName << L'\\' << fileName;
+            mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
+        }
+
+        FilesystemRule filePatternSource = CreateFilePatternSourceRule(kRuleFilePattern);
+        EnumerationQueue enumerationQueue(InstructionToIncludeMatchingFiles(filePatternSource), L"C:\\Directory", SFileNamesInformation::kFileInformationClass);
+
+        for (auto fileName : kMatchingFileNames)
+        {
+            TEST_ASSERT(NT_SUCCESS(enumerationQueue.EnumerationStatus()));
+            TEST_ASSERT(enumerationQueue.FileNameOfFront() == fileName);
+            enumerationQueue.PopFront();
+        }
+
+        TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
+    }
+
+    // Creates a directory with a small number of files and expects that only files that match the file patterns, supplied both via a filesystem rule and via query, are enumerated.
+    TEST_CASE(EnumerationQueue_EnumerateOnlyRuleAndQueryMatchingFiles)
+    {
+        constexpr std::wstring_view kQueryFilePattern = L"*.txt";
+        constexpr std::wstring_view kRuleFilePattern = L"File*";
+        constexpr std::wstring_view kDirectoryName = L"C:\\Directory";
+        constexpr std::wstring_view kMatchingFileNames[] = {
+            L"File1.txt",
+            L"File2.txt",
+            L"File3.txt",
+            L"File4.txt",
+            L"File5.txt",
+        };
+        constexpr std::wstring_view kNonMatchingFileNames[] = {
+            L"File0.log",
+            L"asdf.txt",
+            L"SomeOtherFile.bin",
+            L"Program.exe"
+            L"zZz.txt"
+        };
+
+        MockFilesystemOperations mockFilesystem;
+        for (auto fileName : kMatchingFileNames)
+        {
+            TemporaryString fileAbsolutePath;
+            fileAbsolutePath << kDirectoryName << L'\\' << fileName;
+            mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
+        }
+        for (auto fileName : kNonMatchingFileNames)
+        {
+            TemporaryString fileAbsolutePath;
+            fileAbsolutePath << kDirectoryName << L'\\' << fileName;
+            mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
+        }
+
+        FilesystemRule filePatternSource = CreateFilePatternSourceRule(kRuleFilePattern);
+        EnumerationQueue enumerationQueue(InstructionToIncludeMatchingFiles(filePatternSource), L"C:\\Directory", SFileNamesInformation::kFileInformationClass, kQueryFilePattern);
+
+        for (auto fileName : kMatchingFileNames)
+        {
+            TEST_ASSERT(NT_SUCCESS(enumerationQueue.EnumerationStatus()));
+            TEST_ASSERT(enumerationQueue.FileNameOfFront() == fileName);
+            enumerationQueue.PopFront();
+        }
+
+        TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
+    }
+
+    // Creates a directory with a small number of files and expects that none are enumerated due to no matches with the file pattern supplied within a filesystem rule.
+    // In this case the instruction specifies to include all matching files, so the file pattern is one that does not match.
+    TEST_CASE(EnumerationQueue_NothingMatchesInclusiveRuleFilePattern)
+    {
+        constexpr std::wstring_view kRuleFilePattern = L"*.exe";
+        constexpr std::wstring_view kDirectoryName = L"C:\\Directory";
+        constexpr std::wstring_view kFileNames[] = {
+            L"asdf.txt",
+            L"File1.txt",
+            L"File2.txt",
+            L"File3.txt",
+            L"File4.txt",
+            L"File5.txt",
+            L"zZz.txt"
+        };
+
+        MockFilesystemOperations mockFilesystem;
+        for (auto fileName : kFileNames)
+        {
+            TemporaryString fileAbsolutePath;
+            fileAbsolutePath << kDirectoryName << L'\\' << fileName;
+            mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
+        }
+
+        FilesystemRule filePatternSource = CreateFilePatternSourceRule(kRuleFilePattern);
+        EnumerationQueue enumerationQueue(InstructionToIncludeMatchingFiles(filePatternSource), L"C:\\Directory", SFileNamesInformation::kFileInformationClass);
+        TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
+    }
+
+    // Creates a directory with a small number of files and expects that none are enumerated due to no matches with the file pattern supplied within a filesystem rule.
+    // In this case the instruction specifies to exclude all matching files, so the file pattern is one that does match.
+    TEST_CASE(EnumerationQueue_EverythingMatchesExclusiveRuleFilePattern)
+    {
+        constexpr std::wstring_view kRuleFilePattern = L"*.txt";
+        constexpr std::wstring_view kDirectoryName = L"C:\\Directory";
+        constexpr std::wstring_view kFileNames[] = {
+            L"asdf.txt",
+            L"File1.txt",
+            L"File2.txt",
+            L"File3.txt",
+            L"File4.txt",
+            L"File5.txt",
+            L"zZz.txt"
+        };
+
+        MockFilesystemOperations mockFilesystem;
+        for (auto fileName : kFileNames)
+        {
+            TemporaryString fileAbsolutePath;
+            fileAbsolutePath << kDirectoryName << L'\\' << fileName;
+            mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
+        }
+
+        FilesystemRule filePatternSource = CreateFilePatternSourceRule(kRuleFilePattern);
+        EnumerationQueue enumerationQueue(InstructionToExcludeMatchingFiles(filePatternSource), L"C:\\Directory", SFileNamesInformation::kFileInformationClass);
+        TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
+    }
+
     // Attempts to enumerate an empty directory. This should succeed but return no files.
     TEST_CASE(EnumerationQueue_EnumerateEmptyDirectory)
     {
@@ -154,7 +347,7 @@ namespace PathwinderTest
         MockFilesystemOperations mockFilesystem;
         mockFilesystem.AddDirectory(kDirectoryName);
 
-        EnumerationQueue enumerationQueue(L"C:\\Directory", SFileNamesInformation::kFileInformationClass);
+        EnumerationQueue enumerationQueue(InstructionToIncludeAllFiles(), L"C:\\Directory", SFileNamesInformation::kFileInformationClass);
         TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
     }
 
@@ -162,7 +355,7 @@ namespace PathwinderTest
     TEST_CASE(EnumerationQueue_EnumerateNonExistentDirectory)
     {
         MockFilesystemOperations mockFilesystem;
-        EnumerationQueue enumerationQueue(L"C:\\Directory", SFileNamesInformation::kFileInformationClass);
+        EnumerationQueue enumerationQueue(InstructionToIncludeAllFiles(), L"C:\\Directory", SFileNamesInformation::kFileInformationClass);
         TEST_ASSERT(!(NT_SUCCESS(enumerationQueue.EnumerationStatus())));
     }
 

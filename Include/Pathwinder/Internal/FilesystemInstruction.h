@@ -106,20 +106,20 @@ namespace Pathwinder
 
             /// Creates an instance of this class that includes only those filenames that match one of the file patterns associated with the specified rule.
             /// @param [in] directoryPathSource Enumerator that describes how to obtain the absolute path of the directory to be enumerated.
-            /// @param [in] filePatternSource Pointer to the filesystem rule used to determine whether or not a filename should be included in the enumeration result. 
+            /// @param [in] filePatternSource Filesystem rule used to determine whether or not a filename should be included in the enumeration result. 
             /// @return Instance of this class that represents an enumeration to be done and will return `true` when the #ShouldIncludeInDirectoryEnumeration method is invoked only for those filenames that match a file pattern associated with the specified rule and `false` otherwise.
-            static inline SingleDirectoryEnumeration IncludeOnlyMatchingFilenames(EDirectoryPathSource directoryPathSource, const FilesystemRule* filePatternSource)
+            static inline SingleDirectoryEnumeration IncludeOnlyMatchingFilenames(EDirectoryPathSource directoryPathSource, const FilesystemRule& filePatternSource)
             {
-                return SingleDirectoryEnumeration(directoryPathSource, filePatternSource, false);
+                return SingleDirectoryEnumeration(directoryPathSource, &filePatternSource, false);
             }
 
             /// Creates an instance of this class that includes only those filenames that do not match one of the file patterns associated with the specified rule.
             /// @param [in] directoryPathSource Enumerator that describes how to obtain the absolute path of the directory to be enumerated.
-            /// @param [in] filePatternSource Pointer to the filesystem rule used to determine whether or not a filename should be included in the enumeration result.
+            /// @param [in] filePatternSource Filesystem rule used to determine whether or not a filename should be included in the enumeration result.
             /// @return Instance of this class that represents an enumeration to be done and will return `false` when the #ShouldIncludeInDirectoryEnumeration method is invoked with filenames that match a file pattern associated with the specified rule and `true` otherwise.
-            static inline SingleDirectoryEnumeration IncludeAllExceptMatchingFilenames(EDirectoryPathSource directoryPathSource, const FilesystemRule* filePatternSource)
+            static inline SingleDirectoryEnumeration IncludeAllExceptMatchingFilenames(EDirectoryPathSource directoryPathSource, const FilesystemRule& filePatternSource)
             {
-                return SingleDirectoryEnumeration(directoryPathSource, filePatternSource, true);
+                return SingleDirectoryEnumeration(directoryPathSource, &filePatternSource, true);
             }
 
 
@@ -137,7 +137,7 @@ namespace Pathwinder
             /// Otherwise it is presumed that there is no restriction on the files to include.
             /// @param [in] filename Filename to check for inclusion. This is the "file part" of an absolute path, so just the part after the final backslash.
             /// @return `true` if the filename should be included in the enumeration, `false` otherwise.
-            inline bool ShouldIncludeInDirectoryEnumeration(std::wstring_view filename)
+            inline bool ShouldIncludeInDirectoryEnumeration(std::wstring_view filename) const
             {
                 if (nullptr == filePatternSource)
                     return true;
