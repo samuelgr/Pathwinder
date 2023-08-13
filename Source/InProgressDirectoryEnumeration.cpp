@@ -53,8 +53,7 @@ namespace Pathwinder
 
         directoryHandle = maybeDirectoryHandle.Value();
 
-        AdvanceQueueContentsInternal(0, filePattern);
-        SkipNonMatchingItemsInternal();
+        Restart(filePattern);
     }
 
     // --------
@@ -242,15 +241,6 @@ namespace Pathwinder
 
     // --------
 
-    unsigned int EnumerationQueue::SizeOfFront(void) const
-    {
-        const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
-
-        return fileInformationStructLayout.SizeOfStruct(enumerationEntry);
-    }
-
-    // --------
-
     void EnumerationQueue::PopFront(void)
     {
         PopFrontInternal();
@@ -259,10 +249,19 @@ namespace Pathwinder
 
     // --------
 
-    void EnumerationQueue::Restart(void)
+    void EnumerationQueue::Restart(std::wstring_view queryFilePattern)
     {
-        AdvanceQueueContentsInternal(QueryFlag::kRestartScan);
+        AdvanceQueueContentsInternal(QueryFlag::kRestartScan, queryFilePattern);
         SkipNonMatchingItemsInternal();
+    }
+
+    // --------
+
+    unsigned int EnumerationQueue::SizeOfFront(void) const
+    {
+        const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
+
+        return fileInformationStructLayout.SizeOfStruct(enumerationEntry);
     }
 
     // --------
@@ -291,13 +290,6 @@ namespace Pathwinder
 
     // --------
 
-    unsigned int NameInsertionQueue::SizeOfFront(void) const
-    {
-        return fileInformationStructLayout.SizeOfStruct(enumerationBuffer.Data());
-    }
-
-    // --------
-
     void NameInsertionQueue::PopFront(void)
     {
         AdvanceQueueContentsInternal();
@@ -305,7 +297,7 @@ namespace Pathwinder
 
     // --------
 
-    void NameInsertionQueue::Restart(void)
+    void NameInsertionQueue::Restart(std::wstring_view unusedQueryFilePattern)
     {
         if (0 == nameInsertionQueue.Size())
         {
@@ -315,6 +307,13 @@ namespace Pathwinder
 
         nameInsertionQueuePosition = 0;
         AdvanceQueueContentsInternal();
+    }
+
+    // --------
+
+    unsigned int NameInsertionQueue::SizeOfFront(void) const
+    {
+        return fileInformationStructLayout.SizeOfStruct(enumerationBuffer.Data());
     }
 
     // --------
@@ -361,13 +360,6 @@ namespace Pathwinder
 
     // --------
 
-    unsigned int MergedFileInformationQueue::SizeOfFront(void) const
-    {
-        return frontElementSourceQueue->SizeOfFront();
-    }
-
-    // --------
-
     void MergedFileInformationQueue::PopFront(void)
     {
         frontElementSourceQueue->PopFront();
@@ -376,16 +368,23 @@ namespace Pathwinder
 
     // --------
 
-    void MergedFileInformationQueue::Restart(void)
+    void MergedFileInformationQueue::Restart(std::wstring_view queryFilePattern)
     {
         for (const auto& underlyingQueue : queuesToMerge)
         {
             if (nullptr == underlyingQueue)
                 continue;
 
-            underlyingQueue->Restart();
+            underlyingQueue->Restart(queryFilePattern);
         }
 
         SelectFrontElementSourceQueueInternal();
+    }
+
+    // --------
+
+    unsigned int MergedFileInformationQueue::SizeOfFront(void) const
+    {
+        return frontElementSourceQueue->SizeOfFront();
     }
 }

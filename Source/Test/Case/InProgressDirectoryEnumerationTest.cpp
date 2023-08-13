@@ -190,6 +190,65 @@ namespace PathwinderTest
         TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
     }
 
+    // Creates a directory with a small number of files, enumerates all of them, and then restarts the scan but with a different file pattern.
+    // Both file patterns should be honored.
+    TEST_CASE(EnumerationQueue_EnumerateWithDifferentFilePatternOnRestart)
+    {
+        constexpr std::wstring_view kDirectoryName = L"C:\\Directory";
+        constexpr std::wstring_view kFileNames[] = {
+            L"asdfZ.txt",
+            L"File1.txt",
+            L"File2.txt",
+            L"File3.txt",
+            L"File4.txt",
+            L"File5.txt",
+            L"zZz.txt"
+        };
+
+        constexpr std::wstring_view kFirstFilePattern = L"F*";
+        constexpr std::wstring_view kFirstFilePatternMatches[] = {
+            L"File1.txt",
+            L"File2.txt",
+            L"File3.txt",
+            L"File4.txt",
+            L"File5.txt",
+        };
+
+        constexpr std::wstring_view kSecondFilePattern = L"*z.txt";
+        constexpr std::wstring_view kSecondFilePatternMatches[] = {
+            L"asdfZ.txt",
+            L"zZz.txt"
+        };
+
+        MockFilesystemOperations mockFilesystem;
+        for (auto fileName : kFileNames)
+        {
+            TemporaryString fileAbsolutePath;
+            fileAbsolutePath << kDirectoryName << L'\\' << fileName;
+            mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
+        }
+
+        EnumerationQueue enumerationQueue(InstructionToIncludeAllFiles(), L"C:\\Directory", SFileNamesInformation::kFileInformationClass, kFirstFilePattern);
+
+        for (auto fileName : kFirstFilePatternMatches)
+        {
+            TEST_ASSERT(NT_SUCCESS(enumerationQueue.EnumerationStatus()));
+            TEST_ASSERT(enumerationQueue.FileNameOfFront() == fileName);
+            enumerationQueue.PopFront();
+        }
+
+        enumerationQueue.Restart(kSecondFilePattern);
+
+        for (auto fileName : kSecondFilePatternMatches)
+        {
+            TEST_ASSERT(NT_SUCCESS(enumerationQueue.EnumerationStatus()));
+            TEST_ASSERT(enumerationQueue.FileNameOfFront() == fileName);
+            enumerationQueue.PopFront();
+        }
+
+        TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
+    }
+
     // Creates a directory with a small number of files and expects that only files that match the file pattern, supplied in a filesystem rule, are enumerated.
     TEST_CASE(EnumerationQueue_EnumerateOnlyRuleMatchingFiles)
     {
@@ -553,6 +612,90 @@ namespace PathwinderTest
         mergedQueue.Restart();
 
         for (const auto& fileName : combinedFileNamesSorted)
+        {
+            TEST_ASSERT(NT_SUCCESS(mergedQueue.EnumerationStatus()));
+            TEST_ASSERT(mergedQueue.FileNameOfFront() == fileName);
+            mergedQueue.PopFront();
+        }
+
+        TEST_ASSERT(NtStatus::kNoMoreFiles == mergedQueue.EnumerationStatus());
+    }
+
+    // Creates two directory enumeration queues and verifies that they are correctly merged, with output properly being provided in sorted order.
+    // The scan is restarted after getting part-way through it, and the file pattern is changed on restart. Both file patterns should be honored.
+    // This test uses a standard directory enumeration queue, rather than a mock, because the former supports query file patterns and this test is intended to ensure that query file patterns are correctly routed to underlying queue objects.
+    TEST_CASE(MergedFileInformationQueue_SimpleMergeTwoWithDifferentFilePatternOnRestart)
+    {
+        constexpr FILE_INFORMATION_CLASS kFileInformationClass = SFileNamesInformation::kFileInformationClass;
+        FileInformationStructLayout layout = *FileInformationStructLayout::LayoutForFileInformationClass(kFileInformationClass);
+
+        constexpr std::wstring_view kFirstDirectoryName = L"C:\\FirstDirectory";
+        constexpr std::wstring_view kFirstDirectoryFileNames[] = {
+            L"File10.txt",
+            L"File20.txt",
+            L"File30.txt",
+            L"File40.txt",
+            L"File70.txt",
+            L"File79.txt",
+        };
+
+        constexpr std::wstring_view kSecondDirectoryName = L"C:\\SecondDirectory";
+        constexpr std::wstring_view kSecondDirectoryFileNames[] = {
+            L"File18.txt",
+            L"File35.txt",
+            L"File50.txt",
+            L"File67.txt",
+            L"File77.txt",
+            L"File78.txt",
+        };
+
+        MockFilesystemOperations mockFilesystem;
+        for (auto fileName : kFirstDirectoryFileNames)
+        {
+            TemporaryString fileAbsolutePath;
+            fileAbsolutePath << kFirstDirectoryName << L'\\' << fileName;
+            mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
+        }
+        for (auto fileName : kSecondDirectoryFileNames)
+        {
+            TemporaryString fileAbsolutePath;
+            fileAbsolutePath << kSecondDirectoryName << L'\\' << fileName;
+            mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
+        }
+
+        constexpr std::wstring_view kFirstFilePattern = L"*0.txt";
+        constexpr std::wstring_view kFirstFilePatternMatchesInSortedOrder[] = {
+            L"File10.txt",
+            L"File20.txt",
+            L"File30.txt",
+            L"File40.txt",
+            L"File50.txt",
+            L"File70.txt",
+        };
+
+        constexpr std::wstring_view kSecondFilePattern = L"File7*.txt";
+        constexpr std::wstring_view kSecondFilePatternMatchesInSortedOrder[] = {
+            L"File70.txt",
+            L"File77.txt",
+            L"File78.txt",
+            L"File79.txt",
+        };
+
+        auto firstQueue = std::make_unique<EnumerationQueue>(InstructionToIncludeAllFiles(), kFirstDirectoryName, kFileInformationClass, kFirstFilePattern);
+        auto secondQueue = std::make_unique<EnumerationQueue>(InstructionToIncludeAllFiles(), kSecondDirectoryName, kFileInformationClass, kFirstFilePattern);
+        
+        MergedFileInformationQueue mergedQueue({std::move(firstQueue), std::move(secondQueue)});
+
+        for (auto fileName : kFirstFilePatternMatchesInSortedOrder)
+        {
+            TEST_ASSERT(NT_SUCCESS(mergedQueue.EnumerationStatus()));
+            TEST_ASSERT(mergedQueue.FileNameOfFront() == fileName);
+            mergedQueue.PopFront();
+        }
+
+        mergedQueue.Restart(kSecondFilePattern);
+
+        for (auto fileName : kSecondFilePatternMatchesInSortedOrder)
         {
             TEST_ASSERT(NT_SUCCESS(mergedQueue.EnumerationStatus()));
             TEST_ASSERT(mergedQueue.FileNameOfFront() == fileName);

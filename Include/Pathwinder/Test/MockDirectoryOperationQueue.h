@@ -72,8 +72,8 @@ namespace PathwinderTest
         unsigned int CopyFront(void* dest, unsigned int capacityBytes) const override;
         NTSTATUS EnumerationStatus(void) const override;
         std::wstring_view FileNameOfFront(void) const override;
-        unsigned int SizeOfFront(void) const override;
         void PopFront(void) override;
-        void Restart(void) override;
+        void Restart(std::wstring_view unusedQueryFilePattern = std::wstring_view()) override;
+        unsigned int SizeOfFront(void) const override;
     };
 }

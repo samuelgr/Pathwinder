@@ -45,6 +45,21 @@ namespace PathwinderTest
         return (TRUE == Pathwinder::WindowsInternal::RtlIsNameInExpression(&filePatternString, &fileNameString, TRUE, nullptr));
     }
 
+    /// Creates a file pattern string object from a given file pattern string view.
+    /// @param [in] filePattern File pattern for which a string object is needed.
+    /// @return File pattern string object.
+    static std::wstring MakeFilePatternString(std::wstring_view filePattern)
+    {
+        if (true == filePattern.empty())
+            return std::wstring();
+
+        // File patterns must be in upper-case due to an implementation quirk with the underlying file pattern matching Windows API function.
+        std::wstring filePatternString(filePattern);
+        for (size_t i = 0; i < filePatternString.size(); ++i)
+            filePatternString[i] = std::towupper(filePattern[i]);
+        return filePatternString;
+    }
+
 
     // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
     // See "MockFilesystemOperations.h" for documentation.
@@ -184,22 +199,19 @@ namespace PathwinderTest
             if (filesystemContents.cend() == directoryContentsIter)
                 TEST_FAILED_BECAUSE(L"%s: Internal implementation error due to failure to locate the directory contents for \"%.*s\" even though a valid open handle exists for it.", __FUNCTIONW__, static_cast<int>(directoryToEnumerate.length()), directoryToEnumerate.data());
             const auto& directoryContents = directoryContentsIter->second;
-
-            std::wstring filePatternString(filePattern);
-            for (size_t i = 0; i < filePatternString.size(); ++i)
-                filePatternString[i] = std::towupper(filePattern[i]);
             
-            auto createDirectoryEnumerationStateResult = inProgressDirectoryEnumerations.emplace(directoryHandle, SDirectoryEnumerationState{.filePattern = std::move(filePatternString), .nextItemIterator = directoryContents.cbegin(), .beginIterator = directoryContents.cbegin(), .endIterator = directoryContents.cend()});
+            auto createDirectoryEnumerationStateResult = inProgressDirectoryEnumerations.emplace(directoryHandle, SDirectoryEnumerationState{.filePattern = MakeFilePatternString(filePattern), .nextItemIterator = directoryContents.cbegin(), .beginIterator = directoryContents.cbegin(), .endIterator = directoryContents.cend()});
             if (false == createDirectoryEnumerationStateResult.second)
                 TEST_FAILED_BECAUSE("%s: Internal implementation error due to failure to create a new directory enumeration state object.", __FUNCTIONW__);
 
             directoryEnumerationStateIter = createDirectoryEnumerationStateResult.first;
         }
 
-        // Restarting a scan just means resetting the next item to be enumerated.
-        // Other aspects of the enumeration state are not affected by this query flag.
         if (queryFlags & Pathwinder::QueryFlag::kRestartScan)
+        {
+            directoryEnumerationStateIter->second.filePattern = MakeFilePatternString(filePattern);
             directoryEnumerationStateIter->second.nextItemIterator = directoryEnumerationStateIter->second.beginIterator;
+        }
 
         const unsigned int maxElementsToWrite = ((queryFlags & Pathwinder::QueryFlag::kReturnSingleEntry) ? 1 : std::numeric_limits<unsigned int>::max());
         unsigned int numElementsWritten = 0;

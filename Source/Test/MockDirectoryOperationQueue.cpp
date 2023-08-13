@@ -68,13 +68,6 @@ namespace PathwinderTest
 
     // --------
 
-    unsigned int MockDirectoryOperationQueue::SizeOfFront(void) const
-    {
-        return fileInformationStructLayout.HypotheticalSizeForFileNameLength(static_cast<unsigned int>(FileNameOfFront().length()));
-    }
-
-    // --------
-
     void MockDirectoryOperationQueue::PopFront(void)
     {
         ++nextFileNameToEnumerate;
@@ -82,8 +75,15 @@ namespace PathwinderTest
 
     // --------
 
-    void MockDirectoryOperationQueue::Restart(void)
+    void MockDirectoryOperationQueue::Restart(std::wstring_view unusedQueryFilePattern)
     {
         nextFileNameToEnumerate = fileNamesToEnumerate.cbegin();
+    }
+
+    // --------
+
+    unsigned int MockDirectoryOperationQueue::SizeOfFront(void) const
+    {
+        return fileInformationStructLayout.HypotheticalSizeForFileNameLength(static_cast<unsigned int>(FileNameOfFront().length()));
     }
 }

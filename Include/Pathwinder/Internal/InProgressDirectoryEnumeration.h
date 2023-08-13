@@ -52,16 +52,17 @@ namespace Pathwinder
         /// @return Filename from the first file information structure, or an empty string if there are no file information structures available.
         virtual std::wstring_view FileNameOfFront(void) const = 0;
 
-        /// Determines the size, in bytes, of the first file information structure in the queue.
-        /// Because file information structures contain varying-length filenames, even though the type of struct is the same the size may differ from instance to instance.
-        /// @return Size, in bytes, of the first file information structure, or 0 if there are no file information structures vailable.
-        virtual unsigned int SizeOfFront(void) const = 0;
-
         /// Removes the first file information structure from the queue.
         virtual void PopFront(void) = 0;
 
         /// Causes the enumeration to be restarted from the beginning.
-        virtual void Restart(void) = 0;
+        /// @param [in] filePattern Optional query file pattern to use for filtering enumerated entities. Not all subclasses support query file patterns.
+        virtual void Restart(std::wstring_view queryFilePattern = std::wstring_view()) = 0;
+
+        /// Determines the size, in bytes, of the first file information structure in the queue.
+        /// Because file information structures contain varying-length filenames, even though the type of struct is the same the size may differ from instance to instance.
+        /// @return Size, in bytes, of the first file information structure, or 0 if there are no file information structures vailable.
+        virtual unsigned int SizeOfFront(void) const = 0;
     };
 
     /// Holds state and supports enumeration of a single directory within the context of a larger directory enumeration operation.
@@ -142,9 +143,9 @@ namespace Pathwinder
         unsigned int CopyFront(void* dest, unsigned int capacityBytes) const override;
         NTSTATUS EnumerationStatus(void) const override;
         std::wstring_view FileNameOfFront(void) const override;
-        unsigned int SizeOfFront(void) const override;
         void PopFront(void) override;
-        void Restart(void) override;
+        void Restart(std::wstring_view queryFilePattern = std::wstring_view()) override;
+        unsigned int SizeOfFront(void) const override;
     };
 
     /// Holds state and supports insertion of directory names into the output of a larger directory enumeration operation.
@@ -203,9 +204,9 @@ namespace Pathwinder
         unsigned int CopyFront(void* dest, unsigned int capacityBytes) const override;
         NTSTATUS EnumerationStatus(void) const override;
         std::wstring_view FileNameOfFront(void) const override;
-        unsigned int SizeOfFront(void) const override;
         void PopFront(void) override;
-        void Restart(void) override;
+        void Restart(std::wstring_view unusedQueryFilePattern = std::wstring_view()) override;
+        unsigned int SizeOfFront(void) const override;
     };
 
     /// Maintains multiple directory enumeration queues and merges them into a single stream of file informaiton structures using a queue-like interface.
@@ -255,8 +256,8 @@ namespace Pathwinder
         unsigned int CopyFront(void* dest, unsigned int capacityBytes) const override;
         NTSTATUS EnumerationStatus(void) const override;
         std::wstring_view FileNameOfFront(void) const override;
-        unsigned int SizeOfFront(void) const override;
         void PopFront(void) override;
-        void Restart(void) override;
+        void Restart(std::wstring_view queryFilePattern = std::wstring_view()) override;
+        unsigned int SizeOfFront(void) const override;
     };
 }
