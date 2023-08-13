@@ -45,37 +45,6 @@ namespace Pathwinder
         }
     }
 
-    /// Determines if the specified filename matches the specified file pattern. An empty file pattern is presumed to match everything.
-    /// Input filename must not contain any backslash separators, as it is intended to represent a file within a directory rather than a path.
-    /// Input file pattern must be in upper-case.
-    /// @param [in] fileName Filename to check.
-    /// @param [in] filePatternUpperCase File pattern to be used for comparison with the file name.
-    /// @return `true` if the file name matches the supplied pattern or if it is entirely empty, `false` otherwise.
-    static bool FileNameMatchesPattern(std::wstring_view fileName, std::wstring_view filePatternUpperCase)
-    {
-        if (true == filePatternUpperCase.empty())
-            return true;
-
-        UNICODE_STRING fileNameString = Strings::NtConvertStringViewToUnicodeString(fileName);
-        UNICODE_STRING filePatternString = Strings::NtConvertStringViewToUnicodeString(filePatternUpperCase);
-
-        return (TRUE == WindowsInternal::RtlIsNameInExpression(&filePatternString, &fileNameString, TRUE, nullptr));
-    }
-
-    /// Converts the specified read-only string into uppercase.
-    /// Userful primarily for application-supplied file patterns that need to be matched in a case-insensitive way and hence need to be upper-case due to an implementation quirk of the matching function.
-    /// @param [in] str String to be converted.
-    /// @return Same as the input string but with all characters converted to uppercase as appropriate.
-    static inline TemporaryString MakeUppercaseString(std::wstring_view str)
-    {
-        TemporaryString uppercaseStr;
-
-        for (wchar_t c : str)
-            uppercaseStr += static_cast<wchar_t>(std::towupper(c));
-
-        return uppercaseStr;
-    }
-
     /// Determines if the specified absolute path begins with a drive letter.
     /// @param [in] absolutePathWithoutWindowsPrefix Absolute path to check, without any Windows namespace prefixes.
     /// @return `true` if the path begins with a drive letter, `false` otherwise.
@@ -120,7 +89,7 @@ namespace Pathwinder
 
     // --------
 
-    DirectoryEnumerationInstruction FilesystemDirector::GetInstructionForDirectoryEnumeration(std::wstring_view associatedPath, std::wstring_view realOpenedPath, std::wstring_view enumerationQueryFilePattern) const
+    DirectoryEnumerationInstruction FilesystemDirector::GetInstructionForDirectoryEnumeration(std::wstring_view associatedPath, std::wstring_view realOpenedPath) const
     {
         associatedPath = Strings::RemoveTrailing(associatedPath, L'\\');
         realOpenedPath = Strings::RemoveTrailing(realOpenedPath, L'\\');
@@ -211,7 +180,6 @@ namespace Pathwinder
             auto parentOfDirectoriesToInsert = originDirectoryIndex.TraverseTo(directoryPathTrimmedForQuery);
             if (nullptr != parentOfDirectoriesToInsert)
             {
-                TemporaryString enumerationQueryFilePatternUpperCase = MakeUppercaseString(enumerationQueryFilePattern);
                 for (const auto& childItem : parentOfDirectoriesToInsert->GetChildren())
                 {
                     if (true == childItem.second.HasData())
@@ -221,29 +189,14 @@ namespace Pathwinder
                         // Insertion of a rule's origin directory into the enumeration results requires that two things be true:
                         // (1) Origin directory base name matches the application-supplied enumeration quiery file pattern (or the enumeration query file pattern is missing). This check is needed because insertion bypasses the normal mechanism of having the system check for a match during the enumeration system call.
                         // (2) Target directory exists as a real directory in the filesystem.
+                        // However, both of these things need to be checked at insertion time, not at instruction creation time.
 
-                        const bool originDirectoryBaseNameMatchesEnumerationQuery = FileNameMatchesPattern(childRule.GetOriginDirectoryName(), enumerationQueryFilePatternUpperCase);
-                        const bool targetDirectoryExistsInRealFilesystem = FilesystemOperations::IsDirectory(childRule.GetTargetDirectoryFullPath());
+                        if (false == directoryNamesToInsert.has_value())
+                            directoryNamesToInsert.emplace();
 
-                        if (originDirectoryBaseNameMatchesEnumerationQuery && targetDirectoryExistsInRealFilesystem)
-                        {
-                            if (false == directoryNamesToInsert.has_value())
-                                directoryNamesToInsert.emplace();
+                        Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" will potentially insert \"%.*s\" into the output because it is the origin directory of rule \"%.*s\".", static_cast<int>(directoryPath.length()), directoryPath.data(), static_cast<int>(childRule.GetOriginDirectoryName().length()), childRule.GetOriginDirectoryName().data(), static_cast<int>(childRule.GetName().length()), childRule.GetName().data());
 
-                            if (false == enumerationQueryFilePattern.empty())
-                                Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" will insert \"%.*s\" into the output because it is the origin directory of rule \"%.*s\" and matches enumeration file pattern \"%.*s\".", static_cast<int>(directoryPath.length()), directoryPath.data(), static_cast<int>(childRule.GetOriginDirectoryName().length()), childRule.GetOriginDirectoryName().data(), static_cast<int>(childRule.GetName().length()), childRule.GetName().data(), static_cast<int>(enumerationQueryFilePattern.length()), enumerationQueryFilePattern.data());
-                            else
-                                Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" will insert \"%.*s\" into the output because it is the origin directory of rule \"%.*s\" and no enumeration file pattern was supplied.", static_cast<int>(directoryPath.length()), directoryPath.data(), static_cast<int>(childRule.GetOriginDirectoryName().length()), childRule.GetOriginDirectoryName().data(), static_cast<int>(childRule.GetName().length()), childRule.GetName().data());
-
-                            directoryNamesToInsert->EmplaceBack(childRule);
-                        }
-                        else
-                        {
-                            if (false == enumerationQueryFilePattern.empty())
-                                Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Directory enumeration query for path \"%.*s\" will not insert \"%.*s\" into the output even though it is the origin directory of rule \"%.*s\" because either the target directory does not exist or the enumeration file pattern \"%.*s\" is not matched.", static_cast<int>(directoryPath.length()), directoryPath.data(), static_cast<int>(childRule.GetOriginDirectoryName().length()), childRule.GetOriginDirectoryName().data(), static_cast<int>(childRule.GetName().length()), childRule.GetName().data(), static_cast<int>(enumerationQueryFilePattern.length()), enumerationQueryFilePattern.data());
-                            else
-                                Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Directory enumeration query for path \"%.*s\" will not insert \"%.*s\" into the output even though it is the origin directory of rule \"%.*s\" because the target directory does not exist.", static_cast<int>(directoryPath.length()), directoryPath.data(), static_cast<int>(childRule.GetOriginDirectoryName().length()), childRule.GetOriginDirectoryName().data(), static_cast<int>(childRule.GetName().length()), childRule.GetName().data());
-                        }
+                        directoryNamesToInsert->EmplaceBack(childRule);
                     }
                 }
             }

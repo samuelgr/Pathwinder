@@ -157,6 +157,9 @@ namespace Pathwinder
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
+        /// File pattern against which to match all filenames being enumerated.
+        std::wstring filePattern;
+
         /// Name insertions to be performed in order from first element to last element.
         TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion> nameInsertionQueue;
 
@@ -181,7 +184,7 @@ namespace Pathwinder
 
         /// Initialization constructor.
         /// Requires a pre-existing queue of name insertions that can be moved into this object and a file information class to specify the type of information to insert for each directory name.
-        NameInsertionQueue(TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&& nameInsertionQueue, FILE_INFORMATION_CLASS fileInformationClass);
+        NameInsertionQueue(TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&& nameInsertionQueue, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view queryFilePattern = std::wstring_view());
 
         /// Copy constructor. Should never be invoked.
         NameInsertionQueue(const NameInsertionQueue& other) = delete;
@@ -206,7 +209,7 @@ namespace Pathwinder
         NTSTATUS EnumerationStatus(void) const override;
         std::wstring_view FileNameOfFront(void) const override;
         void PopFront(void) override;
-        void Restart(std::wstring_view unusedQueryFilePattern = std::wstring_view()) override;
+        void Restart(std::wstring_view queryFilePattern = std::wstring_view()) override;
         unsigned int SizeOfFront(void) const override;
     };
 

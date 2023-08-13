@@ -424,8 +424,6 @@ namespace PathwinderTest
     // Requests a directory enumeration instruction and verifies that it correctly indicates to enumerate the target directory without any further processing.
     TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectory)
     {
-        MockFilesystemOperations mockFilesystem;
-
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
         }));
@@ -443,8 +441,6 @@ namespace PathwinderTest
     // Requests a directory enumeration instruction and verifies that it correctly indicates to merge in-scope target directory contents with out-of-scope origin directory contents.
     TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithFilePattern)
     {
-        MockFilesystemOperations mockFilesystem;
-
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {L"*.txt", L"*.rtf"})},
         }));
@@ -461,13 +457,10 @@ namespace PathwinderTest
         TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
-    // Creates a filesystem directory with three filesystem rules, two of which have origin directories that are direct children of the third. Of those two, one has a target directory that exists and the other does not.
-    // Requests a directory enumeration instruction and verifies that it correcly inserts only the origin directory whose associated target directory actually exists.
+    // Creates a filesystem directory with three filesystem rules, two of which have origin directories that are direct children of the third.
+    // Requests a directory enumeration instruction and verifies that it correcly inserts both origin directories into the enumeration result.
     TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithChildRules)
     {
-        MockFilesystemOperations mockFilesystem;
-        mockFilesystem.AddDirectory(L"C:\\TargetA");
-
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
             {L"2", FilesystemRule(L"C:\\Origin\\SubA", L"C:\\TargetA")},
@@ -477,7 +470,7 @@ namespace PathwinderTest
         constexpr std::wstring_view associatedPath = L"C:\\Origin";
         constexpr std::wstring_view realOpenedPath = L"C:\\Target";
 
-        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::InsertRuleOriginDirectoryNames({*director.FindRuleByName(L"2")});
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::InsertRuleOriginDirectoryNames({*director.FindRuleByName(L"2"), *director.FindRuleByName(L"3")});
         const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
@@ -489,14 +482,6 @@ namespace PathwinderTest
     // The sorting is expected to be by origin directory base name.
     TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithMultipleSortedChildRules)
     {
-        MockFilesystemOperations mockFilesystem;
-        mockFilesystem.AddDirectory(L"C:\\TargetA");
-        mockFilesystem.AddDirectory(L"C:\\TargetB");
-        mockFilesystem.AddDirectory(L"C:\\TargetC");
-        mockFilesystem.AddDirectory(L"C:\\TargetD");
-        mockFilesystem.AddDirectory(L"C:\\TargetE");
-        mockFilesystem.AddDirectory(L"C:\\TargetF");
-
         // Rule names are random and totally unordered strings to make sure that rule name is not used for sorting.
         // Rules are inserted in arbitrary order with origin directories also out-of-order. The sorting should be on the basis of the "SubX..." part of the origin directories.
         const FilesystemDirector director(MakeFilesystemDirector({
@@ -525,35 +510,10 @@ namespace PathwinderTest
         TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
-    // Creates a filesystem directory with three filesystem rules, two of which have origin directories that are direct children of the third. Of those two, one has a target directory that exists and the other does not.
-    // Requests a directory enumeration instruction and verifies that it correcly inserts only the origin directory whose associated target directory actually exists. A query pattern is also supplied that matches both origin directories.
-    TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithChildRulesAndMatchingQueryPattern)
-    {
-        MockFilesystemOperations mockFilesystem;
-        mockFilesystem.AddDirectory(L"C:\\TargetA");
-
-        const FilesystemDirector director(MakeFilesystemDirector({
-            {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
-            {L"2", FilesystemRule(L"C:\\Origin\\SubA", L"C:\\TargetA")},
-            {L"3", FilesystemRule(L"C:\\Origin\\SubB", L"C:\\TargetB")},
-        }));
-
-        constexpr std::wstring_view associatedPath = L"C:\\Origin";
-        constexpr std::wstring_view realOpenedPath = L"C:\\Target";
-
-        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::InsertRuleOriginDirectoryNames({*director.FindRuleByName(L"2")});
-        const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath, L"Sub*");
-
-        TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
-    }
-
     // Creates a filesystem directory with three filesystem rules, two of which have origin directories that are direct children of the third. Of those two, one has a target directory that exists and the other does not. All three rules have file patterns, although this only matters for the top-level rule with the children.
-    // Requests a directory enumeration instruction and verifies that it both correctly indicates to merge in-scope target directory contents with out-of-scope origin directory contents and correctly inserts one of the origin directories into the enumeration result.
+    // Requests a directory enumeration instruction and verifies that it both correctly indicates to merge in-scope target directory contents with out-of-scope origin directory contents and correctly inserts both of the origin directories into the enumeration result.
     TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithFilePatternAndChildRules)
     {
-        MockFilesystemOperations mockFilesystem;
-        mockFilesystem.AddDirectory(L"C:\\TargetA");
-
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {L"*.txt", L"*.rtf"})},
             {L"2", FilesystemRule(L"C:\\Origin\\SubA", L"C:\\TargetA", {L"*.exe"})},
@@ -566,7 +526,7 @@ namespace PathwinderTest
         const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::EnumerateDirectoriesAndInsertRuleOriginDirectoryNames({
             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, *director.FindRuleByName(L"1")),
             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllExceptMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath, *director.FindRuleByName(L"1"))
-        }, {*director.FindRuleByName(L"2")});
+        }, {*director.FindRuleByName(L"2"), *director.FindRuleByName(L"3")});
         const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
@@ -576,8 +536,6 @@ namespace PathwinderTest
     // Requests a directory enumeration instruction for a descendant of the origin directory and verifies that it correctly indicates to enumerate the target-side redirected directory without any further processing.
     TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectory)
     {
-        MockFilesystemOperations mockFilesystem;
-
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
         }));
@@ -595,8 +553,6 @@ namespace PathwinderTest
     // Requests a directory enumeration instruction for a descendant of the origin directory, which is also within its scope, and verifies that it correctly indicates to enumerate the target-side redirected directory without any further processing.
     TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectoryWithFilePatterns)
     {
-        MockFilesystemOperations mockFilesystem;
-
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {L"Subdir*"})},
         }));

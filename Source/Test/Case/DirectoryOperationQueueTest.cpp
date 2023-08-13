@@ -451,6 +451,29 @@ namespace PathwinderTest
         TEST_ASSERT(NtStatus::kNoMoreFiles == nameInsertionQueue.EnumerationStatus());
     }
 
+    // Enumerates the parent directory of a single filesystem rule's origin directory such that the rule's origin directory and target directory both exist in the filesystem.
+    // However, a file pattern is specified that excludes the origin directory.
+    // Nothing should be enumerated.
+    TEST_CASE(NameInsertionQueue_SingleFilesystemRule_OriginAndTargetExistButNoFilePatternMatch)
+    {
+        MockFilesystemOperations mockFilesystem;
+        mockFilesystem.AddDirectory(L"C:\\Directory1\\Origin");
+        mockFilesystem.AddDirectory(L"C:\\Directory2\\Target");
+
+        const FilesystemRule filesystemRules[] = {
+            FilesystemRule(L"C:\\Directory1\\Origin", L"C:\\Directory2\\Target")
+        };
+
+        constexpr std::wstring_view kFilePattern = L"a*";
+
+        TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion> nameInsertionInstructions;
+        for (const auto& filesystemRule : filesystemRules)
+            nameInsertionInstructions.EmplaceBack(filesystemRule);
+
+        NameInsertionQueue nameInsertionQueue(std::move(nameInsertionInstructions), SFileNamesInformation::kFileInformationClass, kFilePattern);
+        TEST_ASSERT(NtStatus::kNoMoreFiles == nameInsertionQueue.EnumerationStatus());
+    }
+
     // Enumerates the parent directory of a single filesystem rule's origin directory such that the rule's origin directory does not exist but the target directory does exist in the filesystem.
     // That origin directory should be the only item enumerated. It is irrelevant that it does not exist for real in the filesystem.
     TEST_CASE(NameInsertionQueue_SingleFilesystemRule_OriginDoesNotExist)

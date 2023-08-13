@@ -74,7 +74,7 @@ namespace Pathwinder
 
     // --------
 
-    NameInsertionQueue::NameInsertionQueue(TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&& nameInsertionQueue, FILE_INFORMATION_CLASS fileInformationClass) : IDirectoryOperationQueue(), nameInsertionQueue(std::move(nameInsertionQueue)), nameInsertionQueuePosition(0), fileInformationClass(fileInformationClass), fileInformationStructLayout(FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationStatus()
+    NameInsertionQueue::NameInsertionQueue(TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&& nameInsertionQueue, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view queryFilePattern) : IDirectoryOperationQueue(), nameInsertionQueue(std::move(nameInsertionQueue)), nameInsertionQueuePosition(0), fileInformationClass(fileInformationClass), fileInformationStructLayout(FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationStatus(), filePattern()
     {
         if (FileInformationStructLayout() == fileInformationStructLayout)
         {
@@ -82,7 +82,7 @@ namespace Pathwinder
             return;
         }
 
-        Restart();
+        Restart(queryFilePattern);
     }
 
     // --------
@@ -142,23 +142,28 @@ namespace Pathwinder
 
     void NameInsertionQueue::AdvanceQueueContentsInternal(void)
     {
-        if (nameInsertionQueuePosition == nameInsertionQueue.Size())
-        {
-            enumerationStatus = NtStatus::kNoMoreFiles;
-            return;
-        }
-        
-        // The initial value for the query result ensures the loop will run at least one time.
-        // Every iteration of the loop updates the name insertion pointer, so the loop will never be terminated with it still equal to `nullptr`.
         const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion* nameInsertion = nullptr;
         NTSTATUS nameInsertionQueryResult = NtStatus::kInternalError;
 
-        while ((!(NT_SUCCESS(nameInsertionQueryResult))) && (nameInsertionQueuePosition != nameInsertionQueue.Size()))
-        {
+        do {
+            if (nameInsertionQueuePosition == nameInsertionQueue.Size())
+            {
+                enumerationStatus = NtStatus::kNoMoreFiles;
+                return;
+            }
+
             nameInsertion = &nameInsertionQueue[nameInsertionQueuePosition];
+
+            // If the filename to be inserted does not match the query file pattern then it can simply be skipped.
+            if (false == Strings::FileNameMatchesPattern(nameInsertion->FileNameToInsert(), filePattern))
+            {
+                nameInsertionQueuePosition += 1;
+                continue;
+            }
+
             nameInsertionQueryResult = FilesystemOperations::QuerySingleFileDirectoryInformation(nameInsertion->DirectoryInformationSourceDirectoryPart(), nameInsertion->DirectoryInformationSourceFilePart(), fileInformationClass, enumerationBuffer.Data(), enumerationBuffer.Size());
 
-            // It is not an error for the filesystem entities being queried not to exist and thus be unavailable. They can just be skipped.
+            // It is not an error for the filesystem entities being queried not to exist and thus be unavailable. They can just be skipped, and the next name insertion tried.
             // Anything other error, however, is a directory enumeration error that should be recorded and provided back to the application.
             switch (nameInsertionQueryResult)
             {
@@ -167,7 +172,7 @@ namespace Pathwinder
             case NtStatus::kObjectPathInvalid:
             case NtStatus::kObjectPathNotFound:
                 nameInsertionQueuePosition += 1;
-                break;
+                continue;
 
             default:
                 if (NT_SUCCESS(nameInsertionQueryResult))
@@ -176,13 +181,7 @@ namespace Pathwinder
                 enumerationStatus = nameInsertionQueryResult;
                 return;
             }
-        }
-
-        if (nameInsertionQueuePosition == nameInsertionQueue.Size())
-        {
-            enumerationStatus = NtStatus::kNoMoreFiles;
-            return;
-        }
+        } while (!(NT_SUCCESS(nameInsertionQueryResult)));
 
         nameInsertionQueuePosition += 1;
         fileInformationStructLayout.WriteFileName(enumerationBuffer.Data(), nameInsertion->FileNameToInsert(), enumerationBuffer.Size());
@@ -298,12 +297,19 @@ namespace Pathwinder
 
     // --------
 
-    void NameInsertionQueue::Restart(std::wstring_view unusedQueryFilePattern)
+    void NameInsertionQueue::Restart(std::wstring_view queryFilePattern)
     {
         if (0 == nameInsertionQueue.Size())
         {
             enumerationStatus = NtStatus::kNoMoreFiles;
             return;
+        }
+
+        if (false == queryFilePattern.empty())
+        {
+            filePattern = std::wstring(queryFilePattern);
+            for (size_t i = 0; i < filePattern.size(); ++i)
+                filePattern[i] = std::towupper(filePattern[i]);
         }
 
         nameInsertionQueuePosition = 0;
