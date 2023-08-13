@@ -22,7 +22,7 @@
 
 /// Produces a key-value pair definition for a file information class and the associatied structure's layout information.
 #define FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(structname) \
-    {structname::kFileInformationClass, FileInformationStructLayout(sizeof(structname), offsetof(structname, nextEntryOffset), offsetof(structname, fileNameLength), offsetof(structname, fileName))}
+    {structname::kFileInformationClass, FileInformationStructLayout(structname::kFileInformationClass, sizeof(structname), offsetof(structname, nextEntryOffset), offsetof(structname, fileNameLength), offsetof(structname, fileName))}
 
 
 namespace Pathwinder

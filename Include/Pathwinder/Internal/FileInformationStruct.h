@@ -156,6 +156,9 @@ namespace Pathwinder
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
+        /// File information class enumerator that identifies the structure for which layout information is being supplied.
+        FILE_INFORMATION_CLASS fileInformationClass;
+
         /// Base size of the entire structure, in bytes, without considering the variable length of the trailing filename field.
         unsigned int structureBaseSizeBytes;
 
@@ -180,7 +183,7 @@ namespace Pathwinder
 
         /// Initialization constructor.
         /// Requires values for most fields. This class is intended for internal use and is not generally intended to be invoked externally.
-        constexpr inline FileInformationStructLayout(unsigned int structureBaseSizeBytes, unsigned int offsetOfNextEntryOffset, unsigned int offsetOfFileNameLength, unsigned int offsetOfFileName) : structureBaseSizeBytes(structureBaseSizeBytes), offsetOfNextEntryOffset(offsetOfNextEntryOffset), offsetOfFileNameLength(offsetOfFileNameLength), offsetOfFileName(offsetOfFileName)
+        constexpr inline FileInformationStructLayout(FILE_INFORMATION_CLASS fileInformationClass, unsigned int structureBaseSizeBytes, unsigned int offsetOfNextEntryOffset, unsigned int offsetOfFileNameLength, unsigned int offsetOfFileName) : fileInformationClass(fileInformationClass), structureBaseSizeBytes(structureBaseSizeBytes), offsetOfNextEntryOffset(offsetOfNextEntryOffset), offsetOfFileNameLength(offsetOfFileNameLength), offsetOfFileName(offsetOfFileName)
         {
             // Nothing to do here.
         }
@@ -216,6 +219,13 @@ namespace Pathwinder
         inline void ClearNextEntryOffset(void* fileInformationStruct) const
         {
             *(reinterpret_cast<TNextEntryOffset*>(reinterpret_cast<size_t>(fileInformationStruct) + static_cast<size_t>(offsetOfNextEntryOffset))) = 0;
+        }
+
+        /// Retrieves and returns the file information class enumerator that corresponds to the file informaton structure whose layout is described by this object.
+        /// @return File information class enumerator.
+        inline FILE_INFORMATION_CLASS FileInformationClass(void) const
+        {
+            return fileInformationClass;
         }
 
         /// Generates and returns a pointer to the trailing filename field for the specified file information structure.

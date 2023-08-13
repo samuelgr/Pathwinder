@@ -12,6 +12,7 @@
 
 #include "ApiBitSet.h"
 #include "ApiWindowsInternal.h"
+#include "FileInformationStruct.h"
 #include "FilesystemDirector.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemOperations.h"
@@ -117,28 +118,14 @@ namespace Pathwinder
         return FileRenameInformationAndFilename(std::move(newFileRenameInformation));
     }
 
-    /// Determines if the specified file information class value, when provided as a parameter to a directory enumeration system call, results in the enumeration of filenames in a directory.
-    /// Most of the supported file information classes will do this, but some enumerate other specific types of information other than filenames and are not valid on standard filesystem directories.
-    /// @param [in] fileInformationClass File information class enumerator to check.
-    /// @return `true` if the specified file information class results in filename enumeration, `false` otherwise.
-    static bool DoesFileInformationClassEnumerateFilenames(FILE_INFORMATION_CLASS fileInformationClass)
+    /// Creates a directory enumeration queue object based on the supplied directory enumeration instruction.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
+    /// @param [in] instruction Instruction that specifies how to implement the directory enumeration operation and hence determines which queue or queues are needed.
+    /// @param [in] queryFilePattern File pattern to supply to any created queues when they are first created.
+    static std::unique_ptr<IDirectoryOperationQueue> CreateDirectoryEnumerationQueueForInstruction(const wchar_t* functionName, unsigned int functionRequestIdentifier, const DirectoryEnumerationInstruction& instruction, std::wstring_view queryFilePattern)
     {
-        switch (fileInformationClass)
-        {
-        case SFileDirectoryInformation::kFileInformationClass:
-        case SFileFullDirectoryInformation::kFileInformationClass:
-        case SFileBothDirectoryInformation::kFileInformationClass:
-        case SFileNamesInformation::kFileInformationClass:
-        case SFileIdBothDirectoryInformation::kFileInformationClass:
-        case SFileIdFullDirectoryInformation::kFileInformationClass:
-        case SFileIdGlobalTxDirectoryInformation::kFileInformationClass:
-        case SFileIdExtdDirectoryInformation::kFileInformationClass:
-        case SFileIdExtdBothDirectoryInformation::kFileInformationClass:
-            return true;
-
-        default:
-            return false;
-        }
+        return nullptr;
     }
 
     /// Executes any pre-operations needed ahead of invoking underlying system calls.
@@ -368,7 +355,7 @@ namespace Pathwinder
             successfulPath = Strings::RemoveTrailing(successfulPath, L'\\');
             selectedPath = Strings::RemoveTrailing(selectedPath, L'\\');
 
-            OpenHandleStore::Singleton().InsertHandle(newlyOpenedHandle, {.associatedPath = selectedPath, .realOpenedPath = successfulPath});
+            OpenHandleStore::Singleton().InsertHandle(newlyOpenedHandle, std::wstring(selectedPath), std::wstring(successfulPath));
             Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu was opened for path \"%.*s\" and stored in association with path \"%.*s\".", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(newlyOpenedHandle), static_cast<int>(successfulPath.length()), successfulPath.data(), static_cast<int>(selectedPath.length()), selectedPath.data());
         }
     }
@@ -416,9 +403,81 @@ namespace Pathwinder
             successfulPath = Strings::RemoveTrailing(successfulPath, L'\\');
             selectedPath = Strings::RemoveTrailing(selectedPath, L'\\');
 
-            OpenHandleStore::Singleton().InsertOrUpdateHandle(handleToUpdate, {.associatedPath = selectedPath, .realOpenedPath = successfulPath});
+            OpenHandleStore::Singleton().InsertOrUpdateHandle(handleToUpdate, std::wstring(selectedPath), std::wstring(successfulPath));
             Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Handle %zu was updated in storage to be opened with path \"%.*s\" and associated with path \"%.*s\".", functionName, functionRequestIdentifier, reinterpret_cast<size_t>(handleToUpdate), static_cast<int>(successfulPath.length()), successfulPath.data(), static_cast<int>(selectedPath.length()), selectedPath.data());
         }
+    }
+
+    /// Common internal implementation of directory enumeration hook functions.
+    /// Parameters correspond to the `NtQueryDirectoryFileEx` system call, with the exception of `functionName` which is just the hook function name for logging purposes.
+    /// @return Result to be returned to the application on system call completion, or nothing at all if the request should be forwarded to the application.
+    std::optional<NTSTATUS> HookFunctionCommonImplementationQueryDirectoryFile(const wchar_t* functionName, HANDLE fileHandle, HANDLE event, PIO_APC_ROUTINE apcRoutine, PVOID apcContext, PIO_STATUS_BLOCK ioStatusBlock, PVOID fileInformation, ULONG length, FILE_INFORMATION_CLASS fileInformationClass, ULONG queryFlags, PUNICODE_STRING fileName)
+    {
+        std::optional<FileInformationStructLayout> maybeFileInformationStructLayout = FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass);
+        if (false == maybeFileInformationStructLayout.has_value())
+            return std::nullopt;
+
+        std::optional<OpenHandleStore::SHandleDataView> maybeHandleData = OpenHandleStore::Singleton().GetDataForHandle(fileHandle);
+        if (false == maybeHandleData.has_value())
+            return std::nullopt;
+
+        const unsigned int requestIdentifier = GetRequestIdentifier();
+
+        std::wstring_view queryFilePattern = ((nullptr == fileName) ? std::wstring_view() : Strings::NtConvertUnicodeStringToStringView(*fileName));
+        OpenHandleStore::SHandleDataView& handleData = *maybeHandleData;
+
+        switch (GetInputOutputModeForHandle(fileHandle))
+        {
+        case EInputOutputMode::Synchronous:
+            break;
+
+        case EInputOutputMode::Asynchronous:
+            Message::OutputFormatted(Message::ESeverity::Warning, L"%s(%u): Application requested asynchronous directory enumeration with handle %zu, which is unimplemented.", functionName, requestIdentifier, reinterpret_cast<size_t>(fileHandle));
+            return std::nullopt;
+
+        default:
+            Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Failed to determine I/O mode during directory enumeration for handle %zu.", functionName, requestIdentifier, reinterpret_cast<size_t>(fileHandle));
+            return std::nullopt;
+        }
+
+        if (true == queryFilePattern.empty())
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", functionName, requestIdentifier, reinterpret_cast<size_t>(fileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());
+        else
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with file pattern \"%.*s\" and handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", functionName, requestIdentifier, static_cast<int>(queryFilePattern.length()), queryFilePattern.data(), reinterpret_cast<size_t>(fileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());
+
+        bool newDirectoryEnumerationQueueWasCreated = false;
+        std::optional<IDirectoryOperationQueue*> maybeDirectoryOperationQueue = maybeHandleData->directoryEnumerationQueue;
+
+        if (false == maybeDirectoryOperationQueue.has_value())
+        {
+            // A new directory enumeration queue needs to be created because a directory enumeration is being requested for the first time.
+            // The underlying system calls are expected to behave slightly differently on a first invocation versus subsequent invocations, hence the need to identify when a new directory enumeration queue is first created.
+
+            DirectoryEnumerationInstruction directoryEnumerationInstruction = FilesystemDirector::Singleton().GetInstructionForDirectoryEnumeration(handleData.associatedPath, handleData.realOpenedPath);
+
+            if (true == Globals::GetConfigurationData().isDryRunMode)
+            {
+                // This will mark the directory enumeration object as present but no-op.
+                // Future invocations will therefore not attempt to query for a directory enumeration instruction and will just be forwarded to the system.
+                OpenHandleStore::Singleton().AssociateDirectoryEnumerationQueue(fileHandle, nullptr);
+                return std::nullopt;
+            }
+
+            std::unique_ptr<IDirectoryOperationQueue> directoryOperationQueueUniquePtr = CreateDirectoryEnumerationQueueForInstruction(functionName, requestIdentifier, directoryEnumerationInstruction, queryFilePattern);
+            maybeDirectoryOperationQueue = directoryOperationQueueUniquePtr.get();
+            newDirectoryEnumerationQueueWasCreated = true;
+
+            OpenHandleStore::Singleton().AssociateDirectoryEnumerationQueue(fileHandle, std::move(directoryOperationQueueUniquePtr));
+        }
+
+        // At this point a directory enumeration queue will be present.
+        // If it is `nullptr` then it is a no-op and the original request just needs to be forwarded to the system.
+        if (nullptr == *maybeDirectoryOperationQueue)
+            return std::nullopt;
+
+        // TODO
+
+        return std::nullopt;
     }
 }
 
@@ -555,45 +614,15 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(HANDLE FileHa
     using namespace Pathwinder;
 
 
-    if (false == DoesFileInformationClassEnumerateFilenames(FileInformationClass))
+    ULONG queryFlags = 0;
+    if (RestartScan != 0) queryFlags |= QueryFlag::kRestartScan;
+    if (ReturnSingleEntry != 0) queryFlags |= QueryFlag::kReturnSingleEntry;
+
+    auto maybeHookFunctionResult = HookFunctionCommonImplementationQueryDirectoryFile(GetFunctionName(), FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, queryFlags, FileName);
+    if (false == maybeHookFunctionResult.has_value())
         return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
 
-    std::optional<OpenHandleStore::SHandleDataView> maybeHandleData = OpenHandleStore::Singleton().GetDataForHandle(FileHandle);
-    if (false == maybeHandleData.has_value())
-        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
-
-    const unsigned int requestIdentifier = GetRequestIdentifier();
-
-    std::wstring_view queryFilePattern = ((nullptr == FileName) ? std::wstring_view() : Strings::NtConvertUnicodeStringToStringView(*FileName));
-    OpenHandleStore::SHandleDataView& handleData = *maybeHandleData;
-
-    switch (GetInputOutputModeForHandle(FileHandle))
-    {
-    case EInputOutputMode::Synchronous:
-        break;
-
-    case EInputOutputMode::Asynchronous:
-        Message::OutputFormatted(Message::ESeverity::Warning, L"%s(%u): Application requested asynchronous directory enumeration with handle %zu, which is unimplemented.", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle));
-        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
-
-    default:
-        Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Failed to determine I/O mode during directory enumeration for handle %zu.", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle));
-        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
-    }
-
-    if (true == queryFilePattern.empty())
-        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());
-    else
-        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with file pattern \"%.*s\" and handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", GetFunctionName(), requestIdentifier, static_cast<int>(queryFilePattern.length()), queryFilePattern.data(), reinterpret_cast<size_t>(FileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());
-
-    DirectoryEnumerationInstruction directoryEnumerationInstruction = FilesystemDirector::Singleton().GetInstructionForDirectoryEnumeration(handleData.associatedPath, handleData.realOpenedPath, queryFilePattern);
-
-    if (true == Globals::GetConfigurationData().isDryRunMode)
-        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
-
-    // TODO
-
-    return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
+    return *maybeHookFunctionResult;
 }
 
 // --------
@@ -603,45 +632,11 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(HANDLE File
     using namespace Pathwinder;
 
 
-    if (false == DoesFileInformationClassEnumerateFilenames(FileInformationClass))
+    auto maybeHookFunctionResult = HookFunctionCommonImplementationQueryDirectoryFile(GetFunctionName(), FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
+    if (false == maybeHookFunctionResult.has_value())
         return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
 
-    std::optional<OpenHandleStore::SHandleDataView> maybeHandleData = OpenHandleStore::Singleton().GetDataForHandle(FileHandle);
-    if (false == maybeHandleData.has_value())
-        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
-
-    const unsigned int requestIdentifier = GetRequestIdentifier();
-
-    std::wstring_view queryFilePattern = ((nullptr == FileName) ? std::wstring_view() : Strings::NtConvertUnicodeStringToStringView(*FileName));
-    OpenHandleStore::SHandleDataView& handleData = *maybeHandleData;
-
-    switch (GetInputOutputModeForHandle(FileHandle))
-    {
-    case EInputOutputMode::Synchronous:
-        break;
-
-    case EInputOutputMode::Asynchronous:
-        Message::OutputFormatted(Message::ESeverity::Warning, L"%s(%u): Application requested asynchronous directory enumeration with handle %zu, which is unimplemented.", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle));
-        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
-
-    default:
-        Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Failed to determine I/O mode during directory enumeration for handle %zu.", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle));
-        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
-    }
-
-    if (true == queryFilePattern.empty())
-        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", GetFunctionName(), requestIdentifier, reinterpret_cast<size_t>(FileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());
-    else
-        Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with file pattern \"%.*s\" and handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", GetFunctionName(), requestIdentifier, static_cast<int>(queryFilePattern.length()), queryFilePattern.data(), reinterpret_cast<size_t>(FileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());
-
-    DirectoryEnumerationInstruction directoryEnumerationInstruction = FilesystemDirector::Singleton().GetInstructionForDirectoryEnumeration(handleData.associatedPath, handleData.realOpenedPath, queryFilePattern);
-
-    if (true == Globals::GetConfigurationData().isDryRunMode)
-        return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
-
-    // TODO
-
-    return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
+    return *maybeHookFunctionResult;
 }
 
 // --------
