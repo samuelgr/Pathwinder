@@ -90,10 +90,7 @@ namespace Pathwinder
 
         for (const auto& filePattern : filePatterns)
         {
-            UNICODE_STRING candidateFileNameString = Strings::NtConvertStringViewToUnicodeString(candidateFileName);
-            UNICODE_STRING filePatternString = Strings::NtConvertStringViewToUnicodeString(filePattern);
-
-            if (TRUE == WindowsInternal::RtlIsNameInExpression(&filePatternString, &candidateFileNameString, TRUE, nullptr))
+            if (true == Strings::FileNameMatchesPattern(candidateFileName, filePattern))
                 return true;
         }
 

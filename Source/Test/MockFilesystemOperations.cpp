@@ -28,23 +28,6 @@ namespace PathwinderTest
 {
     // -------- INTERNAL FUNCTIONS ------------------------------------- //
 
-    /// Determines if the specified filename matches the specified file pattern. An empty file pattern is presumed to match everything.
-    /// Input filename must not contain any backslash separators, as it is intended to represent a file within a directory rather than a path.
-    /// Input file pattern must be in upper-case.
-    /// @param [in] fileName Filename to check.
-    /// @param [in] filePatternUpperCase File pattern to be used for comparison with the file name.
-    /// @return `true` if the file name matches the supplied pattern or if it is entirely empty, `false` otherwise.
-    static bool FileNameMatchesPattern(std::wstring_view fileName, std::wstring_view filePatternUpperCase)
-    {
-        if (true == filePatternUpperCase.empty())
-            return true;
-
-        UNICODE_STRING fileNameString = Pathwinder::Strings::NtConvertStringViewToUnicodeString(fileName);
-        UNICODE_STRING filePatternString = Pathwinder::Strings::NtConvertStringViewToUnicodeString(filePatternUpperCase);
-
-        return (TRUE == Pathwinder::WindowsInternal::RtlIsNameInExpression(&filePatternString, &fileNameString, TRUE, nullptr));
-    }
-
     /// Creates a file pattern string object from a given file pattern string view.
     /// @param [in] filePattern File pattern for which a string object is needed.
     /// @return File pattern string object.
@@ -227,7 +210,7 @@ namespace PathwinderTest
         for (; (nextItemIterator != endIterator) && (numElementsWritten < maxElementsToWrite); ++nextItemIterator)
         {
             std::wstring_view currentFileName = nextItemIterator->first;
-            if (false == FileNameMatchesPattern(currentFileName, enumerationFilePattern))
+            if (false == Pathwinder::Strings::FileNameMatchesPattern(currentFileName, enumerationFilePattern))
                 continue;
 
             void* const currentBuffer = &reinterpret_cast<uint8_t*>(enumerationBuffer)[bufferBytePosition];

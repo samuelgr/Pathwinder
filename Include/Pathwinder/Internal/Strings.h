@@ -134,6 +134,14 @@ namespace Pathwinder
         /// @return `true` if the strings compare equal, `false` otherwise.
         template <typename CharType> bool EqualsCaseInsensitive(std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB);
 
+        /// Determines if the specified filename matches the specified file pattern. An empty file pattern is presumed to match everything.
+        /// Input filename must not contain any backslash separators, as it is intended to represent a file within a directory rather than a path.
+        /// Input file pattern must be in upper-case due to an implementation quirk in the underlying Windows API that implements pattern matching.
+        /// @param [in] fileName Filename to check.
+        /// @param [in] filePatternUpperCase File pattern to be used for comparison with the file name.
+        /// @return `true` if the file name matches the supplied pattern or if it is entirely empty, `false` otherwise.
+        bool FileNameMatchesPattern(std::wstring_view fileName, std::wstring_view filePatternUpperCase);
+
         /// Formats a string and returns the result in a newly-allocated null-terminated temporary buffer.
         /// @param [in] format Format string, possibly with format specifiers which must be matched with the arguments that follow.
         /// @return Resulting string after all formatting is applied.

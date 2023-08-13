@@ -358,6 +358,19 @@ namespace Pathwinder
 
         // --------
 
+        bool FileNameMatchesPattern(std::wstring_view fileName, std::wstring_view filePatternUpperCase)
+        {
+            if (true == filePatternUpperCase.empty())
+                return true;
+
+            UNICODE_STRING fileNameString = Pathwinder::Strings::NtConvertStringViewToUnicodeString(fileName);
+            UNICODE_STRING filePatternString = Pathwinder::Strings::NtConvertStringViewToUnicodeString(filePatternUpperCase);
+
+            return (TRUE == Pathwinder::WindowsInternal::RtlIsNameInExpression(&filePatternString, &fileNameString, TRUE, nullptr));
+        }
+
+        // --------
+
         TemporaryString FormatString(_Printf_format_string_ const wchar_t* format, ...)
         {
             TemporaryString buf;
