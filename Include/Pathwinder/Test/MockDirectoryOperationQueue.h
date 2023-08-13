@@ -12,8 +12,8 @@
 
 #pragma once
 
+#include "DirectoryOperationQueue.h"
 #include "FileInformationStruct.h"
-#include "InProgressDirectoryEnumeration.h"
 
 #include <set>
 #include <string>

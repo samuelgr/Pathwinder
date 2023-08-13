@@ -87,13 +87,13 @@
     <ClCompile Include="Source\FileInformationStruct.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\InProgressDirectoryEnumeration.cpp">
+    <ClCompile Include="Source\DirectoryOperationQueue.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Source\Test\Case\FileInformationStructTest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Test\Case\InProgressDirectoryEnumerationTest.cpp">
+    <ClCompile Include="Source\Test\Case\DirectoryOperationQueueTest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Source\Test\MockDirectoryOperationQueue.cpp">
@@ -182,7 +182,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\BufferPool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Internal\InProgressDirectoryEnumeration.h">
+    <ClInclude Include="Include\Pathwinder\Internal\DirectoryOperationQueue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Test\MockDirectoryOperationQueue.h">

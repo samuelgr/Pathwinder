@@ -5,15 +5,16 @@
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
  *************************************************************************//**
- * @file InProgressDirectoryEnumerationTest.cpp
- *   Unit tests for data structures that implement directory enumeration.
+ * @file DirectoryOperationQueueTest.cpp
+ *   Unit tests for queue-like data structures that contribute to directory
+ *   enumeration implementation.
  *****************************************************************************/
 
 #include "ApiWindows.h"
+#include "DirectoryOperationQueue.h"
 #include "FileInformationStruct.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemRule.h"
-#include "InProgressDirectoryEnumeration.h"
 #include "MockDirectoryOperationQueue.h"
 #include "MockFilesystemOperations.h"
 #include "TemporaryBuffer.h"

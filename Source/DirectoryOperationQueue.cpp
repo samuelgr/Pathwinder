@@ -5,16 +5,17 @@
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
  *************************************************************************//**
- * @file InProgressDirectoryEnumeration.cpp
- *   Implementation of functionality for tracking the progress of in-progress
- *   directory enumeration operations and maintaining all required state.
+ * @file DirectoryOperationQueue.cpp
+ *   Implementation of queue-like objects that produce appropriately-filtered
+ *   streams of file information structures as part of directory enumeration
+ *   operations.
  *****************************************************************************/
 
 #include "ApiWindowsInternal.h"
 #include "BufferPool.h"
+#include "DirectoryOperationQueue.h"
 #include "FileInformationStruct.h"
 #include "FilesystemOperations.h"
-#include "InProgressDirectoryEnumeration.h"
 #include "Strings.h"
 #include "ValueOrError.h"
 
@@ -34,7 +35,7 @@ namespace Pathwinder
 
 
     // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
-    // See "InProgressDirectoryEnumeration.h" for documentation.
+    // See "DirectoryOperationQueue.h" for documentation.
 
     EnumerationQueue::EnumerationQueue(DirectoryEnumerationInstruction::SingleDirectoryEnumeration matchInstruction, std::wstring_view absoluteDirectoryPath, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view filePattern) : IDirectoryOperationQueue(), matchInstruction(matchInstruction), directoryHandle(NULL), fileInformationClass(fileInformationClass), fileInformationStructLayout(FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationBufferBytePosition(), enumerationStatus()
     {
@@ -93,7 +94,7 @@ namespace Pathwinder
 
 
     // -------- INSTANCE METHODS ------------------------------------------- //
-    // See "InProgressDirectoryEnumeration.h" for documentation.
+    // See "DirectoryOperationQueue.h" for documentation.
 
     void EnumerationQueue::AdvanceQueueContentsInternal(ULONG queryFlags, std::wstring_view filePattern)
     {
@@ -211,7 +212,7 @@ namespace Pathwinder
 
 
     // -------- CONCRETE INSTANCE METHODS ---------------------------------- //
-    // See "InProgressDirectoryEnumeration.h" for documentation.
+    // See "DirectoryOperationQueue.h" for documentation.
 
     unsigned int EnumerationQueue::CopyFront(void* dest, unsigned int capacityBytes) const
     {

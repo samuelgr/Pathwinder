@@ -5,9 +5,10 @@
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
  *************************************************************************//**
- * @file InProgressDirectoryEnumeration.h
- *   Declaration of objects that assist with tracking the progress of
- *   in-progress directory enumeration operations and hold all required state.
+ * @file DirectoryOperationQueue.h
+ *   Declaration of queue-like objects that produce appropriately-filtered
+ *   streams of file information structures as part of directory enumeration
+ *   operations.
  *****************************************************************************/
 
 #include <array>

@@ -120,6 +120,7 @@
     <ClCompile Include="Source\ApiWindows.cpp" />
     <ClCompile Include="Source\ApiWindowsInternal.cpp" />
     <ClCompile Include="Source\Configuration.cpp" />
+    <ClCompile Include="Source\DirectoryOperationQueue.cpp" />
     <ClCompile Include="Source\FileInformationStruct.cpp" />
     <ClCompile Include="Source\FilesystemDirector.cpp" />
     <ClCompile Include="Source\FilesystemDirectorBuilder.cpp" />
@@ -128,7 +129,6 @@
     <ClCompile Include="Source\Globals.cpp" />
     <ClCompile Include="Source\HookModuleMain.cpp" />
     <ClCompile Include="Source\Hooks.cpp" />
-    <ClCompile Include="Source\InProgressDirectoryEnumeration.cpp" />
     <ClCompile Include="Source\Message.cpp" />
     <ClCompile Include="Source\PathwinderConfigReader.cpp" />
     <ClCompile Include="Source\Resolver.cpp" />
@@ -142,6 +142,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\BufferPool.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Configuration.h" />
     <ClInclude Include="Include\Pathwinder\Internal\DebugAssert.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\DirectoryOperationQueue.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FileInformationStruct.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirector.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirectorBuilder.h" />
@@ -150,7 +151,6 @@
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemRule.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Hooks.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\InProgressDirectoryEnumeration.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
     <ClInclude Include="Include\Pathwinder\Internal\MutexWrapper.h" />
     <ClInclude Include="Include\Pathwinder\Internal\OpenHandleStore.h" />
