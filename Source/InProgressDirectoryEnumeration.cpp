@@ -371,6 +371,7 @@ namespace Pathwinder
     void MergedFileInformationQueue::PopFront(void)
     {
         frontElementSourceQueue->PopFront();
+        SelectFrontElementSourceQueueInternal();
     }
 
     // --------
@@ -384,5 +385,7 @@ namespace Pathwinder
 
             underlyingQueue->Restart();
         }
+
+        SelectFrontElementSourceQueueInternal();
     }
 }

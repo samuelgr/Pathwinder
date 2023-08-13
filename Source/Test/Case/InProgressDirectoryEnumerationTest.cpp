@@ -10,12 +10,16 @@
  *****************************************************************************/
 
 #include "ApiWindows.h"
+#include "FileInformationStruct.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemRule.h"
 #include "InProgressDirectoryEnumeration.h"
+#include "MockDirectoryOperationQueue.h"
 #include "MockFilesystemOperations.h"
 #include "TemporaryBuffer.h"
 
+#include <set>
+#include <string>
 #include <string_view>
 
 
@@ -467,5 +471,94 @@ namespace PathwinderTest
         }
 
         TEST_ASSERT(NtStatus::kNoMoreFiles == nameInsertionQueue.EnumerationStatus());
+    }
+
+    // Creates two directory enumeration queues and verifies that they are correctly merged, with output properly being provided in sorted order.
+    TEST_CASE(MergedFileInformationQueue_SimpleMergeTwo)
+    {
+        FileInformationStructLayout layout = *FileInformationStructLayout::LayoutForFileInformationClass(SFileNamesInformation::kFileInformationClass);
+
+        const MockDirectoryOperationQueue::TFileNamesToEnumerate kFileNamesFirstQueue = {
+            L"File10.txt",
+            L"File20.txt",
+            L"File30.txt",
+            L"File40.txt",
+            L"File70.txt"
+        };
+        auto firstQueue = std::make_unique<MockDirectoryOperationQueue>(layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesFirstQueue));
+
+        const MockDirectoryOperationQueue::TFileNamesToEnumerate kFileNamesSecondQueue = {
+            L"File18.txt",
+            L"File35.txt",
+            L"File50.txt",
+            L"File67.txt"
+        };
+        auto secondQueue = std::make_unique<MockDirectoryOperationQueue>(layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesSecondQueue));
+
+        MockDirectoryOperationQueue::TFileNamesToEnumerate combinedFileNamesSorted;
+        for (const auto& filename : kFileNamesFirstQueue)
+            combinedFileNamesSorted.insert(filename);
+        for (const auto& filename : kFileNamesSecondQueue)
+            combinedFileNamesSorted.insert(filename);
+
+        MergedFileInformationQueue mergedQueue({std::move(firstQueue), std::move(secondQueue)});
+
+        for (const auto& fileName : combinedFileNamesSorted)
+        {
+            TEST_ASSERT(NT_SUCCESS(mergedQueue.EnumerationStatus()));
+            TEST_ASSERT(mergedQueue.FileNameOfFront() == fileName);
+            mergedQueue.PopFront();
+        }
+
+        TEST_ASSERT(NtStatus::kNoMoreFiles == mergedQueue.EnumerationStatus());
+    }
+
+    // Creates two directory enumeration queues and verifies that they are correctly merged, with output properly being provided in sorted order.
+    // The scan is restarted after getting part-way through it. After the restart all the files should be enumerated.
+    TEST_CASE(MergedFileInformationQueue_SimpleMergeTwoWithRestart)
+    {
+        FileInformationStructLayout layout = *FileInformationStructLayout::LayoutForFileInformationClass(SFileNamesInformation::kFileInformationClass);
+
+        const MockDirectoryOperationQueue::TFileNamesToEnumerate kFileNamesFirstQueue = {
+            L"File10.txt",
+            L"File20.txt",
+            L"File30.txt",
+            L"File40.txt",
+            L"File70.txt"
+        };
+        auto firstQueue = std::make_unique<MockDirectoryOperationQueue>(layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesFirstQueue));
+
+        const MockDirectoryOperationQueue::TFileNamesToEnumerate kFileNamesSecondQueue = {
+            L"File18.txt",
+            L"File35.txt",
+            L"File50.txt",
+            L"File67.txt"
+        };
+        auto secondQueue = std::make_unique<MockDirectoryOperationQueue>(layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesSecondQueue));
+
+        MockDirectoryOperationQueue::TFileNamesToEnumerate combinedFileNamesSorted;
+        for (const auto& filename : kFileNamesFirstQueue)
+            combinedFileNamesSorted.insert(filename);
+        for (const auto& filename : kFileNamesSecondQueue)
+            combinedFileNamesSorted.insert(filename);
+
+        MergedFileInformationQueue mergedQueue({ std::move(firstQueue), std::move(secondQueue) });
+
+        for (int i = 0; i < combinedFileNamesSorted.size() - 2; ++i)
+        {
+            TEST_ASSERT(NT_SUCCESS(mergedQueue.EnumerationStatus()));
+            mergedQueue.PopFront();
+        }
+
+        mergedQueue.Restart();
+
+        for (const auto& fileName : combinedFileNamesSorted)
+        {
+            TEST_ASSERT(NT_SUCCESS(mergedQueue.EnumerationStatus()));
+            TEST_ASSERT(mergedQueue.FileNameOfFront() == fileName);
+            mergedQueue.PopFront();
+        }
+
+        TEST_ASSERT(NtStatus::kNoMoreFiles == mergedQueue.EnumerationStatus());
     }
 }

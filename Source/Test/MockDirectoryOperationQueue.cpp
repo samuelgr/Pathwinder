@@ -25,7 +25,7 @@ namespace PathwinderTest
     // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
     // See "MockDirectoryOperationQueue.h" for documentation.
 
-    MockDirectoryOperationQueue::MockDirectoryOperationQueue(Pathwinder::FileInformationStructLayout fileInformationStructLayout, TFileNamesToEnumerate&& fileNamesToEnumerate) : fileInformationStructLayout(fileInformationStructLayout), fileNamesToEnumerate(std::move(fileNamesToEnumerate)), nextFileNameToEnumerate()
+    MockDirectoryOperationQueue::MockDirectoryOperationQueue(Pathwinder::FileInformationStructLayout fileInformationStructLayout, TFileNamesToEnumerate&& fileNamesToEnumerate) : fileInformationStructLayout(fileInformationStructLayout), fileNamesToEnumerate(std::move(fileNamesToEnumerate)), nextFileNameToEnumerate(), enumerationStatusOverride()
     {
         Restart();
     }
@@ -50,6 +50,9 @@ namespace PathwinderTest
 
     NTSTATUS MockDirectoryOperationQueue::EnumerationStatus(void) const
     {
+        if (true == enumerationStatusOverride.has_value())
+            return *enumerationStatusOverride;
+
         if (fileNamesToEnumerate.cend() == nextFileNameToEnumerate)
             return Pathwinder::NtStatus::kNoMoreFiles;
 

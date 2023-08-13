@@ -44,6 +44,9 @@ namespace PathwinderTest
         /// Iterator for the next filename to be enumerated.
         TFileNamesToEnumerate::const_iterator nextFileNameToEnumerate;
 
+        /// Optional override for the enumeration status.
+        std::optional<NTSTATUS> enumerationStatusOverride;
+
 
     public:
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
@@ -51,6 +54,16 @@ namespace PathwinderTest
         /// Initialization constructor.
         /// Requires a file information structure layout and a pre-created set of file names to be enumerated.
         MockDirectoryOperationQueue(Pathwinder::FileInformationStructLayout fileInformationStructLayout, TFileNamesToEnumerate&& fileNamesToEnumerate);
+
+
+        // -------- INSTANCE METHODS --------------------------------------- //
+
+        /// Sets or clears the enumeration status that should be returned whenever this object is queried.
+        /// @param [in] newEnumerationStatusOverride New enumeration status to be returned. If not present, the override is cleared and the returned status is based on progress enumerating through the filenames.
+        inline void OverrideEnumerationStatus(std::optional<NTSTATUS> newEnumerationStatusOverride)
+        {
+            enumerationStatusOverride = newEnumerationStatusOverride;
+        }
 
 
         // -------- CONCRETE INSTANCE METHODS ------------------------------ //
