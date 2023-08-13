@@ -533,7 +533,7 @@ namespace PathwinderTest
     }
 
     // Creates two directory enumeration queues and verifies that they are correctly merged, with output properly being provided in sorted order.
-    TEST_CASE(MergedFileInformationQueue_SimpleMergeTwo)
+    TEST_CASE(MergedFileInformationQueue_SimpleMergeTwo_Nominal)
     {
         FileInformationStructLayout layout = *FileInformationStructLayout::LayoutForFileInformationClass(SFileNamesInformation::kFileInformationClass);
 
@@ -573,8 +573,54 @@ namespace PathwinderTest
     }
 
     // Creates two directory enumeration queues and verifies that they are correctly merged, with output properly being provided in sorted order.
+    // In this case one queue has entities that all come before entities in the other and hence the queues are drained one at a time.
+    TEST_CASE(MergedFileInformationQueue_SimpleMergeTwo_OneQueueDrainsCompletelyFirst)
+    {
+        FileInformationStructLayout layout = *FileInformationStructLayout::LayoutForFileInformationClass(SFileNamesInformation::kFileInformationClass);
+
+        const MockDirectoryOperationQueue::TFileNamesToEnumerate kFileNamesFirstQueue = {
+            L"File10.txt",
+            L"File20.txt",
+            L"File30.txt",
+            L"File40.txt",
+            L"File70.txt"
+        };
+        auto firstQueue = std::make_unique<MockDirectoryOperationQueue>(layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesFirstQueue));
+
+        const MockDirectoryOperationQueue::TFileNamesToEnumerate kFileNamesSecondQueue = {
+            L"File01.txt",
+            L"File02.txt",
+            L"File03.txt",
+            L"File04.txt",
+            L"File05.txt",
+            L"File06.txt",
+            L"File07.txt",
+            L"File08.txt",
+            L"File09.txt",
+        };
+        auto secondQueue = std::make_unique<MockDirectoryOperationQueue>(layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesSecondQueue));
+
+        MockDirectoryOperationQueue::TFileNamesToEnumerate combinedFileNamesSorted;
+        for (const auto& filename : kFileNamesFirstQueue)
+            combinedFileNamesSorted.insert(filename);
+        for (const auto& filename : kFileNamesSecondQueue)
+            combinedFileNamesSorted.insert(filename);
+
+        MergedFileInformationQueue mergedQueue({std::move(firstQueue), std::move(secondQueue)});
+
+        for (const auto& fileName : combinedFileNamesSorted)
+        {
+            TEST_ASSERT(NT_SUCCESS(mergedQueue.EnumerationStatus()));
+            TEST_ASSERT(mergedQueue.FileNameOfFront() == fileName);
+            mergedQueue.PopFront();
+        }
+
+        TEST_ASSERT(NtStatus::kNoMoreFiles == mergedQueue.EnumerationStatus());
+    }
+
+    // Creates two directory enumeration queues and verifies that they are correctly merged, with output properly being provided in sorted order.
     // The scan is restarted after getting part-way through it. After the restart all the files should be enumerated.
-    TEST_CASE(MergedFileInformationQueue_SimpleMergeTwoWithRestart)
+    TEST_CASE(MergedFileInformationQueue_SimpleMergeTwo_WithRestart)
     {
         FileInformationStructLayout layout = *FileInformationStructLayout::LayoutForFileInformationClass(SFileNamesInformation::kFileInformationClass);
 
@@ -601,7 +647,7 @@ namespace PathwinderTest
         for (const auto& filename : kFileNamesSecondQueue)
             combinedFileNamesSorted.insert(filename);
 
-        MergedFileInformationQueue mergedQueue({ std::move(firstQueue), std::move(secondQueue) });
+        MergedFileInformationQueue mergedQueue({std::move(firstQueue), std::move(secondQueue)});
 
         for (int i = 0; i < combinedFileNamesSorted.size() - 2; ++i)
         {
@@ -624,7 +670,7 @@ namespace PathwinderTest
     // Creates two directory enumeration queues and verifies that they are correctly merged, with output properly being provided in sorted order.
     // The scan is restarted after getting part-way through it, and the file pattern is changed on restart. Both file patterns should be honored.
     // This test uses a standard directory enumeration queue, rather than a mock, because the former supports query file patterns and this test is intended to ensure that query file patterns are correctly routed to underlying queue objects.
-    TEST_CASE(MergedFileInformationQueue_SimpleMergeTwoWithDifferentFilePatternOnRestart)
+    TEST_CASE(MergedFileInformationQueue_SimpleMergeTwo_DifferentFilePatternOnRestart)
     {
         constexpr FILE_INFORMATION_CLASS kFileInformationClass = SFileNamesInformation::kFileInformationClass;
         FileInformationStructLayout layout = *FileInformationStructLayout::LayoutForFileInformationClass(kFileInformationClass);
@@ -703,5 +749,75 @@ namespace PathwinderTest
         }
 
         TEST_ASSERT(NtStatus::kNoMoreFiles == mergedQueue.EnumerationStatus());
+    }
+
+    // Verifies that a merged file information queue correctly reports that the enumeration is in progress if at least one underlying queue reports the same.
+    // None of the underlying queues report error conditions. They either report "enumeration in progress" or "enumeration done."
+    TEST_CASE(MergedFileInformationQueue_EnumerationStatus_EnumerationInProgress)
+    {
+        constexpr std::pair<NTSTATUS, NTSTATUS> kEnumerationStatusRecords[] = {
+            {Pathwinder::NtStatus::kMoreEntries, Pathwinder::NtStatus::kMoreEntries},
+            {Pathwinder::NtStatus::kMoreEntries, Pathwinder::NtStatus::kNoMoreFiles},
+            {Pathwinder::NtStatus::kNoMoreFiles, Pathwinder::NtStatus::kMoreEntries},
+        };
+
+        constexpr NTSTATUS expectedEnumerationStatus = Pathwinder::NtStatus::kMoreEntries;
+
+        for (const auto& enumerationStatusRecord : kEnumerationStatusRecords)
+        {
+            MergedFileInformationQueue mergedQueue({
+                std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.first),
+                std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)
+            });
+
+            const NTSTATUS actualEnumerationStatus = mergedQueue.EnumerationStatus();
+            TEST_ASSERT(actualEnumerationStatus == expectedEnumerationStatus);
+        }
+    }
+
+    // Verifies that a merged file information queue correctly reports that the enumeration is completed when all of the underlying queues report the same.
+    TEST_CASE(MergedFileInformationQueue_EnumerationStatus_EnumerationComplete)
+    {
+        constexpr std::pair<NTSTATUS, NTSTATUS> kEnumerationStatusRecords[] = {
+            {Pathwinder::NtStatus::kNoMoreFiles, Pathwinder::NtStatus::kNoMoreFiles},
+        };
+
+        constexpr NTSTATUS expectedEnumerationStatus = Pathwinder::NtStatus::kNoMoreFiles;
+
+        for (const auto& enumerationStatusRecord : kEnumerationStatusRecords)
+        {
+            MergedFileInformationQueue mergedQueue({
+                std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.first),
+                std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)
+            });
+
+            const NTSTATUS actualEnumerationStatus = mergedQueue.EnumerationStatus();
+            TEST_ASSERT(actualEnumerationStatus == expectedEnumerationStatus);
+        }
+    }
+
+    // Verifies that a merged file information queue correctly reports an enumeration error if any underlying queue reports the same, regardless of what the other underlying queues report.
+    TEST_CASE(MergedFileInformationQueue_EnumerationStatus_EnumerationError)
+    {
+        constexpr std::pair<NTSTATUS, NTSTATUS> kEnumerationStatusRecords[] = {
+            {Pathwinder::NtStatus::kMoreEntries, Pathwinder::NtStatus::kInternalError},
+            {Pathwinder::NtStatus::kNoMoreFiles, Pathwinder::NtStatus::kInternalError},
+            {Pathwinder::NtStatus::kInternalError, Pathwinder::NtStatus::kMoreEntries},
+            {Pathwinder::NtStatus::kInternalError, Pathwinder::NtStatus::kNoMoreFiles},
+            {Pathwinder::NtStatus::kInternalError, Pathwinder::NtStatus::kInternalError},
+        };
+
+        constexpr NTSTATUS expectedEnumerationStatus = Pathwinder::NtStatus::kInternalError;
+
+        for (const auto& enumerationStatusRecord : kEnumerationStatusRecords)
+        {
+            MergedFileInformationQueue mergedQueue({
+                std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.first),
+                std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)
+            });
+
+            const NTSTATUS actualEnumerationStatus = mergedQueue.EnumerationStatus();
+            TEST_ASSERT(actualEnumerationStatus == expectedEnumerationStatus);
+        }
     }
 }

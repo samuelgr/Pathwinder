@@ -16,6 +16,7 @@
 #include "FilesystemOperations.h"
 #include "MockFreeFunctionContext.h"
 #include "Strings.h"
+#include "TestCase.h"
 #include "ValueOrError.h"
 
 #include <map>

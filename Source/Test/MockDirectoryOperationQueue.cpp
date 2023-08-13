@@ -13,6 +13,7 @@
 #include "ApiWindowsInternal.h"
 #include "FileInformationStruct.h"
 #include "MockDirectoryOperationQueue.h"
+#include "TestCase.h"
 
 #include <cstring>
 #include <set>
@@ -25,8 +26,21 @@ namespace PathwinderTest
     // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
     // See "MockDirectoryOperationQueue.h" for documentation.
 
+    MockDirectoryOperationQueue::MockDirectoryOperationQueue(NTSTATUS enumerationStatus) : fileInformationStructLayout(), fileNamesToEnumerate(), nextFileNameToEnumerate(), enumerationStatusOverride(enumerationStatus)
+    {
+        // Nothing to do here.
+    }
+
+    // --------
+
     MockDirectoryOperationQueue::MockDirectoryOperationQueue(Pathwinder::FileInformationStructLayout fileInformationStructLayout, TFileNamesToEnumerate&& fileNamesToEnumerate) : fileInformationStructLayout(fileInformationStructLayout), fileNamesToEnumerate(std::move(fileNamesToEnumerate)), nextFileNameToEnumerate(), enumerationStatusOverride()
     {
+        if (Pathwinder::FileInformationStructLayout() == this->fileInformationStructLayout)
+            TEST_FAILED_BECAUSE(L"%s: Test implementation error due to creation of a directory operation queue with an unsupported file information class.", __FUNCTIONW__);
+
+        if (true == this->fileNamesToEnumerate.empty())
+            TEST_FAILED_BECAUSE(L"%s: Test implementation error due to creation of a directory operation queue with an empty set of filenames to enumerate.", __FUNCTIONW__);
+
         Restart();
     }
 
@@ -36,6 +50,9 @@ namespace PathwinderTest
 
     unsigned int MockDirectoryOperationQueue::CopyFront(void* dest, unsigned int capacityBytes) const
     {
+        if (true == fileNamesToEnumerate.empty())
+            return 0;
+
         std::wstring_view fileName = FileNameOfFront();
         const unsigned int numBytesToCopy = std::min(SizeOfFront(), capacityBytes);
 
@@ -63,6 +80,9 @@ namespace PathwinderTest
 
     std::wstring_view MockDirectoryOperationQueue::FileNameOfFront(void) const
     {
+        if (true == fileNamesToEnumerate.empty())
+            return std::wstring_view();
+
         return *nextFileNameToEnumerate;
     }
 
@@ -70,20 +90,25 @@ namespace PathwinderTest
 
     void MockDirectoryOperationQueue::PopFront(void)
     {
-        ++nextFileNameToEnumerate;
+        if (false == fileNamesToEnumerate.empty())
+            ++nextFileNameToEnumerate;
     }
 
     // --------
 
     void MockDirectoryOperationQueue::Restart(std::wstring_view unusedQueryFilePattern)
     {
-        nextFileNameToEnumerate = fileNamesToEnumerate.cbegin();
+        if (false == fileNamesToEnumerate.empty())
+            nextFileNameToEnumerate = fileNamesToEnumerate.cbegin();
     }
 
     // --------
 
     unsigned int MockDirectoryOperationQueue::SizeOfFront(void) const
     {
+        if (true == fileNamesToEnumerate.empty())
+            return 0;
+
         return fileInformationStructLayout.HypotheticalSizeForFileNameLength(static_cast<unsigned int>(FileNameOfFront().length()));
     }
 }

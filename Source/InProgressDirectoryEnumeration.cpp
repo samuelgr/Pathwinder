@@ -337,11 +337,14 @@ namespace Pathwinder
             const NTSTATUS underlyingQueueStatus = underlyingQueue->EnumerationStatus();
             switch (underlyingQueue->EnumerationStatus())
             {
+            case NtStatus::kMoreEntries:
             case NtStatus::kNoMoreFiles:
                 break;
 
             default:
-                return underlyingQueueStatus;
+                if (!(NT_SUCCESS(underlyingQueueStatus)))
+                    return underlyingQueueStatus;
+                break;
             }
         }
 
