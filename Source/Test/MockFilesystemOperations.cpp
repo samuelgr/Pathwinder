@@ -271,7 +271,7 @@ namespace PathwinderTest
         std::memset(enumerationBuffer, 0, bytesNeeded);
         fileInformationStructLayout.WriteFileName(enumerationBuffer, fileName, bytesNeeded);
 
-        if (bytesNeeded < enumerationBufferCapacityBytes)
+        if (bytesNeeded > enumerationBufferCapacityBytes)
             return Pathwinder::NtStatus::kBufferTooSmall;
 
         return Pathwinder::NtStatus::kSuccess;

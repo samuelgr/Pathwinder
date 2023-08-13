@@ -109,19 +109,52 @@ namespace Pathwinder
 
     void NameInsertionQueue::AdvanceQueueContentsInternal(void)
     {
-        const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion& nameInsertion = nameInsertionQueue[nameInsertionQueuePosition];
+        if (nameInsertionQueuePosition == nameInsertionQueue.Size())
+        {
+            enumerationStatus = NtStatus::kNoMoreFiles;
+            return;
+        }
+        
+        // The initial value for the query result ensures the loop will run at least one time.
+        // Every iteration of the loop updates the name insertion pointer, so the loop will never be terminated with it still equal to `nullptr`.
+        const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion* nameInsertion = nullptr;
+        NTSTATUS nameInsertionQueryResult = NtStatus::kInternalError;
 
-        NTSTATUS nameInsertionQueryResult = FilesystemOperations::QuerySingleFileDirectoryInformation(nameInsertion.DirectoryInformationSourceDirectoryPart(), nameInsertion.DirectoryInformationSourceFilePart(), fileInformationClass, enumerationBuffer.Data(), enumerationBuffer.Size());
-        if (!(NT_SUCCESS(nameInsertionQueryResult)))
-            enumerationStatus = nameInsertionQueryResult;
+        while ((!(NT_SUCCESS(nameInsertionQueryResult))) && (nameInsertionQueuePosition != nameInsertionQueue.Size()))
+        {
+            nameInsertion = &nameInsertionQueue[nameInsertionQueuePosition];
+            nameInsertionQueryResult = FilesystemOperations::QuerySingleFileDirectoryInformation(nameInsertion->DirectoryInformationSourceDirectoryPart(), nameInsertion->DirectoryInformationSourceFilePart(), fileInformationClass, enumerationBuffer.Data(), enumerationBuffer.Size());
 
-        fileInformationStructLayout.WriteFileName(enumerationBuffer.Data(), nameInsertion.FileNameToInsert(), enumerationBuffer.Size());
-        nameInsertionQueuePosition += 1;
+            // It is not an error for the filesystem entities being queried not to exist and thus be unavailable. They can just be skipped.
+            // Anything other error, however, is a directory enumeration error that should be recorded and provided back to the application.
+            switch (nameInsertionQueryResult)
+            {
+            case NtStatus::kObjectNameInvalid:
+            case NtStatus::kObjectNameNotFound:
+            case NtStatus::kObjectPathInvalid:
+            case NtStatus::kObjectPathNotFound:
+                nameInsertionQueuePosition += 1;
+                break;
+
+            default:
+                if (NT_SUCCESS(nameInsertionQueryResult))
+                    break;
+
+                enumerationStatus = nameInsertionQueryResult;
+                return;
+            }
+        }
 
         if (nameInsertionQueuePosition == nameInsertionQueue.Size())
+        {
             enumerationStatus = NtStatus::kNoMoreFiles;
-        else
-            enumerationStatus = NtStatus::kMoreEntries;
+            return;
+        }
+
+        nameInsertionQueuePosition += 1;
+        fileInformationStructLayout.WriteFileName(enumerationBuffer.Data(), nameInsertion->FileNameToInsert(), enumerationBuffer.Size());
+
+        enumerationStatus = NtStatus::kMoreEntries;
     }
 
 
