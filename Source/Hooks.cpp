@@ -28,6 +28,7 @@
 #include <atomic>
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <optional>
 
 
@@ -96,6 +97,113 @@ namespace Pathwinder
 
 
     // -------- INTERNAL FUNCTIONS ----------------------------------------- //
+
+    /// Advances an in-progress directory enumeration operation by copying file information structures to an application-supplied buffer.
+    /// Most parameters come directly from `NtQueryDirectoryFileEx` but those that do not are documented.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
+    /// @param [in] enumerationState Enumeration state data structure, which must be mutable so it can be updated as the enumeration proceeds.
+    /// @param [in] isFirstInvocation Whether or not to enable special behavior for the first invocation of a directory enumeration function, as specified by `NtQueryDirectoryFileEx` documentation.
+    /// @return Windows error code corresponding to the result of advancing the directory enumeration operation.
+    static NTSTATUS AdvanceDirectoryEnumerationOperation(const wchar_t* functionName, unsigned int functionRequestIdentifier, OpenHandleStore::SInProgressDirectoryEnumeration& enumerationState, bool isFirstInvocation, PIO_STATUS_BLOCK ioStatusBlock, PVOID outputBuffer, ULONG outputBufferSizeBytes, ULONG queryFlags, std::wstring_view queryFilePattern)
+    {
+        DebugAssert(nullptr != enumerationState.queue, "Advancing directory enumeration state without an operation queue.");
+
+        if (queryFlags & Pathwinder::QueryFlag::kRestartScan)
+        {
+            enumerationState.queue->Restart(queryFilePattern);
+            enumerationState.enumeratedFilenames.clear();
+            isFirstInvocation = true;
+        }
+
+        // The `Information` field of the output I/O status block records the total number of bytes written.
+        ioStatusBlock->Information = 0;
+
+        // This block will cause `STATUS_NO_MORE_FILES` to be returned if the queue is empty and enumeration is complete.
+        // Getting past here means the queue is not empty and more files can be enumerated.
+        NTSTATUS enumerationStatus = enumerationState.queue->EnumerationStatus();
+        if (!(NT_SUCCESS(enumerationStatus)))
+        {
+            // If the first invocation has resulted in no files available for enumeration then that should be the result.
+            // This would only happen if a query file pattern is specified and it matches no files. Otherwise, a directory enumeration would at very least include "." and ".." entries.
+            if ((true == isFirstInvocation) && NtStatus::kNoMoreFiles == enumerationStatus)
+                return NtStatus::kNoSuchFile;
+
+            return enumerationStatus;
+        }
+
+        // Some extra checks are required if this is the first invocation. This is to handle partial writes when the buffer is too small to hold a single complete structure.
+        // On subsequent calls these checks are omitted, per `NtQueryDirectoryFileEx` documentation.
+        if (true == isFirstInvocation)
+        {
+            if (outputBufferSizeBytes < enumerationState.fileInformationStructLayout.BaseStructureSize())
+                return NtStatus::kBufferTooSmall;
+
+            if (outputBufferSizeBytes < enumerationState.queue->SizeOfFront())
+            {
+                ioStatusBlock->Information = static_cast<ULONG_PTR>(enumerationState.queue->CopyFront(outputBuffer, outputBufferSizeBytes));
+                enumerationState.fileInformationStructLayout.ClearNextEntryOffset(outputBuffer);
+                return NtStatus::kBufferOverflow;
+            }
+        }
+
+        const unsigned int maxElementsToWrite = ((queryFlags & Pathwinder::QueryFlag::kReturnSingleEntry) ? 1 : std::numeric_limits<unsigned int>::max());
+        unsigned int numElementsWritten = 0;
+        unsigned int numBytesWritten = 0;
+        void* lastBufferPosition = nullptr;
+
+        // At this point only full structures will be written, and it is safe to assume there is at least one file information structure left in the queue.
+        while ((NT_SUCCESS(enumerationStatus)) && (numElementsWritten < maxElementsToWrite))
+        {
+            void* const bufferPosition = reinterpret_cast<void*>(reinterpret_cast<size_t>(outputBuffer) + static_cast<size_t>(numBytesWritten));
+            const unsigned int bufferCapacityLeftBytes = outputBufferSizeBytes - numBytesWritten;
+
+            if (bufferCapacityLeftBytes < enumerationState.queue->SizeOfFront())
+                break;
+
+            // If this is the first invocation, or just freshly-restarted, then no enumerated filenames have already been seen.
+            // Otherwise the queue will have been pre-advanced to the first unique filename.
+            // For these reasons it is correct to copy first and advance the queue after.
+            numBytesWritten += enumerationState.queue->CopyFront(bufferPosition, bufferCapacityLeftBytes);
+            numElementsWritten += 1;
+
+            // There are a few reasons why the next entry offset field might not be correct.
+            // If the file information structure is received from the system, then the value might be 0 to indicate no more files from the system, but that might not be correct to communicate to the application. Sometimes the system also adds padding which can be removed.
+            // For these reasons it is necessary to update the next entry offset here and track the last written file information structure so that its next entry offset can be cleared after the loop.
+            enumerationState.fileInformationStructLayout.UpdateNextEntryOffset(bufferPosition);
+            lastBufferPosition = bufferPosition;
+
+            enumerationState.enumeratedFilenames.emplace(std::wstring(enumerationState.queue->FileNameOfFront()));
+            enumerationState.queue->PopFront();
+
+            // Enumeration status must be checked first because, if there are no file information structures left in the queue, checking the front element's filename will cause a crash.
+            while((NT_SUCCESS(enumerationState.queue->EnumerationStatus())) && (enumerationState.enumeratedFilenames.contains(enumerationState.queue->FileNameOfFront())))
+                enumerationState.queue->PopFront();
+
+            enumerationStatus = enumerationState.queue->EnumerationStatus();
+        }
+
+        if (nullptr != lastBufferPosition)
+            enumerationState.fileInformationStructLayout.ClearNextEntryOffset(lastBufferPosition);
+
+        ioStatusBlock->Information = numBytesWritten;
+
+        // Whether or not the queue still has any file information structures is not relevant.
+        // Coming into this function call there was at least one such structure available.
+        // Even if it was not actually copied to the application buffer, and hence 0 bytes were copied, this is still considered success per `NtQueryDirectoryFileEx` documentation.
+        switch (enumerationStatus)
+        {
+        case NtStatus::kMoreEntries:
+        case NtStatus::kNoMoreFiles:
+            enumerationStatus = NtStatus::kSuccess;
+            break;
+
+        default:
+            break;
+        }
+
+        return enumerationStatus;
+    }
 
     /// Copies the contents of the supplied file rename information structure but replaces the filename.
     /// This has the effect of changing the new name of the specified file after the rename operation completes.
@@ -413,9 +521,6 @@ namespace Pathwinder
 
         const unsigned int requestIdentifier = GetRequestIdentifier();
 
-        std::wstring_view queryFilePattern = ((nullptr == fileName) ? std::wstring_view() : Strings::NtConvertUnicodeStringToStringView(*fileName));
-        OpenHandleStore::SHandleDataView& handleData = *maybeHandleData;
-
         switch (GetInputOutputModeForHandle(fileHandle))
         {
         case EInputOutputMode::Synchronous:
@@ -430,44 +535,44 @@ namespace Pathwinder
             return std::nullopt;
         }
 
+        std::wstring_view queryFilePattern = ((nullptr == fileName) ? std::wstring_view() : Strings::NtConvertUnicodeStringToStringView(*fileName));
         if (true == queryFilePattern.empty())
-            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", functionName, requestIdentifier, reinterpret_cast<size_t>(fileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", functionName, requestIdentifier, reinterpret_cast<size_t>(fileHandle), static_cast<int>(maybeHandleData->associatedPath.length()), maybeHandleData->associatedPath.data(), static_cast<int>(maybeHandleData->realOpenedPath.length()), maybeHandleData->realOpenedPath.data());
         else
-            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with file pattern \"%.*s\" and handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", functionName, requestIdentifier, static_cast<int>(queryFilePattern.length()), queryFilePattern.data(), reinterpret_cast<size_t>(fileHandle), static_cast<int>(handleData.associatedPath.length()), handleData.associatedPath.data(), static_cast<int>(handleData.realOpenedPath.length()), handleData.realOpenedPath.data());
+            Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with file pattern \"%.*s\" and handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", functionName, requestIdentifier, static_cast<int>(queryFilePattern.length()), queryFilePattern.data(), reinterpret_cast<size_t>(fileHandle), static_cast<int>(maybeHandleData->associatedPath.length()), maybeHandleData->associatedPath.data(), static_cast<int>(maybeHandleData->realOpenedPath.length()), maybeHandleData->realOpenedPath.data());
 
-        bool newDirectoryEnumerationQueueWasCreated = false;
-        std::optional<IDirectoryOperationQueue*> maybeDirectoryOperationQueue = maybeHandleData->directoryEnumerationQueue;
-
-        if (false == maybeDirectoryOperationQueue.has_value())
+        bool newDirectoryEnumerationCreated = false;
+        if (false == maybeHandleData->directoryEnumeration.has_value())
         {
             // A new directory enumeration queue needs to be created because a directory enumeration is being requested for the first time.
             // The underlying system calls are expected to behave slightly differently on a first invocation versus subsequent invocations, hence the need to identify when a new directory enumeration queue is first created.
 
-            DirectoryEnumerationInstruction directoryEnumerationInstruction = FilesystemDirector::Singleton().GetInstructionForDirectoryEnumeration(handleData.associatedPath, handleData.realOpenedPath);
+            DirectoryEnumerationInstruction directoryEnumerationInstruction = FilesystemDirector::Singleton().GetInstructionForDirectoryEnumeration(maybeHandleData->associatedPath, maybeHandleData->realOpenedPath);
 
             if (true == Globals::GetConfigurationData().isDryRunMode)
             {
                 // This will mark the directory enumeration object as present but no-op.
                 // Future invocations will therefore not attempt to query for a directory enumeration instruction and will just be forwarded to the system.
-                OpenHandleStore::Singleton().AssociateDirectoryEnumerationQueue(fileHandle, nullptr);
+                OpenHandleStore::Singleton().AssociateDirectoryEnumerationState(fileHandle, nullptr, *maybeFileInformationStructLayout);
                 return std::nullopt;
             }
 
-            std::unique_ptr<IDirectoryOperationQueue> directoryOperationQueueUniquePtr = CreateDirectoryOperationQueueForInstruction(directoryEnumerationInstruction, fileInformationClass, queryFilePattern, handleData.associatedPath, handleData.realOpenedPath);
-            maybeDirectoryOperationQueue = directoryOperationQueueUniquePtr.get();
-            newDirectoryEnumerationQueueWasCreated = true;
-
-            OpenHandleStore::Singleton().AssociateDirectoryEnumerationQueue(fileHandle, std::move(directoryOperationQueueUniquePtr));
+            std::unique_ptr<IDirectoryOperationQueue> directoryOperationQueueUniquePtr = CreateDirectoryOperationQueueForInstruction(directoryEnumerationInstruction, fileInformationClass, queryFilePattern, maybeHandleData->associatedPath, maybeHandleData->realOpenedPath);
+            OpenHandleStore::Singleton().AssociateDirectoryEnumerationState(fileHandle, std::move(directoryOperationQueueUniquePtr), *maybeFileInformationStructLayout);
+            newDirectoryEnumerationCreated = true;
         }
+
+        maybeHandleData = OpenHandleStore::Singleton().GetDataForHandle(fileHandle);
+        DebugAssert((true == maybeHandleData->directoryEnumeration.has_value()), "Failed to locate an in-progress directory enumearation stat data structure which should already exist.");
+
+        OpenHandleStore::SInProgressDirectoryEnumeration& directoryEnumerationState = *(*(maybeHandleData->directoryEnumeration));
 
         // At this point a directory enumeration queue will be present.
         // If it is `nullptr` then it is a no-op and the original request just needs to be forwarded to the system.
-        if (nullptr == *maybeDirectoryOperationQueue)
+        if (nullptr == directoryEnumerationState.queue)
             return std::nullopt;
 
-        // TODO
-
-        return std::nullopt;
+        return AdvanceDirectoryEnumerationOperation(functionName, requestIdentifier, directoryEnumerationState, newDirectoryEnumerationCreated, ioStatusBlock, fileInformation, length, queryFlags, queryFilePattern);
     }
 }
 

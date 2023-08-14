@@ -49,11 +49,28 @@ namespace Pathwinder
         auto maybeDirectoryHandle = FilesystemOperations::OpenDirectoryForEnumeration(absoluteDirectoryPath);
         if (true == maybeDirectoryHandle.HasError())
         {
-            enumerationStatus = maybeDirectoryHandle.Error();
-            return;
-        }
+            // It is not an error for the directory not to exist.
+            // Anything other error, however, is a directory enumeration error that should be recorded and provided back to the application.
+            switch (maybeDirectoryHandle.Error())
+            {
+            case NtStatus::kNoSuchFile:
+            case NtStatus::kObjectNameInvalid:
+            case NtStatus::kObjectNameNotFound:
+            case NtStatus::kObjectPathInvalid:
+            case NtStatus::kObjectPathNotFound:
+                break;
 
-        directoryHandle = maybeDirectoryHandle.Value();
+            default:
+                enumerationStatus = maybeDirectoryHandle.Error();
+                return;
+            }
+
+            directoryHandle = NULL;
+        }
+        else
+        {
+            directoryHandle = maybeDirectoryHandle.Value();
+        }
 
         Restart(filePattern);
     }
@@ -99,6 +116,14 @@ namespace Pathwinder
 
     void EnumerationQueue::AdvanceQueueContentsInternal(ULONG queryFlags, std::wstring_view filePattern)
     {
+        if (NULL == directoryHandle)
+        {
+            // Directory to be enumerated does not exist. This just means no file information structures are available.
+            enumerationBufferBytePosition = kInvalidEnumerationBufferBytePosition;
+            enumerationStatus = NtStatus::kNoMoreFiles;
+            return;
+        }
+
         NTSTATUS directoryEnumerationResult = FilesystemOperations::PartialEnumerateDirectoryContents(directoryHandle, fileInformationClass, enumerationBuffer.Data(), enumerationBuffer.Size(), queryFlags, filePattern);
         if (!(NT_SUCCESS(directoryEnumerationResult)))
         {
@@ -168,6 +193,7 @@ namespace Pathwinder
             // Anything other error, however, is a directory enumeration error that should be recorded and provided back to the application.
             switch (nameInsertionQueryResult)
             {
+            case NtStatus::kNoSuchFile:
             case NtStatus::kObjectNameInvalid:
             case NtStatus::kObjectNameNotFound:
             case NtStatus::kObjectPathInvalid:

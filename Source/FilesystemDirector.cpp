@@ -164,6 +164,14 @@ namespace Pathwinder
                 };
             }
         }
+        else
+        {
+            // If a redirection did not take place then the contents of the requested directory still need to be enumerated as is.
+            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"Directory enumeration query for path \"%.*s\" does not match any rules.", static_cast<int>(realOpenedPath.length()), realOpenedPath.data());
+            directoriesToEnumerate = {
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath)
+            };
+        }
 
         std::optional<TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>> directoryNamesToInsert;
         do {

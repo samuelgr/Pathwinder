@@ -14,10 +14,13 @@
 
 #include "ApiWindows.h"
 #include "DirectoryOperationQueue.h"
+#include "FileInformationStruct.h"
 #include "Hooks.h"
 #include "MutexWrapper.h"
+#include "Strings.h"
 
 #include <memory>
+#include <set>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -31,27 +34,35 @@ namespace Pathwinder
     public:
         // -------- TYPE DEFINITIONS --------------------------------------- //
 
-        /// Read-only view of data stored about an open handle.
+        /// Record type for storing an in-progress directory enumeration operation.
+        struct SInProgressDirectoryEnumeration
+        {
+            std::unique_ptr<IDirectoryOperationQueue> queue;                                                    ///< Directory enumeration queue, from which additional file information structures are transferred. A value of `nullptr` means the directory enumeration operation is a no-op and should be forwarded to the system.
+            FileInformationStructLayout fileInformationStructLayout;                                            ///< Layout description for the file information structures produced in the directory enumeration.
+            std::set<std::wstring, Strings::CaseInsensitiveLessThanComparator<wchar_t>> enumeratedFilenames;    ///< Set of already-enumerated files. Used for deduplication in the output.
+        };
+
+        /// By-reference view of data stored about an open handle.
         struct SHandleDataView
         {
-            std::wstring_view associatedPath;                                                   ///< Path associated internally with the open handle.
-            std::wstring_view realOpenedPath;                                                   ///< Actual path that was opened for the handle. This could be different from the associated path based on instructions from a filesystem director.
-            std::optional<IDirectoryOperationQueue*> directoryEnumerationQueue;                 ///< In-progress directory enumeration queue. Not owned by this structure. No value means there is no associated directory enumeration operation, and `nullptr` means the directory enumeration operation is a no-op and should be forwarded to the system.
+            std::wstring_view associatedPath;                                                                   ///< Path associated internally with the open handle.
+            std::wstring_view realOpenedPath;                                                                   ///< Actual path that was opened for the handle. This could be different from the associated path based on instructions from a filesystem director.
+            std::optional<SInProgressDirectoryEnumeration*> directoryEnumeration;                               ///< In-progress directory enumeration state. Not owned by this structure.
         };
 
         /// Data stored about an open handle.
         struct SHandleData
         {
-            std::wstring associatedPath;                                                        ///< Path associated internally with the open handle.
-            std::wstring realOpenedPath;                                                        ///< Actual path that was opened for the handle. This could be different from the associated path based on instructions from a filesystem director.
-            std::optional<std::unique_ptr<IDirectoryOperationQueue>> directoryEnumerationQueue; ///< In-progress directory enumeration queue. No value means there is no associated directory enumeration operation, and `nullptr` means the directory enumeration operation is a no-op and should be forwarded to the system.
+            std::wstring associatedPath;                                                                        ///< Path associated internally with the open handle.
+            std::wstring realOpenedPath;                                                                        ///< Actual path that was opened for the handle. This could be different from the associated path based on instructions from a filesystem director.
+            std::optional<SInProgressDirectoryEnumeration> directoryEnumeration;                                ///< In-progress directory enumeration state.
 
             /// Default constructor.
             inline SHandleData(void) = default;
 
             /// Initialization constructor.
             /// Requires both paths be specified using move semantics, and does not construct a directory enumeration queue.
-            inline SHandleData(std::wstring&& associatedPath, std::wstring&& realOpenedPath) : associatedPath(std::move(associatedPath)), realOpenedPath(std::move(realOpenedPath)), directoryEnumerationQueue()
+            inline SHandleData(std::wstring&& associatedPath, std::wstring&& realOpenedPath) : associatedPath(std::move(associatedPath)), realOpenedPath(std::move(realOpenedPath)), directoryEnumeration()
             {
                 // Nothing to do here.
             }
@@ -62,13 +73,13 @@ namespace Pathwinder
             /// Move assignment operator.
             inline SHandleData& operator=(SHandleData&& other) = default;
 
-            /// Implicit conversion to a read-only view.
-            inline operator SHandleDataView(void) const
+            /// Implicit conversion to a by-reference view.
+            inline operator SHandleDataView(void)
             {
                 return {
                     .associatedPath = associatedPath,
                     .realOpenedPath = realOpenedPath,
-                    .directoryEnumerationQueue = ((true == directoryEnumerationQueue.has_value()) ? std::optional<IDirectoryOperationQueue*>(directoryEnumerationQueue->get()) : std::nullopt)
+                    .directoryEnumeration = ((true == directoryEnumeration.has_value()) ? std::optional<SInProgressDirectoryEnumeration*>(&(*directoryEnumeration)) : std::nullopt)
                 };
             }
         };
@@ -99,10 +110,11 @@ namespace Pathwinder
 
         // -------- INSTANCE METHODS --------------------------------------- //
 
-        /// Associates a directory enumeration queue with the specified handle.
-        /// @param [in] handleToAssociate Handle to be associated with the directory enumeration queue. If not present then the directory enumeration queue is cleared.
+        /// Associates a directory enumeration state object with the specified handle.
+        /// @param [in] handleToAssociate Handle to be associated with the directory enumeration queue.
         /// @param [in] directoryEnumerationQueue Directory enumeration queue to associate with the handle. This object takes over ownership of the provided directory enumeration queue.
-        inline void AssociateDirectoryEnumerationQueue(HANDLE handleToAssociate, std::optional<std::unique_ptr<IDirectoryOperationQueue>>&& directoryEnumerationQueue)
+        /// @param [in] fileInformationStructLayout Layout description for the file information structures that will be produced by the directory enumeration query.
+        inline void AssociateDirectoryEnumerationState(HANDLE handleToAssociate, std::unique_ptr<IDirectoryOperationQueue>&& directoryEnumerationQueue, FileInformationStructLayout fileInformationStructLayout)
         {
             std::shared_lock lock(openHandlesMutex);
 
@@ -111,7 +123,9 @@ namespace Pathwinder
             if (openHandleIter == openHandles.end())
                 return;
 
-            openHandleIter->second.directoryEnumerationQueue = std::move(directoryEnumerationQueue);
+            DebugAssert(false == openHandleIter->second.directoryEnumeration.has_value(), "Attempting to re-associate a directory enumeration queue with a handle that already has one.");
+
+            openHandleIter->second.directoryEnumeration = SInProgressDirectoryEnumeration{.queue = std::move(directoryEnumerationQueue), .fileInformationStructLayout = fileInformationStructLayout};
         }
 
         /// Queries the open handle store for the specified handle and retrieves a read-only view of the associated data, if the handle is found in the store.

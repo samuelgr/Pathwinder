@@ -37,6 +37,7 @@ namespace Pathwinder
         inline constexpr NTSTATUS kNoMoreFiles = 0x80000006;                ///< `STATUS_NO_MORE_FILES`: No more files were found which match the file specification.
         inline constexpr NTSTATUS kInvalidInfoClass = 0xC0000003;           ///< `STATUS_INVALID_INFO_CLASS`: The specified information class is not a valid information class for the specified object.
         inline constexpr NTSTATUS kInvalidParameter = 0xC000000D;           ///< `STATUS_INVALID_PARAMETER`: An invalid parameter was passed to a service or function.
+        inline constexpr NTSTATUS kNoSuchFile = 0xC000000F;                 ///< `STATUS_NO_SUCH_FILE`: The file does not exist.
         inline constexpr NTSTATUS kBufferTooSmall = 0xC0000023;             ///< `STATUS_BUFFER_TOO_SMALL`: The buffer is too small to contain the entry. No information has been written to the buffer.
         inline constexpr NTSTATUS kObjectNameInvalid = 0xC0000033;          ///< `STATUS_OBJECT_NAME_INVALID`: The object name is invalid.
         inline constexpr NTSTATUS kObjectNameNotFound = 0xC0000034;         ///< `STATUS_OBJECT_NAME_NOT_FOUND`: The object name is not found.
