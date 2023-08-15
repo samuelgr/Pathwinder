@@ -415,12 +415,12 @@ namespace PathwinderTest
         TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
     }
 
-    // Attempts to enumerate a directory that does not exist. This should result in an error code prior to enumeration.
+    // Attempts to enumerate a directory that does not exist. This should result in the enumeration being reported as completed.
     TEST_CASE(EnumerationQueue_EnumerateNonExistentDirectory)
     {
         MockFilesystemOperations mockFilesystem;
         EnumerationQueue enumerationQueue(InstructionToIncludeAllFiles(), L"C:\\Directory", SFileNamesInformation::kFileInformationClass);
-        TEST_ASSERT(!(NT_SUCCESS(enumerationQueue.EnumerationStatus())));
+        TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
     }
 
     // Enumerates the parent directory of a single filesystem rule's origin directory such that the rule's origin directory and target directory both exist in the filesystem.

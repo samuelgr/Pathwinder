@@ -565,4 +565,21 @@ namespace PathwinderTest
 
         TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
+
+    // Creates a filesystem directory and requests an instruction for directory enumeration with a directory that is totally outside the scope of any filesystem rules.
+    // The instruction is expected to indicate that the request should be passed through to the system without modification.
+    TEST_CASE(FilesystemDirectory_GetInstructionForDirectoryEnumeration_EnumerateUnrelatedDirectory)
+    {
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
+        }));
+
+        constexpr std::wstring_view associatedPath = L"C:\\SomeOtherDirectory";
+        constexpr std::wstring_view realOpenedPath = L"C:\\SomeOtherDirectory";
+
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+        const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+        TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+    }
 }
