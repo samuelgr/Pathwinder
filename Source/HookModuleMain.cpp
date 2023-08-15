@@ -51,6 +51,7 @@ namespace Pathwinder
             const DynamicHookRecord hookRecords[] = {
                 PROTECTED_HOOK_RECORD(NtClose),
                 PROTECTED_HOOK_RECORD(NtCreateFile),
+                PROTECTED_HOOK_RECORD(NtDeleteFile),
                 PROTECTED_HOOK_RECORD(NtOpenFile),
                 PROTECTED_HOOK_RECORD(NtQueryDirectoryFile),
                 PROTECTED_HOOK_RECORD(NtQueryDirectoryFileEx),

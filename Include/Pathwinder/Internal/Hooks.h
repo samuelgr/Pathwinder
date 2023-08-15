@@ -102,6 +102,9 @@ namespace Pathwinder
         // See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntcreatefile for more information.
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(NtCreateFile, NTSTATUS(__stdcall)(PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES, PIO_STATUS_BLOCK, PLARGE_INTEGER, ULONG, ULONG, ULONG, ULONG, PVOID, ULONG));
 
+        // See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-zwdeletefile for more information.
+        PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(NtDeleteFile, NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES));
+
         // See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntopenfile for more information.
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(NtOpenFile, NTSTATUS(__stdcall)(PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES, PIO_STATUS_BLOCK, ULONG, ULONG));
 
