@@ -506,10 +506,59 @@ namespace Pathwinder
         }
     }
 
-    /// Common internal implementation of directory enumeration hook functions.
+    /// Common internal implementation of hook functions that create or open files, resulting in the creation of a new file handle.
+    /// Parameters correspond to the `NtCreateFile` system call, with the exception of `functionName` which is just the hook function name for logging purposes.
+    /// @return Result to be returned to the application on system call completion, or nothing at all if the request should be forwarded to the application.
+    static std::optional<NTSTATUS> HookFunctionCommonImplementationCreateOrOpenFile(const wchar_t* functionName, PHANDLE fileHandle, ACCESS_MASK desiredAccess, POBJECT_ATTRIBUTES objectAttributes, PIO_STATUS_BLOCK ioStatusBlock, PLARGE_INTEGER allocationSize, ULONG fileAttributes, ULONG shareAccess, ULONG createDisposition, ULONG createOptions, PVOID eaBuffer, ULONG eaLength)
+    {
+        const unsigned int requestIdentifier = GetRequestIdentifier();
+
+        const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(functionName, requestIdentifier, objectAttributes->RootDirectory, Strings::NtConvertUnicodeStringToStringView(*(objectAttributes->ObjectName)), FileOperationModeFromCreateDisposition(createDisposition));
+        const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
+
+        if (true == Globals::GetConfigurationData().isDryRunMode)
+            return std::nullopt;
+
+        NTSTATUS preOperationResult = ExecuteExtraPreOperations(functionName, requestIdentifier, operationContext.instruction);
+        if (!(NT_SUCCESS(preOperationResult)))
+            return preOperationResult;
+
+        SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
+        FillRedirectedObjectNameAndAttributesForInstruction(redirectedObjectNameAndAttributes, operationContext.instruction, *objectAttributes);
+
+        HANDLE newlyOpenedHandle = nullptr;
+        NTSTATUS systemCallResult = NtStatus::kSuccess;
+
+        std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath->AsStringView() : Strings::NtConvertUnicodeStringToStringView(*objectAttributes->ObjectName));
+        std::wstring_view lastAttemptedPath;
+
+        for (POBJECT_ATTRIBUTES objectAttributesToTry : SelectFilesToTry(functionName, requestIdentifier, redirectionInstruction, objectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
+        {
+            if (nullptr == objectAttributesToTry)
+                continue;
+
+            lastAttemptedPath = Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
+            systemCallResult = Hooks::ProtectedDependency::NtCreateFile::SafeInvoke(&newlyOpenedHandle, desiredAccess, objectAttributesToTry, ioStatusBlock, allocationSize, fileAttributes, shareAccess, createDisposition, createOptions, eaBuffer, eaLength);
+            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".", functionName, requestIdentifier, systemCallResult, static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
+
+            if (false == ShouldTryNextFilename(systemCallResult))
+                break;
+        }
+
+        if (true == lastAttemptedPath.empty())
+            return std::nullopt;
+
+        if (NT_SUCCESS(systemCallResult))
+            SelectFilenameAndStoreNewlyOpenedHandle(functionName, requestIdentifier, newlyOpenedHandle, redirectionInstruction, lastAttemptedPath, unredirectedPath);
+
+        *fileHandle = newlyOpenedHandle;
+        return systemCallResult;
+    }
+
+    /// Common internal implementation of hook functions that perform directory enumeration.
     /// Parameters correspond to the `NtQueryDirectoryFileEx` system call, with the exception of `functionName` which is just the hook function name for logging purposes.
     /// @return Result to be returned to the application on system call completion, or nothing at all if the request should be forwarded to the application.
-    std::optional<NTSTATUS> HookFunctionCommonImplementationQueryDirectoryFile(const wchar_t* functionName, HANDLE fileHandle, HANDLE event, PIO_APC_ROUTINE apcRoutine, PVOID apcContext, PIO_STATUS_BLOCK ioStatusBlock, PVOID fileInformation, ULONG length, FILE_INFORMATION_CLASS fileInformationClass, ULONG queryFlags, PUNICODE_STRING fileName)
+    static std::optional<NTSTATUS> HookFunctionCommonImplementationQueryDirectoryForEnumeration(const wchar_t* functionName, HANDLE fileHandle, HANDLE event, PIO_APC_ROUTINE apcRoutine, PVOID apcContext, PIO_STATUS_BLOCK ioStatusBlock, PVOID fileInformation, ULONG length, FILE_INFORMATION_CLASS fileInformationClass, ULONG queryFlags, PUNICODE_STRING fileName)
     {
         std::optional<FileInformationStructLayout> maybeFileInformationStructLayout = FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass);
         if (false == maybeFileInformationStructLayout.has_value())
@@ -541,11 +590,12 @@ namespace Pathwinder
         else
             Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with file pattern \"%.*s\" and handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".", functionName, requestIdentifier, static_cast<int>(queryFilePattern.length()), queryFilePattern.data(), reinterpret_cast<size_t>(fileHandle), static_cast<int>(maybeHandleData->associatedPath.length()), maybeHandleData->associatedPath.data(), static_cast<int>(maybeHandleData->realOpenedPath.length()), maybeHandleData->realOpenedPath.data());
 
+        // The underlying system calls are expected to behave slightly differently on a first invocation versus subsequent invocations.
         bool newDirectoryEnumerationCreated = false;
+
         if (false == maybeHandleData->directoryEnumeration.has_value())
         {
             // A new directory enumeration queue needs to be created because a directory enumeration is being requested for the first time.
-            // The underlying system calls are expected to behave slightly differently on a first invocation versus subsequent invocations, hence the need to identify when a new directory enumeration queue is first created.
 
             DirectoryEnumerationInstruction directoryEnumerationInstruction = FilesystemDirector::Singleton().GetInstructionForDirectoryEnumeration(maybeHandleData->associatedPath, maybeHandleData->realOpenedPath);
 
@@ -565,10 +615,9 @@ namespace Pathwinder
         maybeHandleData = OpenHandleStore::Singleton().GetDataForHandle(fileHandle);
         DebugAssert((true == maybeHandleData->directoryEnumeration.has_value()), "Failed to locate an in-progress directory enumearation stat data structure which should already exist.");
 
-        OpenHandleStore::SInProgressDirectoryEnumeration& directoryEnumerationState = *(*(maybeHandleData->directoryEnumeration));
-
         // At this point a directory enumeration queue will be present.
         // If it is `nullptr` then it is a no-op and the original request just needs to be forwarded to the system.
+        OpenHandleStore::SInProgressDirectoryEnumeration& directoryEnumerationState = *(*(maybeHandleData->directoryEnumeration));
         if (nullptr == directoryEnumerationState.queue)
             return std::nullopt;
 
@@ -607,48 +656,11 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(PHANDLE FileHandle, A
     using namespace Pathwinder;
 
 
-    const unsigned int requestIdentifier = GetRequestIdentifier();
-
-    const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, ObjectAttributes->RootDirectory, Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)), FileOperationModeFromCreateDisposition(CreateDisposition));
-    const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
-
-    if (true == Globals::GetConfigurationData().isDryRunMode)
+    auto maybeHookFunctionResult = HookFunctionCommonImplementationCreateOrOpenFile(GetFunctionName(), FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
+    if (false == maybeHookFunctionResult.has_value())
         return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
 
-    NTSTATUS preOperationResult = ExecuteExtraPreOperations(GetFunctionName(), requestIdentifier, operationContext.instruction);
-    if (!(NT_SUCCESS(preOperationResult)))
-        return preOperationResult;
-
-    SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
-    FillRedirectedObjectNameAndAttributesForInstruction(redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
-
-    HANDLE newlyOpenedHandle = nullptr;
-    NTSTATUS systemCallResult = NtStatus::kSuccess;
-
-    std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath->AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
-    std::wstring_view lastAttemptedPath;
-
-    for (POBJECT_ATTRIBUTES objectAttributesToTry : SelectFilesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
-    {
-        if (nullptr == objectAttributesToTry)
-            continue;
-
-        lastAttemptedPath = Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
-        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, objectAttributesToTry, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
-
-        if (false == ShouldTryNextFilename(systemCallResult))
-            break;
-    }
-
-    if (true == lastAttemptedPath.empty())
-        return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
-
-    if (NT_SUCCESS(systemCallResult))
-        SelectFilenameAndStoreNewlyOpenedHandle(GetFunctionName(), requestIdentifier, newlyOpenedHandle, redirectionInstruction, lastAttemptedPath, unredirectedPath);
-
-    *FileHandle = newlyOpenedHandle;
-    return systemCallResult;
+    return *maybeHookFunctionResult;
 }
 
 // --------
@@ -658,6 +670,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtDeleteFile::Hook(POBJECT_ATTRIBUTES Ob
     using namespace Pathwinder;
 
 
+    // TODO
     return Original(ObjectAttributes);
 }
 // --------
@@ -667,48 +680,11 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(PHANDLE FileHandle, ACC
     using namespace Pathwinder;
 
 
-    const unsigned int requestIdentifier = GetRequestIdentifier();
-
-    const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, ObjectAttributes->RootDirectory, Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)), FilesystemDirector::EFileOperationMode::OpenExistingFile);
-    const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
-
-    if (true == Globals::GetConfigurationData().isDryRunMode)
+    auto maybeHookFunctionResult = HookFunctionCommonImplementationCreateOrOpenFile(GetFunctionName(), FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, nullptr, 0, ShareAccess, FILE_OPEN, OpenOptions, nullptr, 0);
+    if (false == maybeHookFunctionResult.has_value())
         return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
 
-    NTSTATUS preOperationResult = ExecuteExtraPreOperations(GetFunctionName(), requestIdentifier, operationContext.instruction);
-    if (!(NT_SUCCESS(preOperationResult)))
-        return preOperationResult;
-
-    SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
-    FillRedirectedObjectNameAndAttributesForInstruction(redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
-
-    HANDLE newlyOpenedHandle = nullptr;
-    NTSTATUS systemCallResult = NtStatus::kSuccess;
-
-    std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath->AsStringView() : Strings::NtConvertUnicodeStringToStringView(*ObjectAttributes->ObjectName));
-    std::wstring_view lastAttemptedPath;
-
-    for (POBJECT_ATTRIBUTES objectAttributesToTry : SelectFilesToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, ObjectAttributes, &redirectedObjectNameAndAttributes.objectAttributes))
-    {
-        if (nullptr == objectAttributesToTry)
-            continue;
-
-        lastAttemptedPath = Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
-        systemCallResult = Original(&newlyOpenedHandle, DesiredAccess, objectAttributesToTry, IoStatusBlock, ShareAccess, OpenOptions);
-        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
-
-        if (false == ShouldTryNextFilename(systemCallResult))
-            break;
-    }
-
-    if (true == lastAttemptedPath.empty())
-        return Original(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
-
-    if (NT_SUCCESS(systemCallResult))
-        SelectFilenameAndStoreNewlyOpenedHandle(GetFunctionName(), requestIdentifier, newlyOpenedHandle, redirectionInstruction, lastAttemptedPath, unredirectedPath);
-
-    *FileHandle = newlyOpenedHandle;
-    return systemCallResult;
+    return *maybeHookFunctionResult;
 }
 
 // --------
@@ -722,7 +698,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(HANDLE FileHa
     if (RestartScan != 0) queryFlags |= QueryFlag::kRestartScan;
     if (ReturnSingleEntry != 0) queryFlags |= QueryFlag::kReturnSingleEntry;
 
-    auto maybeHookFunctionResult = HookFunctionCommonImplementationQueryDirectoryFile(GetFunctionName(), FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, queryFlags, FileName);
+    auto maybeHookFunctionResult = HookFunctionCommonImplementationQueryDirectoryForEnumeration(GetFunctionName(), FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, queryFlags, FileName);
     if (false == maybeHookFunctionResult.has_value())
         return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, ReturnSingleEntry, FileName, RestartScan);
 
@@ -736,7 +712,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(HANDLE File
     using namespace Pathwinder;
 
 
-    auto maybeHookFunctionResult = HookFunctionCommonImplementationQueryDirectoryFile(GetFunctionName(), FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
+    auto maybeHookFunctionResult = HookFunctionCommonImplementationQueryDirectoryForEnumeration(GetFunctionName(), FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
     if (false == maybeHookFunctionResult.has_value())
         return Original(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, FileInformation, Length, FileInformationClass, QueryFlags, FileName);
 
@@ -754,7 +730,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(HANDLE File
     switch (systemCallResult)
     {
     case NtStatus::kBufferOverflow:
-        // Buffer overflows are allowed because Pathwinder will attempt to overwrite the filename part and, in doing so, determine for itself if a buffer overflow condition actually exists.
+        // Buffer overflows are allowed because the filename part will be overwritten and a true overflow condition detected at that time.
         break;
 
     default:
