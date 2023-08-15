@@ -186,7 +186,7 @@ namespace Pathwinder
         WCHAR fileName[1];
     };
 
-    /// Contains information on how to rename a file. Same layout as `FILE_RENAME_INFORMATION` from the Windows driver kit.
+    /// Specifies a file rename operation. Same layout as `FILE_RENAME_INFORMATION` from the Windows driver kit.
     /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information for more information.
     struct SFileRenameInformation
     {
@@ -212,6 +212,15 @@ namespace Pathwinder
         ULONG fileIndex;
         ULONG fileNameLength;
         WCHAR fileName[1];
+    };
+
+    /// Specifies file deletion behavior when open handles to it are closed. Same layout as `FILE_DISPOSITION_INFORMATION` from the Windows driver kit.
+    /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddk/ns-ntddk-_file_disposition_information for more information.
+    struct SFileDispositionInformation
+    {
+        static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(13);
+
+        BOOLEAN deleteFile;
     };
 
     /// Contains information about a file. Same layout as `FILE_POSITION_INFORMATION` from the Windows driver kit.
@@ -370,7 +379,16 @@ namespace Pathwinder
         WCHAR fileName[1];
     };
 
-    /// Corresponds to `FILE_STAT_INFORMATION` from the Windows driver kit.
+    /// Specifies file deletion behavior when open handles to it are closed. Same layout as `FILE_DISPOSITION_INFORMATION_EX` from the Windows driver kit.
+    /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddk/ns-ntddk-_file_disposition_information_ex for more information.
+    struct SFileDispositionInformationEx
+    {
+        static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(64);
+
+        ULONG flags;
+    };
+
+    /// Contains file metadata. Corresponds to `FILE_STAT_INFORMATION` from the Windows driver kit.
     /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_stat_information for more information.
     struct SFileStatInformation
     {
@@ -389,6 +407,22 @@ namespace Pathwinder
         ACCESS_MASK effectiveAccess;
     };
 
+    /// Specifies a hard link creation operation. Corresponds to `FILE_LINK_INFORMATION` from the Windows driver kit.
+    /// See https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_link_information for more information.
+    struct SFileLinkInformation
+    {
+        static constexpr FILE_INFORMATION_CLASS kFileInformationClass = static_cast<FILE_INFORMATION_CLASS>(72);
+
+        union
+        {
+            BOOLEAN replaceIfExists;
+            ULONG flags;
+        };
+        HANDLE rootDirectory;
+        ULONG fileNameLength;
+        WCHAR fileName[1];
+    };
+
 
     // -------- FUNCTIONS ---------------------------------------------- //
 
@@ -399,18 +433,6 @@ namespace Pathwinder
     template <typename FileInformationStructType, typename = decltype(FileInformationStructType::fileNameLength), typename = decltype(FileInformationStructType::fileName[0])> constexpr inline std::wstring_view GetFileInformationStructFilename(const FileInformationStructType& fileInformationStruct)
     {
         return std::wstring_view(fileInformationStruct.fileName, (fileInformationStruct.fileNameLength / sizeof(wchar_t)));
-    }
-
-    /// Returns a pointer to the next file information struct in a buffer containing multiple possibly variably-sized file information structures.
-    /// @tparam FileInformationStructType Windows internal structure type that is intended to be part of a buffer of contiguous structures of the same type.
-    /// @param [in] fileInformationStruct Read-only reference to a structure that is part of a buffer of contiguous structures of the same type.
-    /// @return Pointer to the next structure in the buffer, or `nullptr` if no more structures exist.
-    template <typename FileInformationStructType, typename = decltype(FileInformationStructType::nextEntryOffset)> inline FileInformationStructType* NextFileInformationStruct(const FileInformationStructType& fileInformationStruct)
-    {
-        if (0 == fileInformationStruct.nextEntryOffset)
-            return nullptr;
-
-        return reinterpret_cast<FileInformationStructType*>(reinterpret_cast<size_t>(&fileInformationStruct) + static_cast<size_t>(fileInformationStruct.nextEntryOffset));
     }
 
     /// Changes the stored filename within one of the many structures that uses a dangling filename field.
@@ -433,18 +455,6 @@ namespace Pathwinder
         fileInformationStruct.fileNameLength = static_cast<decltype(fileInformationStruct.fileNameLength)>(filenameNumberOfBytesNeeded);
 
         return filenameNumberOfCharsToWrite;
-    }
-
-    /// Computes the size, in bytes, of the specified filename information structure of a type which uses a dangling filename field.
-    /// @tparam FileInformationStructType Windows internal structure type that uses a wide-character dangling filename field.
-    /// @param [in] fileInformationStruct Read-only reference to a structure that uses a wide-character dangling filename field.
-    /// @return Size of the specified file information structure, in bytes.
-    template <typename FileInformationStructType, typename = decltype(FileInformationStructType::fileNameLength), typename = decltype(FileInformationStructType::fileName[0])> constexpr inline size_t SizeOfFileInformationStructWithFilename(const FileInformationStructType& fileInformationStruct)
-    {
-        const size_t structureBaseSize = sizeof(FileInformationStructType);
-        const size_t structureSizeFromFilenameLength = offsetof(FileInformationStructType, fileName) + fileInformationStruct.fileNameLength;
-
-        return std::max(structureBaseSize, structureSizeFromFilenameLength);
     }
 
     namespace WindowsInternal
