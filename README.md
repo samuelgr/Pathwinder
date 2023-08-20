@@ -91,7 +91,7 @@ Supported domains are as follows.
 - **ENV** contains environment variables.
    - This is the default domain if no domain is explicitly specified. For example, `%ENV::LOCALAPPDATA%` is equivalent to `%LOCALAPPDATA%`.
    - To see which environment variables are typically available, run any terminal application and then execute the command `set`.
-- **FOLDERID** contains all of the [known folder identifiers](https://learn.microsoft.com/en-us/windows/win32/shell/knownfolderid) made available by the Windows shell.
+- **FOLDERID** contains all of the [known folder identifiers](https://learn.microsoft.com/en-us/windows/win32/shell/knownfolderid#constants) made available by the Windows shell.
    - For example, `%FOLDERID::Desktop%` resolves to the "Desktop" directory for the current user.
    - Note that several of these known folders resolve to locations that typically cannot be accessed for file operations. Pathwinder will accept these locations in dynamic references but likely will not be able to use them for file operations.
 
