@@ -410,9 +410,19 @@ namespace Pathwinder
     /// @return `true` if the result indicates that the next filename should be tried, `false` if the result indicates to stop trying and move on.
     static inline bool ShouldTryNextFilename(NTSTATUS systemCallResult)
     {
-        // This check is simply based on whether or not the call was successful.
-        // If not, advance to the next file, otherwise stop.
-        return (!(NT_SUCCESS(systemCallResult)));
+        // If the error code is related to a file not being found then it is safe to try the next file.
+        // All other codes, including I/O errors, permission issues, or even success, should be passed to the application.
+        switch (systemCallResult)
+        {
+        case NtStatus::kObjectNameInvalid:
+        case NtStatus::kObjectNameNotFound:
+        case NtStatus::kObjectPathInvalid:
+        case NtStatus::kObjectPathNotFound:
+            return true;
+
+        default:
+            return false;
+        }
     }
 
     /// Inserts a newly-opened handle into the open handle store, selecting an associated path based on the file operation redirection instruction.

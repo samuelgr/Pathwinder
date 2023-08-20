@@ -15,6 +15,7 @@
 #include "DebugAssert.h"
 #include "FilesystemDirectorBuilder.h"
 #include "FilesystemOperations.h"
+#include "FilesystemRule.h"
 #include "Message.h"
 #include "Resolver.h"
 #include "Strings.h"
@@ -22,15 +23,58 @@
 #include "ValueOrError.h"
 
 #include <cwctype>
-#include <map>
 #include <optional>
-#include <set>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 
 namespace Pathwinder
 {
+    // -------- INTERNAL FUNCTIONS ----------------------------------------- //
+
+    /// Reads the configured redirection mode from a filesystem rule configuration section or, if the redirection mode is not present, returns a default value.
+    /// @param [in] configSection Configuration section object containing the filesystem rule's configuration information.
+    /// @return Redirection mode enumerator, if it is either absent from the configuration section data object or present and maps to a valid enumerator.
+    static std::optional<FilesystemRule::ERedirectMode> RedirectModeFromConfigurationSection(const Configuration::Section& configSection)
+    {
+        constexpr FilesystemRule::ERedirectMode kDefaultRedirectMode = FilesystemRule::ERedirectMode::Strict;
+
+        static const std::unordered_map<std::wstring_view, FilesystemRule::ERedirectMode, Strings::CaseInsensitiveHasher<wchar_t>, Strings::CaseInsensitiveEqualityComparator<wchar_t>> kRedirectModeStrings = {
+            {L"Strict", FilesystemRule::ERedirectMode::Strict},
+            {L"Overlay", FilesystemRule::ERedirectMode::Overlay}
+        };
+
+        if (false == configSection.NameExists(Strings::kStrConfigurationSettingFilesystemRuleRedirectMode))
+            return kDefaultRedirectMode;
+
+        const auto redirectModeIter = kRedirectModeStrings.find(*configSection.GetFirstStringValue(Strings::kStrConfigurationSettingFilesystemRuleRedirectMode));
+        if (kRedirectModeStrings.cend() == redirectModeIter)
+            return std::nullopt;
+
+        return redirectModeIter->second;
+    }
+
+    /// Generates a string representation of the specified redirection mode enumerator.
+    /// Useful for logging.
+    /// @param [in] redirectMode Redirection mode enumerator.
+    /// @return String representation of the redirection mode enumerator.
+    static std::wstring_view RedirectModeToString(FilesystemRule::ERedirectMode redirectMode)
+    {
+        switch (redirectMode)
+        {
+        case FilesystemRule::ERedirectMode::Strict:
+            return L"Strict";
+
+        case FilesystemRule::ERedirectMode::Overlay:
+            return L"Overlay";
+
+        default:
+            return L"(unknown)";
+        }
+    }
+
+
     // -------- CLASS METHODS ---------------------------------------------- //
     // See "FilesystemDirectorBuilder.h" for documentation.
 
@@ -60,8 +104,10 @@ namespace Pathwinder
             if (addFilesystemRuleResult.HasValue())
             {
                 const FilesystemRule& newFilesystemRule = *(addFilesystemRuleResult.Value());
+                const std::wstring_view newFilesystemRuleRedirectMode = RedirectModeToString(newFilesystemRule.GetRedirectMode());
 
                 Message::OutputFormatted(Message::ESeverity::Info, L"Successfully created filesystem rule \"%.*s\".", static_cast<int>(newFilesystemRule.GetName().length()), newFilesystemRule.GetName().data());
+                Message::OutputFormatted(Message::ESeverity::Info, L"  Redirection mode = %.*s", static_cast<int>(newFilesystemRuleRedirectMode.length()), newFilesystemRuleRedirectMode.data());
                 Message::OutputFormatted(Message::ESeverity::Info, L"  Origin directory = \"%.*s\"", static_cast<int>(newFilesystemRule.GetOriginDirectoryFullPath().length()), newFilesystemRule.GetOriginDirectoryFullPath().data());
                 Message::OutputFormatted(Message::ESeverity::Info, L"  Target directory = \"%.*s\"", static_cast<int>(newFilesystemRule.GetTargetDirectoryFullPath().length()), newFilesystemRule.GetTargetDirectoryFullPath().data());
 
@@ -168,7 +214,7 @@ namespace Pathwinder
     // -------- INSTANCE METHODS ------------------------------------------- //
     // See "FilesystemDirectorBuilder.h" for documentation.
 
-    ValueOrError<const FilesystemRule*, TemporaryString> FilesystemDirectorBuilder::AddRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring>&& filePatterns)
+    ValueOrError<const FilesystemRule*, TemporaryString> FilesystemDirectorBuilder::AddRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring>&& filePatterns, FilesystemRule::ERedirectMode redirectMode)
     {
         if (true == filesystemRules.contains(ruleName))
             return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Constraint violation: Rule with the same name already exists.", static_cast<int>(ruleName.length()), ruleName.data());
@@ -222,7 +268,7 @@ namespace Pathwinder
         if (true == HasOriginDirectory(targetDirectoryFullPath))
             return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Constraint violation: Target directory is already in use as an origin directory by another rule.", static_cast<int>(ruleName.length()), ruleName.data());
 
-        const auto createResult = filesystemRules.emplace(std::wstring(ruleName), FilesystemRule(originDirectoryFullPath.AsStringView(), targetDirectoryFullPath.AsStringView(), std::move(filePatterns)));
+        const auto createResult = filesystemRules.emplace(std::wstring(ruleName), FilesystemRule(originDirectoryFullPath.AsStringView(), targetDirectoryFullPath.AsStringView(), std::move(filePatterns), redirectMode));
         DebugAssert(createResult.second, "FilesystemDirectorBuilder consistency check failed due to unsuccessful creation of a supposedly-unique filesystem rule.");
 
         std::wstring_view newRuleName = createResult.first->first;
@@ -247,9 +293,13 @@ namespace Pathwinder
         if (false == maybeTargetDirectory.has_value())
             return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Missing target directory.", static_cast<int>(ruleName.length()), ruleName.data());
 
+        auto maybeRedirectMode = RedirectModeFromConfigurationSection(configSection);
+        if (false == maybeRedirectMode.has_value())
+            return Strings::FormatString(L"Error while creating filesystem rule \"%.*s\": Invalid redirection mode.", static_cast<int>(ruleName.length()), ruleName.data());
+
         auto filePatterns = configSection.ExtractStringValues(Strings::kStrConfigurationSettingFilesystemRuleFilePattern).value_or(std::vector<std::wstring>());
 
-        return AddRule(ruleName, std::move(*maybeOriginDirectory), std::move(*maybeTargetDirectory), std::move(filePatterns));
+        return AddRule(ruleName, std::move(*maybeOriginDirectory), std::move(*maybeTargetDirectory), std::move(filePatterns), std::move(*maybeRedirectMode));
     }
 
     // --------

@@ -160,9 +160,37 @@ namespace PathwinderTest
         }));
 
         const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
-            {L"C:\\Origin1\\file1.txt",                                 FileOperationInstruction::RedirectTo(L"C:\\Target1\\file1.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
-            {L"C:\\Origin2\\Subdir2\\file2.txt",                        FileOperationInstruction::RedirectTo(L"C:\\Target2\\Subdir2\\file2.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
-            {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",    FileOperationInstruction::RedirectTo(L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}
+            {L"C:\\Origin1\\file1.txt",                                 FileOperationInstruction::StrictRedirectTo(L"C:\\Target1\\file1.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+            {L"C:\\Origin2\\Subdir2\\file2.txt",                        FileOperationInstruction::StrictRedirectTo(L"C:\\Target2\\Subdir2\\file2.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+            {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",    FileOperationInstruction::StrictRedirectTo(L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}
+        };
+
+        for (const auto& testRecord : kTestInputsAndExpectedOutputs)
+        {
+            const std::wstring_view testInput = testRecord.first;
+            const auto& expectedOutput = testRecord.second;
+
+            auto actualOutput = director.GetInstructionForFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
+            TEST_ASSERT(actualOutput == expectedOutput);
+        }
+    }
+
+    // Creates a filesystem director with a few non-overlapping rules and queries it for redirection with a few file inputs.
+    // Verifies that each time the resulting redirected path is correct. This variation of the test case uses the overlay redirection mode.
+    TEST_CASE(FilesystemDirector_GetInstructionForFileOperation_Overlay)
+    {
+        MockFilesystemOperations mockFilesystem;
+
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1", {}, FilesystemRule::ERedirectMode::Overlay)},
+            {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2", {}, FilesystemRule::ERedirectMode::Overlay)},
+            {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3", {}, FilesystemRule::ERedirectMode::Overlay)},
+        }));
+
+        const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
+            {L"C:\\Origin1\\file1.txt",                                 FileOperationInstruction::OverlayRedirectTo(L"C:\\Target1\\file1.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+            {L"C:\\Origin2\\Subdir2\\file2.txt",                        FileOperationInstruction::OverlayRedirectTo(L"C:\\Target2\\Subdir2\\file2.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+            {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",    FileOperationInstruction::OverlayRedirectTo(L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}
         };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -193,11 +221,11 @@ namespace PathwinderTest
         }));
 
         const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
-            {L"C:\\Origin1",                                FileOperationInstruction::RedirectTo(L"C:\\Target1",                                FileOperationInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target1")},
-            {L"C:\\Origin2\\Subdir2",                       FileOperationInstruction::RedirectTo(L"C:\\Target2\\Subdir2",                       FileOperationInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target2\\Subdir2")},
-            {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C",   FileOperationInstruction::RedirectTo(L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C",   FileOperationInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C")},
-            {L"C:\\Origin1\\file1.txt",                     FileOperationInstruction::RedirectTo(L"C:\\Target1\\file1.txt",                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected, {}, L"")},
-            {L"C:\\Origin2\\Subdir2\\file2.bin",            FileOperationInstruction::RedirectTo(L"C:\\Target2\\Subdir2\\file2.bin",            FileOperationInstruction::EAssociateNameWithHandle::Unredirected, {}, L"")}
+            {L"C:\\Origin1",                                FileOperationInstruction::StrictRedirectTo(L"C:\\Target1",                                FileOperationInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target1")},
+            {L"C:\\Origin2\\Subdir2",                       FileOperationInstruction::StrictRedirectTo(L"C:\\Target2\\Subdir2",                       FileOperationInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target2\\Subdir2")},
+            {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C",   FileOperationInstruction::StrictRedirectTo(L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C",   FileOperationInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C")},
+            {L"C:\\Origin1\\file1.txt",                     FileOperationInstruction::StrictRedirectTo(L"C:\\Target1\\file1.txt",                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected, {}, L"")},
+            {L"C:\\Origin2\\Subdir2\\file2.bin",            FileOperationInstruction::StrictRedirectTo(L"C:\\Target2\\Subdir2\\file2.bin",            FileOperationInstruction::EAssociateNameWithHandle::Unredirected, {}, L"")}
         };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -222,7 +250,7 @@ namespace PathwinderTest
         }));
 
         const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
-            {L"C:\\Origin1\\AnyTypeOfFile", FileOperationInstruction::RedirectTo(L"C:\\Target1\\AnyTypeOfFile", FileOperationInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target1")}
+            {L"C:\\Origin1\\AnyTypeOfFile", FileOperationInstruction::StrictRedirectTo(L"C:\\Target1\\AnyTypeOfFile", FileOperationInstruction::EAssociateNameWithHandle::Unredirected, {static_cast<int>(FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)}, L"C:\\Target1")}
         };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -249,9 +277,9 @@ namespace PathwinderTest
         }));
 
         const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
-            {L"C:\\Origin1\\Subdir1\\",                                 FileOperationInstruction::RedirectTo(L"C:\\Target1\\Subdir1\\", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
-            {L"C:\\Origin2\\Subdir2\\Subdir2B\\",                       FileOperationInstruction::RedirectTo(L"C:\\Target2\\Subdir2\\Subdir2B\\", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
-            {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\",             FileOperationInstruction::RedirectTo(L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}
+            {L"C:\\Origin1\\Subdir1\\",                                 FileOperationInstruction::StrictRedirectTo(L"C:\\Target1\\Subdir1\\", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+            {L"C:\\Origin2\\Subdir2\\Subdir2B\\",                       FileOperationInstruction::StrictRedirectTo(L"C:\\Target2\\Subdir2\\Subdir2B\\", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+            {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\",             FileOperationInstruction::StrictRedirectTo(L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}
         };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -278,9 +306,9 @@ namespace PathwinderTest
         }));
 
         const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
-            {L"\\??\\C:\\Origin1\\file1.txt",                               FileOperationInstruction::RedirectTo(L"\\??\\C:\\Target1\\file1.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
-            {L"\\\\?\\C:\\Origin2\\Subdir2\\file2.txt",                     FileOperationInstruction::RedirectTo(L"\\\\?\\C:\\Target2\\Subdir2\\file2.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
-            {L"\\\\.\\C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt", FileOperationInstruction::RedirectTo(L"\\\\.\\C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}
+            {L"\\??\\C:\\Origin1\\file1.txt",                               FileOperationInstruction::StrictRedirectTo(L"\\??\\C:\\Target1\\file1.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+            {L"\\\\?\\C:\\Origin2\\Subdir2\\file2.txt",                     FileOperationInstruction::StrictRedirectTo(L"\\\\?\\C:\\Target2\\Subdir2\\file2.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+            {L"\\\\.\\C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt", FileOperationInstruction::StrictRedirectTo(L"\\\\.\\C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}
         };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -358,8 +386,8 @@ namespace PathwinderTest
         }));
 
         const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
-            {L"C:\\Origin1",   FileOperationInstruction::RedirectTo(L"C:\\Target1", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
-            {L"C:\\Origin1\\", FileOperationInstruction::RedirectTo(L"C:\\Target1\\", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+            {L"C:\\Origin1",   FileOperationInstruction::StrictRedirectTo(L"C:\\Target1", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+            {L"C:\\Origin1\\", FileOperationInstruction::StrictRedirectTo(L"C:\\Target1\\", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
         };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -432,6 +460,26 @@ namespace PathwinderTest
         constexpr std::wstring_view realOpenedPath = L"C:\\Target";
 
         const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+        const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+        TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+    }
+
+    // Creates a filesystem directory with a single filesystem rule without file patterns.
+    // Requests a directory enumeration instruction such that the rule is configured for overlay mode and verifies that it correctly merges the target and origin directory contents.
+    TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryInOverlayMode)
+    {
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {}, FilesystemRule::ERedirectMode::Overlay)},
+        }));
+
+        constexpr std::wstring_view associatedPath = L"C:\\Origin";
+        constexpr std::wstring_view realOpenedPath = L"C:\\Target";
+
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::EnumerateDirectories({
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, *director.FindRuleByName(L"1")),
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath)
+        });
         const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);

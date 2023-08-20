@@ -434,15 +434,26 @@ namespace Pathwinder
             return FileOperationInstruction(std::nullopt, ETryFiles::UnredirectedOnly, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
         }
 
-        /// Creates a filesystem operation redirection instruction that indicates the request should be redirected.
+        /// Creates a filesystem operation redirection instruction that indicates the request should be strictly redirected, meaning that only the redirected file is tried.
         /// @param [in] redirectedFilename String representing the absolute redirected filename, including Windows namespace prefix.
         /// @param [in] filenameHandleAssociation How to associate a filename with a potentially newly-created filesystem handle. Optional, defaults to no association.
         /// @param [in] extraPreOperations Any extra pre-operations to be performed before the file operation is attempted. Optional, defaults to none.
         /// @param [in] extraPreOperationOperand Additional operand for any extra pre-operations. Optional, defaults to none.
         /// @return File operation redirection instruction encoded to indicate redirection plus optionally some additional processing.
-        static inline FileOperationInstruction RedirectTo(TemporaryString&& redirectedFilename, EAssociateNameWithHandle filenameHandleAssociation = EAssociateNameWithHandle::None, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
+        static inline FileOperationInstruction StrictRedirectTo(TemporaryString&& redirectedFilename, EAssociateNameWithHandle filenameHandleAssociation = EAssociateNameWithHandle::None, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
         {
             return FileOperationInstruction(std::move(redirectedFilename), ETryFiles::RedirectedOnly, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
+        }
+
+        /// Creates a filesystem operation redirection instruction that indicates the request should be overlay-redirected, meaning that the redirected file is tried first followed by the unredirected file, thus giving priority to the former if it exists.
+        /// @param [in] redirectedFilename String representing the absolute redirected filename, including Windows namespace prefix.
+        /// @param [in] filenameHandleAssociation How to associate a filename with a potentially newly-created filesystem handle. Optional, defaults to no association.
+        /// @param [in] extraPreOperations Any extra pre-operations to be performed before the file operation is attempted. Optional, defaults to none.
+        /// @param [in] extraPreOperationOperand Additional operand for any extra pre-operations. Optional, defaults to none.
+        /// @return File operation redirection instruction encoded to indicate redirection plus optionally some additional processing.
+        static inline FileOperationInstruction OverlayRedirectTo(TemporaryString&& redirectedFilename, EAssociateNameWithHandle filenameHandleAssociation = EAssociateNameWithHandle::None, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
+        {
+            return FileOperationInstruction(std::move(redirectedFilename), ETryFiles::RedirectedFirst, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
         }
 
 

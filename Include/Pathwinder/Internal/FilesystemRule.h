@@ -41,12 +41,22 @@ namespace Pathwinder
             CandidateIsDescendant                                           ///< Candidate directory is a descendant, but not the immediate child, of the comparison target directory.
         };
 
+        /// Enumerates the different types of redirection modes that can be configured for each filesystem rule.
+        enum class ERedirectMode
+        {
+            Strict,                                                         ///< Strict redirection mode. Either a file operation is redirected or it is not, and only one file name is tried. Redirected files either exist on the target side or do not exist at all.
+            Overlay                                                         ///< Overlay redirection mode. File operations merge the target side with the origin side, with files on the target side given priority.
+        };
+
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
         /// Name of this filesystem rule.
         /// Not used internally for any specific purpose but rather intended as a convenience for rules that are contained in a data structure that identifies them by name.
         std::wstring_view name;
+
+        /// Redirection mode for this filesystem rule.
+        ERedirectMode redirectMode;
 
         /// Position within the origin directory absolute path of the final separator between name and parent path.
         /// Initialized using the contents of the origin directory path string and must be declared before it.
@@ -74,7 +84,8 @@ namespace Pathwinder
         /// Initialization constructor.
         /// Requires all instance variables be set at construction time.
         /// File patterns are optional, with default behavior matching all files. This is preferred over a single-element vector containing "*" because file pattern match checking can be skipped entirely.
-        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>());
+        /// Redirection mode is also optional, with default behavior being strict mode.
+        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>(), ERedirectMode redirectMode = ERedirectMode::Strict);
 
 
         // -------- OPERATORS ---------------------------------------------- //
@@ -182,6 +193,13 @@ namespace Pathwinder
             targetDirectoryParent.remove_suffix(targetDirectoryParent.length() - targetDirectorySeparator);
 
             return targetDirectoryParent;
+        }
+
+        /// Retrieves and returns the redirection mode configured for this rule.
+        /// @return Redirection mode enumerator configured for this rule.
+        inline ERedirectMode GetRedirectMode(void) const
+        {
+            return redirectMode;
         }
 
         inline bool HasFilePatterns(void) const

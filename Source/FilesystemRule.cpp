@@ -164,7 +164,7 @@ namespace Pathwinder
     // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
     // See "FilesystemRule.h" for documentation.
 
-    FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns) : originDirectorySeparator(FinalSeparatorPosition(originDirectoryFullPath)), targetDirectorySeparator(FinalSeparatorPosition(targetDirectoryFullPath)), originDirectoryFullPath(originDirectoryFullPath), targetDirectoryFullPath(targetDirectoryFullPath), filePatterns(std::move(filePatterns)), name()
+    FilesystemRule::FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns, ERedirectMode redirectMode) : redirectMode(redirectMode), originDirectorySeparator(FinalSeparatorPosition(originDirectoryFullPath)), targetDirectorySeparator(FinalSeparatorPosition(targetDirectoryFullPath)), originDirectoryFullPath(originDirectoryFullPath), targetDirectoryFullPath(targetDirectoryFullPath), filePatterns(std::move(filePatterns)), name()
     {
         // The specific implementation used for comparing file names to file patterns requires that all pattern strings be uppercase.
         // Comparisons remain case-insensitive. This is just a documented implementation detail of the comparison function itself.

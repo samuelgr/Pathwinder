@@ -69,6 +69,9 @@ namespace Pathwinder
         /// Configuration file setting for identifying the target directory of a filesystem rule.
         inline constexpr std::wstring_view kStrConfigurationSettingFilesystemRuleTargetDirectory = L"TargetDirectory";
 
+        /// Configuration file setting for specifying a redirection mode for a filesystem rule.
+        inline constexpr std::wstring_view kStrConfigurationSettingFilesystemRuleRedirectMode = L"RedirectMode";
+
         /// Configuration file setting for specifying a file pattern for a filesystem rule.
         inline constexpr std::wstring_view kStrConfigurationSettingFilesystemRuleFilePattern = L"FilePattern";
 

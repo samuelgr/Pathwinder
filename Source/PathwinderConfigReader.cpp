@@ -42,6 +42,7 @@ namespace Pathwinder
     static Configuration::TConfigurationFileSectionLayout filesystemRuleSectionLayout = {
         ConfigurationFileLayoutNameAndValueType(Strings::kStrConfigurationSettingFilesystemRuleOriginDirectory, Configuration::EValueType::String),
         ConfigurationFileLayoutNameAndValueType(Strings::kStrConfigurationSettingFilesystemRuleTargetDirectory, Configuration::EValueType::String),
+        ConfigurationFileLayoutNameAndValueType(Strings::kStrConfigurationSettingFilesystemRuleRedirectMode, Configuration::EValueType::String),
         ConfigurationFileLayoutNameAndValueType(Strings::kStrConfigurationSettingFilesystemRuleFilePattern, Configuration::EValueType::StringMultiValue),
     };
 

@@ -130,7 +130,18 @@ namespace Pathwinder
             DebugAssert(FilesystemRule::EDirectoryCompareResult::Unrelated != directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(unredirectedPathTrimmedForQuery), "");
             DebugAssert(FilesystemRule::EDirectoryCompareResult::Unrelated != directoryEnumerationRedirectRule->DirectoryCompareWithTarget(redirectedPathTrimmedForQuery), "");
 
-            if ((false == directoryEnumerationRedirectRule->HasFilePatterns()) || (FilesystemRule::EDirectoryCompareResult::Equal != directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(unredirectedPathTrimmedForQuery)))
+            if (FilesystemRule::ERedirectMode::Overlay == directoryEnumerationRedirectRule->GetRedirectMode())
+            {
+                // In overlay mode, the target-side contents that are in the filesystem rule scope are always enumerated and merged with the origin-side contents.
+                // There is nothing further to check.
+
+                Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will overlay the contents of \"%.*s\".", static_cast<int>(unredirectedPath.length()), unredirectedPath.data(), static_cast<int>(directoryEnumerationRedirectRule->GetName().length()), directoryEnumerationRedirectRule->GetName().data(), static_cast<int>(redirectedPath.length()), redirectedPath.data());
+                directoriesToEnumerate = {
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, *directoryEnumerationRedirectRule),
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath)
+                };
+            }
+            else if ((false == directoryEnumerationRedirectRule->HasFilePatterns()) || (FilesystemRule::EDirectoryCompareResult::Equal != directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(unredirectedPathTrimmedForQuery)))
             {
                 // This is a simplification for two potential common cases:
                 // (1) Filesystem rule that did the redirection does not actually define any file patterns and hence matches all files.
@@ -328,6 +339,13 @@ namespace Pathwinder
             }
         }
 
-        return FileOperationInstruction::RedirectTo(std::move(*maybeRedirectedFilePath), FileOperationInstruction::EAssociateNameWithHandle::Unredirected, std::move(extraPreOperations), extraPreOperationOperand);
+        switch (selectedRule->GetRedirectMode())
+        {
+        case FilesystemRule::ERedirectMode::Overlay:
+            return FileOperationInstruction::OverlayRedirectTo(std::move(*maybeRedirectedFilePath), FileOperationInstruction::EAssociateNameWithHandle::Unredirected, std::move(extraPreOperations), extraPreOperationOperand);
+
+        default:
+            return FileOperationInstruction::StrictRedirectTo(std::move(*maybeRedirectedFilePath), FileOperationInstruction::EAssociateNameWithHandle::Unredirected, std::move(extraPreOperations), extraPreOperationOperand);
+        }
     }
 }
