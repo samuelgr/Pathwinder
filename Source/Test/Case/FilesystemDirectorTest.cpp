@@ -597,6 +597,26 @@ namespace PathwinderTest
         TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
+    // Creates a filesystem directory with a single filesystem rule without file patterns.
+    // Requests a directory enumeration instruction for a descendant of the origin directory in overlay mode and verifies that it correctly indicates to enumerate both target-side and origin-side directories.
+    TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectoryInOverlayMode)
+    {
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {}, FilesystemRule::ERedirectMode::Overlay)},
+        }));
+
+        constexpr std::wstring_view associatedPath = L"C:\\Origin\\Subdir123\\AnotherDir";
+        constexpr std::wstring_view realOpenedPath = L"C:\\Target\\Subdir123\\AnotherDir";
+
+        const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction = DirectoryEnumerationInstruction::EnumerateDirectories({
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath),
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath)
+        });
+        const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction = director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+        TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+    }
+
     // Creates a filesystem directory with a single filesystem rule with file patterns.
     // Requests a directory enumeration instruction for a descendant of the origin directory, which is also within its scope, and verifies that it correctly indicates to enumerate the target-side redirected directory without any further processing.
     TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectoryWithFilePatterns)

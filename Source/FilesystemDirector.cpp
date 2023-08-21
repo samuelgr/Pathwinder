@@ -133,13 +133,24 @@ namespace Pathwinder
             if (FilesystemRule::ERedirectMode::Overlay == directoryEnumerationRedirectRule->GetRedirectMode())
             {
                 // In overlay mode, the target-side contents that are in the filesystem rule scope are always enumerated and merged with the origin-side contents.
-                // There is nothing further to check.
+                // If the unredirected directory path is the rule's origin directory then only the contents of the redirected directory path that matches the file pattern can be included.
+                // Otherwise the unredirected directory path is a descendent, and it is known that the directory is in scope due to a path component matching the rule's file pattern, so the entire directory should be included.
 
                 Message::OutputFormatted(Message::ESeverity::Info, L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will overlay the contents of \"%.*s\".", static_cast<int>(unredirectedPath.length()), unredirectedPath.data(), static_cast<int>(directoryEnumerationRedirectRule->GetName().length()), directoryEnumerationRedirectRule->GetName().data(), static_cast<int>(redirectedPath.length()), redirectedPath.data());
-                directoriesToEnumerate = {
-                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, *directoryEnumerationRedirectRule),
-                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath)
-                };
+                if (FilesystemRule::EDirectoryCompareResult::Equal == directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(unredirectedPathTrimmedForQuery))
+                {
+                    directoriesToEnumerate = {
+                        DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeOnlyMatchingFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath, *directoryEnumerationRedirectRule),
+                        DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath)
+                    };
+                }
+                else
+                {
+                    directoriesToEnumerate = {
+                        DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath),
+                        DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath)
+                    };
+                }
             }
             else if ((false == directoryEnumerationRedirectRule->HasFilePatterns()) || (FilesystemRule::EDirectoryCompareResult::Equal != directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(unredirectedPathTrimmedForQuery)))
             {
