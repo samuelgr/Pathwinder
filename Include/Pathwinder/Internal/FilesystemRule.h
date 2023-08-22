@@ -44,8 +44,9 @@ namespace Pathwinder
         /// Enumerates the different types of redirection modes that can be configured for each filesystem rule.
         enum class ERedirectMode
         {
-            Strict,                                                         ///< Strict redirection mode. Either a file operation is redirected or it is not, and only one file name is tried. Redirected files either exist on the target side or do not exist at all.
-            Overlay                                                         ///< Overlay redirection mode. File operations merge the target side with the origin side, with files on the target side given priority.
+            Simple,                                                         ///< Simple redirection mode. Either a file operation is redirected or it is not, and only one file name is tried. Redirected files either exist on the target side or do not exist at all. Non-redirected files either exist on the origin side or do not exist at all.
+            Overlay,                                                        ///< Overlay redirection mode. File operations merge the target side with the origin side, with files on the target side given priority.
+            OverlayCopyOnWrite,                                             ///< Overlay redirection mode with copy-on-write. File operations merge the target side with the origin side, with files on the target side given priority. However, any attempt to write to an in-scope file on the origin side causes it to be copied to the target side before the write proceeds.
         };
 
     private:
@@ -84,8 +85,8 @@ namespace Pathwinder
         /// Initialization constructor.
         /// Requires all instance variables be set at construction time.
         /// File patterns are optional, with default behavior matching all files. This is preferred over a single-element vector containing "*" because file pattern match checking can be skipped entirely.
-        /// Redirection mode is also optional, with default behavior being strict mode.
-        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>(), ERedirectMode redirectMode = ERedirectMode::Strict);
+        /// Redirection mode is also optional, with default behavior being simple mode.
+        FilesystemRule(std::wstring_view originDirectoryFullPath, std::wstring_view targetDirectoryFullPath, std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>(), ERedirectMode redirectMode = ERedirectMode::Simple);
 
 
         // -------- OPERATORS ---------------------------------------------- //

@@ -110,9 +110,9 @@ namespace PathwinderTest
     {
         FilesystemDirectorBuilder directorBuilder;
 
-        auto maybeConfigRule1 = directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir1", {}, FilesystemRule::ERedirectMode::Strict);
+        auto maybeConfigRule1 = directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir1", {}, FilesystemRule::ERedirectMode::Simple);
         TEST_ASSERT(maybeConfigRule1.HasValue());
-        TEST_ASSERT(maybeConfigRule1.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Strict);
+        TEST_ASSERT(maybeConfigRule1.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Simple);
         TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
         TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
 
@@ -225,7 +225,7 @@ namespace PathwinderTest
         Configuration::Section configSection1 = {
             {L"OriginDirectory", L"C:\\OriginDir1"},
             {L"TargetDirectory", L"C:\\TargetDir1"},
-            {L"RedirectMode", L"Strict"}
+            {L"RedirectMode", L"Simple"}
         };
 
         Configuration::Section configSection2 = {
@@ -238,7 +238,7 @@ namespace PathwinderTest
 
         auto maybeConfigRule1 = directorBuilder.AddRuleFromConfigurationSection(L"1", configSection1);
         TEST_ASSERT(maybeConfigRule1.HasValue());
-        TEST_ASSERT(maybeConfigRule1.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Strict);
+        TEST_ASSERT(maybeConfigRule1.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Simple);
         TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
         TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
 
