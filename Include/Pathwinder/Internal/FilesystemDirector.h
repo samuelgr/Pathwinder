@@ -14,9 +14,11 @@
 
 #include "FilesystemInstruction.h"
 #include "FilesystemRule.h"
+#include "FilesystemTypes.h"
 #include "PrefixIndex.h"
 #include "Strings.h"
 
+#include <bitset>
 #include <map>
 #include <optional>
 #include <variant>
@@ -29,19 +31,6 @@ namespace Pathwinder
     /// Rule set is immutable once this object is constructed.
     class FilesystemDirector
     {
-    public:
-        // -------- TYPE DEFINITIONS --------------------------------------- //
-
-        /// Enumerates the different modes of file operations that an application can request.
-        enum class EFileOperationMode
-        {
-            CreateNewFile,                                                  ///< Application has requested that a new file be created. The system call will fail if the file already exists.
-            OpenExistingFile,                                               ///< Application has requested that an existing file be opened. The system call will fail if the file does not exist.
-            CreateNewOrOpenExistingFile,                                    ///< Application has requested that the file be opened if it exists or be created as a new file if it does not exist.
-            Count                                                           ///< Not used as a value. Identifies the number of enumerators present in this enumeration.
-        };
-
-
     private:
         // -------- INSTANCE VARIABLES ------------------------------------- //
 
@@ -133,9 +122,10 @@ namespace Pathwinder
 
         /// Generates an instruction for how to execute a file operation, such as opening, creating, or querying information about an individual file.
         /// @param [in] absoluteFilePath Path of the file being queried for possible redirection. A Windows namespace prefix is optional.
-        /// @param [in] fileOperationMode Type of file operation requested by the application.
+        /// @param [in] fileAccessMode Type of access or accesses to be performed on the file.
+        /// @param [in] createDisposition Create disposition for the requsted file operation, which specifies whether a new file should be created, an existing file opened, or either.
         /// @return Instruction that provides information on how to execute the file operation redirection.
-        FileOperationInstruction GetInstructionForFileOperation(std::wstring_view absoluteFilePath, EFileOperationMode fileOperationMode) const;
+        FileOperationInstruction GetInstructionForFileOperation(std::wstring_view absoluteFilePath, FileAccessMode fileAccessMode, CreateDisposition createDisposition) const;
 
         /// Determines if the specified file path, which is already absolute, exists as a valid prefix for any filesystem rule.
         /// The input file path must not contain any leading Windows namespace prefixes and must not have any trailing backslash characters.

@@ -478,28 +478,44 @@ namespace Pathwinder
         return extraPreOperationResult;
     }
 
-    /// Converts a `CreateDisposition` parameter, which system calls use to identify filesystem behavior regarding creating new files or opening existing files, into an appropriate file operation mode.
+    /// Converts a `CreateDisposition` parameter, which system calls use to identify filesystem behavior regarding creating new files or opening existing files, into an appropriate internal create disposition object.
     /// @param [in] ntCreateDisposition `CreateDisposition` parameter received from the application.
-    /// @return Corresponding file operation mode enumerator.
-    static FilesystemDirector::EFileOperationMode FileOperationModeFromCreateDisposition(ULONG ntCreateDisposition)
+    /// @return Corresponding create disposition object.
+    static CreateDisposition CreateDispositionFromNtParameter(ULONG ntCreateDisposition)
     {
         switch (ntCreateDisposition)
         {
         case FILE_CREATE:
-            return FilesystemDirector::EFileOperationMode::CreateNewFile;
+            return CreateDisposition::CreateNewFile();
 
         case FILE_SUPERSEDE:
         case FILE_OPEN_IF:
         case FILE_OVERWRITE_IF:
-            return FilesystemDirector::EFileOperationMode::CreateNewOrOpenExistingFile;
+            return CreateDisposition::CreateNewOrOpenExistingFile();
 
         case FILE_OPEN:
         case FILE_OVERWRITE:
-            return FilesystemDirector::EFileOperationMode::OpenExistingFile;
+            return CreateDisposition::OpenExistingFile();
 
         default:
-            return FilesystemDirector::EFileOperationMode::OpenExistingFile;
+            return CreateDisposition::OpenExistingFile();
         }
+    }
+
+    /// Converts a `DesiredAccess` parameter, which system calls use to identify the type of access requested to a file, into an appropriate internal file access mode object.
+    /// @param [in] ntDesiredAccess `DesiredAccess` parameter received from the application.
+    /// @return Corresponding file access mode object.
+    static FileAccessMode FileAccessModeFromNtParameter(ACCESS_MASK ntDesiredAccess)
+    {
+        constexpr ACCESS_MASK kReadAccessMask = (GENERIC_READ | FILE_READ_DATA | FILE_READ_ATTRIBUTES | FILE_READ_EA | READ_CONTROL | FILE_EXECUTE | FILE_LIST_DIRECTORY | FILE_TRAVERSE);
+        constexpr ACCESS_MASK kWriteAccessMask = (GENERIC_WRITE | FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA | FILE_APPEND_DATA | WRITE_DAC | WRITE_OWNER | FILE_DELETE_CHILD);
+        constexpr ACCESS_MASK kDeleteAccessMask = (DELETE);
+
+        const bool canRead = (0 != (ntDesiredAccess & kReadAccessMask));
+        const bool canWrite = (0 != (ntDesiredAccess & kWriteAccessMask));
+        const bool canDelete = (0 != (ntDesiredAccess & kDeleteAccessMask));
+
+        return FileAccessMode(canRead, canWrite, canDelete);
     }
 
     /// Fills the supplied object name and attributes structure with the name and attributes needed to represent the redirected filename from a file operation redirection instruction.
@@ -534,9 +550,10 @@ namespace Pathwinder
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
     /// @param [in] rootDirectory Open handle for the root directory that contains the input filename. May be `nullptr`, in which case the input filename must be a full and absolute path. Supplied by an application that invokes a system call.
     /// @param [in] inputFilename Filename received from the application that invoked the system call. Must be a full and absolute path if the root directory handle is not provided.
-    /// @param [in] fileOperationMode Type of file operation requested by the application.
+    /// @param [in] fileAccessMode Type of access or accesses to be performed on the file.
+    /// @param [in] createDisposition Create disposition for the requsted file operation, which specifies whether a new file should be created, an existing file opened, or either.
     /// @return Context that contains all of the information needed to submit the file operation to the underlying system call.
-    static SFileOperationContext GetFileOperationRedirectionInformation(const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE rootDirectory, std::wstring_view inputFilename, FilesystemDirector::EFileOperationMode fileOperationMode)
+    static SFileOperationContext GetFileOperationRedirectionInformation(const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE rootDirectory, std::wstring_view inputFilename, FileAccessMode fileAccessMode, CreateDisposition createDisposition)
     {
         std::optional<TemporaryString> maybeRedirectedFilename = std::nullopt;
         std::optional<OpenHandleStore::SHandleDataView> maybeRootDirectoryHandleData = ((nullptr == rootDirectory) ? std::nullopt : OpenHandleStore::Singleton().GetDataForHandle(rootDirectory));
@@ -551,7 +568,7 @@ namespace Pathwinder
             TemporaryString inputFullFilename;
             inputFullFilename << rootDirectoryHandlePath << L'\\' << inputFilename;
 
-            FileOperationInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().GetInstructionForFileOperation(inputFullFilename, fileOperationMode);
+            FileOperationInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().GetInstructionForFileOperation(inputFullFilename, fileAccessMode, createDisposition);
             if (true == redirectionInstruction.HasRedirectedFilename())
                 Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined and redirected to \"%.*s\".", functionName, functionRequestIdentifier, static_cast<int>(rootDirectoryHandlePath.length()), rootDirectoryHandlePath.data(), reinterpret_cast<size_t>(rootDirectory), static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
             else
@@ -564,7 +581,7 @@ namespace Pathwinder
             // Input object attributes structure does not specify an open directory handle as the root directory.
             // It is sufficient to send the object name directly for redirection.
 
-            FileOperationInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().GetInstructionForFileOperation(inputFilename, fileOperationMode);
+            FileOperationInstruction redirectionInstruction = Pathwinder::FilesystemDirector::Singleton().GetInstructionForFileOperation(inputFilename, fileAccessMode, createDisposition);
 
             if (true == redirectionInstruction.HasRedirectedFilename())
                 Message::OutputFormatted(Message::ESeverity::Debug, L"%s(%u): Invoked with path \"%.*s\" which was redirected to \"%.*s\".", functionName, functionRequestIdentifier, static_cast<int>(inputFilename.length()), inputFilename.data(), static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()), redirectionInstruction.GetRedirectedFilename().data());
@@ -778,7 +795,7 @@ namespace Pathwinder
             }
         }
 
-        const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(functionName, requestIdentifier, objectAttributes->RootDirectory, Strings::NtConvertUnicodeStringToStringView(*(objectAttributes->ObjectName)), FileOperationModeFromCreateDisposition(createDisposition));
+        const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(functionName, requestIdentifier, objectAttributes->RootDirectory, Strings::NtConvertUnicodeStringToStringView(*(objectAttributes->ObjectName)), FileAccessModeFromNtParameter(desiredAccess), CreateDispositionFromNtParameter(createDisposition));
         const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
         if (true == Globals::GetConfigurationData().isDryRunMode)
@@ -1065,7 +1082,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(POBJECT_A
 
     const unsigned int requestIdentifier = GetRequestIdentifier();
 
-    const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, ObjectAttributes->RootDirectory, Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)), FilesystemDirector::EFileOperationMode::OpenExistingFile);
+    const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, ObjectAttributes->RootDirectory, Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)), FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
     const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
@@ -1117,7 +1134,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(HANDLE FileHa
     SFileRenameInformation& unredirectedFileRenameInformation = *(reinterpret_cast<SFileRenameInformation*>(FileInformation));
     std::wstring_view unredirectedPath = GetFileInformationStructFilename(unredirectedFileRenameInformation);
 
-    const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, unredirectedFileRenameInformation.rootDirectory, unredirectedPath, FilesystemDirector::EFileOperationMode::CreateNewFile);
+    const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, unredirectedFileRenameInformation.rootDirectory, unredirectedPath, FileAccessMode::Delete(), CreateDisposition::CreateNewFile());
     const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
@@ -1171,7 +1188,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(POBJECT_ATTR
 
     const unsigned int requestIdentifier = GetRequestIdentifier();
 
-    const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, ObjectAttributes->RootDirectory, Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)), FilesystemDirector::EFileOperationMode::OpenExistingFile);
+    const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(GetFunctionName(), requestIdentifier, ObjectAttributes->RootDirectory, Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)), FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
     const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)

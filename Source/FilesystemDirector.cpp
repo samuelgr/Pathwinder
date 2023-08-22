@@ -29,22 +29,6 @@ namespace Pathwinder
 {
     // -------- INTERNAL FUNCTIONS ----------------------------------------- //
 
-    /// Determines if the specified file operation mode can result in a new file being created.
-    /// @param [in] fileOperationMode File operation mode to check.
-    /// @return `true` if the file operation can result in a new file being created, `false` otherwise.
-    static inline bool CanFileOperationResultInFileCreation(FilesystemDirector::EFileOperationMode fileOperationMode)
-    {
-        switch (fileOperationMode)
-        {
-        case FilesystemDirector::EFileOperationMode::CreateNewFile:
-        case FilesystemDirector::EFileOperationMode::CreateNewOrOpenExistingFile:
-            return true;
-
-        default:
-            return false;
-        }
-    }
-
     /// Determines if the specified absolute path begins with a drive letter.
     /// @param [in] absolutePathWithoutWindowsPrefix Absolute path to check, without any Windows namespace prefixes.
     /// @return `true` if the path begins with a drive letter, `false` otherwise.
@@ -247,7 +231,7 @@ namespace Pathwinder
 
     // --------
 
-    FileOperationInstruction FilesystemDirector::GetInstructionForFileOperation(std::wstring_view absoluteFilePath, EFileOperationMode fileOperationMode) const
+    FileOperationInstruction FilesystemDirector::GetInstructionForFileOperation(std::wstring_view absoluteFilePath, FileAccessMode fileAccessMode, CreateDisposition createDisposition) const
     {
         const std::wstring_view windowsNamespacePrefix = Strings::PathGetWindowsNamespacePrefix(absoluteFilePath);
         const std::wstring_view extraSuffix = ((true == absoluteFilePath.ends_with(L'\\')) ? L"\\" : L"");
@@ -327,7 +311,7 @@ namespace Pathwinder
         BitSetEnum<FileOperationInstruction::EExtraPreOperation> extraPreOperations;
         std::wstring_view extraPreOperationOperand;
 
-        if (true == CanFileOperationResultInFileCreation(fileOperationMode))
+        if (true == createDisposition.AllowsCreateNewFile())
         {
             // If the filesystem operation can result in file creation, then it must be possible to complete file creation in the target hierarchy if it would also be possible to do so in the origin hierarchy.
             // In this situation it is necessary to ensure that the target-side hierarchy exists up to the directory containing the file that is to be potentially created, if said hierarchy also exists on the origin side.
@@ -353,7 +337,8 @@ namespace Pathwinder
         switch (selectedRule->GetRedirectMode())
         {
         case FilesystemRule::ERedirectMode::Overlay:
-            return FileOperationInstruction::OverlayRedirectTo(std::move(*maybeRedirectedFilePath), FileOperationInstruction::EAssociateNameWithHandle::Unredirected, std::move(extraPreOperations), extraPreOperationOperand);
+        case FilesystemRule::ERedirectMode::OverlayCopyOnWrite:
+            return FileOperationInstruction::OverlayRedirectTo(std::move(*maybeRedirectedFilePath), FileOperationInstruction::EAssociateNameWithHandle::Unredirected, FileOperationInstruction::ECreateDispositionPreference::NoPreference, std::move(extraPreOperations), extraPreOperationOperand);
 
         default:
             return FileOperationInstruction::SimpleRedirectTo(std::move(*maybeRedirectedFilePath), FileOperationInstruction::EAssociateNameWithHandle::Unredirected, std::move(extraPreOperations), extraPreOperationOperand);

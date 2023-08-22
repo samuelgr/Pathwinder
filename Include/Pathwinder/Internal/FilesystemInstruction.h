@@ -358,6 +358,15 @@ namespace Pathwinder
             Count                                                           ///< Not used as a value. Identifies the number of enumerators present in this enumeration.
         };
 
+        /// Enumerates different possible preferences for creating a new file or opening an existing file.
+        enum class ECreateDispositionPreference : uint8_t
+        {
+            NoPreference,                                                   ///< No preference on creating a new file or opening an existing file. Do whatever the application requests and accept whatever is successful first.
+            PreferCreateNewFile,                                            ///< If the application is willing to create a new file or open an existing file, prefer to create a new file.
+            PreferOpenExistingFile,                                         ///< If the application is willing to create a new file or open an existing file, prefer to open an existing file.
+            Count                                                           ///< Not used as a value. Identifies the number of enumerators present in this enumeration.
+        };
+
         /// Enumerates possible ways of associating a filename with a newly-created file handle.
         enum class EAssociateNameWithHandle : uint8_t
         {
@@ -387,6 +396,9 @@ namespace Pathwinder
         /// Filenames to try when submitting a file operation to the underlying system call.
         ETryFiles filenamesToTry;
 
+        /// Whether to prefer creating a new file or opening an existing file, if the application is willing to accept both.
+        ECreateDispositionPreference createDispositionPreference;
+
         /// Filename to associate with a newly-created file handle that results from successful execution of the file operation.
         EAssociateNameWithHandle filenameHandleAssociation;
 
@@ -403,7 +415,7 @@ namespace Pathwinder
         /// Initialization constructor.
         /// Requires values for all fields.
         /// Not intended to be invoked externally. Objects should generally be created using factory methods.
-        inline FileOperationInstruction(std::optional<TemporaryString>&& redirectedFilename, ETryFiles filenamesToTry, EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations, std::wstring_view extraPreOperationOperand) : redirectedFilename(std::move(redirectedFilename)), filenamesToTry(filenamesToTry), filenameHandleAssociation(filenameHandleAssociation), extraPreOperations(std::move(extraPreOperations)), extraPreOperationOperand(extraPreOperationOperand)
+        inline FileOperationInstruction(std::optional<TemporaryString>&& redirectedFilename, ETryFiles filenamesToTry, ECreateDispositionPreference createDispositionPreference, EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations, std::wstring_view extraPreOperationOperand) : redirectedFilename(std::move(redirectedFilename)), filenamesToTry(filenamesToTry), createDispositionPreference(createDispositionPreference), filenameHandleAssociation(filenameHandleAssociation), extraPreOperations(std::move(extraPreOperations)), extraPreOperationOperand(extraPreOperationOperand)
         {
             // Nothing to do here.
         }
@@ -421,7 +433,7 @@ namespace Pathwinder
         /// @return File operation redirection instruction encoded to indicate that there should be no processing whatsoever.
         static inline FileOperationInstruction NoRedirectionOrInterception(void)
         {
-            return FileOperationInstruction(std::nullopt, ETryFiles::UnredirectedOnly, EAssociateNameWithHandle::None, {}, std::wstring_view());
+            return FileOperationInstruction(std::nullopt, ETryFiles::UnredirectedOnly, ECreateDispositionPreference::NoPreference, EAssociateNameWithHandle::None, {}, std::wstring_view());
         }
 
         /// Creates a filesystem operation redirection instruction that indicates the request should not be redirected but should be intercepted for additional processing
@@ -431,29 +443,32 @@ namespace Pathwinder
         /// @return File operation redirection instruction encoded to indicate some additional processing needed but without redirection.
         static inline FileOperationInstruction InterceptWithoutRedirection(EAssociateNameWithHandle filenameHandleAssociation, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
         {
-            return FileOperationInstruction(std::nullopt, ETryFiles::UnredirectedOnly, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
+            return FileOperationInstruction(std::nullopt, ETryFiles::UnredirectedOnly, ECreateDispositionPreference::NoPreference, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
         }
 
-        /// Creates a filesystem operation redirection instruction that indicates the request should be strictly redirected, meaning that only the redirected file is tried.
+        /// Creates a filesystem operation redirection instruction that indicates the request should be redirected in simple mode.
+        /// This means that only the redirected file is tried.
         /// @param [in] redirectedFilename String representing the absolute redirected filename, including Windows namespace prefix.
         /// @param [in] filenameHandleAssociation How to associate a filename with a potentially newly-created filesystem handle. Optional, defaults to no association.
         /// @param [in] extraPreOperations Any extra pre-operations to be performed before the file operation is attempted. Optional, defaults to none.
         /// @param [in] extraPreOperationOperand Additional operand for any extra pre-operations. Optional, defaults to none.
         /// @return File operation redirection instruction encoded to indicate redirection plus optionally some additional processing.
-        static inline FileOperationInstruction StrictRedirectTo(TemporaryString&& redirectedFilename, EAssociateNameWithHandle filenameHandleAssociation = EAssociateNameWithHandle::None, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
+        static inline FileOperationInstruction SimpleRedirectTo(TemporaryString&& redirectedFilename, EAssociateNameWithHandle filenameHandleAssociation = EAssociateNameWithHandle::None, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
         {
-            return FileOperationInstruction(std::move(redirectedFilename), ETryFiles::RedirectedOnly, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
+            return FileOperationInstruction(std::move(redirectedFilename), ETryFiles::RedirectedOnly, ECreateDispositionPreference::NoPreference, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
         }
 
-        /// Creates a filesystem operation redirection instruction that indicates the request should be overlay-redirected, meaning that the redirected file is tried first followed by the unredirected file, thus giving priority to the former if it exists.
+        /// Creates a filesystem operation redirection instruction that indicates the request should be redirected in overlay mode
+        /// This means that the redirected file is tried first followed by the unredirected file, thus giving priority to the former if it exists.
         /// @param [in] redirectedFilename String representing the absolute redirected filename, including Windows namespace prefix.
         /// @param [in] filenameHandleAssociation How to associate a filename with a potentially newly-created filesystem handle. Optional, defaults to no association.
+        /// @param [in] createDispositionPreference Whether to prefer creating a new file or opening an existing file, if the application is willing to accept both. Optional, defaults to no preference.
         /// @param [in] extraPreOperations Any extra pre-operations to be performed before the file operation is attempted. Optional, defaults to none.
         /// @param [in] extraPreOperationOperand Additional operand for any extra pre-operations. Optional, defaults to none.
         /// @return File operation redirection instruction encoded to indicate redirection plus optionally some additional processing.
-        static inline FileOperationInstruction OverlayRedirectTo(TemporaryString&& redirectedFilename, EAssociateNameWithHandle filenameHandleAssociation = EAssociateNameWithHandle::None, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
+        static inline FileOperationInstruction OverlayRedirectTo(TemporaryString&& redirectedFilename, EAssociateNameWithHandle filenameHandleAssociation = EAssociateNameWithHandle::None, ECreateDispositionPreference createDispositionPreference = ECreateDispositionPreference::NoPreference, BitSetEnum<EExtraPreOperation>&& extraPreOperations = {}, std::wstring_view extraPreOperationOperand = std::wstring_view())
         {
-            return FileOperationInstruction(std::move(redirectedFilename), ETryFiles::RedirectedFirst, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
+            return FileOperationInstruction(std::move(redirectedFilename), ETryFiles::RedirectedFirst, createDispositionPreference, filenameHandleAssociation, std::move(extraPreOperations), extraPreOperationOperand);
         }
 
 

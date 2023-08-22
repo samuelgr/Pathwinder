@@ -12,6 +12,7 @@
 
 #include "FilesystemDirector.h"
 #include "FilesystemInstruction.h"
+#include "FilesystemTypes.h"
 #include "MockFilesystemOperations.h"
 #include "PrefixIndex.h"
 #include "TemporaryBuffer.h"
@@ -170,7 +171,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.GetInstructionForFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
+            auto actualOutput = director.GetInstructionForFileOperation(testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -198,7 +199,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.GetInstructionForFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
+            auto actualOutput = director.GetInstructionForFileOperation(testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -233,7 +234,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.GetInstructionForFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
+            auto actualOutput = director.GetInstructionForFileOperation(testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -258,7 +259,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.GetInstructionForFileOperation(testInput, FilesystemDirector::EFileOperationMode::CreateNewFile);
+            auto actualOutput = director.GetInstructionForFileOperation(testInput, FileAccessMode::ReadOnly(), CreateDisposition::CreateNewFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -287,7 +288,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.GetInstructionForFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
+            auto actualOutput = director.GetInstructionForFileOperation(testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -316,7 +317,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.GetInstructionForFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
+            auto actualOutput = director.GetInstructionForFileOperation(testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -339,7 +340,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.GetInstructionForFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
+            auto actualOutput = director.GetInstructionForFileOperation(testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -369,7 +370,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.GetInstructionForFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
+            auto actualOutput = director.GetInstructionForFileOperation(testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -395,7 +396,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.GetInstructionForFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
+            auto actualOutput = director.GetInstructionForFileOperation(testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -419,7 +420,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.GetInstructionForFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
+            auto actualOutput = director.GetInstructionForFileOperation(testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -443,7 +444,7 @@ namespace PathwinderTest
             const std::wstring_view testInput = testRecord.first;
             const auto& expectedOutput = testRecord.second;
 
-            auto actualOutput = director.GetInstructionForFileOperation(testInput, FilesystemDirector::EFileOperationMode::OpenExistingFile);
+            auto actualOutput = director.GetInstructionForFileOperation(testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }

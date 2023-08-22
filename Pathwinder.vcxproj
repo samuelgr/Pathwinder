@@ -149,6 +149,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemInstruction.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemOperations.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemRule.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\FilesystemTypes.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Hooks.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
