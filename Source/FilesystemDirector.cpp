@@ -258,7 +258,7 @@ namespace Pathwinder
             if (true == IsPrefixForAnyRule(absoluteFilePathTrimmedForQuery))
             {
                 // If the file path could possibly be a directory path that but exists in the hierarchy as an ancestor of filesystem rules, then it is possible this same path could be a relative root path later on for a something that needs to be redirected.
-                // Therefore, if a file handle is being created it needs to be associated with the unredirected path.
+                // Therefore, if a file handle is being created, it needs to be associated with the unredirected path.
                 return FileOperationInstruction::InterceptWithoutRedirection(FileOperationInstruction::EAssociateNameWithHandle::Unredirected);
             }
             else
@@ -338,10 +338,25 @@ namespace Pathwinder
         {
         case FilesystemRule::ERedirectMode::Overlay:
         case FilesystemRule::ERedirectMode::OverlayCopyOnWrite:
-            return FileOperationInstruction::OverlayRedirectTo(std::move(*maybeRedirectedFilePath), FileOperationInstruction::EAssociateNameWithHandle::Unredirected, FileOperationInstruction::ECreateDispositionPreference::NoPreference, std::move(extraPreOperations), extraPreOperationOperand);
+            
+            // In overlay redirection mode, if the application is willing to create a new file, then a preference towards already-existing files needs to be set in the instruction.
+            // There are two situations to consider, both of which involve the file existing on the origin side but not existing on the target side. In both cases, if no preference is set, the outcome is incorrect in that the file ends up being created on the target side.
+            // (1) If the application is additionally willing to accept opening an existing file, then the correct outcome is that the existing file on the origin side is opened.
+            // (2) If the application is only willing to accept creating a new file, then the correct outcome is that the operation fails because the file already exists on the origin side.
+            // It is up to the caller to interpret the combination of preference, which is encoded in the returned instruction, and create disposition, which is supplied by the application.
 
-        default:
+            do {
+                const FileOperationInstruction::ECreateDispositionPreference createDispositionPreference = ((true == createDisposition.AllowsCreateNewFile()) ? FileOperationInstruction::ECreateDispositionPreference::PreferOpenExistingFile : FileOperationInstruction::ECreateDispositionPreference::NoPreference);
+                return FileOperationInstruction::OverlayRedirectTo(std::move(*maybeRedirectedFilePath), FileOperationInstruction::EAssociateNameWithHandle::Unredirected, createDispositionPreference, std::move(extraPreOperations), extraPreOperationOperand);
+            } while (false);
+
+        case FilesystemRule::ERedirectMode::Simple:
+
+            // In simple redirection mode there is nothing further to do. Only one file is attempted, so no preference based on create disposition needs to be set.
             return FileOperationInstruction::SimpleRedirectTo(std::move(*maybeRedirectedFilePath), FileOperationInstruction::EAssociateNameWithHandle::Unredirected, std::move(extraPreOperations), extraPreOperationOperand);
         }
+
+        Message::OutputFormatted(Message::ESeverity::Error, L"Internal error: unrecognized file redirection mode (FilesystemRule::ERedirectMode = %u) encountered while processing file operation redirection query for path \"%.*s\".", static_cast<unsigned int>(selectedRule->GetRedirectMode()), static_cast<int>(absoluteFilePath.length()), absoluteFilePath.data());
+        return FileOperationInstruction::NoRedirectionOrInterception();
     }
 }

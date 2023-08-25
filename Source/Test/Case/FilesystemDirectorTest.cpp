@@ -204,6 +204,35 @@ namespace PathwinderTest
         }
     }
 
+    // Creates a filesystem director with a few non-overlapping rules and queries it for redirection with a few file inputs.
+    // Verifies that each time the resulting redirected path is correct. This variation of the test case uses the overlay redirection mode and a create disposition that allows file creation.
+    // Since a new file is permitted to be created in overlay mode, a preference is expected to be encoded in the instruction for opening an existing file rather than creating a new file.
+    TEST_CASE(FilesystemDirector_GetInstructionForFileOperation_OverlayWithFileCreation)
+    {
+        MockFilesystemOperations mockFilesystem;
+
+        const FilesystemDirector director(MakeFilesystemDirector({
+            {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1", {}, FilesystemRule::ERedirectMode::Overlay)},
+            {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2", {}, FilesystemRule::ERedirectMode::Overlay)},
+            {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3", {}, FilesystemRule::ERedirectMode::Overlay)},
+        }));
+
+        const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
+            {L"C:\\Origin1\\file1.txt",                                 FileOperationInstruction::OverlayRedirectTo(L"C:\\Target1\\file1.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected, FileOperationInstruction::ECreateDispositionPreference::PreferOpenExistingFile)},
+            {L"C:\\Origin2\\Subdir2\\file2.txt",                        FileOperationInstruction::OverlayRedirectTo(L"C:\\Target2\\Subdir2\\file2.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected, FileOperationInstruction::ECreateDispositionPreference::PreferOpenExistingFile)},
+            {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",    FileOperationInstruction::OverlayRedirectTo(L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt", FileOperationInstruction::EAssociateNameWithHandle::Unredirected, FileOperationInstruction::ECreateDispositionPreference::PreferOpenExistingFile)}
+        };
+
+        for (const auto& testRecord : kTestInputsAndExpectedOutputs)
+        {
+            const std::wstring_view testInput = testRecord.first;
+            const auto& expectedOutput = testRecord.second;
+
+            auto actualOutput = director.GetInstructionForFileOperation(testInput, FileAccessMode::ReadOnly(), CreateDisposition::CreateNewOrOpenExistingFile());
+            TEST_ASSERT(actualOutput == expectedOutput);
+        }
+    }
+
     // Verifies that pre-operations are correctly added when a hierarchy exists on the origin side and the file operation attempts to open an existing file.
     // When the query is for a directory that exists on the origin side, it is expected that a pre-operation is added to ensure the same hierarchy exists on the target side.
     // When the query is for a file, whether or not it exists on the origin side, no such pre-operation is necessary.
