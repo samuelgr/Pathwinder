@@ -36,8 +36,8 @@ namespace Pathwinder
         // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
         /// Default constructor.
-        /// Should never be invoked because all objects must have either a value or an error.
-        ValueOrError(void) = delete;
+        /// Resulting object holds a default-constructed value.
+        constexpr ValueOrError(void) = default;
 
         /// Conversion constructor.
         /// Delegates to the underlying data structure.
