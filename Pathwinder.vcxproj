@@ -152,6 +152,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemTypes.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Hooks.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\Iterator.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
     <ClInclude Include="Include\Pathwinder\Internal\MutexWrapper.h" />
     <ClInclude Include="Include\Pathwinder\Internal\OpenHandleStore.h" />

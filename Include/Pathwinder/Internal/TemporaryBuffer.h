@@ -12,6 +12,7 @@
 #pragma once
 
 #include "DebugAssert.h"
+#include "Iterator.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -176,187 +177,6 @@ namespace Pathwinder
         }
     };
 
-    /// Iterator type used to denote a position within a temporary vector object.
-    template <typename T> class TemporaryVectorIterator
-    {
-    public:
-        // -------- TYPE DEFINITIONS ----------------------------------- //
-
-        // Type aliases for compliance with STL random-access iterator specifications.
-        using iterator_category = std::random_access_iterator_tag;
-        using value_type = T;
-        using difference_type = int;
-        using pointer = T*;
-        using reference = T&;
-
-
-    private:
-        // -------- INSTANCE VARIABLES --------------------------------- //
-
-        /// Pointer directly to the temporary vector's underlying data.
-        /// This implementation takes advantage of the fact that temporary vectors do not dynamically resize and reallocate.
-        T* buffer;
-
-        /// Index within the temporary vector data buffer.
-        int index;
-
-
-    public:
-        // -------- CONSTRUCTION AND DESTRUCTION ----------------------- //
-
-        constexpr TemporaryVectorIterator(void) : buffer(), index()
-        {
-            // Nothing to do here.
-        }
-
-        /// Initialization constructor.
-        /// Requires a buffer and an index to initialize this iterator.
-        constexpr TemporaryVectorIterator(T* buffer, int index) : buffer(buffer), index(index)
-        {
-            // Nothing to do here.
-        }
-
-
-        // -------- OPERATORS ------------------------------------------ //
-
-        /// Subscripting operator.
-        /// Allows arbitrary forwards and backwards movement via the iterator.
-        constexpr inline T& operator[](int index) const
-        {
-            return *(*this + index);
-        }
-
-        /// Dereferencing operator.
-        /// Allows the underlying data to be accessed directly via the iterator.
-        constexpr inline T& operator*(void) const
-        {
-            return buffer[index];
-        }
-
-        /// Member access operator.
-        /// Allows the underlying data to be accessed directly via the iterator.
-        constexpr inline T* operator->(void) const
-        {
-            return &buffer[index];
-        }
-
-        /// Pre-increment operator.
-        constexpr inline TemporaryVectorIterator& operator++(void)
-        {
-            index += 1;
-            return *this;
-        }
-
-        /// Post-increment operator.
-        constexpr inline TemporaryVectorIterator operator++(int)
-        {
-            TemporaryVectorIterator orig = *this;
-            index += 1;
-            return orig;
-        }
-
-        /// Pre-decrement operator.
-        constexpr inline TemporaryVectorIterator& operator--(void)
-        {
-            index -= 1;
-            return *this;
-        }
-
-        /// Post-decrement operator.
-        constexpr inline TemporaryVectorIterator operator--(int)
-        {
-            TemporaryVectorIterator orig = *this;
-            index -= 1;
-            return orig;
-        }
-
-        /// Addition-assignment operator.
-        /// Allows arbitrary addition to the index but no changes to the buffer pointer.
-        constexpr inline TemporaryVectorIterator& operator+=(int indexIncrement)
-        {
-            index += indexIncrement;
-            return *this;
-        }
-
-        /// Addition operator.
-        /// Allows arbitrary addition to the index but no changes to the buffer pointer.
-        constexpr inline TemporaryVectorIterator operator+(int indexIncrement) const
-        {
-            return TemporaryVectorIterator(buffer, index + indexIncrement);
-        }
-
-        /// Subtraction-assignment operator.
-        /// Allows arbitrary subtraction from the index but no changes to the buffer pointer.
-        constexpr inline TemporaryVectorIterator& operator-=(int indexIncrement)
-        {
-            index -= indexIncrement;
-            return *this;
-        }
-
-        /// Subtraction operator.
-        /// Allows arbitrary subtraction from the index but no changes to the buffer pointer.
-        constexpr inline TemporaryVectorIterator operator-(int indexIncrement) const
-        {
-            return TemporaryVectorIterator(buffer, index - indexIncrement);
-        }
-
-        /// Subraction operator for iterators.
-        /// Computes the distance between two iterators.
-        constexpr inline int operator-(const TemporaryVectorIterator& rhs) const
-        {
-            DebugAssert(buffer == rhs.buffer, "Iterators point to different instances.");
-            return index - rhs.index;
-        }
-
-        /// Equality comparison operator.
-        /// In debug builds this will check that the two iterators reference the same object.
-        constexpr inline bool operator==(const TemporaryVectorIterator& other) const
-        {
-            DebugAssert(buffer == other.buffer, "Iterators point to different instances.");
-            return (index == other.index);
-        }
-
-        /// Inequality comparison operator.
-        /// In debug builds this will check that the two iterators reference the same object.
-        constexpr inline bool operator!=(const TemporaryVectorIterator& other) const
-        {
-            DebugAssert(buffer == other.buffer, "Iterators point to different instances.");
-            return (index != other.index);
-        }
-
-        /// Less-than comparison operator.
-        /// In debug builds this will check that the two iterators reference the same object.
-        constexpr inline bool operator<(const TemporaryVectorIterator& rhs) const
-        {
-            DebugAssert(buffer == rhs.buffer, "Iterators point to different instances.");
-            return (index < rhs.index);
-        }
-
-        /// Less-or-equal comparison operator.
-        /// In debug builds this will check that the two iterators reference the same object.
-        constexpr inline bool operator<=(const TemporaryVectorIterator& rhs) const
-        {
-            DebugAssert(buffer == rhs.buffer, "Iterators point to different instances.");
-            return (index <= rhs.index);
-        }
-
-        /// Greater-than comparison operator.
-        /// In debug builds this will check that the two iterators reference the same object.
-        constexpr inline bool operator>(const TemporaryVectorIterator& rhs) const
-        {
-            DebugAssert(buffer == rhs.buffer, "Iterators point to different instances.");
-            return (index > rhs.index);
-        }
-
-        /// Greater-or-equal comparison operator.
-        /// In debug builds this will check that the two iterators reference the same object.
-        constexpr inline bool operator>=(const TemporaryVectorIterator& rhs) const
-        {
-            DebugAssert(buffer == rhs.buffer, "Iterators point to different instances.");
-            return (index >= rhs.index);
-        }
-    };
-
     /// Implements a vector-type container backed by a temporary buffer.
     /// Optimized for efficiency. Performs no boundary checks.
     template <typename T> class TemporaryVector : public TemporaryBuffer<T>
@@ -365,10 +185,10 @@ namespace Pathwinder
         // -------- TYPE DEFINITIONS --------------------------------------- //
 
         /// Iterator type for providing mutable access to the contents of this temporary vector.
-        typedef TemporaryVectorIterator<T> TIterator;
+        typedef ContiguousRandomAccessIterator<T> TIterator;
 
         /// Iterator type for providing read-only access to the contents of this temporary vector.
-        typedef TemporaryVectorIterator<const T> TConstIterator;
+        typedef ContiguousRandomAccessConstIterator<T> TConstIterator;
 
 
     protected:

@@ -10,6 +10,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Natvis", "Natvis", "{6F5436BE-1782-44C2-9755-0014C6DDC7BB}"
 	ProjectSection(SolutionItems) = preProject
 		Natvis\Configuration.natvis = Natvis\Configuration.natvis
+		Natvis\Iterator.natvis = Natvis\Iterator.natvis
 		Natvis\TemporaryBuffer.natvis = Natvis\TemporaryBuffer.natvis
 		Natvis\ValueOrError.natvis = Natvis\ValueOrError.natvis
 	EndProjectSection
