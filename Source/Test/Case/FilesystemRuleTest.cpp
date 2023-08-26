@@ -115,11 +115,6 @@ namespace PathwinderTest
             std::optional<TemporaryString> actualOutputPath = filesystemRule.RedirectPathTargetToOrigin(kTargetDirectory, kTestFile.data());
             TEST_ASSERT(true == actualOutputPath.has_value());
             TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
-
-            for (auto x = actualOutputPath->cbegin(); x != actualOutputPath->cend(); x++)
-            {
-                int y = 0;
-            }
         }
     }
 
