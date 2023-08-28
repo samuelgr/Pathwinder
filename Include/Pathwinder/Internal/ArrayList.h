@@ -187,21 +187,24 @@ namespace Pathwinder
         }
 
 
-        // -------- INSTANCE METHODS --------------------------------------- //
+        // -------- CLASS METHODS ------------------------------------------ //
 
         /// Retrieves the size of the buffer space, in number of elements of type T.
         /// @return Size of the buffer, in T-sized elements.
-        constexpr unsigned int Capacity(void) const
+        static constexpr unsigned int Capacity(void)
         {
             return kCapacity;
         }
 
         /// Retrieves the size of the buffer space, in bytes.
         /// @return Size of the buffer, in bytes.
-        constexpr unsigned int CapacityBytes(void) const
+        static constexpr unsigned int CapacityBytes(void)
         {
             return kCapacityBytes;
         }
+
+
+        // -------- INSTANCE METHODS --------------------------------------- //
 
         /// Removes all elements from this container, destroying each in sequence.
         inline void Clear(void)

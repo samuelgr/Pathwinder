@@ -146,14 +146,24 @@ namespace Pathwinder
         }
 
 
-        // -------- INSTANCE METHODS --------------------------------------- //
+        // -------- CLASS METHODS ------------------------------------------ //
 
         /// Retrieves the size of the buffer space, in number of elements of type T.
         /// @return Size of the buffer, in T-sized elements.
-        constexpr inline unsigned int Capacity(void) const
+        static constexpr unsigned int Capacity(void)
         {
             return kNumElementsPerBuffer;
         }
+
+        /// Retrieves the size of the buffer space, in bytes.
+        /// @return Size of the buffer, in bytes.
+        static constexpr unsigned int CapacityBytes(void)
+        {
+            return kBytesPerBuffer;
+        }
+
+
+        // -------- INSTANCE METHODS --------------------------------------- //
 
         /// Retrieves a properly-typed pointer to the buffer itself, constant version.
         /// @return Typed pointer to the buffer.
@@ -167,13 +177,6 @@ namespace Pathwinder
         inline T* Data(void)
         {
             return (T*)Buffer();
-        }
-
-        /// Retrieves the size of the buffer space, in bytes.
-        /// @return Size of the buffer, in bytes.
-        constexpr inline unsigned int CapacityBytes(void) const
-        {
-            return kBytesPerBuffer;
         }
     };
 

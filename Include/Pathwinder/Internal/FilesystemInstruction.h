@@ -474,6 +474,13 @@ namespace Pathwinder
 
         // -------- INSTANCE METHODS --------------------------------------- //
 
+        /// Retrieves and returns the preferred way of handling a create disposition requested by the application.
+        /// @return Preference for how to handle create disposition parameters.
+        inline ECreateDispositionPreference GetCreateDispositionPreference(void) const
+        {
+            return createDispositionPreference;
+        }
+
         /// Retrieves and returns the set of extra pre-operations.
         /// @return Set of extra pre-operations.
         inline BitSetEnum<EExtraPreOperation> GetExtraPreOperations(void) const

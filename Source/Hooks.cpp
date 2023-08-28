@@ -90,23 +90,20 @@ namespace Pathwinder
         std::optional<TemporaryString> composedInputPath;                   ///< If an input path was composed, for example due to combination with a root directory, then that input path is stored here.
     };
 
-    /// Holds all of the information needed to represent a single file operation that should be attempted.
-    /// @tparam FileObjectType Data structure type that identifies files to try.
-    template <typename FileObjectType> struct SFileOperationToTry
+    /// Holds all of the information needed to represent a create disposition that should be attempted.
+    struct SCreateDispositionToTry
     {
-        FileObjectType& fileObject;                                         ///< Pointer to the data structure that identifies the file to try.
-        ULONG ntParamCreateDisposition;                                     ///< Create disposition parameter to provide to the underlying system call.
-
-        inline SFileOperationToTry(FileObjectType& fileObject, ULONG ntParamCreateDisposition) : fileObject(fileObject), ntParamCreateDisposition(ntParamCreateDisposition)
+        /// Enumerates possible conditions on whether or not the create disposition should be attempted.
+        enum class ECondition : ULONG
         {
-            // Nothing to do here.
-        }
-    };
+            Unconditional,                                                  ///< Unconditionally attempt the file operation using the supplied create disposition.
+            FileMustExist,                                                  ///< Attempt the file operation using the supplied create disposition only if the file exists.
+            FileMustNotExist                                                ///< Attempt the file operation using the supplied create disposition only if the file does not exist.
+        };
 
-    /// Holds multiple file operations to attempt in a small list, ordered by priority.
-    /// Each element is either a single file operation that should be submitted to the system or a forced result code, in which case submitting to the system is skipped and assumed to have the forced result.
-    /// @tparam FileObjectType Data structure type that identifies files to try.
-    template <typename FileObjectType> using TFileOperationsList = ArrayList<ValueOrError<SFileOperationToTry<FileObjectType>, NTSTATUS>, 4>;
+        ECondition condition : 8;                                           ///< Condition on whether the supplied create disposition should be attempted or skipped.
+        ULONG ntParamCreateDisposition : 24;                                ///< Create disposition parameter to provide to the underlying system call.
+    };
 
     /// Contains all of the information needed to represent a file name and attributes in the format needed to interact with underlying system calls.
     struct SObjectNameAndAttributes
@@ -114,6 +111,15 @@ namespace Pathwinder
         UNICODE_STRING objectName;                                          ///< Name of the object, as a Unicode string in the format supported by system calls.
         OBJECT_ATTRIBUTES objectAttributes;                                 ///< Attributes of the object, which includes a field that points to the name.
     };
+
+    /// Holds multiple create dispositions that should be tried in order when attempting file operations.
+    /// Each element is either a create disposition that should be attempted or a forced result code, in which case the file operation should not be attempted but rather assumed to have the forced result.
+    using TCreateDispositionsList = ArrayList<ValueOrError<SCreateDispositionToTry, NTSTATUS>, 2>;
+
+    /// Holds multiple file operations to attempt in a small list, ordered by priority.
+    /// Each element is either a single file operation that should be submitted to the system or a forced result code, in which case submitting to the system is skipped and assumed to have the forced result.
+    /// @tparam FileObjectType Data structure type that identifies files to try.
+    template <typename FileObjectType> using TFileOperationsList = ArrayList<ValueOrError<FileObjectType*, NTSTATUS>, 2>;
 
 
     // -------- INTERNAL FUNCTIONS ----------------------------------------- //
@@ -206,9 +212,9 @@ namespace Pathwinder
         return outputString;
     }
 
-    /// Generates a string representation of the specified creation disposition value. Useful for logging.
+    /// Generates a string representation of the specified create disposition value. Useful for logging.
     /// @param [in] createDisposition Creation disposition options, typically received from an application when creating or opening a file.
-    /// @return String representation of the creation disposition.
+    /// @return String representation of the create disposition.
     static TemporaryString CreateDispositionToString(ULONG createDisposition)
     {
         constexpr wchar_t kFormatString[] = L"0x%08x (%s)";
@@ -641,39 +647,111 @@ namespace Pathwinder
         }
     }
 
+    /// Identifies the create dispositions to try, in order, when determining which file operations to submit to the underlying system call.
+    /// Uses the preference indicated in the file operation instruction, along with the supplied create disposition parameter, to determine which create dispositions need to be attempted.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
+    /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
+    /// @param [in] ntParamCreateDisposition Creation disposition options received from the application.
+    /// @return List of create dispositions to be tried, in order.
+    TCreateDispositionsList SelectCreateDispositionsToTry(const wchar_t* functionName, unsigned int functionRequestIdentifier, const FileOperationInstruction& instruction, ULONG ntParamCreateDisposition)
+    {
+        TCreateDispositionsList createDispositionsList;
+
+        switch (instruction.GetCreateDispositionPreference())
+        {
+        case FileOperationInstruction::ECreateDispositionPreference::NoPreference:
+            createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = ntParamCreateDisposition});
+            break;
+
+        case FileOperationInstruction::ECreateDispositionPreference::PreferCreateNewFile:
+            switch (ntParamCreateDisposition)
+            {
+            case FILE_OPEN_IF:
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = FILE_CREATE});
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = FILE_OPEN});
+                break;
+
+            case FILE_OVERWRITE_IF:
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = FILE_CREATE});
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = FILE_OVERWRITE});
+                break;
+
+            case FILE_SUPERSEDE:
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = FILE_CREATE});
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = FILE_SUPERSEDE});
+                break;
+
+            default:
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = ntParamCreateDisposition});
+                break;
+            }
+            break;
+
+        case FileOperationInstruction::ECreateDispositionPreference::PreferOpenExistingFile:
+            switch (ntParamCreateDisposition)
+            {
+            case FILE_OPEN_IF:
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = FILE_OPEN});
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = FILE_CREATE});
+                break;
+
+            case FILE_OVERWRITE_IF:
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = FILE_OVERWRITE});
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = FILE_CREATE});
+                break;
+
+            case FILE_SUPERSEDE:
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::FileMustExist, .ntParamCreateDisposition = FILE_SUPERSEDE});
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = FILE_SUPERSEDE});
+                break;
+
+            default:
+                createDispositionsList.PushBack(SCreateDispositionToTry{.condition = SCreateDispositionToTry::ECondition::Unconditional, .ntParamCreateDisposition = ntParamCreateDisposition});
+                break;
+            }
+            break;
+
+        default:
+            Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationInstruction::ECreateDispositionPreference = %u).", functionName, functionRequestIdentifier, static_cast<unsigned int>(instruction.GetCreateDispositionPreference()));
+            createDispositionsList.PushBack(NtStatus::kInternalError);
+        }
+
+        return createDispositionsList;
+    }
+
     /// Identifies the file operations to try, in order, to submit to the underlying system call for a file operation.
-    /// The number of file operations placed, and the order in which they are placed, is controlled by the file operation redirection instruction and the application's create disposition, which are interpreted in combination.
+    /// The number of file operations placed, and the order in which they are placed, is controlled by the file operation redirection instruction.
     /// Any entries placed with file object `nullptr` are invalid and should be skipped. Likewise, any entries that are error codes should use that error code as the forced result of the attempt, instead of submitting the operation to the system.
     /// @tparam FileObjectType Data structure type that identifies files to try.
     /// @param [in] functionName Name of the API function whose hook function is invoking this function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of the named function. Used only for logging.
     /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
-    /// @param [in] ntParamCreateDisposition Creation disposition options received from the application.
     /// @param [in] unredirectedFileObject Pointer to the data structure received from the application.
     /// @param [in] redirectedFileObject Pointer to the data structure generated by querying for file operation redirection.
-    /// @return Object attributes to be tried, in order.
-    template <typename FileObjectType> TFileOperationsList<FileObjectType> SelectFileOperationsToTry(const wchar_t* functionName, unsigned int functionRequestIdentifier, const FileOperationInstruction& instruction, ULONG ntParamCreateDisposition, FileObjectType& unredirectedFileObject, FileObjectType& redirectedFileObject)
+    /// @return List of data structures that identify the files to be tried, in order.
+    template <typename FileObjectType> TFileOperationsList<FileObjectType> SelectFileOperationsToTry(const wchar_t* functionName, unsigned int functionRequestIdentifier, const FileOperationInstruction& instruction, FileObjectType& unredirectedFileObject, FileObjectType& redirectedFileObject)
     {
         TFileOperationsList<FileObjectType> fileOperationsList;
 
         switch (instruction.GetFilenamesToTry())
         {
         case FileOperationInstruction::ETryFiles::UnredirectedOnly:
-            fileOperationsList.PushBack(SFileOperationToTry<FileObjectType>(unredirectedFileObject, ntParamCreateDisposition));
+            fileOperationsList.PushBack(&unredirectedFileObject);
             break;
 
         case FileOperationInstruction::ETryFiles::UnredirectedFirst:
-            fileOperationsList.PushBack(SFileOperationToTry<FileObjectType>(unredirectedFileObject, ntParamCreateDisposition));
-            fileOperationsList.PushBack(SFileOperationToTry<FileObjectType>(redirectedFileObject, ntParamCreateDisposition));
+            fileOperationsList.PushBack(&unredirectedFileObject);
+            fileOperationsList.PushBack(&redirectedFileObject);
             break;
 
         case FileOperationInstruction::ETryFiles::RedirectedFirst:
-            fileOperationsList.PushBack(SFileOperationToTry<FileObjectType>(redirectedFileObject, ntParamCreateDisposition));
-            fileOperationsList.PushBack(SFileOperationToTry<FileObjectType>(unredirectedFileObject, ntParamCreateDisposition));
+            fileOperationsList.PushBack(&redirectedFileObject);
+            fileOperationsList.PushBack(&unredirectedFileObject);
             break;
 
         case FileOperationInstruction::ETryFiles::RedirectedOnly:
-            fileOperationsList.PushBack(SFileOperationToTry<FileObjectType>(redirectedFileObject, ntParamCreateDisposition));
+            fileOperationsList.PushBack(&redirectedFileObject);
             break;
 
         default:
@@ -840,26 +918,67 @@ namespace Pathwinder
         FillRedirectedObjectNameAndAttributesForInstruction(redirectedObjectNameAndAttributes, operationContext.instruction, *objectAttributes);
 
         HANDLE newlyOpenedHandle = nullptr;
-        NTSTATUS systemCallResult = NtStatus::kSuccess;
+        NTSTATUS systemCallResult = NtStatus::kInternalError;
 
         std::wstring_view unredirectedPath = ((true == operationContext.composedInputPath.has_value()) ? operationContext.composedInputPath->AsStringView() : Strings::NtConvertUnicodeStringToStringView(*objectAttributes->ObjectName));
         std::wstring_view lastAttemptedPath;
 
-        for (const auto& operationToTry : SelectFileOperationsToTry(functionName, requestIdentifier, redirectionInstruction, createDisposition, *objectAttributes, redirectedObjectNameAndAttributes.objectAttributes))
+        for (const auto& createDispositionToTry : SelectCreateDispositionsToTry(functionName, requestIdentifier, redirectionInstruction, createDisposition))
         {
-            if (true == operationToTry.HasError())
+            if (true == createDispositionToTry.HasError())
             {
-                Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x (forced result).", functionName, requestIdentifier, static_cast<unsigned int>(operationToTry.Error()));
-                systemCallResult = operationToTry.Error();
+                Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x (forced result).", functionName, requestIdentifier, static_cast<unsigned int>(createDispositionToTry.Error()));
+                return createDispositionToTry.Error();
             }
             else
             {
-                const POBJECT_ATTRIBUTES objectAttributesToTry = &operationToTry.Value().fileObject;
-                const ULONG createDispositionToTry = operationToTry.Value().ntParamCreateDisposition;
+                for (const auto& operationToTry : SelectFileOperationsToTry(functionName, requestIdentifier, redirectionInstruction, *objectAttributes, redirectedObjectNameAndAttributes.objectAttributes))
+                {
+                    if (true == operationToTry.HasError())
+                    {
+                        Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x (forced result).", functionName, requestIdentifier, static_cast<unsigned int>(operationToTry.Error()));
+                        return operationToTry.Error();
+                    }
+                    else
+                    {
+                        const POBJECT_ATTRIBUTES objectAttributesToTry = operationToTry.Value();
+                        const ULONG ntParamCreateDispositionToTry = createDispositionToTry.Value().ntParamCreateDisposition;
 
-                lastAttemptedPath = Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
-                systemCallResult = Hooks::ProtectedDependency::NtCreateFile::SafeInvoke(&newlyOpenedHandle, desiredAccess, objectAttributesToTry, ioStatusBlock, allocationSize, fileAttributes, shareAccess, createDispositionToTry, createOptions, eaBuffer, eaLength);
-                Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".", functionName, requestIdentifier, systemCallResult, static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
+                        std::wstring_view fileToTryAbsolutePath = ((nullptr != operationToTry.Value()->RootDirectory) ? operationContext.composedInputPath->AsStringView() : Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName)));
+
+                        bool shouldTryThisFile = false;
+                        switch (createDispositionToTry.Value().condition)
+                        {
+                        case SCreateDispositionToTry::ECondition::Unconditional:
+                            shouldTryThisFile = true;
+                            break;
+
+                        case SCreateDispositionToTry::ECondition::FileMustExist:
+                            shouldTryThisFile = FilesystemOperations::Exists(fileToTryAbsolutePath);
+                            break;
+
+                        case SCreateDispositionToTry::ECondition::FileMustNotExist:
+                            shouldTryThisFile = !(FilesystemOperations::Exists(fileToTryAbsolutePath));
+                            break;
+
+                        default:
+                            Message::OutputFormatted(Message::ESeverity::Error, L"%s(%u): Internal error: unrecognized create disposition condition (SCreateDispositionToTry::ECondition = %u).", functionName, requestIdentifier, static_cast<unsigned int>(createDispositionToTry.Value().condition));
+                            return NtStatus::kInternalError;
+                        }
+
+                        if (false == shouldTryThisFile)
+                            continue;
+
+                        lastAttemptedPath = fileToTryAbsolutePath;
+                        systemCallResult = Hooks::ProtectedDependency::NtCreateFile::SafeInvoke(&newlyOpenedHandle, desiredAccess, objectAttributesToTry, ioStatusBlock, allocationSize, fileAttributes, shareAccess, ntParamCreateDispositionToTry, createOptions, eaBuffer, eaLength);
+
+                        if (true == Message::WillOutputMessageOfSeverity(Message::ESeverity::SuperDebug))
+                            Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, CreateDisposition = %s, ObjectName = \"%.*s\".", functionName, requestIdentifier, systemCallResult, CreateDispositionToString(ntParamCreateDispositionToTry).AsCString(), static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
+
+                        if (false == ShouldTryNextFilename(systemCallResult))
+                            break;
+                    }
+                }
             }
 
             if (false == ShouldTryNextFilename(systemCallResult))
@@ -1136,26 +1255,26 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(POBJECT_A
 
     std::wstring_view lastAttemptedPath;
 
-    NTSTATUS systemCallResult = NtStatus::kSuccess;
+    NTSTATUS systemCallResult = NtStatus::kInternalError;
 
-    for (const auto& operationToTry : SelectFileOperationsToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, FILE_OPEN, *ObjectAttributes, redirectedObjectNameAndAttributes.objectAttributes))
+    for (const auto& operationToTry : SelectFileOperationsToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, *ObjectAttributes, redirectedObjectNameAndAttributes.objectAttributes))
     {
         if (true == operationToTry.HasError())
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x (forced result).", GetFunctionName(), requestIdentifier, static_cast<unsigned int>(operationToTry.Error()));
-            systemCallResult = operationToTry.Error();
+            return operationToTry.Error();
         }
         else
         {
-            const POBJECT_ATTRIBUTES objectAttributesToTry = &operationToTry.Value().fileObject;
+            const POBJECT_ATTRIBUTES objectAttributesToTry = operationToTry.Value();
 
             lastAttemptedPath = Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
             systemCallResult = Original(objectAttributesToTry, IoStatusBlock, FileInformation, Length, FileInformationClass);
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
-        }
 
-        if (false == ShouldTryNextFilename(systemCallResult))
-            break;
+            if (false == ShouldTryNextFilename(systemCallResult))
+                break;
+        }
     }
 
     if (true == lastAttemptedPath.empty())
@@ -1198,27 +1317,27 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(HANDLE FileHa
     FileRenameInformationAndFilename redirectedFileRenameInformationAndFilename = CopyFileRenameInformationAndReplaceFilename(unredirectedFileRenameInformation, redirectionInstruction.GetRedirectedFilename());
     SFileRenameInformation& redirectedFileRenameInformation = redirectedFileRenameInformationAndFilename.GetFileRenameInformation();
 
-    NTSTATUS systemCallResult = NtStatus::kSuccess;
+    NTSTATUS systemCallResult = NtStatus::kInternalError;
     std::wstring_view lastAttemptedPath;
 
-    for (const auto& operationToTry : SelectFileOperationsToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, FILE_CREATE, unredirectedFileRenameInformation, redirectedFileRenameInformation))
+    for (const auto& operationToTry : SelectFileOperationsToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, unredirectedFileRenameInformation, redirectedFileRenameInformation))
     {
         if (true == operationToTry.HasError())
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x (forced result).", GetFunctionName(), requestIdentifier, static_cast<unsigned int>(operationToTry.Error()));
-            systemCallResult = operationToTry.Error();
+            return operationToTry.Error();
         }
         else
         {
-            SFileRenameInformation* const renameInformationToTry = &operationToTry.Value().fileObject;
+            SFileRenameInformation* const renameInformationToTry = operationToTry.Value();
 
             lastAttemptedPath = GetFileInformationStructFilename(*renameInformationToTry);
             systemCallResult = Original(FileHandle, IoStatusBlock, reinterpret_cast<PVOID>(renameInformationToTry), Length, FileInformationClass);
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
-        }
 
-        if (false == ShouldTryNextFilename(systemCallResult))
-            break;
+            if (false == ShouldTryNextFilename(systemCallResult))
+                break;
+        }
     }
 
     if (true == lastAttemptedPath.empty())
@@ -1256,26 +1375,26 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(POBJECT_ATTR
 
     std::wstring_view lastAttemptedPath;
 
-    NTSTATUS systemCallResult = NtStatus::kSuccess;
+    NTSTATUS systemCallResult = NtStatus::kInternalError;
 
-    for (const auto& operationToTry : SelectFileOperationsToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, FILE_OPEN, *ObjectAttributes, redirectedObjectNameAndAttributes.objectAttributes))
+    for (const auto& operationToTry : SelectFileOperationsToTry(GetFunctionName(), requestIdentifier, redirectionInstruction, *ObjectAttributes, redirectedObjectNameAndAttributes.objectAttributes))
     {
         if (true == operationToTry.HasError())
         {
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x (forced result).", GetFunctionName(), requestIdentifier, static_cast<unsigned int>(operationToTry.Error()));
-            systemCallResult = operationToTry.Error();
+            return operationToTry.Error();
         }
         else
         {
-            const POBJECT_ATTRIBUTES objectAttributesToTry = &operationToTry.Value().fileObject;
+            const POBJECT_ATTRIBUTES objectAttributesToTry = operationToTry.Value();
 
             lastAttemptedPath = Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
             systemCallResult = Original(objectAttributesToTry, FileInformation);
             Message::OutputFormatted(Message::ESeverity::SuperDebug, L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".", GetFunctionName(), requestIdentifier, systemCallResult, static_cast<int>(lastAttemptedPath.length()), lastAttemptedPath.data());
-        }
 
-        if (false == ShouldTryNextFilename(systemCallResult))
-            break;
+            if (false == ShouldTryNextFilename(systemCallResult))
+                break;
+        }
     }
 
     if (true == lastAttemptedPath.empty())
