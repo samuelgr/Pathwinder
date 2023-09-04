@@ -1,17 +1,17 @@
 @echo off
 setlocal enabledelayedexpansion
 
-rem +--------------------------------------------------------------------------
+rem +-----------------------------------------------------------------------------------------------
 rem | Pathwinder
 rem |   Path redirection for files, directories, and registry entries.
-rem +--------------------------------------------------------------------------
+rem +-----------------------------------------------------------------------------------------------
 rem | Authored by Samuel Grossman
 rem | Copyright (c) 2022-2023
-rem +--------------------------------------------------------------------------
+rem +-----------------------------------------------------------------------------------------------
 rem | PackageRelease.bat
-rem |   Script for packaging up a release. To be executed manually after
-rem |   building the Release configuration for both Win32 and x64 platforms.
-rem +--------------------------------------------------------------------------
+rem |   Script for packaging up a release. To be executed manually after building the 
+rem |   Release configuration for both Win32 and x64 platforms.
+rem +-----------------------------------------------------------------------------------------------
 
 set project_name=Pathwinder
 set project_platforms=Win32 x64
@@ -25,7 +25,7 @@ set files_release_build_x64=Pathwinder.HookModule.64.dll
 
 set third_party_license=Hookshot
 
-rem ---------------------------------------------------------------------------
+rem ------------------------------------------------------------------------------------------------
 
 set script_path=%~dp0
 set script_invocation=%0

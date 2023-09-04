@@ -1,33 +1,38 @@
-/*****************************************************************************
+/***************************************************************************************************
  * Pathwinder
  *   Path redirection for files, directories, and registry entries.
- *****************************************************************************
+ ***************************************************************************************************
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
- *************************************************************************//**
+ ***********************************************************************************************//**
  * @file TemporaryBuffer.cpp
  *   Partial implementation of temporary buffer management functionality.
- *****************************************************************************/
+ **************************************************************************************************/
 
-#include "MutexWrapper.h"
 #include "TemporaryBuffer.h"
 
 #include <cstdint>
 #include <cstdlib>
 #include <mutex>
 
+#include "MutexWrapper.h"
 
 namespace Pathwinder
 {
-    // -------- INTERNAL TYPES --------------------------------------------- //
-
     /// Holds all static data associated with the management of temporary buffers.
-    /// Used to make sure that temporary buffer functionality is available as early as dynamic initialization.
-    /// Implemented as a singleton object.
+    /// Used to make sure that temporary buffer functionality is available as early as dynamic
+    /// initialization. Implemented as a singleton object.
     class TemporaryBufferData
     {
     public:
-        // -------- INSTANCE VARIABLES ------------------------------------- //
+
+        /// Returns a reference to the singleton instance of this class.
+        /// @return Reference to the singleton instance.
+        static TemporaryBufferData& GetInstance(void)
+        {
+            static TemporaryBufferData temporaryBufferData;
+            return temporaryBufferData;
+        }
 
         /// Statically-allocated buffer space itself.
         uint8_t staticBuffers[TemporaryBufferBase::kBuffersTotalNumBytes];
@@ -41,35 +46,18 @@ namespace Pathwinder
         /// Flag that specifies if one-time initialization needs to take place.
         bool isInitialized = false;
 
-        /// Mutex used to ensure concurrency control over temporary buffer allocation and deallocation.
+        /// Mutex used to ensure concurrency control over temporary buffer allocation and
+        /// deallocation.
         Mutex allocationMutex;
 
-
     private:
-        // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
         /// Default constructor. Objects cannot be constructed externally.
         TemporaryBufferData(void) = default;
 
         /// Copy constructor. Should never be invoked.
         TemporaryBufferData(const TemporaryBufferData& other) = delete;
-
-
-    public:
-        // -------- CLASS METHODS ------------------------------------------ //
-
-        /// Returns a reference to the singleton instance of this class.
-        /// @return Reference to the singleton instance.
-        static TemporaryBufferData& GetInstance(void)
-        {
-            static TemporaryBufferData temporaryBufferData;
-            return temporaryBufferData;
-        }
     };
-
-
-    // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
-    // See "TemporaryBuffers.h" for documentation.
 
     TemporaryBufferBase::TemporaryBufferBase(void)
     {
@@ -98,12 +86,11 @@ namespace Pathwinder
         }
     }
 
-    // --------
-
     TemporaryBufferBase::~TemporaryBufferBase(void)
     {
-        // Buffer pointer can be `nullptr` if the move constructor is used because it initializes the buffer pointer to `nullptr` before doing assignment.
-        // Afterwards the temporary object that is consumed has `nullptr` as its buffer pointer when it is destroyed.
+        // Buffer pointer can be `nullptr` if the move constructor is used because it initializes
+        // the buffer pointer to `nullptr` before doing assignment. Afterwards the temporary object
+        // that is consumed has `nullptr` as its buffer pointer when it is destroyed.
 
         if (nullptr != buffer)
         {
@@ -122,4 +109,4 @@ namespace Pathwinder
             }
         }
     }
-}
+}  // namespace Pathwinder

@@ -1,23 +1,22 @@
-/*****************************************************************************
+/***************************************************************************************************
  * Pathwinder
  *   Path redirection for files, directories, and registry entries.
- *****************************************************************************
+ ***************************************************************************************************
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
- *************************************************************************//**
+ ***********************************************************************************************//**
  * @file Utilities.cpp
  *   Implementation of test utility functions.
- *****************************************************************************/
+ **************************************************************************************************/
 
-#include <cstdarg>
-#include <cstdio>
 #include <sal.h>
 #include <windows.h>
 
+#include <cstdarg>
+#include <cstdio>
+
 namespace PathwinderTest
 {
-    // -------- FUNCTIONS -------------------------------------------------- //
-    // See "Harness.h" for documentation.
 
     void Print(const wchar_t* const str)
     {
@@ -32,9 +31,7 @@ namespace PathwinderTest
         }
     }
 
-    // --------
-
-    void PrintFormatted(_Printf_format_string_  const wchar_t* const format, ...)
+    void PrintFormatted(_Printf_format_string_ const wchar_t* const format, ...)
     {
         wchar_t formattedStringBuffer[1024];
 
@@ -45,4 +42,4 @@ namespace PathwinderTest
 
         Print(formattedStringBuffer);
     }
-}
+}  // namespace PathwinderTest

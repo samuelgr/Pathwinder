@@ -1,24 +1,16 @@
-/*****************************************************************************
+/***************************************************************************************************
  * Pathwinder
  *   Path redirection for files, directories, and registry entries.
- *****************************************************************************
+ ***************************************************************************************************
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
- *************************************************************************//**
+ ***********************************************************************************************//**
  * @file DirectoryOperationQueue.cpp
- *   Implementation of queue-like objects that produce appropriately-filtered
- *   streams of file information structures as part of directory enumeration
- *   operations.
- *****************************************************************************/
+ *   Implementation of queue-like objects that produce appropriately-filtered streams of file
+ *   information structures as part of directory enumeration operations.
+ **************************************************************************************************/
 
-#include "ApiWindowsInternal.h"
-#include "BufferPool.h"
-#include "DebugAssert.h"
 #include "DirectoryOperationQueue.h"
-#include "FileInformationStruct.h"
-#include "FilesystemOperations.h"
-#include "Strings.h"
-#include "ValueOrError.h"
 
 #include <array>
 #include <cstdint>
@@ -26,43 +18,64 @@
 #include <optional>
 #include <unordered_map>
 
+#include "ApiWindowsInternal.h"
+#include "BufferPool.h"
+#include "DebugAssert.h"
+#include "FileInformationStruct.h"
+#include "FilesystemOperations.h"
+#include "Strings.h"
+#include "ValueOrError.h"
 
 namespace Pathwinder
 {
-    // -------- INTERNAL CONSTANTS ----------------------------------------- //
+    /// Value used for enumeration queue byte positions to represent that there is nothing left in
+    /// the queue.
+    static constexpr unsigned int kInvalidEnumerationBufferBytePosition =
+        static_cast<unsigned int>(-1);
 
-    /// Value used for enumeration queue byte positions to represent that there is nothing left in the queue.
-    static constexpr unsigned int kInvalidEnumerationBufferBytePosition = static_cast<unsigned int>(-1);
-
-
-    // -------- CONSTRUCTION AND DESTRUCTION ------------------------------- //
-    // See "DirectoryOperationQueue.h" for documentation.
-
-    EnumerationQueue::EnumerationQueue(DirectoryEnumerationInstruction::SingleDirectoryEnumeration matchInstruction, std::wstring_view absoluteDirectoryPath, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view filePattern) : IDirectoryOperationQueue(), matchInstruction(matchInstruction), directoryHandle(NULL), fileInformationClass(fileInformationClass), fileInformationStructLayout(FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationBufferBytePosition(), enumerationStatus()
+    EnumerationQueue::EnumerationQueue(
+        DirectoryEnumerationInstruction::SingleDirectoryEnumeration matchInstruction,
+        std::wstring_view absoluteDirectoryPath,
+        FILE_INFORMATION_CLASS fileInformationClass,
+        std::wstring_view filePattern
+    )
+        : IDirectoryOperationQueue(),
+          matchInstruction(matchInstruction),
+          directoryHandle(NULL),
+          fileInformationClass(fileInformationClass),
+          fileInformationStructLayout(
+              FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass)
+                  .value_or(FileInformationStructLayout())
+          ),
+          enumerationBuffer(),
+          enumerationBufferBytePosition(),
+          enumerationStatus()
     {
         if (FileInformationStructLayout() == fileInformationStructLayout)
         {
             enumerationStatus = NtStatus::kInvalidInfoClass;
             return;
         }
-        
-        auto maybeDirectoryHandle = FilesystemOperations::OpenDirectoryForEnumeration(absoluteDirectoryPath);
+
+        auto maybeDirectoryHandle =
+            FilesystemOperations::OpenDirectoryForEnumeration(absoluteDirectoryPath);
         if (true == maybeDirectoryHandle.HasError())
         {
             // It is not an error for the directory not to exist.
-            // Anything other error, however, is a directory enumeration error that should be recorded and provided back to the application.
+            // Anything other error, however, is a directory enumeration error that should be
+            // recorded and provided back to the application.
             switch (maybeDirectoryHandle.Error())
             {
-            case NtStatus::kNoSuchFile:
-            case NtStatus::kObjectNameInvalid:
-            case NtStatus::kObjectNameNotFound:
-            case NtStatus::kObjectPathInvalid:
-            case NtStatus::kObjectPathNotFound:
-                break;
+                case NtStatus::kNoSuchFile:
+                case NtStatus::kObjectNameInvalid:
+                case NtStatus::kObjectNameNotFound:
+                case NtStatus::kObjectPathInvalid:
+                case NtStatus::kObjectPathNotFound:
+                    break;
 
-            default:
-                enumerationStatus = maybeDirectoryHandle.Error();
-                return;
+                default:
+                    enumerationStatus = maybeDirectoryHandle.Error();
+                    return;
             }
 
             directoryHandle = NULL;
@@ -75,24 +88,41 @@ namespace Pathwinder
         Restart(filePattern);
     }
 
-    // --------
-
-    EnumerationQueue::EnumerationQueue(EnumerationQueue&& other) : IDirectoryOperationQueue(), matchInstruction(std::move(other.matchInstruction)), directoryHandle(std::move(other.directoryHandle)), fileInformationClass(std::move(other.fileInformationClass)), fileInformationStructLayout(std::move(other.fileInformationStructLayout)), enumerationBuffer(std::move(other.enumerationBuffer)), enumerationBufferBytePosition(std::move(other.enumerationBufferBytePosition)), enumerationStatus(std::move(other.enumerationStatus))
+    EnumerationQueue::EnumerationQueue(EnumerationQueue&& other)
+        : IDirectoryOperationQueue(),
+          matchInstruction(std::move(other.matchInstruction)),
+          directoryHandle(std::move(other.directoryHandle)),
+          fileInformationClass(std::move(other.fileInformationClass)),
+          fileInformationStructLayout(std::move(other.fileInformationStructLayout)),
+          enumerationBuffer(std::move(other.enumerationBuffer)),
+          enumerationBufferBytePosition(std::move(other.enumerationBufferBytePosition)),
+          enumerationStatus(std::move(other.enumerationStatus))
     {
         other.directoryHandle = NULL;
     }
 
-    // --------
-
     EnumerationQueue::~EnumerationQueue(void)
     {
-        if (NULL != directoryHandle)
-            FilesystemOperations::CloseHandle(directoryHandle);
+        if (NULL != directoryHandle) FilesystemOperations::CloseHandle(directoryHandle);
     }
 
-    // --------
-
-    NameInsertionQueue::NameInsertionQueue(TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&& nameInsertionQueue, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view queryFilePattern) : IDirectoryOperationQueue(), nameInsertionQueue(std::move(nameInsertionQueue)), nameInsertionQueuePosition(0), fileInformationClass(fileInformationClass), fileInformationStructLayout(FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass).value_or(FileInformationStructLayout())), enumerationBuffer(), enumerationStatus(), filePattern()
+    NameInsertionQueue::NameInsertionQueue(
+        TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&&
+            nameInsertionQueue,
+        FILE_INFORMATION_CLASS fileInformationClass,
+        std::wstring_view queryFilePattern
+    )
+        : IDirectoryOperationQueue(),
+          nameInsertionQueue(std::move(nameInsertionQueue)),
+          nameInsertionQueuePosition(0),
+          fileInformationClass(fileInformationClass),
+          fileInformationStructLayout(
+              FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass)
+                  .value_or(FileInformationStructLayout())
+          ),
+          enumerationBuffer(),
+          enumerationStatus(),
+          filePattern()
     {
         if (FileInformationStructLayout() == fileInformationStructLayout)
         {
@@ -103,31 +133,42 @@ namespace Pathwinder
         Restart(queryFilePattern);
     }
 
-    // --------
-
-    MergedFileInformationQueue::MergedFileInformationQueue(std::array<std::unique_ptr<IDirectoryOperationQueue>, 3>&& queuesToMerge) : IDirectoryOperationQueue(), queuesToMerge(std::move(queuesToMerge)), frontElementSourceQueue(nullptr)
+    MergedFileInformationQueue::MergedFileInformationQueue(
+        std::array<std::unique_ptr<IDirectoryOperationQueue>, 3>&& queuesToMerge
+    )
+        : IDirectoryOperationQueue(),
+          queuesToMerge(std::move(queuesToMerge)),
+          frontElementSourceQueue(nullptr)
     {
         SelectFrontElementSourceQueueInternal();
     }
 
-
-    // -------- INSTANCE METHODS ------------------------------------------- //
-    // See "DirectoryOperationQueue.h" for documentation.
-
-    void EnumerationQueue::AdvanceQueueContentsInternal(ULONG queryFlags, std::wstring_view filePattern)
+    void EnumerationQueue::AdvanceQueueContentsInternal(
+        ULONG queryFlags, std::wstring_view filePattern
+    )
     {
         if (NULL == directoryHandle)
         {
-            // Directory to be enumerated does not exist. This just means no file information structures are available.
+            // Directory to be enumerated does not exist. This just means no file information
+            // structures are available.
             enumerationBufferBytePosition = kInvalidEnumerationBufferBytePosition;
             enumerationStatus = NtStatus::kNoMoreFiles;
             return;
         }
 
-        NTSTATUS directoryEnumerationResult = FilesystemOperations::PartialEnumerateDirectoryContents(directoryHandle, fileInformationClass, enumerationBuffer.Data(), enumerationBuffer.Size(), queryFlags, filePattern);
+        NTSTATUS directoryEnumerationResult =
+            FilesystemOperations::PartialEnumerateDirectoryContents(
+                directoryHandle,
+                fileInformationClass,
+                enumerationBuffer.Data(),
+                enumerationBuffer.Size(),
+                queryFlags,
+                filePattern
+            );
         if (!(NT_SUCCESS(directoryEnumerationResult)))
         {
-            // This failure block includes `STATUS_NO_MORE_FILES` in which case enumeration is complete.
+            // This failure block includes `STATUS_NO_MORE_FILES` in which case enumeration is
+            // complete.
             enumerationBufferBytePosition = kInvalidEnumerationBufferBytePosition;
             enumerationStatus = directoryEnumerationResult;
         }
@@ -139,13 +180,12 @@ namespace Pathwinder
         }
     }
 
-    // --------
-
     void EnumerationQueue::PopFrontInternal(void)
     {
         const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
 
-        FileInformationStructLayout::TNextEntryOffset bytePositionIncrement = fileInformationStructLayout.ReadNextEntryOffset(enumerationEntry);
+        FileInformationStructLayout::TNextEntryOffset bytePositionIncrement =
+            fileInformationStructLayout.ReadNextEntryOffset(enumerationEntry);
         if (0 == bytePositionIncrement)
         {
             AdvanceQueueContentsInternal();
@@ -156,22 +196,21 @@ namespace Pathwinder
         }
     }
 
-    // --------
-
     void EnumerationQueue::SkipNonMatchingItemsInternal(void)
     {
-        while ((NT_SUCCESS(enumerationStatus)) && ((false == matchInstruction.ShouldIncludeInDirectoryEnumeration(FileNameOfFront()))))
+        while ((NT_SUCCESS(enumerationStatus)) &&
+               ((false == matchInstruction.ShouldIncludeInDirectoryEnumeration(FileNameOfFront()))))
             PopFrontInternal();
     }
 
-    // --------
-
     void NameInsertionQueue::AdvanceQueueContentsInternal(void)
     {
-        const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion* nameInsertion = nullptr;
+        const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion* nameInsertion =
+            nullptr;
         NTSTATUS nameInsertionQueryResult = NtStatus::kInternalError;
 
-        do {
+        do
+        {
             if (nameInsertionQueuePosition == nameInsertionQueue.Size())
             {
                 enumerationStatus = NtStatus::kNoMoreFiles;
@@ -180,65 +219,76 @@ namespace Pathwinder
 
             nameInsertion = &nameInsertionQueue[nameInsertionQueuePosition];
 
-            // If the filename to be inserted does not match the query file pattern then it can simply be skipped.
-            if (false == Strings::FileNameMatchesPattern(nameInsertion->FileNameToInsert(), filePattern))
+            // If the filename to be inserted does not match the query file pattern then it can
+            // simply be skipped.
+            if (false ==
+                Strings::FileNameMatchesPattern(nameInsertion->FileNameToInsert(), filePattern))
             {
                 nameInsertionQueuePosition += 1;
                 continue;
             }
 
-            nameInsertionQueryResult = FilesystemOperations::QuerySingleFileDirectoryInformation(nameInsertion->DirectoryInformationSourceDirectoryPart(), nameInsertion->DirectoryInformationSourceFilePart(), fileInformationClass, enumerationBuffer.Data(), enumerationBuffer.Size());
+            nameInsertionQueryResult = FilesystemOperations::QuerySingleFileDirectoryInformation(
+                nameInsertion->DirectoryInformationSourceDirectoryPart(),
+                nameInsertion->DirectoryInformationSourceFilePart(),
+                fileInformationClass,
+                enumerationBuffer.Data(),
+                enumerationBuffer.Size()
+            );
 
-            // It is not an error for the filesystem entities being queried not to exist and thus be unavailable. They can just be skipped, and the next name insertion tried.
-            // Anything other error, however, is a directory enumeration error that should be recorded and provided back to the application.
+            // It is not an error for the filesystem entities being queried not to exist and thus be
+            // unavailable. They can just be skipped, and the next name insertion tried. Anything
+            // other error, however, is a directory enumeration error that should be recorded and
+            // provided back to the application.
             switch (nameInsertionQueryResult)
             {
-            case NtStatus::kNoSuchFile:
-            case NtStatus::kObjectNameInvalid:
-            case NtStatus::kObjectNameNotFound:
-            case NtStatus::kObjectPathInvalid:
-            case NtStatus::kObjectPathNotFound:
-                nameInsertionQueuePosition += 1;
-                continue;
+                case NtStatus::kNoSuchFile:
+                case NtStatus::kObjectNameInvalid:
+                case NtStatus::kObjectNameNotFound:
+                case NtStatus::kObjectPathInvalid:
+                case NtStatus::kObjectPathNotFound:
+                    nameInsertionQueuePosition += 1;
+                    continue;
 
-            default:
-                if (NT_SUCCESS(nameInsertionQueryResult))
-                    break;
+                default:
+                    if (NT_SUCCESS(nameInsertionQueryResult)) break;
 
-                enumerationStatus = nameInsertionQueryResult;
-                return;
+                    enumerationStatus = nameInsertionQueryResult;
+                    return;
             }
-        } while (!(NT_SUCCESS(nameInsertionQueryResult)));
+        }
+        while (!(NT_SUCCESS(nameInsertionQueryResult)));
 
         nameInsertionQueuePosition += 1;
-        fileInformationStructLayout.WriteFileName(enumerationBuffer.Data(), nameInsertion->FileNameToInsert(), enumerationBuffer.Size());
+        fileInformationStructLayout.WriteFileName(
+            enumerationBuffer.Data(), nameInsertion->FileNameToInsert(), enumerationBuffer.Size()
+        );
 
         enumerationStatus = NtStatus::kMoreEntries;
     }
-
-    // --------
 
     void MergedFileInformationQueue::SelectFrontElementSourceQueueInternal(void)
     {
         IDirectoryOperationQueue* nextFrontQueueCandidate = nullptr;
 
-        // The next front element will come from whichever queue is present, has more entries, and sorts lowest using case-insensitive sorting.
-        // If all queues are already done then there will be no next front element.
+        // The next front element will come from whichever queue is present, has more entries, and
+        // sorts lowest using case-insensitive sorting. If all queues are already done then there
+        // will be no next front element.
         for (const auto& underlyingQueue : queuesToMerge)
         {
-            if ((nullptr == underlyingQueue) || (NtStatus::kMoreEntries != underlyingQueue->EnumerationStatus()))
+            if ((nullptr == underlyingQueue) ||
+                (NtStatus::kMoreEntries != underlyingQueue->EnumerationStatus()))
                 continue;
 
-            if ((nullptr == nextFrontQueueCandidate) || (Strings::CompareCaseInsensitive(underlyingQueue->FileNameOfFront(), nextFrontQueueCandidate->FileNameOfFront()) < 0))
+            if ((nullptr == nextFrontQueueCandidate) ||
+                (Strings::CompareCaseInsensitive(
+                     underlyingQueue->FileNameOfFront(), nextFrontQueueCandidate->FileNameOfFront()
+                 ) < 0))
                 nextFrontQueueCandidate = underlyingQueue.get();
         }
 
         frontElementSourceQueue = nextFrontQueueCandidate;
     }
-
-
-    // -------- CONCRETE INSTANCE METHODS ---------------------------------- //
-    // See "DirectoryOperationQueue.h" for documentation.
 
     unsigned int EnumerationQueue::CopyFront(void* dest, unsigned int capacityBytes) const
     {
@@ -250,14 +300,10 @@ namespace Pathwinder
         return numBytesToCopy;
     }
 
-    // --------
-
     NTSTATUS EnumerationQueue::EnumerationStatus(void) const
     {
         return enumerationStatus;
     }
-
-    // --------
 
     std::wstring_view EnumerationQueue::FileNameOfFront(void) const
     {
@@ -266,15 +312,11 @@ namespace Pathwinder
         return fileInformationStructLayout.ReadFileName(enumerationEntry);
     }
 
-    // --------
-
     void EnumerationQueue::PopFront(void)
     {
         PopFrontInternal();
         SkipNonMatchingItemsInternal();
     }
-
-    // --------
 
     void EnumerationQueue::Restart(std::wstring_view queryFilePattern)
     {
@@ -282,16 +324,12 @@ namespace Pathwinder
         SkipNonMatchingItemsInternal();
     }
 
-    // --------
-
     unsigned int EnumerationQueue::SizeOfFront(void) const
     {
         const void* const enumerationEntry = &enumerationBuffer[enumerationBufferBytePosition];
 
         return fileInformationStructLayout.SizeOfStruct(enumerationEntry);
     }
-
-    // --------
 
     unsigned int NameInsertionQueue::CopyFront(void* dest, unsigned int capacityBytes) const
     {
@@ -301,28 +339,20 @@ namespace Pathwinder
         return numBytesToCopy;
     }
 
-    // --------
-
     NTSTATUS NameInsertionQueue::EnumerationStatus(void) const
     {
         return enumerationStatus;
     }
-
-    // --------
 
     std::wstring_view NameInsertionQueue::FileNameOfFront(void) const
     {
         return fileInformationStructLayout.ReadFileName(enumerationBuffer.Data());
     }
 
-    // --------
-
     void NameInsertionQueue::PopFront(void)
     {
         AdvanceQueueContentsInternal();
     }
-
-    // --------
 
     void NameInsertionQueue::Restart(std::wstring_view queryFilePattern)
     {
@@ -343,59 +373,47 @@ namespace Pathwinder
         AdvanceQueueContentsInternal();
     }
 
-    // --------
-
     unsigned int NameInsertionQueue::SizeOfFront(void) const
     {
         return fileInformationStructLayout.SizeOfStruct(enumerationBuffer.Data());
     }
-
-    // --------
 
     unsigned int MergedFileInformationQueue::CopyFront(void* dest, unsigned int capacityBytes) const
     {
         return frontElementSourceQueue->CopyFront(dest, capacityBytes);
     }
 
-    // --------
-
     NTSTATUS MergedFileInformationQueue::EnumerationStatus(void) const
     {
         // If any queue reports an error then the overall status is that error.
-        // Otherwise, it is possible to determine whether or not enumeration is finished based on the front element source queue pointer being `nullptr` or not.
+        // Otherwise, it is possible to determine whether or not enumeration is finished based on
+        // the front element source queue pointer being `nullptr` or not.
         for (const auto& underlyingQueue : queuesToMerge)
         {
-            if (nullptr == underlyingQueue)
-                continue;
+            if (nullptr == underlyingQueue) continue;
 
             const NTSTATUS underlyingQueueStatus = underlyingQueue->EnumerationStatus();
             switch (underlyingQueue->EnumerationStatus())
             {
-            case NtStatus::kMoreEntries:
-            case NtStatus::kNoMoreFiles:
-                break;
+                case NtStatus::kMoreEntries:
+                case NtStatus::kNoMoreFiles:
+                    break;
 
-            default:
-                if (!(NT_SUCCESS(underlyingQueueStatus)))
-                    return underlyingQueueStatus;
-                break;
+                default:
+                    if (!(NT_SUCCESS(underlyingQueueStatus))) return underlyingQueueStatus;
+                    break;
             }
         }
 
-        if (nullptr == frontElementSourceQueue)
-            return NtStatus::kNoMoreFiles;
+        if (nullptr == frontElementSourceQueue) return NtStatus::kNoMoreFiles;
 
         return NtStatus::kMoreEntries;
     }
-
-    // --------
 
     std::wstring_view MergedFileInformationQueue::FileNameOfFront(void) const
     {
         return frontElementSourceQueue->FileNameOfFront();
     }
-
-    // --------
 
     void MergedFileInformationQueue::PopFront(void)
     {
@@ -403,14 +421,11 @@ namespace Pathwinder
         SelectFrontElementSourceQueueInternal();
     }
 
-    // --------
-
     void MergedFileInformationQueue::Restart(std::wstring_view queryFilePattern)
     {
         for (const auto& underlyingQueue : queuesToMerge)
         {
-            if (nullptr == underlyingQueue)
-                continue;
+            if (nullptr == underlyingQueue) continue;
 
             underlyingQueue->Restart(queryFilePattern);
         }
@@ -418,57 +433,73 @@ namespace Pathwinder
         SelectFrontElementSourceQueueInternal();
     }
 
-    // --------
-
     unsigned int MergedFileInformationQueue::SizeOfFront(void) const
     {
         return frontElementSourceQueue->SizeOfFront();
     }
 
-
-    // -------- FUNCTIONS -------------------------------------------------- //
-    // See "DirectoryOperationQueue.h" for documentation.
-
-    std::unique_ptr<IDirectoryOperationQueue> CreateDirectoryOperationQueueForInstruction(DirectoryEnumerationInstruction& instruction, FILE_INFORMATION_CLASS fileInformationClass, std::wstring_view queryFilePattern, std::wstring_view handleAssociatedPath, std::wstring_view handleRealOpenedPath)
+    std::unique_ptr<IDirectoryOperationQueue> CreateDirectoryOperationQueueForInstruction(
+        DirectoryEnumerationInstruction& instruction,
+        FILE_INFORMATION_CLASS fileInformationClass,
+        std::wstring_view queryFilePattern,
+        std::wstring_view handleAssociatedPath,
+        std::wstring_view handleRealOpenedPath
+    )
     {
         if (instruction == DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery())
             return nullptr;
 
-        std::array<std::unique_ptr<IDirectoryOperationQueue>, MergedFileInformationQueue::kNumQueuesToMerge> createdQueues;
+        std::array<
+            std::unique_ptr<IDirectoryOperationQueue>,
+            MergedFileInformationQueue::kNumQueuesToMerge>
+            createdQueues;
         unsigned int numCreatedQueues = 0;
 
         for (const auto& singleDirectoryEnumeration : instruction.GetDirectoriesToEnumerate())
         {
-            DebugAssert(numCreatedQueues < createdQueues.size(), "Too many directory operation queues are being created.");
+            DebugAssert(
+                numCreatedQueues < createdQueues.size(),
+                "Too many directory operation queues are being created."
+            );
 
-            if (DirectoryEnumerationInstruction::SingleDirectoryEnumeration::NoEnumeration() == singleDirectoryEnumeration)
+            if (DirectoryEnumerationInstruction::SingleDirectoryEnumeration::NoEnumeration() ==
+                singleDirectoryEnumeration)
                 continue;
 
-            std::wstring_view enumerationPath = singleDirectoryEnumeration.SelectDirectoryPath(handleAssociatedPath, handleRealOpenedPath);
+            std::wstring_view enumerationPath = singleDirectoryEnumeration.SelectDirectoryPath(
+                handleAssociatedPath, handleRealOpenedPath
+            );
             DebugAssert(false == enumerationPath.empty(), "Empty directory enumeration path.");
 
-            createdQueues[numCreatedQueues] = std::make_unique<EnumerationQueue>(singleDirectoryEnumeration, enumerationPath, fileInformationClass, queryFilePattern);
+            createdQueues[numCreatedQueues] = std::make_unique<EnumerationQueue>(
+                singleDirectoryEnumeration, enumerationPath, fileInformationClass, queryFilePattern
+            );
             numCreatedQueues += 1;
         }
 
         if (true == instruction.HasDirectoryNamesToInsert())
         {
-            DebugAssert(numCreatedQueues < createdQueues.size(), "Too many directory operation queues are being created.");
+            DebugAssert(
+                numCreatedQueues < createdQueues.size(),
+                "Too many directory operation queues are being created."
+            );
 
-            createdQueues[numCreatedQueues] = std::make_unique<NameInsertionQueue>(instruction.ExtractDirectoryNamesToInsert(), fileInformationClass, queryFilePattern);
+            createdQueues[numCreatedQueues] = std::make_unique<NameInsertionQueue>(
+                instruction.ExtractDirectoryNamesToInsert(), fileInformationClass, queryFilePattern
+            );
             numCreatedQueues += 1;
         }
 
         switch (numCreatedQueues)
         {
-        case 0:
-            return nullptr;
+            case 0:
+                return nullptr;
 
-        case 1:
-            return std::move(createdQueues[0]);
+            case 1:
+                return std::move(createdQueues[0]);
 
-        default:
-            return std::make_unique<MergedFileInformationQueue>(std::move(createdQueues));
+            default:
+                return std::make_unique<MergedFileInformationQueue>(std::move(createdQueues));
         }
     }
-}
+}  // namespace Pathwinder

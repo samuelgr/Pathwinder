@@ -1,18 +1,15 @@
-/*****************************************************************************
+/***************************************************************************************************
  * Pathwinder
  *   Path redirection for files, directories, and registry entries.
- *****************************************************************************
+ ***************************************************************************************************
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
- *************************************************************************//**
+ ***********************************************************************************************//**
  * @file TemporaryBuffer.h
  *   Declaration of temporary buffer management functionality.
- *****************************************************************************/
+ **************************************************************************************************/
 
 #pragma once
-
-#include "DebugAssert.h"
-#include "Iterator.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -23,60 +20,45 @@
 #include <type_traits>
 #include <utility>
 
+#include "DebugAssert.h"
+#include "Iterator.h"
 
 namespace Pathwinder
 {
-    /// Manages a global set of temporary buffers.
-    /// These can be used for any purpose and are intended to replace large stack-allocated or heap-allocated buffers.
-    /// Instead, memory is allocated statically at load-time and divided up as needed to various parts of the application.
-    /// If too many buffers are allocated such that the available static buffers are exhausted, additional objects will allocate heap memory.
-    /// All temporary buffer functionality is concurrency-safe and available as early as dynamic initialization.
-    /// Do not instantiate this class directly; instead, instantiate the template class below.
+    /// Manages a global set of temporary buffers. These can be used for any purpose and are
+    /// intended to replace large stack-allocated or heap-allocated buffers. Instead, memory is
+    /// allocated statically at load-time and divided up as needed to various parts of the
+    /// application. If too many buffers are allocated such that the available static buffers are
+    /// exhausted, additional objects will allocate heap memory. All temporary buffer functionality
+    /// is concurrency-safe and available as early as dynamic initialization. Do not instantiate
+    /// this class directly; instead, instantiate the template class below.
     class TemporaryBufferBase
     {
     public:
-        // -------- CONSTANTS ---------------------------------------------- //
 
         /// Specifies the total size of all temporary buffers, in bytes.
         static constexpr unsigned int kBuffersTotalNumBytes = 4 * 1024 * 1024;
 
         /// Specifies the number of temporary buffers to create statically.
-        /// Even once this limit is reached buffers can be allocated but they are dynamically heap-allocated.
+        /// Even once this limit is reached buffers can be allocated but they are dynamically
+        /// heap-allocated.
         static constexpr unsigned int kBuffersCount = 32;
 
         /// Specifies the size of each temporary buffer in bytes.
         static constexpr unsigned int kBytesPerBuffer = kBuffersTotalNumBytes / kBuffersCount;
 
-
-    private:
-        // -------- INSTANCE VARIABLES ------------------------------------- //
-
-        /// Pointer to the buffer space.
-        uint8_t* buffer;
-
-        /// Specifies if the buffer space is heap-allocated.
-        bool isHeapAllocated;
-
-
     protected:
-        // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
-        /// Default constructor.
         TemporaryBufferBase(void);
 
-        /// Default destructor.
         ~TemporaryBufferBase(void);
 
-        /// Move constructor.
-        inline TemporaryBufferBase(TemporaryBufferBase&& other) : buffer(nullptr), isHeapAllocated(false)
+        inline TemporaryBufferBase(TemporaryBufferBase&& other)
+            : buffer(nullptr), isHeapAllocated(false)
         {
             *this = std::move(other);
         }
 
-
-        // -------- OPERATORS ---------------------------------------------- //
-
-        /// Move assignment operator.
         inline TemporaryBufferBase& operator=(TemporaryBufferBase&& other)
         {
             std::swap(buffer, other.buffer);
@@ -84,69 +66,51 @@ namespace Pathwinder
             return *this;
         }
 
-
-        // -------- INSTANCE METHODS --------------------------------------- //
-
         /// Retrieves the buffer pointer.
         /// @return Buffer pointer.
         inline uint8_t* Buffer(void) const
         {
             return buffer;
         }
+
+    private:
+
+        /// Pointer to the buffer space.
+        uint8_t* buffer;
+
+        /// Specifies if the buffer space is heap-allocated.
+        bool isHeapAllocated;
     };
 
     /// Implements type-specific temporary buffer functionality.
     template <typename T> class TemporaryBuffer : public TemporaryBufferBase
     {
     public:
-        // -------- CONSTANTS ---------------------------------------------- //
 
         /// Specifies the size of each temporary buffer in number of elements.
         static constexpr unsigned int kNumElementsPerBuffer = kBytesPerBuffer / sizeof(T);
 
+        inline TemporaryBuffer(void) : TemporaryBufferBase() {}
 
-        // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
+        inline TemporaryBuffer(TemporaryBuffer&& other) : TemporaryBufferBase(std::move(other)) {}
 
-        /// Default constructor.
-        inline TemporaryBuffer(void) : TemporaryBufferBase()
-        {
-            // Nothing to do here.
-        }
-
-        /// Move constructor.
-        inline TemporaryBuffer(TemporaryBuffer&& other) : TemporaryBufferBase(std::move(other))
-        {
-            // Nothing to do here.
-        }
-
-
-        // -------- OPERATORS ---------------------------------------------- //
-
-        /// Move assignment operator.
         inline TemporaryBuffer& operator=(TemporaryBuffer&& other)
         {
             TemporaryBufferBase::operator=(std::move(other));
             return *this;
         }
 
-        /// Array indexing operator, constant version.
-        /// In debug builds this will check that the index is within bounds of the buffer capacity.
         inline const T& operator[](size_t index) const
         {
             DebugAssert(index < Capacity(), "Index is out of bounds.");
             return Data()[index];
         }
 
-        /// Array indexing operator, mutable version.
-        /// In debug builds this will check that the index is within bounds of the buffer capacity.
         inline T& operator[](size_t index)
         {
             DebugAssert(index < Capacity(), "Index is out of bounds.");
             return Data()[index];
         }
-
-
-        // -------- CLASS METHODS ------------------------------------------ //
 
         /// Retrieves the size of the buffer space, in number of elements of type T.
         /// @return Size of the buffer, in T-sized elements.
@@ -161,9 +125,6 @@ namespace Pathwinder
         {
             return kBytesPerBuffer;
         }
-
-
-        // -------- INSTANCE METHODS --------------------------------------- //
 
         /// Retrieves a properly-typed pointer to the buffer itself, constant version.
         /// @return Typed pointer to the buffer.
@@ -185,59 +146,35 @@ namespace Pathwinder
     template <typename T> class TemporaryVector : public TemporaryBuffer<T>
     {
     public:
-        // -------- TYPE DEFINITIONS --------------------------------------- //
 
         /// Iterator type for providing mutable access to the contents of this temporary vector.
-        typedef ContiguousRandomAccessIterator<T> TIterator;
+        using TIterator = ContiguousRandomAccessIterator<T>;
 
         /// Iterator type for providing read-only access to the contents of this temporary vector.
-        typedef ContiguousRandomAccessConstIterator<T> TConstIterator;
+        using TConstIterator = ContiguousRandomAccessConstIterator<T>;
 
+        inline TemporaryVector(void) : TemporaryBuffer<T>(), size(0) {}
 
-    protected:
-        // -------- INSTANCE VARIABLES ------------------------------------- //
-
-        /// Number of elements held by this container.
-        unsigned int size;
-
-
-    public:
-        // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
-
-        /// Default constructor.
-        inline TemporaryVector(void) : TemporaryBuffer<T>(), size(0)
-        {
-            // Nothing to do here.
-        }
-
-        /// Initializer list constructor.
         inline TemporaryVector(std::initializer_list<T> initializers) : TemporaryVector()
         {
             *this = initializers;
         }
 
-        /// Copy constructor.
         inline TemporaryVector(const TemporaryVector& other) : TemporaryVector()
         {
             *this = other;
         }
 
-        /// Move constructor.
         inline TemporaryVector(TemporaryVector&& other) : TemporaryBuffer<T>(std::move(other))
         {
             std::swap(size, other.size);
         }
 
-        /// Default destructor.
         inline ~TemporaryVector(void)
         {
             Clear();
         }
 
-
-        // -------- OPERATORS ---------------------------------------------- //
-
-        /// Copy assignment operator.
         inline TemporaryVector& operator=(const TemporaryVector& other)
         {
             Clear();
@@ -248,7 +185,6 @@ namespace Pathwinder
             return *this;
         }
 
-        /// Move assignment operator.
         inline TemporaryVector& operator=(TemporaryVector&& other)
         {
             TemporaryBuffer<T>::operator=(std::move(other));
@@ -256,7 +192,6 @@ namespace Pathwinder
             return *this;
         }
 
-        /// Initializer list assignment operator.
         inline TemporaryVector& operator=(std::initializer_list<T> initializers)
         {
             Clear();
@@ -267,61 +202,47 @@ namespace Pathwinder
             return *this;
         }
 
-        /// Equality check.
         inline bool operator==(const TemporaryVector& other) const
         {
-            if (other.size != size)
-                return false;
+            if (other.size != size) return false;
 
             for (unsigned int i = 0; i < size; ++i)
             {
-                if (other[i] != (*this)[i])
-                    return false;
+                if (other[i] != (*this)[i]) return false;
             }
 
             return true;
         }
 
-        // -------- ITERATORS ---------------------------------------------- //
-
-        /// Explicit constant-typed beginning iterator.
         inline TConstIterator cbegin(void) const
         {
             return TConstIterator(this->Data(), 0);
         }
 
-        /// Explicit constant-typed one-past-the-end iterator.
         inline TConstIterator cend(void) const
         {
             return TConstIterator(this->Data(), size);
         }
 
-        /// Implicit constant-typed beginning iterator.
         inline TConstIterator begin(void) const
         {
             return cbegin();
         }
 
-        /// Implicit constant-typed one-past-the-end iterator.
         inline TConstIterator end(void) const
         {
             return cend();
         }
 
-        /// Implicit mutable-typed beginning iterator.
         inline TIterator begin(void)
         {
             return TIterator(this->Data(), 0);
         }
 
-        /// Implicit mutable-typed one-past-the-end iterator.
         inline TIterator end(void)
         {
             return TIterator(this->Data(), size);
         }
-
-
-        // -------- INSTANCE METHODS --------------------------------------- //
 
         /// Removes all elements from this container, destroying each in sequence.
         inline void Clear(void)
@@ -378,6 +299,11 @@ namespace Pathwinder
         {
             return size;
         }
+
+    protected:
+
+        /// Number of elements held by this container.
+        unsigned int size;
     };
 
     /// Implements a string-like object backed by a temporary buffer.
@@ -386,48 +312,32 @@ namespace Pathwinder
     class TemporaryString : public TemporaryVector<wchar_t>
     {
     public:
-        // -------- CONSTRUCTION AND DESTRUCTION --------------------------- //
 
-        /// Default constructor.
-        inline TemporaryString(void) : TemporaryVector<wchar_t>()
-        {
-            // Nothing to do here.
-        }
+        inline TemporaryString(void) : TemporaryVector<wchar_t>() {}
 
-        /// Conversion constructor from a C string.
         inline TemporaryString(const wchar_t* str) : TemporaryVector<wchar_t>()
         {
             *this = std::wstring_view(str);
         }
 
-        /// Conversion constructor from a string.
         inline TemporaryString(const std::wstring& str) : TemporaryVector<wchar_t>()
         {
             *this = std::wstring_view(str);
         }
 
-        /// Conversion constructor from a string view.
         inline TemporaryString(std::wstring_view str) : TemporaryVector<wchar_t>()
         {
             *this = str;
         }
 
-        /// Copy constructor.
         inline TemporaryString(const TemporaryString& other) : TemporaryVector<wchar_t>(other)
         {
             (*this)[size] = L'\0';
         }
 
-        /// Move constructor.
         inline TemporaryString(TemporaryString&& other) : TemporaryVector<wchar_t>(std::move(other))
-        {
-            // Nothing to do here.
-        }
+        {}
 
-
-        // -------- OPERATORS ---------------------------------------------- //
-
-        /// Copy assignment operator.
         inline TemporaryString& operator=(const TemporaryString& other)
         {
             TemporaryVector<wchar_t>::operator=(other);
@@ -435,26 +345,22 @@ namespace Pathwinder
             return *this;
         }
 
-        /// Move assignment operator.
         inline TemporaryString& operator=(TemporaryString&& other)
         {
             TemporaryVector<wchar_t>::operator=(std::move(other));
             return *this;
         }
 
-        /// Conversion assignment operator from a C string.
         inline TemporaryString& operator=(const wchar_t* str)
         {
             return (*this = std::wstring_view(str));
         }
 
-        /// Conversion assignment operator from a string.
         inline TemporaryString& operator=(const std::wstring& str)
         {
             return (*this = std::wstring_view(str));
         }
 
-        /// Conversion assignment operator from a string view.
         inline TemporaryString& operator=(std::wstring_view str)
         {
             Clear();
@@ -462,19 +368,16 @@ namespace Pathwinder
             return *this;
         }
 
-        /// Concatenation operator with a C string.
         inline TemporaryString& operator+=(const wchar_t* str)
         {
             return (*this += std::wstring_view(str));
         }
 
-        /// Concatenation operator with a string.
         inline TemporaryString& operator+=(const std::wstring& str)
         {
             return (*this += std::wstring_view(str));
         }
 
-        /// Concatenation operator with a string view.
         inline TemporaryString& operator+=(std::wstring_view str)
         {
             for (unsigned int i = 0; (i < str.size()) && (Size() < (Capacity() - 1)); ++i)
@@ -484,13 +387,11 @@ namespace Pathwinder
             return *this;
         }
 
-        /// Concatenation operator with another temporary string.
         inline TemporaryString& operator+=(const TemporaryString& str)
         {
             return (*this += str.AsStringView());
         }
 
-        /// Concatenation operator with a single character.
         inline TemporaryString& operator+=(wchar_t c)
         {
             if (Size() < (Capacity() - 1))
@@ -502,7 +403,6 @@ namespace Pathwinder
             return *this;
         }
 
-        /// Concatenation with a Boolean value.
         inline TemporaryString& operator+=(bool b)
         {
             if (true == b)
@@ -511,8 +411,10 @@ namespace Pathwinder
                 return (*this += L"false");
         }
 
-        /// Concatenation with an integer value.
-        template <typename IntegerType, typename = std::enable_if_t<std::is_integral_v<IntegerType>>> TemporaryString& operator+=(IntegerType i)
+        template <
+            typename IntegerType,
+            typename = std::enable_if_t<std::is_integral_v<IntegerType>>>
+        TemporaryString& operator+=(IntegerType i)
         {
             constexpr unsigned int kNumDigitsMax = 1 + std::numeric_limits<IntegerType>::digits10;
 
@@ -548,44 +450,35 @@ namespace Pathwinder
             }
         }
 
-        /// Stream concatenation operator for all types that have a suitable concatenation operator defined.
         template <typename T> inline TemporaryString& operator<<(T t)
         {
             return (*this += t);
         }
 
-        /// Equality check with other temporary strings.
         inline bool operator==(const TemporaryString& other) const
         {
             return (other.AsStringView() == AsStringView());
         }
 
-        /// Equality check with C strings.
         inline bool operator==(const wchar_t* other) const
         {
             return (std::wstring_view(other) == AsStringView());
         }
 
-        /// Equality check with strings.
         inline bool operator==(const std::wstring& other) const
         {
             return (other == AsStringView());
         }
 
-        /// Equality check with string views.
         inline bool operator==(std::wstring_view other) const
         {
             return (other == AsStringView());
         }
 
-        /// Implicit conversion to a string view.
         inline operator std::wstring_view(void) const
         {
             return AsStringView();
         }
-
-
-        // -------- INSTANCE METHODS --------------------------------------- //
 
         /// Represents this object as a C string.
         /// @return C string representation.
@@ -601,7 +494,8 @@ namespace Pathwinder
             return std::wstring_view(Data(), Size());
         }
 
-        /// Determines if the contents of this string have been truncated due to a buffer overflow condition.
+        /// Determines if the contents of this string have been truncated due to a buffer overflow
+        /// condition.
         /// @return `true` if so, `false` otherwise.
         inline bool Overflow(void) const
         {
@@ -609,8 +503,10 @@ namespace Pathwinder
         }
 
         /// Replaces the end of the string with the specified replacement string.
-        /// If the length of the replacement string exceeds the length of the existing string then the entire string is replaced.
-        /// @param [in] replacementSuffix String with which to replace the end of the current string.
+        /// If the length of the replacement string exceeds the length of the existing string then
+        /// the entire string is replaced.
+        /// @param [in] replacementSuffix String with which to replace the end of the current
+        /// string.
         inline void ReplaceSuffix(std::wstring_view replacementSuffix)
         {
             if (replacementSuffix.size() >= Size())
@@ -620,9 +516,10 @@ namespace Pathwinder
 
             *this += replacementSuffix;
         }
-        
+
         /// Removes the specified number of characters from the end of the string.
-        /// If the specified count is at least the entire length of the string then the string is cleared.
+        /// If the specified count is at least the entire length of the string then the string is
+        /// cleared.
         /// @param [in] count Number of characters to remove.
         inline void RemoveSuffix(unsigned int count)
         {
@@ -646,15 +543,13 @@ namespace Pathwinder
         }
 
         /// Changes this object's knowledge of its own size.
-        /// This is generally an unsafe operation but is intended to be used after the underlying buffer is manipulated by functions that operate on C strings.
+        /// This is generally an unsafe operation but is intended to be used after the underlying
+        /// buffer is manipulated by functions that operate on C strings.
         /// @param [in] newsize New size to use.
         inline void UnsafeSetSize(unsigned int newsize)
         {
             size = newsize;
         }
-
-
-        // -------- DELETED INSTANCE METHODS ------------------------------- //
 
         // These methods are unsafe in the context of null-terminated string manipulation.
         // Equivalent operators and methods are supplied in this class.
@@ -663,4 +558,4 @@ namespace Pathwinder
         void PushBack(const wchar_t& value) = delete;
         void PushBack(wchar_t&& value) = delete;
     };
-}
+}  // namespace Pathwinder

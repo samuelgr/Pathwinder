@@ -1,37 +1,31 @@
-/*****************************************************************************
+/***************************************************************************************************
  * Pathwinder
  *   Path redirection for files, directories, and registry entries.
- *****************************************************************************
+ ***************************************************************************************************
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
- *************************************************************************//**
+ ***********************************************************************************************//**
  * @file Harness.cpp
  *   Implementation of the test harness, including program entry point.
- *****************************************************************************/
+ **************************************************************************************************/
+
+#include "TestCase.h"
 
 #include "Harness.h"
-#include "TestCase.h"
-#include "Utilities.h"
 
 #include <map>
 #include <set>
 #include <string_view>
 
+#include "Utilities.h"
 
 namespace PathwinderTest
 {
-    // -------- CLASS METHODS ---------------------------------------------- //
-    // See "Harness.h" for documentation.
-
     Harness& Harness::GetInstance(void)
     {
         static Harness harness;
         return harness;
     }
-
-
-    // -------- INSTANCE METHODS ------------------------------------------- //
-    // See "Harness.h" for documentation.
 
     void Harness::RegisterTestCaseInternal(const ITestCase* const testCase, std::wstring_view name)
     {
@@ -39,23 +33,25 @@ namespace PathwinderTest
             testCases[name] = testCase;
     }
 
-    // --------
-
     int Harness::RunTestsWithMatchingPrefixInternal(std::wstring_view prefixToMatch)
     {
         std::set<std::wstring_view> failingTests;
         unsigned int numExecutedTests = 0;
         unsigned int numSkippedTests = 0;
 
-        switch(testCases.size())
+        switch (testCases.size())
         {
-        case 0:
-            Print(L"\nNo tests defined!\n");
-            return -1;
+            case 0:
+                Print(L"\nNo tests defined!\n");
+                return -1;
 
-        default:
-            PrintFormatted(L"\n%u test%s defined.", static_cast<unsigned int>(testCases.size()), ((1 == testCases.size()) ? L"" : L"s"));
-            break;
+            default:
+                PrintFormatted(
+                    L"\n%u test%s defined.",
+                    static_cast<unsigned int>(testCases.size()),
+                    ((1 == testCases.size()) ? L"" : L"s")
+                );
+                break;
         }
 
         if (true == prefixToMatch.empty())
@@ -63,15 +59,16 @@ namespace PathwinderTest
         else
             PrintFormatted(L"Running only tests with \"%s\" as a prefix.", prefixToMatch.data());
 
-        Print(L"\n================================================================================");
+        Print(L"\n================================================================================"
+        );
 
-        for (auto testCaseIterator = testCases.begin(); testCaseIterator != testCases.end(); ++testCaseIterator)
+        for (auto testCaseIterator = testCases.begin(); testCaseIterator != testCases.end();
+             ++testCaseIterator)
         {
             const auto& name = testCaseIterator->first;
             const ITestCase* const testCase = testCaseIterator->second;
 
-            if (false == name.starts_with(prefixToMatch))
-                continue;
+            if (false == name.starts_with(prefixToMatch)) continue;
 
             if (testCase->CanRun())
             {
@@ -86,14 +83,13 @@ namespace PathwinderTest
                     testCasePassed = true;
                 }
                 catch (TestFailedException)
-                {
-                    // Nothing to do here.
-                }
+                {}
 
-                if (true != testCasePassed)
-                    failingTests.insert(name.data());
+                if (true != testCasePassed) failingTests.insert(name.data());
 
-                PrintFormatted(L"[ %9s ] %s", (true == testCasePassed ? L"PASS" : L"FAIL"), name.data());
+                PrintFormatted(
+                    L"[ %9s ] %s", (true == testCasePassed ? L"PASS" : L"FAIL"), name.data()
+                );
             }
             else
             {
@@ -102,12 +98,22 @@ namespace PathwinderTest
             }
         }
 
-        Print(L"\n================================================================================");
-        
+        Print(L"\n================================================================================"
+        );
+
         if (numSkippedTests > 0)
-            PrintFormatted(L"\nFinished running %u test%s (%u skipped).\n", numExecutedTests, ((1 == numExecutedTests) ? L"" : L"s"), numSkippedTests);
+            PrintFormatted(
+                L"\nFinished running %u test%s (%u skipped).\n",
+                numExecutedTests,
+                ((1 == numExecutedTests) ? L"" : L"s"),
+                numSkippedTests
+            );
         else
-            PrintFormatted(L"\nFinished running %u test%s.\n", numExecutedTests, ((1 == numExecutedTests) ? L"" : L"s"));
+            PrintFormatted(
+                L"\nFinished running %u test%s.\n",
+                numExecutedTests,
+                ((1 == numExecutedTests) ? L"" : L"s")
+            );
 
         const int numFailingTests = static_cast<int>(failingTests.size());
 
@@ -121,13 +127,17 @@ namespace PathwinderTest
             {
                 switch (numFailingTests)
                 {
-                case 0:
-                    Print(L"All tests passed!\n");
-                    break;
+                    case 0:
+                        Print(L"All tests passed!\n");
+                        break;
 
-                default:
-                    PrintFormatted(L"%u test%s failed:", numFailingTests, ((1 == numFailingTests) ? L"" : L"s"));
-                    break;
+                    default:
+                        PrintFormatted(
+                            L"%u test%s failed:",
+                            numFailingTests,
+                            ((1 == numFailingTests) ? L"" : L"s")
+                        );
+                        break;
                 }
             }
 
@@ -146,12 +156,9 @@ namespace PathwinderTest
 
         return numFailingTests;
     }
-}
+}  // namespace PathwinderTest
 
-
-// -------- ENTRY POINT ---------------------------------------------------- //
-
-/// Runs all tests cases.
+/// Test program entry point.
 /// @return Number of failing tests (0 means all tests passed).
 int wmain(int argc, const wchar_t* argv[])
 {

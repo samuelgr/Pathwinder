@@ -5,16 +5,22 @@
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
  ***********************************************************************************************//**
- * @file DebugAssert.h
- *   Standard mechanism for accessing debug assertion functionality.
+ * @file ApiWindowsShell.h
+ *   Common header file for the correct version of the Windows API along with additional shell
+ *   functionality.
  **************************************************************************************************/
 
 #pragma once
 
-#include <crtdbg.h>
+// Windows header files are sensitive to include order. Compilation will fail if the order is
+// incorrect.
 
-/// Wrapper around debug assertion functionality.
-/// Provides an interface like `static_assert` which takes an expression and a narrow-string message
-/// compile-time constant literal.
-#define DebugAssert(expr, msg)                                                                     \
-    _ASSERT_EXPR((expr), L"\n" _CRT_WIDE(msg) L"\n\nFunction:\n" __FUNCTIONW__)
+// clang-format off
+
+#include "ApiWindows.h"
+
+#include <knownfolders.h>
+#include <psapi.h>
+#include <shlobj.h>
+
+// clang-format on

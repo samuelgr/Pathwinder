@@ -1,67 +1,64 @@
-/*****************************************************************************
+/***************************************************************************************************
  * Pathwinder
  *   Path redirection for files, directories, and registry entries.
- *****************************************************************************
+ ***************************************************************************************************
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
- *************************************************************************//**
+ ***********************************************************************************************//**
  * @file PrefixIndexTest.cpp
  *   Unit tests for index data structure objects that use prefixes in
  *   delimited strings as a basis for organization.
- *****************************************************************************/
+ **************************************************************************************************/
 
-#include "PrefixIndex.h"
-#include "TemporaryBuffer.h"
 #include "TestCase.h"
 
-#include <unordered_map>
-#include <type_traits>
+#include "PrefixIndex.h"
 
+#include <type_traits>
+#include <unordered_map>
+
+#include "TemporaryBuffer.h"
 
 namespace PathwinderTest
 {
     using namespace ::Pathwinder;
 
-
-    // -------- INTERNAL CONSTANTS ----------------------------------------- //
-
-    /// Test data that can be referenced by prefix index data structures that are created in test cases.
+    /// Test data that can be referenced by prefix index data structures that are created in test
+    /// cases.
     static constexpr int kTestData[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-
-
-    // -------- INTERNAL TYPES --------------------------------------------- //
 
     /// Type alias for all tests that exercise the prefix index data structure.
     typedef PrefixIndex<wchar_t, int> TTestPrefixIndex;
 
-
-    // -------- INTERNAL FUNCTIONS ----------------------------------------- //
-
-    /// Compares the contents of two array-indexable container types for their contents being equal where order is unimportant.
+    /// Compares the contents of two array-indexable container types for their contents being equal
+    /// where order is unimportant.
     /// @tparam ArrayIndexableTypeA Type for the first container in the comparison.
     /// @tparam ArrayIndexableTypeB Type for the second container in the comparison.
     /// @param [in] a First container in the comparison.
     /// @param [in] b Second container in the comparison.
-    /// @return `true` if the contents of the two containers are the same, regardless of order, or `false` otherwise.
-    template <typename ArrayIndexableTypeA, typename ArrayIndexableTypeB> bool UnorderedContentsEqual(const ArrayIndexableTypeA& a, const ArrayIndexableTypeB& b)
+    /// @return `true` if the contents of the two containers are the same, regardless of order, or
+    /// `false` otherwise.
+    template <typename ArrayIndexableTypeA, typename ArrayIndexableTypeB>
+    bool UnorderedContentsEqual(const ArrayIndexableTypeA& a, const ArrayIndexableTypeB& b)
     {
-        std::unordered_map<std::remove_const_t<std::remove_reference_t<decltype(a[0])>>, int> contentsOfA;
+        std::unordered_map<std::remove_const_t<std::remove_reference_t<decltype(a[0])>>, int>
+            contentsOfA;
         for (const auto& itemOfA : a)
             contentsOfA[itemOfA] += 1;
 
-        std::unordered_map<std::remove_const_t<std::remove_reference_t<decltype(b[0])>>, int> contentsOfB;
+        std::unordered_map<std::remove_const_t<std::remove_reference_t<decltype(b[0])>>, int>
+            contentsOfB;
         for (const auto& itemOfB : b)
             contentsOfB[itemOfB] += 1;
 
         return (contentsOfA == contentsOfB);
     }
 
-
-    // -------- TEST CASES ------------------------------------------------- //
-
     // Inserts a few strings into the prefix index.
-    // Verifies that only the strings specifically inserted are seen as being contained in the index and that the correct data reference is returned accordingly for queries.
-    // Only some of the strings represent valid objects that are "contained" in the index, but all levels should at least be indicated as being valid prefix paths.
+    // Verifies that only the strings specifically inserted are seen as being contained in the index
+    // and that the correct data reference is returned accordingly for queries. Only some of the
+    // strings represent valid objects that are "contained" in the index, but all levels should at
+    // least be indicated as being valid prefix paths.
     TEST_CASE(PrefixIndex_QueryContents_Nominal)
     {
         TTestPrefixIndex index(L"\\");
@@ -72,7 +69,7 @@ namespace PathwinderTest
         TEST_ASSERT(false == index.Contains(L"Level1"));
         TEST_ASSERT(true == index.HasPathForPrefix(L"Level1"));
 
-        TEST_ASSERT(true  == index.Contains(L"Level1\\Level2"));
+        TEST_ASSERT(true == index.Contains(L"Level1\\Level2"));
         TEST_ASSERT(true == index.HasPathForPrefix(L"Level1\\Level2"));
 
         TEST_ASSERT(false == index.Contains(L"Level1\\Level2\\Level3"));
@@ -81,7 +78,7 @@ namespace PathwinderTest
         TEST_ASSERT(false == index.Contains(L"Level1\\Level2\\Level3\\Level4"));
         TEST_ASSERT(true == index.HasPathForPrefix(L"Level1\\Level2\\Level3\\Level4"));
 
-        TEST_ASSERT(true  == index.Contains(L"Level1\\Level2\\Level3\\Level4\\Level5"));
+        TEST_ASSERT(true == index.Contains(L"Level1\\Level2\\Level3\\Level4\\Level5"));
         TEST_ASSERT(true == index.HasPathForPrefix(L"Level1\\Level2\\Level3\\Level4\\Level5"));
 
         TEST_ASSERT(nullptr == index.Find(L"Level1"));
@@ -97,9 +94,11 @@ namespace PathwinderTest
         TEST_ASSERT(level5Node->GetData() == &kTestData[5]);
     }
 
-    // Inserts a few strings into the prefix index and queries the prefix index using all lower-case to test for case insensitivity.
-    // Verifies that only the strings specifically inserted are seen as being contained in the index and that the correct data reference is returned accordingly for queries.
-    // Only some of the strings represent valid objects that are "contained" in the index, but all levels should at least be indicated as being valid prefix paths.
+    // Inserts a few strings into the prefix index and queries the prefix index using all lower-case
+    // to test for case insensitivity. Verifies that only the strings specifically inserted are seen
+    // as being contained in the index and that the correct data reference is returned accordingly
+    // for queries. Only some of the strings represent valid objects that are "contained" in the
+    // index, but all levels should at least be indicated as being valid prefix paths.
     TEST_CASE(PrefixIndex_QueryContents_CaseInsensitive)
     {
         TTestPrefixIndex index(L"\\");
@@ -136,7 +135,8 @@ namespace PathwinderTest
     }
 
     // Inserts a few strings into the prefix index using multiple delimters.
-    // Verifies that only the strings specifically inserted are seen as being contained in the index and uses multiple different delimiters when querying.
+    // Verifies that only the strings specifically inserted are seen as being contained in the index
+    // and uses multiple different delimiters when querying.
     TEST_CASE(PrefixIndex_QueryContents_MultipleDelimiters)
     {
         TTestPrefixIndex index({L"\\", L"/"});
@@ -147,15 +147,21 @@ namespace PathwinderTest
         TEST_ASSERT(false == index.Contains(L"Level1"));
         TEST_ASSERT(false == index.Contains(L"Level1/Level2"));
         TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3"));
-        TEST_ASSERT(true  == index.Contains(L"Level1/Level2\\Level3\\Level4"));
+        TEST_ASSERT(true == index.Contains(L"Level1/Level2\\Level3\\Level4"));
         TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5"));
         TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6"));
-        TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7"));
-        TEST_ASSERT(true  == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7\\Level8"));
+        TEST_ASSERT(
+            false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7")
+        );
+        TEST_ASSERT(
+            true == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7\\Level8")
+        );
     }
 
-    // Inserts a few strings into the prefix index, as with the nominal test case but this time with consecutive delimiters.
-    // Verifies that only the strings specifically inserted are seen as being contained in the index and that the correct data reference is returned accordingly for queries.
+    // Inserts a few strings into the prefix index, as with the nominal test case but this time with
+    // consecutive delimiters. Verifies that only the strings specifically inserted are seen as
+    // being contained in the index and that the correct data reference is returned accordingly for
+    // queries.
     TEST_CASE(PrefixIndex_QueryContents_ConsecutiveDelimiters)
     {
         TTestPrefixIndex index(L"\\");
@@ -164,10 +170,10 @@ namespace PathwinderTest
         index.Insert(L"Level1\\\\\\\\\\Level2", kTestData[2]);
 
         TEST_ASSERT(false == index.Contains(L"Level1"));
-        TEST_ASSERT(true  == index.Contains(L"Level1\\Level2"));
+        TEST_ASSERT(true == index.Contains(L"Level1\\Level2"));
         TEST_ASSERT(false == index.Contains(L"Level1\\Level2\\Level3"));
         TEST_ASSERT(false == index.Contains(L"Level1\\Level2\\Level3\\Level4"));
-        TEST_ASSERT(true  == index.Contains(L"Level1\\Level2\\Level3\\Level4\\Level5"));
+        TEST_ASSERT(true == index.Contains(L"Level1\\Level2\\Level3\\Level4\\Level5"));
 
         TEST_ASSERT(nullptr == index.Find(L"Level1"));
         TEST_ASSERT(nullptr == index.Find(L"Level1\\Level2\\Level3"));
@@ -182,27 +188,37 @@ namespace PathwinderTest
         TEST_ASSERT(level5Node->GetData() == &kTestData[5]);
     }
 
-    // Inserts a few strings into the prefix index using multiple delimters, as with the multiple delimiter test case but this time with consecutive delimiters of different types.
-    // Verifies that only the strings specifically inserted are seen as being contained in the index and uses multiple different delimiters when querying.
+    // Inserts a few strings into the prefix index using multiple delimters, as with the multiple
+    // delimiter test case but this time with consecutive delimiters of different types. Verifies
+    // that only the strings specifically inserted are seen as being contained in the index and uses
+    // multiple different delimiters when querying.
     TEST_CASE(PrefixIndex_QueryContents_ConsecutiveAndMultipleDelimiters)
     {
         TTestPrefixIndex index({L"\\", L"/"});
 
         index.Insert(L"Level1\\/\\////\\Level2///\\Level3\\Level4", kTestData[4]);
-        index.Insert(L"Level1/Level2\\\\Level3\\/\\\\Level4////\\Level5/\\\\\\Level6\\Level7//Level8", kTestData[8]);
+        index.Insert(
+            L"Level1/Level2\\\\Level3\\/\\\\Level4////\\Level5/\\\\\\Level6\\Level7//Level8",
+            kTestData[8]
+        );
 
         TEST_ASSERT(false == index.Contains(L"Level1"));
         TEST_ASSERT(false == index.Contains(L"Level1/Level2"));
         TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3"));
-        TEST_ASSERT(true  == index.Contains(L"Level1/Level2\\Level3\\Level4"));
+        TEST_ASSERT(true == index.Contains(L"Level1/Level2\\Level3\\Level4"));
         TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5"));
         TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6"));
-        TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7"));
-        TEST_ASSERT(true  == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7\\Level8"));
+        TEST_ASSERT(
+            false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7")
+        );
+        TEST_ASSERT(
+            true == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7\\Level8")
+        );
     }
 
     // Inserts a few strings into the prefix index.
-    // Verifies that all internal nodes are accessible by traversal even if they do not represent valid objects that are "contained" in the index.
+    // Verifies that all internal nodes are accessible by traversal even if they do not represent
+    // valid objects that are "contained" in the index.
     TEST_CASE(PrefixIndex_TraverseTo_Nominal)
     {
         TTestPrefixIndex index(L"\\");
@@ -213,8 +229,10 @@ namespace PathwinderTest
         const TTestPrefixIndex::Node* nodeLevel1 = index.TraverseTo(L"Level1");
         const TTestPrefixIndex::Node* nodeLevel2 = index.TraverseTo(L"Level1\\Level2");
         const TTestPrefixIndex::Node* nodeLevel3 = index.TraverseTo(L"Level1\\Level2\\Level3");
-        const TTestPrefixIndex::Node* nodeLevel4 = index.TraverseTo(L"Level1\\Level2\\Level3\\Level4");
-        const TTestPrefixIndex::Node* nodeLevel5 = index.TraverseTo(L"Level1\\Level2\\Level3\\Level4\\Level5");
+        const TTestPrefixIndex::Node* nodeLevel4 =
+            index.TraverseTo(L"Level1\\Level2\\Level3\\Level4");
+        const TTestPrefixIndex::Node* nodeLevel5 =
+            index.TraverseTo(L"Level1\\Level2\\Level3\\Level4\\Level5");
 
         TEST_ASSERT(nullptr != nodeLevel1);
         TEST_ASSERT(L"Level1" == nodeLevel1->GetParentKey());
@@ -246,15 +264,25 @@ namespace PathwinderTest
         auto level3Node = insertResult.first;
         TEST_ASSERT(true == insertResult.second);
 
-        TEST_ASSERT(std::make_pair(level3Node, false) == index.Insert(L"Level1\\Level2\\Level3", kTestData[6]));
-        TEST_ASSERT(std::make_pair(level3Node, false) == index.Insert(L"Level1\\Level2\\Level3", kTestData[7]));
-        TEST_ASSERT(std::make_pair(level3Node, false) == index.Insert(L"Level1\\Level2\\Level3", kTestData[8]));
+        TEST_ASSERT(
+            std::make_pair(level3Node, false) ==
+            index.Insert(L"Level1\\Level2\\Level3", kTestData[6])
+        );
+        TEST_ASSERT(
+            std::make_pair(level3Node, false) ==
+            index.Insert(L"Level1\\Level2\\Level3", kTestData[7])
+        );
+        TEST_ASSERT(
+            std::make_pair(level3Node, false) ==
+            index.Insert(L"Level1\\Level2\\Level3", kTestData[8])
+        );
 
         TEST_ASSERT(level3Node->GetData() == &kTestData[3]);
     }
 
-    // Largely the same as the nominal test case except only checks contents and uses the update operation instead of the insert operation.
-    // Update should behave as insert if the string is not contained in the index.
+    // Largely the same as the nominal test case except only checks contents and uses the update
+    // operation instead of the insert operation. Update should behave as insert if the string is
+    // not contained in the index.
     TEST_CASE(PrefixIndex_QueryContents_UpdateInsteadOfInsert)
     {
         TTestPrefixIndex index(L"\\");
@@ -263,10 +291,10 @@ namespace PathwinderTest
         index.Update(L"Level1\\Level2", kTestData[2]);
 
         TEST_ASSERT(false == index.Contains(L"Level1"));
-        TEST_ASSERT(true  == index.Contains(L"Level1\\Level2"));
+        TEST_ASSERT(true == index.Contains(L"Level1\\Level2"));
         TEST_ASSERT(false == index.Contains(L"Level1\\Level2\\Level3"));
         TEST_ASSERT(false == index.Contains(L"Level1\\Level2\\Level3\\Level4"));
-        TEST_ASSERT(true  == index.Contains(L"Level1\\Level2\\Level3\\Level4\\Level5"));
+        TEST_ASSERT(true == index.Contains(L"Level1\\Level2\\Level3\\Level4\\Level5"));
     }
 
     // Inserts a few strings into the prefix index and then updates their data values.
@@ -286,7 +314,9 @@ namespace PathwinderTest
         TEST_ASSERT(nullptr != level5Node);
         TEST_ASSERT(level5Node->GetData() == &kTestData[5]);
 
-        TEST_ASSERT(level5Node == index.Update(L"Level1\\Level2\\Level3\\Level4\\Level5", kTestData[10]));
+        TEST_ASSERT(
+            level5Node == index.Update(L"Level1\\Level2\\Level3\\Level4\\Level5", kTestData[10])
+        );
         TEST_ASSERT(level5Node->GetData() == &kTestData[10]);
 
         TEST_ASSERT(level2Node == index.Update(L"Level1\\Level2", kTestData[14]));
@@ -294,7 +324,8 @@ namespace PathwinderTest
     }
 
     // Inserts a few strings into the prefix index and then erases some of them.
-    // Verifies that the erased nodes are no longer reported as contained in the index but the others are still there.
+    // Verifies that the erased nodes are no longer reported as contained in the index but the
+    // others are still there.
     TEST_CASE(PrefixIndex_Erase_Nominal)
     {
         TTestPrefixIndex index(L"\\");
@@ -304,21 +335,26 @@ namespace PathwinderTest
         index.Insert(L"Root\\Level1\\B\\Level7\\Level8\\Level9", kTestData[9]);
         index.Insert(L"Root\\Level1\\B\\Level7\\Level8", kTestData[8]);
 
-        TEST_ASSERT(true  == index.Contains(L"Root\\Level1\\A\\Level2\\Level3"));
-        TEST_ASSERT(true  == index.Contains(L"Root\\Level1\\A\\Level2\\Level3\\Level4\\Level5\\Level6"));
-        TEST_ASSERT(true  == index.Contains(L"Root\\Level1\\B\\Level7\\Level8\\Level9"));
-        TEST_ASSERT(true  == index.Contains(L"Root\\Level1\\B\\Level7\\Level8"));
+        TEST_ASSERT(true == index.Contains(L"Root\\Level1\\A\\Level2\\Level3"));
+        TEST_ASSERT(
+            true == index.Contains(L"Root\\Level1\\A\\Level2\\Level3\\Level4\\Level5\\Level6")
+        );
+        TEST_ASSERT(true == index.Contains(L"Root\\Level1\\B\\Level7\\Level8\\Level9"));
+        TEST_ASSERT(true == index.Contains(L"Root\\Level1\\B\\Level7\\Level8"));
 
-        TEST_ASSERT(true  == index.Erase(L"Root\\Level1\\A\\Level2\\Level3"));
-        TEST_ASSERT(true  == index.Erase(L"Root\\Level1\\B\\Level7\\Level8\\Level9"));
+        TEST_ASSERT(true == index.Erase(L"Root\\Level1\\A\\Level2\\Level3"));
+        TEST_ASSERT(true == index.Erase(L"Root\\Level1\\B\\Level7\\Level8\\Level9"));
 
         TEST_ASSERT(false == index.Contains(L"Root\\Level1\\A\\Level2\\Level3"));
-        TEST_ASSERT(true  == index.Contains(L"Root\\Level1\\A\\Level2\\Level3\\Level4\\Level5\\Level6"));
+        TEST_ASSERT(
+            true == index.Contains(L"Root\\Level1\\A\\Level2\\Level3\\Level4\\Level5\\Level6")
+        );
         TEST_ASSERT(false == index.Contains(L"Root\\Level1\\B\\Level7\\Level8\\Level9"));
-        TEST_ASSERT(true  == index.Contains(L"Root\\Level1\\B\\Level7\\Level8"));
+        TEST_ASSERT(true == index.Contains(L"Root\\Level1\\B\\Level7\\Level8"));
     }
 
-    // Attempts to erase a string not present in the index, which should fail and leave the index untouched.
+    // Attempts to erase a string not present in the index, which should fail and leave the index
+    // untouched.
     TEST_CASE(PrefixIndex_Erase_PrefixNotContained)
     {
         TTestPrefixIndex index(L"\\");
@@ -327,14 +363,14 @@ namespace PathwinderTest
 
         TEST_ASSERT(false == index.Erase(L"Level1\\Level2"));
         TEST_ASSERT(false == index.Erase(L"Level1\\Level2\\Level3\\Level4\\Level5"));
-        
+
         auto level4Node = index.Find(L"Level1\\Level2\\Level3\\Level4");
         TEST_ASSERT(nullptr != level4Node);
         TEST_ASSERT(level4Node->GetData() == &kTestData[14]);
     }
 
-    // Attempts to locate the longest matching prefix in the nominal situation in which such a prefix exists.
-    // Verifies that the correct node is returned from the longest prefix query.
+    // Attempts to locate the longest matching prefix in the nominal situation in which such a
+    // prefix exists. Verifies that the correct node is returned from the longest prefix query.
     TEST_CASE(PrefixIndex_LongestMatchingPrefix_Nominal)
     {
         TTestPrefixIndex index(L"\\");
@@ -344,7 +380,9 @@ namespace PathwinderTest
         auto level4Node = index.Find(L"Level1\\Level2\\Level3\\Level4");
         TEST_ASSERT(nullptr != level4Node);
 
-        auto longestMatchingPrefixNode = index.LongestMatchingPrefix(L"Level1\\Level2\\Level3\\Level4\\Level5\\Level6\\Level7\\Level8\\Level9\\Level10");
+        auto longestMatchingPrefixNode = index.LongestMatchingPrefix(
+            L"Level1\\Level2\\Level3\\Level4\\Level5\\Level6\\Level7\\Level8\\Level9\\Level10"
+        );
         TEST_ASSERT(level4Node == longestMatchingPrefixNode);
     }
 
@@ -360,8 +398,9 @@ namespace PathwinderTest
         TEST_ASSERT(nullptr == longestMatchingPrefixNode);
     }
 
-    // Attempts to locate the longest matching prefix in the special situation in which the query string exactly matches a string in the index.
-    // Verifies that the correct node is returned from the longest prefix query.
+    // Attempts to locate the longest matching prefix in the special situation in which the query
+    // string exactly matches a string in the index. Verifies that the correct node is returned from
+    // the longest prefix query.
     TEST_CASE(PrefixIndex_LongestMatchingPrefix_ExactMatch)
     {
         TTestPrefixIndex index(L"\\");
@@ -371,42 +410,61 @@ namespace PathwinderTest
         auto level4Node = index.Find(L"Level1\\Level2\\Level3\\Level4");
         TEST_ASSERT(nullptr != level4Node);
 
-        auto longestMatchingPrefixNode = index.LongestMatchingPrefix(L"Level1\\Level2\\Level3\\Level4");
+        auto longestMatchingPrefixNode =
+            index.LongestMatchingPrefix(L"Level1\\Level2\\Level3\\Level4");
         TEST_ASSERT(level4Node == longestMatchingPrefixNode);
     }
 
-    // Attempts to locate the longest matching prefix when a branch exists in the tree such that the branch point is contained in the index.
-    // The node for the branch point, also the actual longest matching prefix, should be returned.
+    // Attempts to locate the longest matching prefix when a branch exists in the tree such that the
+    // branch point is contained in the index. The node for the branch point, also the actual
+    // longest matching prefix, should be returned.
     TEST_CASE(PrefixIndex_LongestMatchingPrefix_BranchContained)
     {
         TTestPrefixIndex index(L"\\");
 
-        TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", kTestData[14]).second);
-        TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", kTestData[15]).second);
+        TEST_ASSERT(
+            true ==
+            index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", kTestData[14]).second
+        );
+        TEST_ASSERT(
+            true ==
+            index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", kTestData[15]).second
+        );
         TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch", kTestData[0]).second);
 
         auto branchNode = index.Find(L"Root\\Level1\\Level2\\Branch");
         TEST_ASSERT(nullptr != branchNode);
-        
-        auto longestMatchingPrefixNode = index.LongestMatchingPrefix(L"Root\\Level1\\Level2\\Branch\\Level7\\Level8");
+
+        auto longestMatchingPrefixNode =
+            index.LongestMatchingPrefix(L"Root\\Level1\\Level2\\Branch\\Level7\\Level8");
         TEST_ASSERT(branchNode == longestMatchingPrefixNode);
     }
 
-    // Attempts to locate the longest matching prefix when a branch exists in the tree such that the branch point is not contained in the index.
-    // The node for the branch point should not be returned because it is not contained in the index, even though a node for it exists in the index tree.
+    // Attempts to locate the longest matching prefix when a branch exists in the tree such that the
+    // branch point is not contained in the index. The node for the branch point should not be
+    // returned because it is not contained in the index, even though a node for it exists in the
+    // index tree.
     TEST_CASE(PrefixIndex_LongestMatchingPrefix_BranchNotContained)
     {
         TTestPrefixIndex index(L"\\");
 
-        TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", kTestData[14]).second);
-        TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", kTestData[15]).second);
+        TEST_ASSERT(
+            true ==
+            index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", kTestData[14]).second
+        );
+        TEST_ASSERT(
+            true ==
+            index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", kTestData[15]).second
+        );
 
-        auto longestMatchingPrefixNode = index.LongestMatchingPrefix(L"Root\\Level1\\Level2\\Branch\\Level7\\Level8");
+        auto longestMatchingPrefixNode =
+            index.LongestMatchingPrefix(L"Root\\Level1\\Level2\\Branch\\Level7\\Level8");
         TEST_ASSERT(nullptr == longestMatchingPrefixNode);
     }
 
     // Creates a small hierarchy of prefixes, including a common base node for a few sub-nodes.
-    // Verifies that the base node is correctly identified as the ancestor when the sub-nodes are queried for their ancestors.
+    // Verifies that the base node is correctly identified as the ancestor when the sub-nodes are
+    // queried for their ancestors.
     TEST_CASE(PrefixIndex_QueryForAncestors_AncestorsExist)
     {
         TTestPrefixIndex index(L"\\");
@@ -464,4 +522,4 @@ namespace PathwinderTest
         TEST_ASSERT(nullptr == nodeSub5->GetClosestAncestor());
         TEST_ASSERT(false == nodeSub5->HasAncestor());
     }
-}
+}  // namespace PathwinderTest

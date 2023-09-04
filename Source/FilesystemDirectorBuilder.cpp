@@ -1,14 +1,14 @@
-/*****************************************************************************
+/***************************************************************************************************
  * Pathwinder
  *   Path redirection for files, directories, and registry entries.
- *****************************************************************************
+ ***************************************************************************************************
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
- *************************************************************************//**
+ ***********************************************************************************************//**
  * @file FilesystemDirectorBuilder.cpp
- *   Implementation of functionality for building new filesystem director
- *   objects piece-wise at runtime.
- *****************************************************************************/
+ *   Implementation of functionality for building new filesystem director objects piece-wise at
+ *   runtime.
+ **************************************************************************************************/
 
 #include "ApiWindows.h"
 #include "Configuration.h"
@@ -31,8 +31,6 @@
 
 namespace Pathwinder
 {
-    // -------- INTERNAL FUNCTIONS ----------------------------------------- //
-
     /// Reads the configured redirection mode from a filesystem rule configuration section or, if the redirection mode is not present, returns a default value.
     /// @param [in] configSection Configuration section object containing the filesystem rule's configuration information.
     /// @return Redirection mode enumerator, if it is either absent from the configuration section data object or present and maps to a valid enumerator.
@@ -79,8 +77,7 @@ namespace Pathwinder
     }
 
 
-    // -------- CLASS METHODS ---------------------------------------------- //
-    // See "FilesystemDirectorBuilder.h" for documentation.
+        
 
     std::optional<FilesystemDirector> FilesystemDirectorBuilder::BuildFromConfigurationData(Configuration::ConfigurationData& configData)
     {
@@ -150,8 +147,7 @@ namespace Pathwinder
         }
     }
 
-    // --------
-
+    
     bool FilesystemDirectorBuilder::IsValidDirectoryString(std::wstring_view candidateDirectory)
     {
         // These characters are disallowed at any position in the directory string.
@@ -193,8 +189,7 @@ namespace Pathwinder
         return true;
     }
 
-    // --------
-
+    
     bool FilesystemDirectorBuilder::IsValidFilePatternString(std::wstring_view candidateFilePattern)
     {
         // These characters are disallowed inside file patterns.
@@ -215,8 +210,7 @@ namespace Pathwinder
     }
 
 
-    // -------- INSTANCE METHODS ------------------------------------------- //
-    // See "FilesystemDirectorBuilder.h" for documentation.
+        
 
     ValueOrError<const FilesystemRule*, TemporaryString> FilesystemDirectorBuilder::AddRule(std::wstring_view ruleName, std::wstring_view originDirectory, std::wstring_view targetDirectory, std::vector<std::wstring>&& filePatterns, FilesystemRule::ERedirectMode redirectMode)
     {
@@ -285,8 +279,7 @@ namespace Pathwinder
         return newRule;
     }
 
-    // --------
-
+    
     ValueOrError<const FilesystemRule*, TemporaryString> FilesystemDirectorBuilder::AddRuleFromConfigurationSection(std::wstring_view ruleName, Configuration::Section& configSection)
     {
         auto maybeOriginDirectory = configSection.ExtractFirstStringValue(Strings::kStrConfigurationSettingFilesystemRuleOriginDirectory);
@@ -306,8 +299,7 @@ namespace Pathwinder
         return AddRule(ruleName, std::move(*maybeOriginDirectory), std::move(*maybeTargetDirectory), std::move(filePatterns), std::move(*maybeRedirectMode));
     }
 
-    // --------
-
+    
     ValueOrError<FilesystemDirector, TemporaryString> FilesystemDirectorBuilder::Build(void)
     {
         if (true == filesystemRules.empty())

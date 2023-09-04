@@ -1,16 +1,22 @@
-/*****************************************************************************
+/***************************************************************************************************
  * Pathwinder
  *   Path redirection for files, directories, and registry entries.
- *****************************************************************************
+ ***************************************************************************************************
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
- *************************************************************************//**
+ ***********************************************************************************************//**
  * @file OpenHandleStore.h
- *   Declaration and implementation of a container for open filesystem handles
- *   along with state information and metadata associated with each one.
- *****************************************************************************/
+ *   Declaration and implementation of a container for open filesystem handles along with state
+ *   information and metadata associated with each one.
+ **************************************************************************************************/
 
 #pragma once
+
+#include <memory>
+#include <set>
+#include <string>
+#include <string_view>
+#include <unordered_map>
 
 #include "ApiWindows.h"
 #include "DirectoryOperationQueue.h"
@@ -19,125 +25,137 @@
 #include "MutexWrapper.h"
 #include "Strings.h"
 
-#include <memory>
-#include <set>
-#include <string>
-#include <string_view>
-#include <unordered_map>
-
-
 namespace Pathwinder
 {
-    /// Implements a concurrency-safe storage data structure for open filesystem handles and metadata associated with each.
+    /// Implements a concurrency-safe storage data structure for open filesystem handles and
+    /// metadata associated with each.
     class OpenHandleStore
     {
     public:
-        // -------- TYPE DEFINITIONS --------------------------------------- //
 
         /// Record type for storing an in-progress directory enumeration operation.
         struct SInProgressDirectoryEnumeration
         {
-            std::unique_ptr<IDirectoryOperationQueue> queue;                                                    ///< Directory enumeration queue, from which additional file information structures are transferred. A value of `nullptr` means the directory enumeration operation is a no-op and should be forwarded to the system.
-            FileInformationStructLayout fileInformationStructLayout;                                            ///< Layout description for the file information structures produced in the directory enumeration.
-            std::set<std::wstring, Strings::CaseInsensitiveLessThanComparator<wchar_t>> enumeratedFilenames;    ///< Set of already-enumerated files. Used for deduplication in the output.
+            /// Directory enumeration queue, from which additional file information structures are
+            /// transferred. A value of `nullptr` means the directory enumeration operation is a
+            /// no-op and should be forwarded to the system.
+            std::unique_ptr<IDirectoryOperationQueue> queue;
+
+            /// Layout description for the file information structures produced in the directory
+            /// enumeration.
+            FileInformationStructLayout fileInformationStructLayout;
+
+            /// Set of already-enumerated files. Used for deduplication in the output.
+            std::set<std::wstring, Strings::CaseInsensitiveLessThanComparator<wchar_t>>
+                enumeratedFilenames;
         };
 
         /// By-reference view of data stored about an open handle.
         struct SHandleDataView
         {
-            std::wstring_view associatedPath;                                                                   ///< Path associated internally with the open handle.
-            std::wstring_view realOpenedPath;                                                                   ///< Actual path that was opened for the handle. This could be different from the associated path based on instructions from a filesystem director.
-            std::optional<SInProgressDirectoryEnumeration*> directoryEnumeration;                               ///< In-progress directory enumeration state. Not owned by this structure.
+            /// Path associated internally with the open handle.
+            std::wstring_view associatedPath;
+
+            /// Actual path that was opened for the handle. This could be different from the
+            /// associated path based on instructions from a filesystem director.
+            std::wstring_view realOpenedPath;
+
+            /// In-progress directory enumeration state. Not owned by this structure.
+            std::optional<SInProgressDirectoryEnumeration*> directoryEnumeration;
         };
 
         /// Data stored about an open handle.
         struct SHandleData
         {
-            std::wstring associatedPath;                                                                        ///< Path associated internally with the open handle.
-            std::wstring realOpenedPath;                                                                        ///< Actual path that was opened for the handle. This could be different from the associated path based on instructions from a filesystem director.
-            std::optional<SInProgressDirectoryEnumeration> directoryEnumeration;                                ///< In-progress directory enumeration state.
+            /// Path associated internally with the open handle.
+            std::wstring associatedPath;
 
-            /// Default constructor.
-            inline SHandleData(void) = default;
+            /// Actual path that was opened for the handle. This could be different from the
+            /// associated path based on instructions from a filesystem director.
+            std::wstring realOpenedPath;
 
-            /// Initialization constructor.
-            /// Requires both paths be specified using move semantics, and does not construct a directory enumeration queue.
-            inline SHandleData(std::wstring&& associatedPath, std::wstring&& realOpenedPath) : associatedPath(std::move(associatedPath)), realOpenedPath(std::move(realOpenedPath)), directoryEnumeration()
-            {
-                // Nothing to do here.
-            }
+            /// In-progress directory enumeration state.
+            std::optional<SInProgressDirectoryEnumeration> directoryEnumeration;
 
-            /// Move constructor.
+            SHandleData(void) = default;
+
+            inline SHandleData(std::wstring&& associatedPath, std::wstring&& realOpenedPath)
+                : associatedPath(std::move(associatedPath)),
+                  realOpenedPath(std::move(realOpenedPath)),
+                  directoryEnumeration()
+            {}
+
             SHandleData(SHandleData&& other) = default;
 
-            /// Move assignment operator.
-            inline SHandleData& operator=(SHandleData&& other) = default;
+            SHandleData& operator=(SHandleData&& other) = default;
 
-            /// Implicit conversion to a by-reference view.
             inline operator SHandleDataView(void)
             {
                 return {
                     .associatedPath = associatedPath,
                     .realOpenedPath = realOpenedPath,
-                    .directoryEnumeration = ((true == directoryEnumeration.has_value()) ? std::optional<SInProgressDirectoryEnumeration*>(&(*directoryEnumeration)) : std::nullopt)
-                };
+                    .directoryEnumeration =
+                        ((true == directoryEnumeration.has_value())
+                             ? std::optional<SInProgressDirectoryEnumeration*>(
+                                   &(*directoryEnumeration)
+                               )
+                             : std::nullopt)};
             }
         };
 
-
-    private:
-        // -------- INSTANCE VARIABLES ------------------------------------- //
-
-        /// Open handle data structure itself.
-        /// Maps from a handle to the filesystem path that was used to open it.
-        std::unordered_map<HANDLE, SHandleData> openHandles;
-
-        /// Mutex for ensuring concurrency-safe access to the open handles data structure.
-        SharedMutex openHandlesMutex;
-
-
-    public:
-        // -------- CLASS METHODS ------------------------------------------ //
-
         /// Retrieves a reference to the singleton instance of this object.
-        /// It holds all open handles for directories that might at some point become the `RootDirectory` member of an `OBJECT_ATTRIBUTES` structure or the subject of a directory enumeration query.
+        /// It holds all open handles for directories that might at some point become the
+        /// `RootDirectory` member of an `OBJECT_ATTRIBUTES` structure or the subject of a directory
+        /// enumeration query.
         static inline OpenHandleStore& Singleton(void)
         {
             static OpenHandleStore* const openHandleCache = new OpenHandleStore;
             return *openHandleCache;
         }
 
-
-        // -------- INSTANCE METHODS --------------------------------------- //
-
         /// Associates a directory enumeration state object with the specified handle.
-        /// @param [in] handleToAssociate Handle to be associated with the directory enumeration queue.
-        /// @param [in] directoryEnumerationQueue Directory enumeration queue to associate with the handle. This object takes over ownership of the provided directory enumeration queue.
-        /// @param [in] fileInformationStructLayout Layout description for the file information structures that will be produced by the directory enumeration query.
-        inline void AssociateDirectoryEnumerationState(HANDLE handleToAssociate, std::unique_ptr<IDirectoryOperationQueue>&& directoryEnumerationQueue, FileInformationStructLayout fileInformationStructLayout)
+        /// @param [in] handleToAssociate Handle to be associated with the directory enumeration
+        /// queue.
+        /// @param [in] directoryEnumerationQueue Directory enumeration queue to associate with the
+        /// handle. This object takes over ownership of the provided directory enumeration queue.
+        /// @param [in] fileInformationStructLayout Layout description for the file information
+        /// structures that will be produced by the directory enumeration query.
+        inline void AssociateDirectoryEnumerationState(
+            HANDLE handleToAssociate,
+            std::unique_ptr<IDirectoryOperationQueue>&& directoryEnumerationQueue,
+            FileInformationStructLayout fileInformationStructLayout
+        )
         {
             std::shared_lock lock(openHandlesMutex);
 
             auto openHandleIter = openHandles.find(handleToAssociate);
-            DebugAssert(openHandleIter != openHandles.end(), "Attempting to associate a directory enumeration queue with a handle that is not in storage.");
-            if (openHandleIter == openHandles.end())
-                return;
+            DebugAssert(
+                openHandleIter != openHandles.end(),
+                "Attempting to associate a directory enumeration queue with a handle that is not in storage."
+            );
+            if (openHandleIter == openHandles.end()) return;
 
-            DebugAssert(false == openHandleIter->second.directoryEnumeration.has_value(), "Attempting to re-associate a directory enumeration queue with a handle that already has one.");
+            DebugAssert(
+                false == openHandleIter->second.directoryEnumeration.has_value(),
+                "Attempting to re-associate a directory enumeration queue with a handle that already has one."
+            );
 
-            openHandleIter->second.directoryEnumeration = SInProgressDirectoryEnumeration{.queue = std::move(directoryEnumerationQueue), .fileInformationStructLayout = fileInformationStructLayout};
+            openHandleIter->second.directoryEnumeration = SInProgressDirectoryEnumeration{
+                .queue = std::move(directoryEnumerationQueue),
+                .fileInformationStructLayout = fileInformationStructLayout};
         }
 
-        /// Queries the open handle store for the specified handle and retrieves a read-only view of the associated data, if the handle is found in the store.
+        /// Queries the open handle store for the specified handle and retrieves a read-only view of
+        /// the associated data, if the handle is found in the store.
         /// @param [in] handleToQuery Handle for which to query.
-        /// @return Read-only view of the data associated with the handle, if the handle exists in the store.
+        /// @return Read-only view of the data associated with the handle, if the handle exists in
+        /// the store.
         inline std::optional<SHandleDataView> GetDataForHandle(HANDLE handleToQuery)
         {
             std::shared_lock lock(openHandlesMutex);
 
             auto openHandleIter = openHandles.find(handleToQuery);
-            if (openHandleIter == openHandles.cend())
-                return std::nullopt;
+            if (openHandleIter == openHandles.cend()) return std::nullopt;
 
             return openHandleIter->second;
         }
@@ -146,28 +164,49 @@ namespace Pathwinder
         /// @param [in] handleToInsert Handle to be inserted.
         /// @param [in] associatedPath Path to associate internally with the handle.
         /// @param [in] realOpenedPath Path that was actually opened when producing the handle.
-        inline void InsertHandle(HANDLE handleToInsert, std::wstring&& associatedPath, std::wstring&& realOpenedPath)
+        inline void InsertHandle(
+            HANDLE handleToInsert, std::wstring&& associatedPath, std::wstring&& realOpenedPath
+        )
         {
             std::unique_lock lock(openHandlesMutex);
 
-            const bool insertionWasSuccessful = openHandles.emplace(handleToInsert, SHandleData(std::move(associatedPath), std::move(realOpenedPath))).second;
+            const bool insertionWasSuccessful =
+                openHandles
+                    .emplace(
+                        handleToInsert,
+                        SHandleData(std::move(associatedPath), std::move(realOpenedPath))
+                    )
+                    .second;
             DebugAssert(true == insertionWasSuccessful, "Failed to insert a handle into storage.");
         }
 
-        /// Inserts a new handle and corresponding path into the open handle store or, if the handle already exists, updates its stored data.
-        /// Does not affect the directory enumeration queue, only the path metadata.
+        /// Inserts a new handle and corresponding path into the open handle store or, if the handle
+        /// already exists, updates its stored data. Does not affect the directory enumeration
+        /// queue, only the path metadata.
         /// @param [in] handleToInsert Handle to be inserted.
         /// @param [in] associatedPath Path to associate internally with the handle.
         /// @param [in] realOpenedPath Path that was actually opened when producing the handle.
-        inline void InsertOrUpdateHandle(HANDLE handleToInsertOrUpdate, std::wstring&& associatedPath, std::wstring&& realOpenedPath)
+        inline void InsertOrUpdateHandle(
+            HANDLE handleToInsertOrUpdate,
+            std::wstring&& associatedPath,
+            std::wstring&& realOpenedPath
+        )
         {
             std::unique_lock lock(openHandlesMutex);
 
             auto existingHandleIter = openHandles.find(handleToInsertOrUpdate);
             if (openHandles.end() == existingHandleIter)
             {
-                const bool insertionWasSuccessful = openHandles.emplace(handleToInsertOrUpdate, SHandleData(std::move(associatedPath), std::move(realOpenedPath))).second;
-                DebugAssert(true == insertionWasSuccessful, "Failed to insert a handle into storage.");
+                const bool insertionWasSuccessful =
+                    openHandles
+                        .emplace(
+                            handleToInsertOrUpdate,
+                            SHandleData(std::move(associatedPath), std::move(realOpenedPath))
+                        )
+                        .second;
+                DebugAssert(
+                    true == insertionWasSuccessful, "Failed to insert a handle into storage."
+                );
             }
             else
             {
@@ -178,15 +217,16 @@ namespace Pathwinder
 
         /// Attempts to remove an existing handle and corresponding path from the open handle store.
         /// @param [in] handleToRemove Handle to be removed.
-        /// @param [out] handleData Handle data object to receive ownership of the corresponding data for the handle that was removed, if not null. Only filled if this method returns `true`.
+        /// @param [out] handleData Handle data object to receive ownership of the corresponding
+        /// data for the handle that was removed, if not null. Only filled if this method returns
+        /// `true`.
         /// @return `true` if the handle was found and removed, `false` otherwise.
         inline bool RemoveHandle(HANDLE handleToRemove, SHandleData* handleData)
         {
             std::unique_lock lock(openHandlesMutex);
 
             auto removalIter = openHandles.find(handleToRemove);
-            if (openHandles.end() == removalIter)
-                return false;
+            if (openHandles.end() == removalIter) return false;
 
             if (nullptr == handleData)
                 openHandles.erase(removalIter);
@@ -196,22 +236,29 @@ namespace Pathwinder
             return true;
         }
 
-        /// Attempts to close and subsequently remove an existing handle and corresponding path from the open handle store.
-        /// Both handle closure and removal need to be done while the lock is held, to ensure proper concurrency control.
-        /// This avoids a race condition in which a closed handle is reused and re-added to the store before the closing thread has a chance to remove it first.
+        /// Attempts to close and subsequently remove an existing handle and corresponding path from
+        /// the open handle store. Both handle closure and removal need to be done while the lock is
+        /// held, to ensure proper concurrency control. This avoids a race condition in which a
+        /// closed handle is reused and re-added to the store before the closing thread has a chance
+        /// to remove it first.
         /// @param [in] handleToRemove Handle to be removed.
-        /// @param [out] handleData Handle data object to receive ownership of the corresponding data for the handle that was removed, if not null. Only filled if the underlying system call to close the handle succeeds.
+        /// @param [out] handleData Handle data object to receive ownership of the corresponding
+        /// data for the handle that was removed, if not null. Only filled if the underlying system
+        /// call to close the handle succeeds.
         /// @return Result of the underlying system call to `NtClose` to close the handle.
         inline NTSTATUS RemoveAndCloseHandle(HANDLE handleToRemove, SHandleData* handleData)
         {
             std::unique_lock lock(openHandlesMutex);
 
             auto removalIter = openHandles.find(handleToRemove);
-            DebugAssert(openHandles.end() != removalIter, "Attempting to close and erase a handle that was not previously stored.");
+            DebugAssert(
+                openHandles.end() != removalIter,
+                "Attempting to close and erase a handle that was not previously stored."
+            );
 
-            NTSTATUS systemCallResult = Hooks::ProtectedDependency::NtClose::SafeInvoke(handleToRemove);
-            if (!(NT_SUCCESS(systemCallResult)))
-                return systemCallResult;
+            NTSTATUS systemCallResult =
+                Hooks::ProtectedDependency::NtClose::SafeInvoke(handleToRemove);
+            if (!(NT_SUCCESS(systemCallResult))) return systemCallResult;
 
             if (nullptr == handleData)
                 openHandles.erase(removalIter);
@@ -220,5 +267,14 @@ namespace Pathwinder
 
             return systemCallResult;
         }
+
+    private:
+
+        /// Open handle data structure itself.
+        /// Maps from a handle to the filesystem path that was used to open it.
+        std::unordered_map<HANDLE, SHandleData> openHandles;
+
+        /// Mutex for ensuring concurrency-safe access to the open handles data structure.
+        SharedMutex openHandlesMutex;
     };
-}
+}  // namespace Pathwinder

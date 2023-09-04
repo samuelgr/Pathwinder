@@ -1,66 +1,63 @@
-/*****************************************************************************
+/***************************************************************************************************
  * Pathwinder
  *   Path redirection for files, directories, and registry entries.
- *****************************************************************************
+ ***************************************************************************************************
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2023
- *************************************************************************//**
+ ***********************************************************************************************//**
  * @file Message.cpp
  *   Message output implementation.
- *****************************************************************************/
+ **************************************************************************************************/
 
-#include "ApiWindows.h"
-#include "Globals.h"
 #include "Message.h"
-#include "MutexWrapper.h"
-#include "Strings.h"
-#include "TemporaryBuffer.h"
+
+#include <sal.h>
 
 #include <cstdarg>
 #include <cstdio>
 #include <mutex>
-#include <psapi.h>
-#include <sal.h>
-#include <shlobj.h>
 #include <string>
 
+#include "ApiWindowsShell.h"
+#include "Globals.h"
+#include "MutexWrapper.h"
+#include "Strings.h"
+#include "TemporaryBuffer.h"
 
 namespace Pathwinder
 {
     namespace Message
     {
-        // -------- INTERNAL TYPES ----------------------------------------- //
-
         /// Enumerates all supported modes of outputting messages.
         enum class EOutputMode
         {
-            // Non-interactive output modes
-            DebugString,                                                ///< Message is output using a debug string, which debuggers will display.
-            LogFile,                                                    ///< Message is output to a log file.
-            Console,                                                    ///< Message is output to the console via `stderr`.
+            /// Message is output using a debug string, which debuggers will display.
+            DebugString,
 
-            // Boundary value between non-interactive and interactive modes
-            InteractiveBoundaryValue,                                   ///< Not used as a value, but separates non-interactive output modes from interactive output modes.
+            /// Message is output to a log file.
+            LogFile,
 
-            // Interactive output modes
-            GraphicalMessageBox,                                        ///< Message is output using a graphical message box.
+            /// Message is output to the console via `stderr`.
+            Console,
 
-            // Upper sentinel value
-            UpperBoundValue,                                            ///< Not used as a value. One higher than the maximum possible value in this enumeration.
+            /// Not used as a value, but separates non-interactive output modes from interactive
+            /// output modes.
+            InteractiveBoundaryValue,
+
+            /// Message is output using a graphical message box.
+            GraphicalMessageBox,
+
+            /// Not used as a value. One higher than the maximum possible value in this enumeration.
+            UpperBoundValue,
         };
-
-
-        // -------- INTERNAL VARIABLES ------------------------------------- //
 
         /// Handle to the log file, if enabled.
         static FILE* logFileHandle = nullptr;
 
         /// Specifies the minimum severity required to output a message.
-        /// Messages below this severity (i.e. above the integer value that represents this severity) are not output.
+        /// Messages below this severity (i.e. above the integer value that represents this
+        /// severity) are not output.
         static ESeverity minimumSeverityForOutput = kDefaultMinimumSeverityForOutput;
-
-
-        // -------- INTERNAL FUNCTIONS ------------------------------------- //
 
         /// Checks if the specified output mode is interactive or non-interactive.
         /// @return `true` if the mode is interactive, `false` otherwise.
@@ -69,44 +66,48 @@ namespace Pathwinder
             return (outputMode > EOutputMode::InteractiveBoundaryValue);
         }
 
-        /// Checks if the specified severity is forced interactive (i.e. one of the elements that will always cause a message to be emitted interactively).
+        /// Checks if the specified severity is forced interactive (i.e. one of the elements that
+        /// will always cause a message to be emitted interactively).
         /// @return `true` if the severity is forced interactive, `false` otherwise.
         static inline bool IsSeverityForcedInteractive(const ESeverity severity)
         {
             return (severity < ESeverity::LowerBoundConfigurableValue);
         }
 
-        /// Selects a character to represent each level of severity, for use when outputting messages.
+        /// Selects a character to represent each level of severity, for use when outputting
+        /// messages.
         /// @param [in] severity Message severity.
         /// @return Character to use to represent it.
         static wchar_t CharacterForSeverity(const ESeverity severity)
         {
             switch (severity)
             {
-            case ESeverity::ForcedInteractiveError:
-            case ESeverity::Error:
-                return L'E';
+                case ESeverity::ForcedInteractiveError:
+                case ESeverity::Error:
+                    return L'E';
 
-            case ESeverity::ForcedInteractiveWarning:
-            case ESeverity::Warning:
-                return L'W';
+                case ESeverity::ForcedInteractiveWarning:
+                case ESeverity::Warning:
+                    return L'W';
 
-            case ESeverity::ForcedInteractiveInfo:
-            case ESeverity::Info:
-                return L'I';
+                case ESeverity::ForcedInteractiveInfo:
+                case ESeverity::Info:
+                    return L'I';
 
-            case ESeverity::Debug:
-            case ESeverity::SuperDebug:
-                return L'D';
+                case ESeverity::Debug:
+                case ESeverity::SuperDebug:
+                    return L'D';
 
-            default:
-                return L'?';
+                default:
+                    return L'?';
             }
         }
 
-        /// Determines the appropriate modes of output based on the current configuration and message severity.
+        /// Determines the appropriate modes of output based on the current configuration and
+        /// message severity.
         /// @param [in] severity Severity of the message for which an output mode is being chosen.
-        /// @param [out] selectedOutputModes Filled with the output modes that are selected. Array should have EOutputMode::UpperBoundValue elements.
+        /// @param [out] selectedOutputModes Filled with the output modes that are selected. Array
+        /// should have EOutputMode::UpperBoundValue elements.
         /// @return Number of output modes selected.
         static int DetermineOutputModes(const ESeverity severity, EOutputMode* selectedOutputModes)
         {
@@ -114,8 +115,8 @@ namespace Pathwinder
 
             if (IsSeverityForcedInteractive(severity))
             {
-                // If the severity level is forced interactive, then unconditionally enable an interactive output mode.
-                // Also potentially output to an attached debugger.
+                // If the severity level is forced interactive, then unconditionally enable an
+                // interactive output mode. Also potentially output to an attached debugger.
 
                 selectedOutputModes[numOutputModes++] = EOutputMode::GraphicalMessageBox;
 
@@ -125,9 +126,10 @@ namespace Pathwinder
             else if (IsDebuggerPresent())
             {
                 // If a debugger is present, #WillOutputMessageOfSeverity will always return `true`.
-                // The goal is tn ensure that debug strings are sent for all messages irrespective of severity.
-                // For other configured output modes, it is necessary to filter based on severity.
-                // Since all messages are being sent to the debugger, using the console is unnecessary.
+                // The goal is tn ensure that debug strings are sent for all messages irrespective
+                // of severity. For other configured output modes, it is necessary to filter based
+                // on severity. Since all messages are being sent to the debugger, using the console
+                // is unnecessary.
 
                 selectedOutputModes[numOutputModes++] = EOutputMode::DebugString;
 
@@ -139,9 +141,11 @@ namespace Pathwinder
             }
             else
             {
-                // Since a debugger is not present, #WillOutputMessageOfSeverity has already validated that the severity of the message justifies outputting it.
-                // It is therefore sufficient just to pick appropriate output modes depending on message subsystem configuration.
-                // Prefer a log file if enabled, otherwise use the console. Do not use an interactive output mode in this situation.
+                // Since a debugger is not present, #WillOutputMessageOfSeverity has already
+                // validated that the severity of the message justifies outputting it. It is
+                // therefore sufficient just to pick appropriate output modes depending on message
+                // subsystem configuration. Prefer a log file if enabled, otherwise use the console.
+                // Do not use an interactive output mode in this situation.
 
                 if (IsLogFileEnabled())
                     selectedOutputModes[numOutputModes++] = EOutputMode::LogFile;
@@ -156,9 +160,16 @@ namespace Pathwinder
         /// Requires both a severity and a message string.
         /// @param [in] severity Severity of the message.
         /// @param [in] message Message text.
-        static inline void OutputInternalUsingConsole(const ESeverity severity, const wchar_t* message)
+        static inline void
+            OutputInternalUsingConsole(const ESeverity severity, const wchar_t* message)
         {
-            fwprintf_s(stderr, L"%s:[%c] %s\n", Strings::kStrProductName.data(), CharacterForSeverity(severity), message);
+            fwprintf_s(
+                stderr,
+                L"%s:[%c] %s\n",
+                Strings::kStrProductName.data(),
+                CharacterForSeverity(severity),
+                message
+            );
         }
 
         /// Outputs the specified message using a debug string.
@@ -167,7 +178,13 @@ namespace Pathwinder
         /// @param [in] message Message text.
         static void OutputInternalUsingDebugString(const ESeverity severity, const wchar_t* message)
         {
-            OutputDebugString(Strings::FormatString(L"%s:[%c] %s\n", Strings::kStrProductName.data(), CharacterForSeverity(severity), message).AsCString());
+            OutputDebugString(Strings::FormatString(
+                                  L"%s:[%c] %s\n",
+                                  Strings::kStrProductName.data(),
+                                  CharacterForSeverity(severity),
+                                  message
+            )
+                                  .AsCString());
         }
 
         /// Outputs the specified message to the log file.
@@ -184,12 +201,29 @@ namespace Pathwinder
 
             TemporaryBuffer<wchar_t> bufferTimestamp;
 
-            if (0 != GetDateFormatEx(LOCALE_NAME_USER_DEFAULT, 0, nullptr, L"MM'/'dd'/'yyyy", bufferTimestamp.Data(), bufferTimestamp.Capacity(), nullptr))
+            if (0 !=
+                GetDateFormatEx(
+                    LOCALE_NAME_USER_DEFAULT,
+                    0,
+                    nullptr,
+                    L"MM'/'dd'/'yyyy",
+                    bufferTimestamp.Data(),
+                    bufferTimestamp.Capacity(),
+                    nullptr
+                ))
                 outputString << bufferTimestamp.Data();
             else
                 outputString << L"(date not available)";
 
-            if (0 != GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, 0, nullptr, L"HH':'mm':'ss", bufferTimestamp.Data(), bufferTimestamp.Capacity()))
+            if (0 !=
+                GetTimeFormatEx(
+                    LOCALE_NAME_USER_DEFAULT,
+                    0,
+                    nullptr,
+                    L"HH':'mm':'ss",
+                    bufferTimestamp.Data(),
+                    bufferTimestamp.Capacity()
+                ))
                 outputString << L' ' << bufferTimestamp.Data();
             else
                 outputString << L" (time not available)";
@@ -212,24 +246,24 @@ namespace Pathwinder
 
             switch (severity)
             {
-            case ESeverity::ForcedInteractiveError:
-            case ESeverity::Error:
-                messageBoxType |= MB_ICONERROR;
-                break;
+                case ESeverity::ForcedInteractiveError:
+                case ESeverity::Error:
+                    messageBoxType |= MB_ICONERROR;
+                    break;
 
-            case ESeverity::ForcedInteractiveWarning:
-            case ESeverity::Warning:
-                messageBoxType |= MB_ICONWARNING;
-                break;
+                case ESeverity::ForcedInteractiveWarning:
+                case ESeverity::Warning:
+                    messageBoxType |= MB_ICONWARNING;
+                    break;
 
-            case ESeverity::ForcedInteractiveInfo:
-            case ESeverity::Info:
-                messageBoxType |= MB_ICONINFORMATION;
-                break;
+                case ESeverity::ForcedInteractiveInfo:
+                case ESeverity::Info:
+                    messageBoxType |= MB_ICONINFORMATION;
+                    break;
 
-            default:
-                messageBoxType |= MB_OK;
-                break;
+                default:
+                    messageBoxType |= MB_OK;
+                    break;
             }
 
             MessageBox(nullptr, message, Strings::kStrProductName.data(), messageBoxType);
@@ -242,9 +276,12 @@ namespace Pathwinder
         /// @param [in] message Message text.
         static void OutputInternal(const ESeverity severity, const wchar_t* message)
         {
-            // This mutex needs to be recursive specifically for Pathwinder because it hooks the `NtClose` system function, and the hook function itself might produce message output.
-            // Internally, at least one of the message output functions (for example, graphical message box) use system objects and subsequently free them using `NtClose`.
-            // As a result, this function may be called more than once by the same thread, so a non-recursive mutex would lead to deadlock.
+            // This mutex needs to be recursive specifically for Pathwinder because it hooks the
+            // `NtClose` system function, and the hook function itself might produce message output.
+            // Internally, at least one of the message output functions (for example, graphical
+            // message box) use system objects and subsequently free them using `NtClose`. As a
+            // result, this function may be called more than once by the same thread, so a
+            // non-recursive mutex would lead to deadlock.
             static RecursiveMutex outputGuard;
 
             EOutputMode outputModes[static_cast<int>(EOutputMode::UpperBoundValue)];
@@ -258,24 +295,24 @@ namespace Pathwinder
                 {
                     switch (outputModes[i])
                     {
-                    case EOutputMode::DebugString:
-                        OutputInternalUsingDebugString(severity, message);
-                        break;
+                        case EOutputMode::DebugString:
+                            OutputInternalUsingDebugString(severity, message);
+                            break;
 
-                    case EOutputMode::LogFile:
-                        OutputInternalUsingLogFile(severity, message);
-                        break;
+                        case EOutputMode::LogFile:
+                            OutputInternalUsingLogFile(severity, message);
+                            break;
 
-                    case EOutputMode::Console:
-                        OutputInternalUsingConsole(severity, message);
-                        break;
+                        case EOutputMode::Console:
+                            OutputInternalUsingConsole(severity, message);
+                            break;
 
-                    case EOutputMode::GraphicalMessageBox:
-                        OutputInternalUsingMessageBox(severity, message);
-                        break;
+                        case EOutputMode::GraphicalMessageBox:
+                            OutputInternalUsingMessageBox(severity, message);
+                            break;
 
-                    default:
-                        break;
+                        default:
+                            break;
                     }
                 }
             }
@@ -284,18 +321,16 @@ namespace Pathwinder
         /// Formats and outputs some text of the given severity.
         /// @param [in] severity Severity of the message.
         /// @param [in] format Message string, possibly with format specifiers.
-        /// @param [in] args Variable-length list of arguments to be used for any format specifiers in the message string.
-        static void OutputFormattedInternal(const ESeverity severity, const wchar_t* format, va_list args)
+        /// @param [in] args Variable-length list of arguments to be used for any format specifiers
+        /// in the message string.
+        static void
+            OutputFormattedInternal(const ESeverity severity, const wchar_t* format, va_list args)
         {
             TemporaryBuffer<wchar_t> messageBuf;
 
             vswprintf_s(messageBuf.Data(), messageBuf.Capacity(), format, args);
             OutputInternal(severity, messageBuf.Data());
         }
-
-
-        // -------- FUNCTIONS ---------------------------------------------- //
-        // See "Message.h" for documentation.
 
         void CreateAndEnableLogFile(void)
         {
@@ -305,31 +340,36 @@ namespace Pathwinder
                 if (0 != _wfopen_s(&logFileHandle, Strings::kStrLogFilename.data(), L"w"))
                 {
                     logFileHandle = nullptr;
-                    OutputFormatted(ESeverity::Error, L"%s - Unable to create log file.", Strings::kStrLogFilename.data());
+                    OutputFormatted(
+                        ESeverity::Error,
+                        L"%s - Unable to create log file.",
+                        Strings::kStrLogFilename.data()
+                    );
                     return;
                 }
 
                 // Output the log file header.
-                static constexpr wchar_t kLogHeaderSeparator[] = L"---------------------------------------------";
+                static constexpr wchar_t kLogHeaderSeparator[] =
+                    L"---------------------------------------------";
                 fwprintf_s(logFileHandle, L"%s\n", kLogHeaderSeparator);
                 fwprintf_s(logFileHandle, L"%s Log\n", Strings::kStrProductName.data());
                 fwprintf_s(logFileHandle, L"%s\n", kLogHeaderSeparator);
                 fwprintf_s(logFileHandle, L"Version:   %s\n", Globals::GetVersion().string.data());
-                fwprintf_s(logFileHandle, L"Program:   %s\n", Strings::kStrExecutableCompleteFilename.data());
+                fwprintf_s(
+                    logFileHandle,
+                    L"Program:   %s\n",
+                    Strings::kStrExecutableCompleteFilename.data()
+                );
                 fwprintf_s(logFileHandle, L"PID:       %d\n", Globals::GetCurrentProcessId());
                 fwprintf_s(logFileHandle, L"%s\n", kLogHeaderSeparator);
                 fflush(logFileHandle);
             }
         }
 
-        // --------
-
         bool IsLogFileEnabled(void)
         {
             return (nullptr != logFileHandle);
         }
-
-        // --------
 
         void Output(const ESeverity severity, const wchar_t* message)
         {
@@ -345,9 +385,9 @@ namespace Pathwinder
             SetLastError(lastError);
         }
 
-        // ---------
-
-        void OutputFormatted(const ESeverity severity, _Printf_format_string_ const wchar_t* format, ...)
+        void OutputFormatted(
+            const ESeverity severity, _Printf_format_string_ const wchar_t* format, ...
+        )
         {
             const DWORD lastError = GetLastError();
 
@@ -367,30 +407,27 @@ namespace Pathwinder
             SetLastError(lastError);
         }
 
-        // --------
-
         void SetMinimumSeverityForOutput(const ESeverity severity)
         {
             if (severity > ESeverity::LowerBoundConfigurableValue)
                 minimumSeverityForOutput = severity;
         }
 
-        // --------
-
         bool WillOutputMessageOfSeverity(const ESeverity severity)
         {
             // Messages of all severities are output unconditionally if a debugger is present.
-            // #DetermineOutputModes takes care of selecting the appropriate modes, given the message severity.
-            if (IsDebuggerPresent())
-                return true;
+            // #DetermineOutputModes takes care of selecting the appropriate modes, given the
+            // message severity.
+            if (IsDebuggerPresent()) return true;
 
-            if ((severity < ESeverity::LowerBoundConfigurableValue) || (severity <= minimumSeverityForOutput))
+            if ((severity < ESeverity::LowerBoundConfigurableValue) ||
+                (severity <= minimumSeverityForOutput))
             {
                 // Counter-intuitive: severity *values* increase as severity *levels* decrease.
-                // This is checking if the actual severity *level* is above (*value* is below) the highest severity *level* that requires output be non-interactive.
-                // If so, then there is no requirement that output be non-interactive.
-                if (severity < kMaximumSeverityToRequireNonInteractiveOutput)
-                    return true;
+                // This is checking if the actual severity *level* is above (*value* is below) the
+                // highest severity *level* that requires output be non-interactive. If so, then
+                // there is no requirement that output be non-interactive.
+                if (severity < kMaximumSeverityToRequireNonInteractiveOutput) return true;
 
                 // Check all the selected output modes.
                 // If any are interactive, then this message is skipped over.
@@ -399,8 +436,7 @@ namespace Pathwinder
 
                 for (int i = 0; i < numOutputModes; ++i)
                 {
-                    if (true == IsOutputModeInteractive(outputModes[i]))
-                        return false;
+                    if (true == IsOutputModeInteractive(outputModes[i])) return false;
                 }
 
                 return true;
@@ -408,5 +444,5 @@ namespace Pathwinder
             else
                 return false;
         }
-    }
-}
+    }  // namespace Message
+}  // namespace Pathwinder
