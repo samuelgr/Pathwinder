@@ -17,7 +17,7 @@
 Language:                                                   Cpp
 Standard:                                                   Latest
 AccessModifierOffset:                                       -4
-AlignAfterOpenBracket:                                      BlockIndent
+AlignAfterOpenBracket:                                      AlwaysBreak
 AlignArrayOfStructures:                                     None
 AlignConsecutiveAssignments:                                None
 AlignConsecutiveBitFields:                                  None

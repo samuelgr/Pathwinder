@@ -29,8 +29,7 @@ namespace Pathwinder
     /// @return Result of the comparison. See #EDirectoryCompareResult documentation for more
     /// information.
     static FilesystemRule::EDirectoryCompareResult DirectoryCompareInternal(
-        std::wstring_view candidateDirectory, std::wstring_view comparisonTargetDirectory
-    )
+        std::wstring_view candidateDirectory, std::wstring_view comparisonTargetDirectory)
     {
         if (candidateDirectory.length() == comparisonTargetDirectory.length())
         {
@@ -47,8 +46,8 @@ namespace Pathwinder
             // more than one backslash character.
 
             if ((true ==
-                 Strings::StartsWithCaseInsensitive(comparisonTargetDirectory, candidateDirectory)
-                ) &&
+                 Strings::StartsWithCaseInsensitive(
+                     comparisonTargetDirectory, candidateDirectory)) &&
                 (L'\\' == comparisonTargetDirectory[candidateDirectory.length()]))
             {
                 comparisonTargetDirectory.remove_prefix(candidateDirectory.length());
@@ -67,8 +66,8 @@ namespace Pathwinder
             // one backslash character.
 
             if ((true ==
-                 Strings::StartsWithCaseInsensitive(candidateDirectory, comparisonTargetDirectory)
-                ) &&
+                 Strings::StartsWithCaseInsensitive(
+                     candidateDirectory, comparisonTargetDirectory)) &&
                 (L'\\' == candidateDirectory[comparisonTargetDirectory.length()]))
             {
                 candidateDirectory.remove_prefix(comparisonTargetDirectory.length());
@@ -99,8 +98,7 @@ namespace Pathwinder
     /// @param [in] filePatterns Patterns against which to compare the candidate file name.
     /// @return `true` if any file pattern produces a match, `false` otherwise.
     static bool FileNameMatchesAnyPatternInternal(
-        std::wstring_view candidateFileName, const std::vector<std::wstring>& filePatterns
-    )
+        std::wstring_view candidateFileName, const std::vector<std::wstring>& filePatterns)
     {
         if (true == filePatterns.empty()) return true;
 
@@ -141,8 +139,7 @@ namespace Pathwinder
         std::wstring_view toDirectory,
         const std::vector<std::wstring>& filePatterns,
         std::wstring_view namespacePrefix,
-        std::wstring_view extraSuffix
-    )
+        std::wstring_view extraSuffix)
     {
         switch (DirectoryCompareInternal(candidatePathDirectoryPart, fromDirectory))
         {
@@ -156,8 +153,8 @@ namespace Pathwinder
                 // redirection.
 
                 if ((false == candidatePathFilePart.empty()) &&
-                    (false == FileNameMatchesAnyPatternInternal(candidatePathFilePart, filePatterns)
-                    ))
+                    (false ==
+                     FileNameMatchesAnyPatternInternal(candidatePathFilePart, filePatterns)))
                     return std::nullopt;
                 break;
             }
@@ -182,8 +179,7 @@ namespace Pathwinder
                 if (std::wstring_view::npos != lastBackslashPos)
                     immediateChildOfFromDirectory.remove_suffix(
                         immediateChildOfFromDirectory.length() -
-                        immediateChildOfFromDirectory.find_first_of(L'\\')
-                    );
+                        immediateChildOfFromDirectory.find_first_of(L'\\'));
 
                 if (false ==
                     FileNameMatchesAnyPatternInternal(immediateChildOfFromDirectory, filePatterns))
@@ -211,8 +207,7 @@ namespace Pathwinder
         std::wstring_view originDirectoryFullPath,
         std::wstring_view targetDirectoryFullPath,
         std::vector<std::wstring>&& filePatterns,
-        ERedirectMode redirectMode
-    )
+        ERedirectMode redirectMode)
         : redirectMode(redirectMode),
           originDirectorySeparator(FinalSeparatorPosition(originDirectoryFullPath)),
           targetDirectorySeparator(FinalSeparatorPosition(targetDirectoryFullPath)),
@@ -252,8 +247,7 @@ namespace Pathwinder
         std::wstring_view candidatePathDirectoryPart,
         std::wstring_view candidatePathFilePart,
         std::wstring_view namespacePrefix,
-        std::wstring_view extraSuffix
-    ) const
+        std::wstring_view extraSuffix) const
     {
         return RedirectPathInternal(
             candidatePathDirectoryPart,
@@ -262,16 +256,14 @@ namespace Pathwinder
             targetDirectoryFullPath,
             filePatterns,
             namespacePrefix,
-            extraSuffix
-        );
+            extraSuffix);
     }
 
     std::optional<TemporaryString> FilesystemRule::RedirectPathTargetToOrigin(
         std::wstring_view candidatePathDirectoryPart,
         std::wstring_view candidatePathFilePart,
         std::wstring_view namespacePrefix,
-        std::wstring_view extraSuffix
-    ) const
+        std::wstring_view extraSuffix) const
     {
         return RedirectPathInternal(
             candidatePathDirectoryPart,
@@ -280,7 +272,6 @@ namespace Pathwinder
             originDirectoryFullPath,
             filePatterns,
             namespacePrefix,
-            extraSuffix
-        );
+            extraSuffix);
     }
 }  // namespace Pathwinder

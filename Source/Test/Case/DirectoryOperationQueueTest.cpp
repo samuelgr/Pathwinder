@@ -46,8 +46,7 @@ namespace PathwinderTest
         InstructionToIncludeAllFiles(void)
     {
         return DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-            DirectoryEnumerationInstruction::EDirectoryPathSource::None
-        );
+            DirectoryEnumerationInstruction::EDirectoryPathSource::None);
     }
 
     /// Generates and returns a single directory enumeration instruction that includes only those
@@ -60,8 +59,7 @@ namespace PathwinderTest
     {
         return DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
             IncludeOnlyMatchingFilenames(
-                DirectoryEnumerationInstruction::EDirectoryPathSource::None, filePatternSource
-            );
+                DirectoryEnumerationInstruction::EDirectoryPathSource::None, filePatternSource);
     }
 
     /// Generates and returns a single directory enumeration instruction that includes only those
@@ -74,8 +72,7 @@ namespace PathwinderTest
     {
         return DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
             IncludeAllExceptMatchingFilenames(
-                DirectoryEnumerationInstruction::EDirectoryPathSource::None, filePatternSource
-            );
+                DirectoryEnumerationInstruction::EDirectoryPathSource::None, filePatternSource);
     }
 
     // Creates a directory with a small number of files and expects that they are all enumerated.
@@ -102,8 +99,7 @@ namespace PathwinderTest
         EnumerationQueue enumerationQueue(
             InstructionToIncludeAllFiles(),
             L"C:\\Directory",
-            SFileNamesInformation::kFileInformationClass
-        );
+            SFileNamesInformation::kFileInformationClass);
 
         for (auto fileName : kFileNames)
         {
@@ -140,8 +136,7 @@ namespace PathwinderTest
         EnumerationQueue enumerationQueue(
             InstructionToIncludeAllFiles(),
             L"C:\\Directory",
-            SFileNamesInformation::kFileInformationClass
-        );
+            SFileNamesInformation::kFileInformationClass);
 
         for (int i = 0; i < _countof(kFileNames) - 2; ++i)
         {
@@ -197,8 +192,7 @@ namespace PathwinderTest
             InstructionToIncludeAllFiles(),
             L"C:\\Directory",
             SFileNamesInformation::kFileInformationClass,
-            kQueryFilePattern
-        );
+            kQueryFilePattern);
 
         for (auto fileName : kMatchingFileNames)
         {
@@ -248,8 +242,7 @@ namespace PathwinderTest
             InstructionToIncludeAllFiles(),
             L"C:\\Directory",
             SFileNamesInformation::kFileInformationClass,
-            kFirstFilePattern
-        );
+            kFirstFilePattern);
 
         for (auto fileName : kFirstFilePatternMatches)
         {
@@ -308,8 +301,7 @@ namespace PathwinderTest
         EnumerationQueue enumerationQueue(
             InstructionToIncludeMatchingFiles(filePatternSource),
             L"C:\\Directory",
-            SFileNamesInformation::kFileInformationClass
-        );
+            SFileNamesInformation::kFileInformationClass);
 
         for (auto fileName : kMatchingFileNames)
         {
@@ -361,8 +353,7 @@ namespace PathwinderTest
             InstructionToIncludeMatchingFiles(filePatternSource),
             L"C:\\Directory",
             SFileNamesInformation::kFileInformationClass,
-            kQueryFilePattern
-        );
+            kQueryFilePattern);
 
         for (auto fileName : kMatchingFileNames)
         {
@@ -403,8 +394,7 @@ namespace PathwinderTest
         EnumerationQueue enumerationQueue(
             InstructionToIncludeMatchingFiles(filePatternSource),
             L"C:\\Directory",
-            SFileNamesInformation::kFileInformationClass
-        );
+            SFileNamesInformation::kFileInformationClass);
         TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
     }
 
@@ -437,8 +427,7 @@ namespace PathwinderTest
         EnumerationQueue enumerationQueue(
             InstructionToExcludeMatchingFiles(filePatternSource),
             L"C:\\Directory",
-            SFileNamesInformation::kFileInformationClass
-        );
+            SFileNamesInformation::kFileInformationClass);
         TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
     }
 
@@ -453,8 +442,7 @@ namespace PathwinderTest
         EnumerationQueue enumerationQueue(
             InstructionToIncludeAllFiles(),
             L"C:\\Directory",
-            SFileNamesInformation::kFileInformationClass
-        );
+            SFileNamesInformation::kFileInformationClass);
         TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
     }
 
@@ -466,8 +454,7 @@ namespace PathwinderTest
         EnumerationQueue enumerationQueue(
             InstructionToIncludeAllFiles(),
             L"C:\\Directory",
-            SFileNamesInformation::kFileInformationClass
-        );
+            SFileNamesInformation::kFileInformationClass);
         TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
     }
 
@@ -489,15 +476,13 @@ namespace PathwinderTest
             nameInsertionInstructions.EmplaceBack(filesystemRule);
 
         NameInsertionQueue nameInsertionQueue(
-            std::move(nameInsertionInstructions), SFileNamesInformation::kFileInformationClass
-        );
+            std::move(nameInsertionInstructions), SFileNamesInformation::kFileInformationClass);
 
         for (const auto& filesystemRule : filesystemRules)
         {
             TEST_ASSERT(NT_SUCCESS(nameInsertionQueue.EnumerationStatus()));
             TEST_ASSERT(
-                nameInsertionQueue.FileNameOfFront() == filesystemRule.GetOriginDirectoryName()
-            );
+                nameInsertionQueue.FileNameOfFront() == filesystemRule.GetOriginDirectoryName());
             nameInsertionQueue.PopFront();
         }
 
@@ -526,8 +511,7 @@ namespace PathwinderTest
         NameInsertionQueue nameInsertionQueue(
             std::move(nameInsertionInstructions),
             SFileNamesInformation::kFileInformationClass,
-            kFilePattern
-        );
+            kFilePattern);
         TEST_ASSERT(NtStatus::kNoMoreFiles == nameInsertionQueue.EnumerationStatus());
     }
 
@@ -549,15 +533,13 @@ namespace PathwinderTest
             nameInsertionInstructions.EmplaceBack(filesystemRule);
 
         NameInsertionQueue nameInsertionQueue(
-            std::move(nameInsertionInstructions), SFileNamesInformation::kFileInformationClass
-        );
+            std::move(nameInsertionInstructions), SFileNamesInformation::kFileInformationClass);
 
         for (const auto& filesystemRule : filesystemRules)
         {
             TEST_ASSERT(NT_SUCCESS(nameInsertionQueue.EnumerationStatus()));
             TEST_ASSERT(
-                nameInsertionQueue.FileNameOfFront() == filesystemRule.GetOriginDirectoryName()
-            );
+                nameInsertionQueue.FileNameOfFront() == filesystemRule.GetOriginDirectoryName());
             nameInsertionQueue.PopFront();
         }
 
@@ -581,8 +563,7 @@ namespace PathwinderTest
             nameInsertionInstructions.EmplaceBack(filesystemRule);
 
         NameInsertionQueue nameInsertionQueue(
-            std::move(nameInsertionInstructions), SFileNamesInformation::kFileInformationClass
-        );
+            std::move(nameInsertionInstructions), SFileNamesInformation::kFileInformationClass);
         TEST_ASSERT(NtStatus::kNoMoreFiles == nameInsertionQueue.EnumerationStatus());
     }
 
@@ -608,8 +589,7 @@ namespace PathwinderTest
             nameInsertionInstructions.EmplaceBack(filesystemRule);
 
         NameInsertionQueue nameInsertionQueue(
-            std::move(nameInsertionInstructions), SFileNamesInformation::kFileInformationClass
-        );
+            std::move(nameInsertionInstructions), SFileNamesInformation::kFileInformationClass);
 
         constexpr std::wstring_view kExpectedEnumeratedItems[] = {L"Origin2", L"Origin3"};
 
@@ -629,20 +609,17 @@ namespace PathwinderTest
     {
         FileInformationStructLayout layout =
             *FileInformationStructLayout::LayoutForFileInformationClass(
-                SFileNamesInformation::kFileInformationClass
-            );
+                SFileNamesInformation::kFileInformationClass);
 
         const MockDirectoryOperationQueue::TFileNamesToEnumerate kFileNamesFirstQueue = {
             L"File10.txt", L"File20.txt", L"File30.txt", L"File40.txt", L"File70.txt"};
         auto firstQueue = std::make_unique<MockDirectoryOperationQueue>(
-            layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesFirstQueue)
-        );
+            layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesFirstQueue));
 
         const MockDirectoryOperationQueue::TFileNamesToEnumerate kFileNamesSecondQueue = {
             L"File18.txt", L"File35.txt", L"File50.txt", L"File67.txt"};
         auto secondQueue = std::make_unique<MockDirectoryOperationQueue>(
-            layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesSecondQueue)
-        );
+            layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesSecondQueue));
 
         MockDirectoryOperationQueue::TFileNamesToEnumerate combinedFileNamesSorted;
         for (const auto& filename : kFileNamesFirstQueue)
@@ -669,14 +646,12 @@ namespace PathwinderTest
     {
         FileInformationStructLayout layout =
             *FileInformationStructLayout::LayoutForFileInformationClass(
-                SFileNamesInformation::kFileInformationClass
-            );
+                SFileNamesInformation::kFileInformationClass);
 
         const MockDirectoryOperationQueue::TFileNamesToEnumerate kFileNamesFirstQueue = {
             L"File10.txt", L"File20.txt", L"File30.txt", L"File40.txt", L"File70.txt"};
         auto firstQueue = std::make_unique<MockDirectoryOperationQueue>(
-            layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesFirstQueue)
-        );
+            layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesFirstQueue));
 
         const MockDirectoryOperationQueue::TFileNamesToEnumerate kFileNamesSecondQueue = {
             L"File01.txt",
@@ -690,8 +665,7 @@ namespace PathwinderTest
             L"File09.txt",
         };
         auto secondQueue = std::make_unique<MockDirectoryOperationQueue>(
-            layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesSecondQueue)
-        );
+            layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesSecondQueue));
 
         MockDirectoryOperationQueue::TFileNamesToEnumerate combinedFileNamesSorted;
         for (const auto& filename : kFileNamesFirstQueue)
@@ -718,20 +692,17 @@ namespace PathwinderTest
     {
         FileInformationStructLayout layout =
             *FileInformationStructLayout::LayoutForFileInformationClass(
-                SFileNamesInformation::kFileInformationClass
-            );
+                SFileNamesInformation::kFileInformationClass);
 
         const MockDirectoryOperationQueue::TFileNamesToEnumerate kFileNamesFirstQueue = {
             L"File10.txt", L"File20.txt", L"File30.txt", L"File40.txt", L"File70.txt"};
         auto firstQueue = std::make_unique<MockDirectoryOperationQueue>(
-            layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesFirstQueue)
-        );
+            layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesFirstQueue));
 
         const MockDirectoryOperationQueue::TFileNamesToEnumerate kFileNamesSecondQueue = {
             L"File18.txt", L"File35.txt", L"File50.txt", L"File67.txt"};
         auto secondQueue = std::make_unique<MockDirectoryOperationQueue>(
-            layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesSecondQueue)
-        );
+            layout, MockDirectoryOperationQueue::TFileNamesToEnumerate(kFileNamesSecondQueue));
 
         MockDirectoryOperationQueue::TFileNamesToEnumerate combinedFileNamesSorted;
         for (const auto& filename : kFileNamesFirstQueue)
@@ -828,14 +799,12 @@ namespace PathwinderTest
             InstructionToIncludeAllFiles(),
             kFirstDirectoryName,
             kFileInformationClass,
-            kFirstFilePattern
-        );
+            kFirstFilePattern);
         auto secondQueue = std::make_unique<EnumerationQueue>(
             InstructionToIncludeAllFiles(),
             kSecondDirectoryName,
             kFileInformationClass,
-            kFirstFilePattern
-        );
+            kFirstFilePattern);
 
         MergedFileInformationQueue mergedQueue({std::move(firstQueue), std::move(secondQueue)});
 
@@ -875,8 +844,7 @@ namespace PathwinderTest
         {
             MergedFileInformationQueue mergedQueue(
                 {std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.first),
-                 std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)}
-            );
+                 std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)});
 
             const NTSTATUS actualEnumerationStatus = mergedQueue.EnumerationStatus();
             TEST_ASSERT(actualEnumerationStatus == expectedEnumerationStatus);
@@ -897,8 +865,7 @@ namespace PathwinderTest
         {
             MergedFileInformationQueue mergedQueue(
                 {std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.first),
-                 std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)}
-            );
+                 std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)});
 
             const NTSTATUS actualEnumerationStatus = mergedQueue.EnumerationStatus();
             TEST_ASSERT(actualEnumerationStatus == expectedEnumerationStatus);
@@ -923,8 +890,7 @@ namespace PathwinderTest
         {
             MergedFileInformationQueue mergedQueue(
                 {std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.first),
-                 std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)}
-            );
+                 std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)});
 
             const NTSTATUS actualEnumerationStatus = mergedQueue.EnumerationStatus();
             TEST_ASSERT(actualEnumerationStatus == expectedEnumerationStatus);

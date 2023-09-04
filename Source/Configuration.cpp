@@ -359,8 +359,7 @@ namespace Pathwinder
         /// @param [out] nameString Filled with the name of the configuration setting.
         /// @param [out] valueString Filled with the value specified for the configuration setting.
         static void ParseNameAndValue(
-            wchar_t* configFileLine, std::wstring_view& nameString, std::wstring_view& valueString
-        )
+            wchar_t* configFileLine, std::wstring_view& nameString, std::wstring_view& valueString)
         {
             // Skip to the start of the name part of the line.
             wchar_t* name = configFileLine;
@@ -427,8 +426,7 @@ namespace Pathwinder
         /// @param [in] lineBufferCount Length, in character units, of the line buffer.
         /// @return Length of the string that was read, with -1 indicating an error condition.
         template <typename ReadHandleType> static int ReadAndTrimLine(
-            ReadHandleType& readHandle, wchar_t* const lineBuffer, const int lineBufferCount
-        )
+            ReadHandleType& readHandle, wchar_t* const lineBuffer, const int lineBufferCount)
         {
             return -1;
         }
@@ -441,8 +439,7 @@ namespace Pathwinder
         /// @param [in] lineBufferCount Length, in character units, of the line buffer.
         /// @return Length of the string that was read, with -1 indicating an error condition.
         template <> static int ReadAndTrimLine<FileHandle>(
-            FileHandle& fileHandle, wchar_t* const lineBuffer, const int lineBufferCount
-        )
+            FileHandle& fileHandle, wchar_t* const lineBuffer, const int lineBufferCount)
         {
             // Results in a null-terminated string guaranteed, but might not be the whole line if
             // the buffer is too small.
@@ -474,8 +471,7 @@ namespace Pathwinder
         template <> static int ReadAndTrimLine<MemoryBufferHandle>(
             MemoryBufferHandle& memoryBufferHandle,
             wchar_t* const lineBuffer,
-            const int lineBufferCount
-        )
+            const int lineBufferCount)
         {
             if (memoryBufferHandle.IsEndOfInput()) return -1;
 
@@ -596,8 +592,7 @@ namespace Pathwinder
 
             auto extractedName = names.extract(nameIterator);
             return std::make_pair(
-                std::move(extractedName.key()), std::move(extractedName.mapped())
-            );
+                std::move(extractedName.key()), std::move(extractedName.mapped()));
         }
 
         template <typename ValueType>
@@ -701,8 +696,7 @@ namespace Pathwinder
         {
             auto extractedSection = sections.extract(position);
             return std::make_pair(
-                std::move(extractedSection.key()), std::move(extractedSection.mapped())
-            );
+                std::move(extractedSection.key()), std::move(extractedSection.mapped()));
         }
 
         std::optional<std::pair<std::wstring, Section>>
@@ -715,8 +709,7 @@ namespace Pathwinder
         }
 
         ConfigurationData ConfigurationFileReader::ReadConfigurationFile(
-            std::wstring_view configFileName, bool mustExist
-        )
+            std::wstring_view configFileName, bool mustExist)
         {
             FileHandle configFileHandle(configFileName.data(), L"r");
             if (nullptr == configFileHandle)
@@ -725,8 +718,7 @@ namespace Pathwinder
 
                 if (true == mustExist)
                     configDataFromNonExistentFile.InsertReadErrorMessage(
-                        Strings::FormatString(L"%s: Unable to open file.", configFileName.data())
-                    );
+                        Strings::FormatString(L"%s: Unable to open file.", configFileName.data()));
 
                 return configDataFromNonExistentFile;
             }
@@ -743,15 +735,12 @@ namespace Pathwinder
                 Strings::FormatString(
                     L"[0x%0.*zx]",
                     static_cast<int>(2 * sizeof(size_t)),
-                    reinterpret_cast<size_t>(configBuffer.data())
-                )
-            );
+                    reinterpret_cast<size_t>(configBuffer.data())));
         }
 
         template <typename ReadHandleType>
         ConfigurationData ConfigurationFileReader::ReadConfiguration(
-            ReadHandleType& readHandle, std::wstring_view configSourceName
-        )
+            ReadHandleType& readHandle, std::wstring_view configSourceName)
         {
             ConfigurationData configToFill;
 
@@ -775,8 +764,7 @@ namespace Pathwinder
                         configToFill.InsertReadErrorMessage(Strings::FormatString(
                             L"%s(%d): Unable to parse line.",
                             configSourceName.data(),
-                            configLineNumber
-                        ));
+                            configLineNumber));
                         break;
 
                     case ELineClassification::Ignore:
@@ -792,8 +780,7 @@ namespace Pathwinder
                                 L"%s(%d): %s: Duplicated section name.",
                                 configSourceName.data(),
                                 configLineNumber,
-                                section.data()
-                            ));
+                                section.data()));
                             skipValueLines = true;
                             break;
                         }
@@ -807,15 +794,13 @@ namespace Pathwinder
                                         L"%s(%d): %s",
                                         configSourceName.data(),
                                         configLineNumber,
-                                        GetLastErrorMessage().c_str()
-                                    ));
+                                        GetLastErrorMessage().c_str()));
                                 else
                                     configToFill.InsertReadErrorMessage(Strings::FormatString(
                                         L"%s(%d): %s: Unrecognized section name.",
                                         configSourceName.data(),
                                         configLineNumber,
-                                        section.data()
-                                    ));
+                                        section.data()));
                                 skipValueLines = true;
                                 break;
 
@@ -832,8 +817,7 @@ namespace Pathwinder
                                 configToFill.InsertReadErrorMessage(Strings::FormatString(
                                     L"%s(%d): Internal error while processing section name.",
                                     configSourceName.data(),
-                                    configLineNumber
-                                ));
+                                    configLineNumber));
                                 skipValueLines = true;
                                 break;
                         }
@@ -863,8 +847,7 @@ namespace Pathwinder
                                             L"%s(%d): %s: Only a single value is allowed for this setting.",
                                             configSourceName.data(),
                                             configLineNumber,
-                                            name.data()
-                                        ));
+                                            name.data()));
                                         shouldParseValue = false;
                                     }
                                     break;
@@ -883,8 +866,7 @@ namespace Pathwinder
                                         L"%s(%d): %s: Unrecognized configuration setting.",
                                         configSourceName.data(),
                                         configLineNumber,
-                                        name.data()
-                                    ));
+                                        name.data()));
                                     break;
 
                                 case EValueType::Integer:
@@ -898,8 +880,7 @@ namespace Pathwinder
                                             L"%s(%d): %s: Failed to parse integer value.",
                                             configSourceName.data(),
                                             configLineNumber,
-                                            value.data()
-                                        ));
+                                            value.data()));
                                         break;
                                     }
 
@@ -912,9 +893,7 @@ namespace Pathwinder
                                                         L"%s(%d): %s",
                                                         configSourceName.data(),
                                                         configLineNumber,
-                                                        GetLastErrorMessage().c_str()
-                                                    )
-                                                );
+                                                        GetLastErrorMessage().c_str()));
                                             else
                                                 configToFill.InsertReadErrorMessage(
                                                     Strings::FormatString(
@@ -922,9 +901,7 @@ namespace Pathwinder
                                                         configSourceName.data(),
                                                         configLineNumber,
                                                         value.data(),
-                                                        name.data()
-                                                    )
-                                                );
+                                                        name.data()));
                                             break;
 
                                         case EAction::Process:
@@ -932,17 +909,15 @@ namespace Pathwinder
                                                 configToFill.InsertValue(
                                                     thisSection,
                                                     name,
-                                                    Value(TIntegerValue(intValue), configLineNumber)
-                                                ))
+                                                    Value(
+                                                        TIntegerValue(intValue), configLineNumber)))
                                                 configToFill.InsertReadErrorMessage(
                                                     Strings::FormatString(
                                                         L"%s(%d): %s: Duplicated value for configuration setting %s.",
                                                         configSourceName.data(),
                                                         configLineNumber,
                                                         value.data(),
-                                                        name.data()
-                                                    )
-                                                );
+                                                        name.data()));
                                             break;
                                     }
                                     break;
@@ -959,8 +934,7 @@ namespace Pathwinder
                                             L"%s(%d): %s: Failed to parse Boolean value.",
                                             configSourceName.data(),
                                             configLineNumber,
-                                            value.data()
-                                        ));
+                                            value.data()));
                                         break;
                                     }
 
@@ -973,9 +947,7 @@ namespace Pathwinder
                                                         L"%s(%d): %s",
                                                         configSourceName.data(),
                                                         configLineNumber,
-                                                        GetLastErrorMessage().c_str()
-                                                    )
-                                                );
+                                                        GetLastErrorMessage().c_str()));
                                             else
                                                 configToFill.InsertReadErrorMessage(
                                                     Strings::FormatString(
@@ -983,9 +955,7 @@ namespace Pathwinder
                                                         configSourceName.data(),
                                                         configLineNumber,
                                                         value.data(),
-                                                        name.data()
-                                                    )
-                                                );
+                                                        name.data()));
                                             break;
 
                                         case EAction::Process:
@@ -994,18 +964,15 @@ namespace Pathwinder
                                                     thisSection,
                                                     name,
                                                     Value(
-                                                        TBooleanValue(boolValue), configLineNumber
-                                                    )
-                                                ))
+                                                        TBooleanValue(boolValue),
+                                                        configLineNumber)))
                                                 configToFill.InsertReadErrorMessage(
                                                     Strings::FormatString(
                                                         L"%s(%d): %s: Duplicated value for configuration setting %s.",
                                                         configSourceName.data(),
                                                         configLineNumber,
                                                         value.data(),
-                                                        name.data()
-                                                    )
-                                                );
+                                                        name.data()));
                                             break;
                                     }
                                     break;
@@ -1023,9 +990,7 @@ namespace Pathwinder
                                                         L"%s(%d): %s",
                                                         configSourceName.data(),
                                                         configLineNumber,
-                                                        GetLastErrorMessage().c_str()
-                                                    )
-                                                );
+                                                        GetLastErrorMessage().c_str()));
                                             else
                                                 configToFill.InsertReadErrorMessage(
                                                     Strings::FormatString(
@@ -1033,9 +998,7 @@ namespace Pathwinder
                                                         configSourceName.data(),
                                                         configLineNumber,
                                                         value.data(),
-                                                        name.data()
-                                                    )
-                                                );
+                                                        name.data()));
                                             break;
 
                                         case EAction::Process:
@@ -1043,17 +1006,14 @@ namespace Pathwinder
                                                 configToFill.InsertValue(
                                                     thisSection,
                                                     name,
-                                                    Value(TStringValue(value), configLineNumber)
-                                                ))
+                                                    Value(TStringValue(value), configLineNumber)))
                                                 configToFill.InsertReadErrorMessage(
                                                     Strings::FormatString(
                                                         L"%s(%d): %s: Duplicated value for configuration setting %s.",
                                                         configSourceName.data(),
                                                         configLineNumber,
                                                         value.data(),
-                                                        name.data()
-                                                    )
-                                                );
+                                                        name.data()));
                                             break;
                                     }
                                     break;
@@ -1063,8 +1023,7 @@ namespace Pathwinder
                                     configToFill.InsertReadErrorMessage(Strings::FormatString(
                                         L"%s(%d): Internal error while processing configuration setting.",
                                         configSourceName.data(),
-                                        configLineNumber
-                                    ));
+                                        configLineNumber));
                                     break;
                             }
                         }
@@ -1074,14 +1033,12 @@ namespace Pathwinder
                         configToFill.InsertReadErrorMessage(Strings::FormatString(
                             L"%s(%d): Internal error while processing line.",
                             configSourceName.data(),
-                            configLineNumber
-                        ));
+                            configLineNumber));
                         break;
                 }
 
                 configLineLength = ReadAndTrimLine(
-                    readHandle, configLineBuffer.Data(), configLineBuffer.Capacity()
-                );
+                    readHandle, configLineBuffer.Data(), configLineBuffer.Capacity());
                 configLineNumber += 1;
             }
 
@@ -1095,15 +1052,13 @@ namespace Pathwinder
                     configToFill.InsertReadErrorMessage(Strings::FormatString(
                         L"%s(%d): I/O error while reading.",
                         configSourceName.data(),
-                        configLineNumber
-                    ));
+                        configLineNumber));
                     return configToFill;
                 }
                 else if (configLineLength < 0)
                 {
                     configToFill.InsertReadErrorMessage(Strings::FormatString(
-                        L"%s(%d): Line is too long.", configSourceName.data(), configLineNumber
-                    ));
+                        L"%s(%d): Line is too long.", configSourceName.data(), configLineNumber));
                     return configToFill;
                 }
             }

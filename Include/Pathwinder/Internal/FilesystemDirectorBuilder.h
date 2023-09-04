@@ -85,8 +85,7 @@ namespace Pathwinder
             std::wstring_view originDirectory,
             std::wstring_view targetDirectory,
             std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>(),
-            FilesystemRule::ERedirectMode redirectMode = FilesystemRule::ERedirectMode::Simple
-        );
+            FilesystemRule::ERedirectMode redirectMode = FilesystemRule::ERedirectMode::Simple);
 
         /// Attempts to create a new rule and insert it into the candidate filesystem director,
         /// reading settings from a configuration data section. The same constraints are imposed as
@@ -97,8 +96,7 @@ namespace Pathwinder
         /// that define the new rule.
         /// @return Pointer to the new rule on success, error message on failure.
         ValueOrError<const FilesystemRule*, TemporaryString> AddRuleFromConfigurationSection(
-            std::wstring_view ruleName, Configuration::Section& configSection
-        );
+            std::wstring_view ruleName, Configuration::Section& configSection);
 
         /// Attempts to build a real filesystem director object using all of the rules added so far.
         /// Built filesystem director objects are immutable. Some constraints that are enforced
@@ -130,8 +128,7 @@ namespace Pathwinder
         {
             return (
                 originDirectories.Contains(directoryFullPath) ||
-                targetDirectories.contains(directoryFullPath)
-            );
+                targetDirectories.contains(directoryFullPath));
         }
 
         /// Determines if any rule added to this object uses the specified directory as its origin

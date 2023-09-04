@@ -26,13 +26,11 @@ namespace Pathwinder
         // ConfigurationFileReader
         EAction ActionForSection(std::wstring_view section) override;
         EAction ActionForValue(
-            std::wstring_view section, std::wstring_view name, TIntegerView value
-        ) override;
+            std::wstring_view section, std::wstring_view name, TIntegerView value) override;
         EAction ActionForValue(
-            std::wstring_view section, std::wstring_view name, TBooleanView value
-        ) override;
-        EAction ActionForValue(std::wstring_view section, std::wstring_view name, TStringView value)
-            override;
+            std::wstring_view section, std::wstring_view name, TBooleanView value) override;
+        EAction ActionForValue(
+            std::wstring_view section, std::wstring_view name, TStringView value) override;
         EValueType TypeForValue(std::wstring_view section, std::wstring_view name) override;
     };
 }  // namespace Pathwinder

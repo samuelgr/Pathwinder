@@ -27,49 +27,39 @@
                 sizeof(structname),                                                                \
                 offsetof(structname, nextEntryOffset),                                             \
                 offsetof(structname, fileNameLength),                                              \
-                offsetof(structname, fileName)                                                     \
-            )                                                                                      \
+                offsetof(structname, fileName))                                                    \
     }
 
 namespace Pathwinder
 {
     std::optional<FileInformationStructLayout>
         FileInformationStructLayout::LayoutForFileInformationClass(
-            FILE_INFORMATION_CLASS fileInformationClass
-        )
+            FILE_INFORMATION_CLASS fileInformationClass)
     {
         static const std::unordered_map<FILE_INFORMATION_CLASS, FileInformationStructLayout>
             kFileInformationStructureLayouts = {
                 FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(SFileDirectoryInformation),
                 FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(
-                    SFileFullDirectoryInformation
-                ),
+                    SFileFullDirectoryInformation),
                 FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(
-                    SFileBothDirectoryInformation
-                ),
+                    SFileBothDirectoryInformation),
                 FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(SFileNamesInformation),
                 FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(
-                    SFileIdBothDirectoryInformation
-                ),
+                    SFileIdBothDirectoryInformation),
                 FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(
-                    SFileIdFullDirectoryInformation
-                ),
+                    SFileIdFullDirectoryInformation),
                 FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(
-                    SFileIdGlobalTxDirectoryInformation
-                ),
+                    SFileIdGlobalTxDirectoryInformation),
                 FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(
-                    SFileIdExtdDirectoryInformation
-                ),
+                    SFileIdExtdDirectoryInformation),
                 FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(
-                    SFileIdExtdBothDirectoryInformation
-                )};
+                    SFileIdExtdBothDirectoryInformation)};
 
         auto layoutIter = kFileInformationStructureLayouts.find(fileInformationClass);
 
         DebugAssert(
             layoutIter != kFileInformationStructureLayouts.cend(),
-            "Unsupported file information class."
-        );
+            "Unsupported file information class.");
 
         if (layoutIter == kFileInformationStructureLayouts.cend()) return std::nullopt;
 

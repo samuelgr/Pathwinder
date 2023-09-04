@@ -53,8 +53,7 @@ namespace Pathwinder
         static constexpr ValueOrError<ValueType, ErrorType> MakeError(Args&&... args)
         {
             return ValueOrError<ValueType, ErrorType>(
-                std::in_place_index<1>, ErrorType(std::forward<Args>(args)...)
-            );
+                std::in_place_index<1>, ErrorType(std::forward<Args>(args)...));
         }
 
         /// Creates an object that holds a value.
@@ -63,8 +62,7 @@ namespace Pathwinder
         static constexpr ValueOrError<ValueType, ErrorType> MakeValue(Args&&... args)
         {
             return ValueOrError<ValueType, ErrorType>(
-                std::in_place_index<0>, ValueType(std::forward<Args>(args)...)
-            );
+                std::in_place_index<0>, ValueType(std::forward<Args>(args)...));
         }
 
         /// Retrieves a read-only reference to the error held by this object.

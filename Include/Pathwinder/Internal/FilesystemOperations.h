@@ -72,8 +72,7 @@ namespace Pathwinder
             void* enumerationBuffer,
             unsigned int enumerationBufferCapacityBytes,
             ULONG queryFlags = 0,
-            std::wstring_view filePattern = std::wstring_view()
-        );
+            std::wstring_view filePattern = std::wstring_view());
 
         /// Obtains information about the specified file by asking the system to enumerate it via
         /// directory enumeration.
@@ -91,7 +90,6 @@ namespace Pathwinder
             std::wstring_view fileName,
             FILE_INFORMATION_CLASS fileInformationClass,
             void* enumerationBuffer,
-            unsigned int enumerationBufferCapacityBytes
-        );
+            unsigned int enumerationBufferCapacityBytes);
     }  // namespace FilesystemOperations
 }  // namespace Pathwinder

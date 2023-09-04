@@ -41,8 +41,7 @@ namespace PathwinderTest
               {
                   {L"LogLevel", 4},
                   {L"DryRun", false},
-              }}}
-        );
+              }}});
 
         TestConfigurationFileRead(configurationData);
     }
@@ -56,8 +55,7 @@ namespace PathwinderTest
               {{L"MyUserName", L"%USERNAME%"},
                {L"MyUserProfileDirectory", L"%HOMEDRIVE%%HOMEPATH%"},
                {L"ArbitraryDirectory", L"C:\\SomePath\\ToADirectory\\UsefulAsAVariable"},
-               {L"__Another.Variable-value", L"Val?+ue(1[23]4).*"}}}}
-        );
+               {L"__Another.Variable-value", L"Val?+ue(1[23]4).*"}}}});
 
         TestConfigurationFileRead(configurationData);
     }
@@ -76,8 +74,7 @@ namespace PathwinderTest
              {L"FilesystemRule:MultipleFilePatterns",
               {{L"OriginDirectory", L"C:\\OriginDirectory3"},
                {L"TargetDirectory", L"C:\\TargetDirectory3"},
-               {L"FilePattern", {L"*.txt", L"*.bin", L"*.log", L"savedata???.sav"}}}}}
-        );
+               {L"FilePattern", {L"*.txt", L"*.bin", L"*.log", L"savedata???.sav"}}}}});
 
         TestConfigurationFileRead(configurationData);
     }

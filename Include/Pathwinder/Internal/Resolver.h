@@ -63,8 +63,7 @@ namespace Pathwinder
             std::wstring_view str,
             std::wstring_view escapeCharacters = std::wstring_view(),
             std::wstring_view escapeSequenceStart = L"\\",
-            std::wstring_view escapeSequenceEnd = std::wstring_view()
-        );
+            std::wstring_view escapeSequenceEnd = std::wstring_view());
 
         /// Clears the configured definitions. This operation is primarily intended for tests.
         /// Invoking this function also clears the internal reference resolution cache.
@@ -84,7 +83,6 @@ namespace Pathwinder
         /// @param [in] configuredDefinitionsSection Configuration data section containing
         /// definitions.
         void SetConfiguredDefinitionsFromSection(
-            Configuration::Section&& configuredDefinitionsSection
-        );
+            Configuration::Section&& configuredDefinitionsSection);
     }  // namespace Resolver
 }  // namespace Pathwinder

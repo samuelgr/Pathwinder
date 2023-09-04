@@ -65,8 +65,7 @@ namespace PathwinderTest
         const DWORD getEnvironmentVariableResult = GetEnvironmentVariable(
             std::wstring(name).c_str(),
             environmentVariableValue.Data(),
-            environmentVariableValue.Capacity()
-        );
+            environmentVariableValue.Capacity());
 
         if ((getEnvironmentVariableResult >= environmentVariableValue.Capacity()) ||
             (0 == getEnvironmentVariableResult))
@@ -104,8 +103,7 @@ namespace PathwinderTest
         const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
             std::wstring(Strings::kStrReferenceDomainEnvironmentVariable) +
             std::wstring(Strings::kStrDelimterReferenceDomainVsName) +
-            std::wstring(kEnvironmentVariableName)
-        );
+            std::wstring(kEnvironmentVariableName));
 
         TEST_ASSERT(true == expectedResolveResult.has_value());
         TEST_ASSERT(true == actualResolveResult.HasValue());
@@ -137,8 +135,7 @@ namespace PathwinderTest
         const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
             std::wstring(Strings::kStrReferenceDomainEnvironmentVariable) +
             std::wstring(Strings::kStrDelimterReferenceDomainVsName) +
-            std::wstring(kEnvironmentVariableName)
-        );
+            std::wstring(kEnvironmentVariableName));
         TEST_ASSERT(true == actualResolveResult.HasError());
     }
 
@@ -236,8 +233,7 @@ namespace PathwinderTest
         const std::wstring_view expectedResolveResult = kVariableValue;
         const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
             std::wstring(Strings::kStrReferenceDomainConfigDefinition) +
-            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName)
-        );
+            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName));
 
         TEST_ASSERT(true == actualResolveResult.HasValue());
         TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
@@ -251,16 +247,15 @@ namespace PathwinderTest
         const std::wstring kVariableName = L"W";
         const std::wstring kVariableValue = L"This is the evaluated value of W.";
 
-        Configuration::Section testDefinitionSection({{std::wstring(kVariableName), kVariableValue}}
-        );
+        Configuration::Section testDefinitionSection(
+            {{std::wstring(kVariableName), kVariableValue}});
 
         TemporaryConfiguredDefinitions testDefinitions(std::move(testDefinitionSection));
 
         const std::wstring_view expectedResolveResult = kVariableValue;
         const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
             std::wstring(Strings::kStrReferenceDomainConfigDefinition) +
-            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName)
-        );
+            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName));
 
         TEST_ASSERT(true == actualResolveResult.HasValue());
         TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
@@ -273,15 +268,13 @@ namespace PathwinderTest
         TemporaryConfiguredDefinitions testDefinitions = TConfiguredDefinitions(
             {{L"X", L"Value of X"},
              {L"Y", L"Value of Y incorporates value of X: (%CONF::X%)"},
-             {L"Z", L"Value of Z incorporates value of Y: (%CONF::Y%)"}}
-        );
+             {L"Z", L"Value of Z incorporates value of Y: (%CONF::Y%)"}});
 
         const std::wstring_view expectedResolveResult =
             L"Value of Z incorporates value of Y: (Value of Y incorporates value of X: (Value of X))";
         const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
             std::wstring(Strings::kStrReferenceDomainConfigDefinition) +
-            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"Z"
-        );
+            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"Z");
 
         TEST_ASSERT(true == actualResolveResult.HasValue());
         TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
@@ -295,8 +288,7 @@ namespace PathwinderTest
         Configuration::Section testDefinitionSection(
             {{L"X", L"Value of X"},
              {L"Y", L"Value of Y incorporates value of X: (%CONF::X%)"},
-             {L"Z", L"Value of Z incorporates value of Y: (%CONF::Y%)"}}
-        );
+             {L"Z", L"Value of Z incorporates value of Y: (%CONF::Y%)"}});
 
         TemporaryConfiguredDefinitions testDefinitions(std::move(testDefinitionSection));
 
@@ -304,8 +296,7 @@ namespace PathwinderTest
             L"Value of Z incorporates value of Y: (Value of Y incorporates value of X: (Value of X))";
         const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
             std::wstring(Strings::kStrReferenceDomainConfigDefinition) +
-            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"Z"
-        );
+            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"Z");
 
         TEST_ASSERT(true == actualResolveResult.HasValue());
         TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
@@ -322,8 +313,7 @@ namespace PathwinderTest
 
         const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
             std::wstring(Strings::kStrReferenceDomainConfigDefinition) +
-            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName)
-        );
+            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName));
         TEST_ASSERT(true == actualResolveResult.HasError());
     }
 
@@ -334,13 +324,11 @@ namespace PathwinderTest
         TemporaryConfiguredDefinitions testDefinitions = TConfiguredDefinitions(
             {{L"Invalid1", L"Value of %CONF::Invalid2%"},
              {L"Invalid2", L"Value of Invalid2 incorporates %CONF::Invalid3%"},
-             {L"Invalid3", L"Value of Invalid3 incorporates %CONF::Invalid1%"}}
-        );
+             {L"Invalid3", L"Value of Invalid3 incorporates %CONF::Invalid1%"}});
 
         const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
             std::wstring(Strings::kStrReferenceDomainConfigDefinition) +
-            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"Invalid2"
-        );
+            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"Invalid2");
         TEST_ASSERT(true == actualResolveResult.HasError());
     }
 
@@ -350,8 +338,7 @@ namespace PathwinderTest
     {
         const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
             std::wstring(Strings::kStrReferenceDomainConfigDefinition) +
-            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"UnknownVariable123456"
-        );
+            std::wstring(Strings::kStrDelimterReferenceDomainVsName) + L"UnknownVariable123456");
         TEST_ASSERT(true == actualResolveResult.HasError());
     }
 
@@ -395,8 +382,7 @@ namespace PathwinderTest
     TEST_CASE(Resolver_AllReferences_Nominal)
     {
         TemporaryConfiguredDefinitions testDefinitions = TConfiguredDefinitions(
-            {{L"BaseDir", L"%FOLDERID::SavedGames%"}, {L"PercentageComplete", L"56.789"}}
-        );
+            {{L"BaseDir", L"%FOLDERID::SavedGames%"}, {L"PercentageComplete", L"56.789"}});
 
         const std::pair<std::wstring_view, std::wstring> kAllReferenceTestRecords[] = {
             {L"Selected base directory: %CONF::BaseDir%",
@@ -428,8 +414,7 @@ namespace PathwinderTest
             {{L"Variable1", L"abcdef"},
              {L"Variable2", L"ABCDEF"},
              {L"Variable3", L"This is a NICE test for real!"},
-             {L"Variable4", L" c F "}}
-        );
+             {L"Variable4", L" c F "}});
 
         constexpr std::wstring_view kEscapeCharacters = L"cF ";
 
@@ -468,8 +453,7 @@ namespace PathwinderTest
             {{L"Variable5", L"abcdef"},
              {L"Variable6", L"ABCDEF"},
              {L"Variable7", L"This is a NICE test for real!"},
-             {L"Variable8", L" c F "}}
-        );
+             {L"Variable8", L" c F "}});
 
         constexpr std::wstring_view kEscapeCharacters = L"cF ";
         constexpr std::wstring_view kEscapeSequenceStart = L"!&!";
@@ -497,8 +481,7 @@ namespace PathwinderTest
                 kAllReferenceTestRecord.first,
                 kEscapeCharacters,
                 kEscapeSequenceStart,
-                kEscapeSequenceEnd
-            );
+                kEscapeSequenceEnd);
 
             TEST_ASSERT(true == actualResolveResult.HasValue());
             TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
@@ -509,8 +492,7 @@ namespace PathwinderTest
     TEST_CASE(Resolver_AllReferences_Invalid)
     {
         TemporaryConfiguredDefinitions testDefinitions = TConfiguredDefinitions(
-            {{L"BaseDir", L"%FOLDERID::TotallyUnrecognizedFolderIdentifier%"}}
-        );
+            {{L"BaseDir", L"%FOLDERID::TotallyUnrecognizedFolderIdentifier%"}});
 
         constexpr std::wstring_view kInvalidInputStrings[] = {
             L"Using computer %COMPUTERNAME% as user %USERNAME%. There is an extra % sign at the end that is not matched.",

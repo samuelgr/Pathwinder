@@ -49,8 +49,7 @@ namespace PathwinderTest
                 PrintFormatted(
                     L"\n%u test%s defined.",
                     static_cast<unsigned int>(testCases.size()),
-                    ((1 == testCases.size()) ? L"" : L"s")
-                );
+                    ((1 == testCases.size()) ? L"" : L"s"));
                 break;
         }
 
@@ -59,8 +58,8 @@ namespace PathwinderTest
         else
             PrintFormatted(L"Running only tests with \"%s\" as a prefix.", prefixToMatch.data());
 
-        Print(L"\n================================================================================"
-        );
+        Print(
+            L"\n================================================================================");
 
         for (auto testCaseIterator = testCases.begin(); testCaseIterator != testCases.end();
              ++testCaseIterator)
@@ -88,8 +87,7 @@ namespace PathwinderTest
                 if (true != testCasePassed) failingTests.insert(name.data());
 
                 PrintFormatted(
-                    L"[ %9s ] %s", (true == testCasePassed ? L"PASS" : L"FAIL"), name.data()
-                );
+                    L"[ %9s ] %s", (true == testCasePassed ? L"PASS" : L"FAIL"), name.data());
             }
             else
             {
@@ -98,22 +96,20 @@ namespace PathwinderTest
             }
         }
 
-        Print(L"\n================================================================================"
-        );
+        Print(
+            L"\n================================================================================");
 
         if (numSkippedTests > 0)
             PrintFormatted(
                 L"\nFinished running %u test%s (%u skipped).\n",
                 numExecutedTests,
                 ((1 == numExecutedTests) ? L"" : L"s"),
-                numSkippedTests
-            );
+                numSkippedTests);
         else
             PrintFormatted(
                 L"\nFinished running %u test%s.\n",
                 numExecutedTests,
-                ((1 == numExecutedTests) ? L"" : L"s")
-            );
+                ((1 == numExecutedTests) ? L"" : L"s"));
 
         const int numFailingTests = static_cast<int>(failingTests.size());
 
@@ -135,8 +131,7 @@ namespace PathwinderTest
                         PrintFormatted(
                             L"%u test%s failed:",
                             numFailingTests,
-                            ((1 == numFailingTests) ? L"" : L"s")
-                        );
+                            ((1 == numFailingTests) ? L"" : L"s"));
                         break;
                 }
             }

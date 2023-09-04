@@ -168,8 +168,7 @@ namespace Pathwinder
                 L"%s:[%c] %s\n",
                 Strings::kStrProductName.data(),
                 CharacterForSeverity(severity),
-                message
-            );
+                message);
         }
 
         /// Outputs the specified message using a debug string.
@@ -182,8 +181,7 @@ namespace Pathwinder
                                   L"%s:[%c] %s\n",
                                   Strings::kStrProductName.data(),
                                   CharacterForSeverity(severity),
-                                  message
-            )
+                                  message)
                                   .AsCString());
         }
 
@@ -209,8 +207,7 @@ namespace Pathwinder
                     L"MM'/'dd'/'yyyy",
                     bufferTimestamp.Data(),
                     bufferTimestamp.Capacity(),
-                    nullptr
-                ))
+                    nullptr))
                 outputString << bufferTimestamp.Data();
             else
                 outputString << L"(date not available)";
@@ -222,8 +219,7 @@ namespace Pathwinder
                     nullptr,
                     L"HH':'mm':'ss",
                     bufferTimestamp.Data(),
-                    bufferTimestamp.Capacity()
-                ))
+                    bufferTimestamp.Capacity()))
                 outputString << L' ' << bufferTimestamp.Data();
             else
                 outputString << L" (time not available)";
@@ -343,8 +339,7 @@ namespace Pathwinder
                     OutputFormatted(
                         ESeverity::Error,
                         L"%s - Unable to create log file.",
-                        Strings::kStrLogFilename.data()
-                    );
+                        Strings::kStrLogFilename.data());
                     return;
                 }
 
@@ -358,8 +353,7 @@ namespace Pathwinder
                 fwprintf_s(
                     logFileHandle,
                     L"Program:   %s\n",
-                    Strings::kStrExecutableCompleteFilename.data()
-                );
+                    Strings::kStrExecutableCompleteFilename.data());
                 fwprintf_s(logFileHandle, L"PID:       %d\n", Globals::GetCurrentProcessId());
                 fwprintf_s(logFileHandle, L"%s\n", kLogHeaderSeparator);
                 fflush(logFileHandle);
@@ -386,8 +380,7 @@ namespace Pathwinder
         }
 
         void OutputFormatted(
-            const ESeverity severity, _Printf_format_string_ const wchar_t* format, ...
-        )
+            const ESeverity severity, _Printf_format_string_ const wchar_t* format, ...)
         {
             const DWORD lastError = GetLastError();
 

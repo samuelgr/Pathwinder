@@ -215,8 +215,7 @@ namespace Pathwinder
         /// occur if the number of delimiters is too high.
         PrefixIndex(
             const std::basic_string_view<CharType>* pathDelimiterArray,
-            unsigned int pathDelimiterArrayCount
-        )
+            unsigned int pathDelimiterArrayCount)
             : rootNode(nullptr, std::basic_string_view<CharType>()),
               pathDelimiters(),
               pathDelimiterCount(pathDelimiterArrayCount)
@@ -226,12 +225,10 @@ namespace Pathwinder
         }
 
         inline PrefixIndex(
-            std::initializer_list<std::basic_string_view<CharType>> pathDelimiterInitList
-        )
+            std::initializer_list<std::basic_string_view<CharType>> pathDelimiterInitList)
             : PrefixIndex(
                   pathDelimiterInitList.begin(),
-                  static_cast<unsigned int>(pathDelimiterInitList.size())
-              )
+                  static_cast<unsigned int>(pathDelimiterInitList.size()))
         {}
 
         inline PrefixIndex(std::basic_string_view<CharType> pathDelimiter)
@@ -334,12 +331,10 @@ namespace Pathwinder
 
             for (std::optional<std::basic_string_view<CharType>> maybeNextPathComponent =
                      Strings::TokenizeString<CharType>(
-                         tokenizeState, stringToMatch, pathDelimiters.data(), pathDelimiterCount
-                     );
+                         tokenizeState, stringToMatch, pathDelimiters.data(), pathDelimiterCount);
                  true == maybeNextPathComponent.has_value();
                  maybeNextPathComponent = Strings::TokenizeString<CharType>(
-                     tokenizeState, stringToMatch, pathDelimiters.data(), pathDelimiterCount
-                 ))
+                     tokenizeState, stringToMatch, pathDelimiters.data(), pathDelimiterCount))
             {
                 if (0 == maybeNextPathComponent->length()) continue;
 

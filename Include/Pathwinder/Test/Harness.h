@@ -11,11 +11,11 @@
 
 #pragma once
 
+#include "TestCase.h"
+
 #include <map>
 #include <string>
 #include <string_view>
-
-#include "TestCase.h"
 
 namespace PathwinderTest
 {

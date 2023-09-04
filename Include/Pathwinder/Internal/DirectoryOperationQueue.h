@@ -86,8 +86,7 @@ namespace Pathwinder
             DirectoryEnumerationInstruction::SingleDirectoryEnumeration matchInstruction,
             std::wstring_view absoluteDirectoryPath,
             FILE_INFORMATION_CLASS fileInformationClass,
-            std::wstring_view filePattern = std::wstring_view()
-        );
+            std::wstring_view filePattern = std::wstring_view());
 
         EnumerationQueue(const EnumerationQueue& other) = delete;
 
@@ -113,8 +112,7 @@ namespace Pathwinder
         /// match against all returned filenames. Only important on first invocation, which occurs
         /// during construction.
         void AdvanceQueueContentsInternal(
-            ULONG queryFlags = 0, std::wstring_view filePattern = std::wstring_view()
-        );
+            ULONG queryFlags = 0, std::wstring_view filePattern = std::wstring_view());
 
         /// Pops a single element from the front of the queue.
         void PopFrontInternal(void);
@@ -164,8 +162,7 @@ namespace Pathwinder
             TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&&
                 nameInsertionQueue,
             FILE_INFORMATION_CLASS fileInformationClass,
-            std::wstring_view queryFilePattern = std::wstring_view()
-        );
+            std::wstring_view queryFilePattern = std::wstring_view());
 
         NameInsertionQueue(const NameInsertionQueue& other) = delete;
 
@@ -231,8 +228,8 @@ namespace Pathwinder
         static constexpr unsigned int kNumQueuesToMerge = 3;
 
         MergedFileInformationQueue(
-            std::array<std::unique_ptr<IDirectoryOperationQueue>, kNumQueuesToMerge>&& queuesToMerge
-        );
+            std::array<std::unique_ptr<IDirectoryOperationQueue>, kNumQueuesToMerge>&&
+                queuesToMerge);
 
         /// Retrieves and returns a pointer to the underlying queue at the specified index.
         /// Intended for tests. Provides read-only access.
@@ -242,8 +239,7 @@ namespace Pathwinder
         {
             DebugAssert(
                 static_cast<size_t>(index) < queuesToMerge.size(),
-                "Underlying queue index is out of bounds."
-            );
+                "Underlying queue index is out of bounds.");
             return queuesToMerge[index].get();
         }
 
@@ -286,6 +282,5 @@ namespace Pathwinder
         FILE_INFORMATION_CLASS fileInformationClass,
         std::wstring_view queryFilePattern,
         std::wstring_view handleAssociatedPath,
-        std::wstring_view handleRealOpenedPath
-    );
+        std::wstring_view handleRealOpenedPath);
 }  // namespace Pathwinder

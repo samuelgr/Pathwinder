@@ -35,8 +35,7 @@ namespace Pathwinder
         /// filesystem director builder or by tests.
         inline FilesystemDirector(
             std::map<std::wstring, FilesystemRule, std::less<>>&& filesystemRules,
-            PrefixIndex<wchar_t, FilesystemRule>&& originDirectoryIndex
-        )
+            PrefixIndex<wchar_t, FilesystemRule>&& originDirectoryIndex)
             : filesystemRules(std::move(filesystemRules)),
               originDirectoryIndex(std::move(originDirectoryIndex))
         {}
@@ -100,8 +99,7 @@ namespace Pathwinder
         /// @return Instruction that provides information on how to execute the directory
         /// enumeration.
         DirectoryEnumerationInstruction GetInstructionForDirectoryEnumeration(
-            std::wstring_view associatedPath, std::wstring_view realOpenedPath
-        ) const;
+            std::wstring_view associatedPath, std::wstring_view realOpenedPath) const;
 
         /// Generates an instruction for how to execute a file operation, such as opening, creating,
         /// or querying information about an individual file.
@@ -115,8 +113,7 @@ namespace Pathwinder
         FileOperationInstruction GetInstructionForFileOperation(
             std::wstring_view absoluteFilePath,
             FileAccessMode fileAccessMode,
-            CreateDisposition createDisposition
-        ) const;
+            CreateDisposition createDisposition) const;
 
         /// Determines if the specified file path, which is already absolute, exists as a valid
         /// prefix for any filesystem rule. The input file path must not contain any leading Windows

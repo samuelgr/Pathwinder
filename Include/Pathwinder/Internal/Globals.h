@@ -64,8 +64,7 @@ namespace Pathwinder
 
         static_assert(
             sizeof(SVersionInfo) == ((4 * sizeof(uint16_t)) + sizeof(std::wstring_view)),
-            "Version information structure size constraint violation."
-        );
+            "Version information structure size constraint violation.");
 
         /// Configuration data parsed from a configuration file.
         struct SConfigurationData

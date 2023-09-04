@@ -143,8 +143,7 @@ namespace Pathwinder
             unsigned int structureBaseSizeBytes,
             unsigned int offsetOfNextEntryOffset,
             unsigned int offsetOfFileNameLength,
-            unsigned int offsetOfFileName
-        )
+            unsigned int offsetOfFileName)
             : fileInformationClass(fileInformationClass),
               structureBaseSizeBytes(structureBaseSizeBytes),
               offsetOfNextEntryOffset(offsetOfNextEntryOffset),
@@ -182,8 +181,7 @@ namespace Pathwinder
         {
             *(reinterpret_cast<TNextEntryOffset*>(
                 reinterpret_cast<size_t>(fileInformationStruct) +
-                static_cast<size_t>(offsetOfNextEntryOffset)
-            )) = 0;
+                static_cast<size_t>(offsetOfNextEntryOffset))) = 0;
         }
 
         /// Retrieves and returns the file information class enumerator that corresponds to the file
@@ -203,8 +201,7 @@ namespace Pathwinder
         {
             return reinterpret_cast<TFileNameChar*>(
                 reinterpret_cast<size_t>(fileInformationStruct) +
-                static_cast<size_t>(offsetOfFileName)
-            );
+                static_cast<size_t>(offsetOfFileName));
         }
 
         /// Computes the hypothetical size, in bytes, of a file information structure if its
@@ -212,8 +209,8 @@ namespace Pathwinder
         /// @param [in] fileNameLengthBytes Hypothetical length of the trailing filename field, in
         /// bytes.
         /// @return Hypothetical size, in bytes, of a file information structure.
-        inline unsigned int HypotheticalSizeForFileNameLength(unsigned int fileNameLengthBytes
-        ) const
+        inline unsigned int
+            HypotheticalSizeForFileNameLength(unsigned int fileNameLengthBytes) const
         {
             return std::max(structureBaseSizeBytes, offsetOfFileName + fileNameLengthBytes);
         }
@@ -227,8 +224,7 @@ namespace Pathwinder
         {
             return *reinterpret_cast<TNextEntryOffset*>(
                 reinterpret_cast<size_t>(fileInformationStruct) +
-                static_cast<size_t>(offsetOfNextEntryOffset)
-            );
+                static_cast<size_t>(offsetOfNextEntryOffset));
         }
 
         /// Reads the `fileNameLength` field from the specified file information structure.
@@ -240,8 +236,7 @@ namespace Pathwinder
         {
             return *reinterpret_cast<TFileNameLength*>(
                 reinterpret_cast<size_t>(fileInformationStruct) +
-                static_cast<size_t>(offsetOfFileNameLength)
-            );
+                static_cast<size_t>(offsetOfFileNameLength));
         }
 
         /// Converts the trailing `fileName` field from the specified file information structure
@@ -254,8 +249,7 @@ namespace Pathwinder
         {
             return std::wstring_view(
                 FileNamePointer(fileInformationStruct),
-                (ReadFileNameLength(fileInformationStruct) / sizeof(TFileNameChar))
-            );
+                (ReadFileNameLength(fileInformationStruct) / sizeof(TFileNameChar)));
         }
 
         /// Computes the size, in bytes, of the specified file information structure including its
@@ -267,8 +261,7 @@ namespace Pathwinder
         inline unsigned int SizeOfStruct(const void* fileInformationStruct) const
         {
             return HypotheticalSizeForFileNameLength(
-                static_cast<unsigned int>(ReadFileNameLength(fileInformationStruct))
-            );
+                static_cast<unsigned int>(ReadFileNameLength(fileInformationStruct)));
         }
 
         /// Updates the `nextEntryOffset` field for the specified file information structure using
@@ -280,8 +273,8 @@ namespace Pathwinder
         {
             *(reinterpret_cast<TNextEntryOffset*>(
                 reinterpret_cast<size_t>(fileInformationStruct) +
-                static_cast<size_t>(offsetOfNextEntryOffset)
-            )) = SizeOfStruct(fileInformationStruct);
+                static_cast<size_t>(offsetOfNextEntryOffset))) =
+                SizeOfStruct(fileInformationStruct);
         }
 
         /// Writes the `fileNameLength` field for the specified file information structure and
@@ -291,13 +284,11 @@ namespace Pathwinder
         /// structure of interest.
         /// @param [in] newFileNameLength New value to be written to the `fileNameLength` field.
         inline void WriteFileNameLength(
-            void* fileInformationStruct, TFileNameLength newFileNameLength
-        ) const
+            void* fileInformationStruct, TFileNameLength newFileNameLength) const
         {
             *(reinterpret_cast<TFileNameLength*>(
                 reinterpret_cast<size_t>(fileInformationStruct) +
-                static_cast<size_t>(offsetOfFileNameLength)
-            )) = newFileNameLength;
+                static_cast<size_t>(offsetOfFileNameLength))) = newFileNameLength;
             UpdateNextEntryOffset(fileInformationStruct);
         }
 
@@ -313,17 +304,14 @@ namespace Pathwinder
         inline void WriteFileName(
             void* fileInformationStruct,
             std::basic_string_view<TFileNameChar> newFileName,
-            unsigned int bufferCapacityBytes
-        ) const
+            unsigned int bufferCapacityBytes) const
         {
             const unsigned int numBytesToWrite = std::min(
                 (bufferCapacityBytes - offsetOfFileName),
-                static_cast<unsigned int>(newFileName.length() * sizeof(TFileNameChar))
-            );
+                static_cast<unsigned int>(newFileName.length() * sizeof(TFileNameChar)));
 
             std::memcpy(
-                FileNamePointer(fileInformationStruct), newFileName.data(), numBytesToWrite
-            );
+                FileNamePointer(fileInformationStruct), newFileName.data(), numBytesToWrite);
             WriteFileNameLength(fileInformationStruct, numBytesToWrite);
         }
 

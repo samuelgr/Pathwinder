@@ -40,8 +40,7 @@ namespace PathwinderTest
 
         for (const auto& kDirectoryString : kDirectoryStrings)
             TEST_ASSERT(
-                true == FilesystemDirectorBuilder::IsValidDirectoryString(kDirectoryString)
-            );
+                true == FilesystemDirectorBuilder::IsValidDirectoryString(kDirectoryString));
     }
 
     // Verifies that invalid strings for identifying origin and target directories are rejected.
@@ -72,8 +71,7 @@ namespace PathwinderTest
 
         for (const auto& kDirectoryString : kDirectoryStrings)
             TEST_ASSERT(
-                false == FilesystemDirectorBuilder::IsValidDirectoryString(kDirectoryString)
-            );
+                false == FilesystemDirectorBuilder::IsValidDirectoryString(kDirectoryString));
     }
 
     // Verifies that valid strings for identifying file patterns within an origin or target
@@ -91,8 +89,7 @@ namespace PathwinderTest
 
         for (const auto& kFilePatternString : kFilePatternStrings)
             TEST_ASSERT(
-                true == FilesystemDirectorBuilder::IsValidFilePatternString(kFilePatternString)
-            );
+                true == FilesystemDirectorBuilder::IsValidFilePatternString(kFilePatternString));
     }
 
     // Verifies that invalid strings for identifying file patterns within an origin or target
@@ -104,8 +101,7 @@ namespace PathwinderTest
 
         for (const auto& kFilePatternString : kFilePatternStrings)
             TEST_ASSERT(
-                false == FilesystemDirectorBuilder::IsValidFilePatternString(kFilePatternString)
-            );
+                false == FilesystemDirectorBuilder::IsValidFilePatternString(kFilePatternString));
     }
 
     // Verifies the nominal situation of creating rules that do not overlap and contain no file
@@ -116,22 +112,18 @@ namespace PathwinderTest
         FilesystemDirectorBuilder directorBuilder;
 
         auto maybeConfigRule1 = directorBuilder.AddRule(
-            L"1", L"C:\\OriginDir1", L"C:\\TargetDir1", {}, FilesystemRule::ERedirectMode::Simple
-        );
+            L"1", L"C:\\OriginDir1", L"C:\\TargetDir1", {}, FilesystemRule::ERedirectMode::Simple);
         TEST_ASSERT(maybeConfigRule1.HasValue());
         TEST_ASSERT(
-            maybeConfigRule1.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Simple
-        );
+            maybeConfigRule1.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Simple);
         TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
         TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
 
         auto maybeConfigRule2 = directorBuilder.AddRule(
-            L"2", L"C:\\OriginDir2", L"C:\\TargetDir2", {}, FilesystemRule::ERedirectMode::Overlay
-        );
+            L"2", L"C:\\OriginDir2", L"C:\\TargetDir2", {}, FilesystemRule::ERedirectMode::Overlay);
         TEST_ASSERT(maybeConfigRule2.HasValue());
         TEST_ASSERT(
-            maybeConfigRule2.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Overlay
-        );
+            maybeConfigRule2.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Overlay);
         TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
         TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
     }
@@ -144,8 +136,7 @@ namespace PathwinderTest
         FilesystemDirectorBuilder directorBuilder;
 
         auto maybeConfigRule1 = directorBuilder.AddRule(
-            L"1", L"C:\\OriginDir1", L"C:\\TargetDir1", {L"file*.txt", L"*.bin"}
-        );
+            L"1", L"C:\\OriginDir1", L"C:\\TargetDir1", {L"file*.txt", L"*.bin"});
         TEST_ASSERT(maybeConfigRule1.HasValue());
         TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
         TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
@@ -153,8 +144,7 @@ namespace PathwinderTest
         TEST_ASSERT(false == maybeConfigRule1.Value()->FileNameMatchesAnyPattern(L"asdf.txt"));
 
         auto maybeConfigRule2 = directorBuilder.AddRule(
-            L"2", L"C:\\OriginDir2", L"C:\\TargetDir2", {L"log*", L"file???.dat"}
-        );
+            L"2", L"C:\\OriginDir2", L"C:\\TargetDir2", {L"log*", L"file???.dat"});
         TEST_ASSERT(maybeConfigRule2.HasValue());
         TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
         TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
@@ -169,8 +159,7 @@ namespace PathwinderTest
     {
         FilesystemDirectorBuilder directorBuilder;
         TEST_ASSERT(
-            directorBuilder.AddRule(L"2", L"C:\\Level1\\Level2", L"C:\\TargetDir2").HasValue()
-        );
+            directorBuilder.AddRule(L"2", L"C:\\Level1\\Level2", L"C:\\TargetDir2").HasValue());
         TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\Level1", L"C:\\TargetDir1").HasValue());
         TEST_ASSERT(directorBuilder.AddRule(L"3", L"C:\\Level1\\Level2\\Level3", L"C:\\TargetDir3")
                         .HasValue());
@@ -264,8 +253,7 @@ namespace PathwinderTest
             directorBuilder.AddRuleFromConfigurationSection(L"1", configSection1);
         TEST_ASSERT(maybeConfigRule1.HasValue());
         TEST_ASSERT(
-            maybeConfigRule1.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Simple
-        );
+            maybeConfigRule1.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Simple);
         TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
         TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
 
@@ -273,8 +261,7 @@ namespace PathwinderTest
             directorBuilder.AddRuleFromConfigurationSection(L"2", configSection2);
         TEST_ASSERT(maybeConfigRule2.HasValue());
         TEST_ASSERT(
-            maybeConfigRule2.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Overlay
-        );
+            maybeConfigRule2.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Overlay);
         TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
         TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
     }
@@ -328,21 +315,17 @@ namespace PathwinderTest
 
         auto maybeConfigRuleMissingOriginDirectory =
             directorBuilder.AddRuleFromConfigurationSection(
-                L"1", configSectionMissingOriginDirectory
-            );
+                L"1", configSectionMissingOriginDirectory);
         TEST_ASSERT(maybeConfigRuleMissingOriginDirectory.HasError());
         TEST_ASSERT(maybeConfigRuleMissingOriginDirectory.Error().AsStringView().contains(
-            L"origin directory"
-        ));
+            L"origin directory"));
 
         auto maybeConfigRuleMissingTargetDirectory =
             directorBuilder.AddRuleFromConfigurationSection(
-                L"2", configSectionMissingTargetDirectory
-            );
+                L"2", configSectionMissingTargetDirectory);
         TEST_ASSERT(maybeConfigRuleMissingTargetDirectory.HasError());
         TEST_ASSERT(maybeConfigRuleMissingTargetDirectory.Error().AsStringView().contains(
-            L"target directory"
-        ));
+            L"target directory"));
     }
 
     // Verifies that directory presence is successfully reported when rules exist and is correctly
@@ -379,21 +362,18 @@ namespace PathwinderTest
         TEST_ASSERT(
             directorBuilder
                 .AddRule(L"1", L"C:\\Level1\\Level2\\Level3\\Level4\\Level5", L"C:\\Target1")
-                .HasValue()
-        );
-        TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\Level1\\Level2", L"C:\\Target2").HasValue()
-        );
+                .HasValue());
+        TEST_ASSERT(
+            directorBuilder.AddRule(L"2", L"C:\\Level1\\Level2", L"C:\\Target2").HasValue());
 
         TEST_ASSERT(false == directorBuilder.HasOriginDirectory(L"C:\\Level1"));
         TEST_ASSERT(true == directorBuilder.HasOriginDirectory(L"C:\\Level1\\Level2"));
         TEST_ASSERT(false == directorBuilder.HasOriginDirectory(L"C:\\Level1\\Level2\\Level3"));
         TEST_ASSERT(
-            false == directorBuilder.HasOriginDirectory(L"C:\\Level1\\Level2\\Level3\\Level4")
-        );
+            false == directorBuilder.HasOriginDirectory(L"C:\\Level1\\Level2\\Level3\\Level4"));
         TEST_ASSERT(
             true ==
-            directorBuilder.HasOriginDirectory(L"C:\\Level1\\Level2\\Level3\\Level4\\Level5")
-        );
+            directorBuilder.HasOriginDirectory(L"C:\\Level1\\Level2\\Level3\\Level4\\Level5"));
     }
 
     // Verifies that the filesystem director build process completes successfully in the nominal
@@ -418,20 +398,16 @@ namespace PathwinderTest
         TEST_ASSERT(nullptr != director.FindRuleByName(L"1"));
         TEST_ASSERT(director.FindRuleByName(L"1")->GetName() == L"1");
         TEST_ASSERT(
-            director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1"
-        );
+            director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
         TEST_ASSERT(
-            director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1")
-        );
+            director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1"));
 
         TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
         TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
         TEST_ASSERT(
-            director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2"
-        );
+            director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2");
         TEST_ASSERT(
-            director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2")
-        );
+            director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2"));
     }
 
     // Verifies that the filesystem director build process completes successfully where rules have
@@ -447,19 +423,16 @@ namespace PathwinderTest
                         .AddRule(
                             L"1",
                             L"C:\\OriginBase\\OriginSubdir\\Subdir1\\Subdir2",
-                            L"C:\\TargetBase\\Target2"
-                        )
+                            L"C:\\TargetBase\\Target2")
                         .HasValue());
         TEST_ASSERT(
             directorBuilder
                 .AddRule(L"2", L"C:\\OriginBase\\OriginSubdir\\Subdir1", L"C:\\TargetBase\\Target1")
-                .HasValue()
-        );
+                .HasValue());
         TEST_ASSERT(
             directorBuilder
                 .AddRule(L"3", L"C:\\OriginBase\\OriginSubdir", L"C:\\TargetBase\\TargetBase")
-                .HasValue()
-        );
+                .HasValue());
 
         auto buildResult = directorBuilder.Build();
         TEST_ASSERT(buildResult.HasValue());
@@ -474,8 +447,7 @@ namespace PathwinderTest
 
         FilesystemDirectorBuilder directorBuilder;
         TEST_ASSERT(
-            directorBuilder.AddRule(L"1", L"C:\\OriginDir\\File", L"C:\\TargetDir").HasValue()
-        );
+            directorBuilder.AddRule(L"1", L"C:\\OriginDir\\File", L"C:\\TargetDir").HasValue());
 
         auto buildResult = directorBuilder.Build();
         TEST_ASSERT(buildResult.HasError());
@@ -489,9 +461,9 @@ namespace PathwinderTest
         mockFilesystem.AddDirectory(L"C:");
 
         FilesystemDirectorBuilder directorBuilder;
-        TEST_ASSERT(directorBuilder
-                        .AddRule(L"1", L"C:\\OriginDir\\Subdir1", L"C:\\TargetDir\\Subdir1")
-                        .HasValue());
+        TEST_ASSERT(
+            directorBuilder.AddRule(L"1", L"C:\\OriginDir\\Subdir1", L"C:\\TargetDir\\Subdir1")
+                .HasValue());
 
         auto buildResult = directorBuilder.Build();
         TEST_ASSERT(buildResult.HasError());
@@ -561,20 +533,16 @@ namespace PathwinderTest
         TEST_ASSERT(nullptr != director.FindRuleByName(L"1"));
         TEST_ASSERT(director.FindRuleByName(L"1")->GetName() == L"1");
         TEST_ASSERT(
-            director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1"
-        );
+            director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
         TEST_ASSERT(
-            director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1")
-        );
+            director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1"));
 
         TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
         TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
         TEST_ASSERT(
-            director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2"
-        );
+            director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2");
         TEST_ASSERT(
-            director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2")
-        );
+            director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2"));
     }
 
     // Verifies that a filesystem director object can be built from a configuration file in the
@@ -607,20 +575,16 @@ namespace PathwinderTest
         TEST_ASSERT(nullptr != director.FindRuleByName(L"1"));
         TEST_ASSERT(director.FindRuleByName(L"1")->GetName() == L"1");
         TEST_ASSERT(
-            director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1"
-        );
+            director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
         TEST_ASSERT(
-            director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1")
-        );
+            director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1"));
 
         TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
         TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
         TEST_ASSERT(
-            director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2"
-        );
+            director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2");
         TEST_ASSERT(
-            director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2")
-        );
+            director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2"));
     }
 
     // Verifies that the filesystem director build process fails when the origin directory's parent

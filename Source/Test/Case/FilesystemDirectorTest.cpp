@@ -34,9 +34,8 @@ namespace PathwinderTest
     /// @param [in] filesystemRules Map of filesystem rule names to filesystem rules, which is
     /// consumed using move semantics.
     /// @return Newly-constructed filesystem director object.
-    static FilesystemDirector
-        MakeFilesystemDirector(std::map<std::wstring, FilesystemRule, std::less<>>&& filesystemRules
-        )
+    static FilesystemDirector MakeFilesystemDirector(
+        std::map<std::wstring, FilesystemRule, std::less<>>&& filesystemRules)
     {
         PrefixIndex<wchar_t, FilesystemRule> originDirectoryIndex(L"\\");
 
@@ -44,8 +43,7 @@ namespace PathwinderTest
         {
             filesystemRulePair.second.SetName(filesystemRulePair.first);
             originDirectoryIndex.Insert(
-                filesystemRulePair.second.GetOriginDirectoryFullPath(), filesystemRulePair.second
-            );
+                filesystemRulePair.second.GetOriginDirectoryFullPath(), filesystemRulePair.second);
         }
 
         return FilesystemDirector(std::move(filesystemRules), std::move(originDirectoryIndex));
@@ -85,17 +83,13 @@ namespace PathwinderTest
         }));
 
         TEST_ASSERT(
-            RuleIsPresentAndNamed(L"1", director.SelectRuleForPath(L"C:\\Origin1\\file1.txt"))
-        );
+            RuleIsPresentAndNamed(L"1", director.SelectRuleForPath(L"C:\\Origin1\\file1.txt")));
         TEST_ASSERT(RuleIsPresentAndNamed(
-            L"2", director.SelectRuleForPath(L"C:\\Origin2\\Subdir2\\file2.txt")
-        ));
+            L"2", director.SelectRuleForPath(L"C:\\Origin2\\Subdir2\\file2.txt")));
         TEST_ASSERT(RuleIsPresentAndNamed(
-            L"3", director.SelectRuleForPath(L"C:\\Origin3\\Subdir3\\Subdir3_2\\file3.txt")
-        ));
+            L"3", director.SelectRuleForPath(L"C:\\Origin3\\Subdir3\\Subdir3_2\\file3.txt")));
         TEST_ASSERT(RuleIsNotPresent(
-            director.SelectRuleForPath(L"C:\\Origin4\\Subdir4\\Subdir4_2\\Subdir4_3\\file4.txt")
-        ));
+            director.SelectRuleForPath(L"C:\\Origin4\\Subdir4\\Subdir4_2\\Subdir4_3\\file4.txt")));
     }
 
     // Creates a filesystem director with a few non-overlapping rules and queries it with a few file
@@ -111,17 +105,13 @@ namespace PathwinderTest
         }));
 
         TEST_ASSERT(
-            RuleIsPresentAndNamed(L"1", director.SelectRuleForPath(L"C:\\ORIGIN1\\file1.txt"))
-        );
+            RuleIsPresentAndNamed(L"1", director.SelectRuleForPath(L"C:\\ORIGIN1\\file1.txt")));
         TEST_ASSERT(RuleIsPresentAndNamed(
-            L"2", director.SelectRuleForPath(L"C:\\origin2\\SubDir2\\file2.txt")
-        ));
+            L"2", director.SelectRuleForPath(L"C:\\origin2\\SubDir2\\file2.txt")));
         TEST_ASSERT(RuleIsPresentAndNamed(
-            L"3", director.SelectRuleForPath(L"C:\\ORiGiN3\\SubdIR3\\SubdIR3_2\\file3.txt")
-        ));
+            L"3", director.SelectRuleForPath(L"C:\\ORiGiN3\\SubdIR3\\SubdIR3_2\\file3.txt")));
         TEST_ASSERT(RuleIsNotPresent(
-            director.SelectRuleForPath(L"C:\\OrigIN4\\SUBdir4\\SUBdir4_2\\SUBdir4_3\\file4.txt")
-        ));
+            director.SelectRuleForPath(L"C:\\OrigIN4\\SUBdir4\\SUBdir4_2\\SUBdir4_3\\file4.txt")));
     }
 
     // Creates a filesystem with a few overlapping rules and queries it with a few file inputs.
@@ -135,24 +125,18 @@ namespace PathwinderTest
         }));
 
         TEST_ASSERT(
-            RuleIsPresentAndNamed(L"1", director.SelectRuleForPath(L"C:\\Origin1\\file1.txt"))
-        );
+            RuleIsPresentAndNamed(L"1", director.SelectRuleForPath(L"C:\\Origin1\\file1.txt")));
         TEST_ASSERT(RuleIsPresentAndNamed(
-            L"2", director.SelectRuleForPath(L"C:\\Origin1\\Origin2\\file2.txt")
-        ));
+            L"2", director.SelectRuleForPath(L"C:\\Origin1\\Origin2\\file2.txt")));
         TEST_ASSERT(RuleIsPresentAndNamed(
-            L"3", director.SelectRuleForPath(L"C:\\Origin1\\Origin2\\Origin3\\file3.txt")
-        ));
+            L"3", director.SelectRuleForPath(L"C:\\Origin1\\Origin2\\Origin3\\file3.txt")));
         TEST_ASSERT(RuleIsPresentAndNamed(
             L"2",
-            director.SelectRuleForPath(L"C:\\Origin1\\Origin2\\AnotherDirectory\\somefile.txt")
-        ));
+            director.SelectRuleForPath(L"C:\\Origin1\\Origin2\\AnotherDirectory\\somefile.txt")));
         TEST_ASSERT(RuleIsPresentAndNamed(
             L"1",
             director.SelectRuleForPath(
-                L"C:\\Origin1\\AnotherPathway\\SomeDirectory\\Subdir\\logfile.log"
-            )
-        ));
+                L"C:\\Origin1\\AnotherPathway\\SomeDirectory\\Subdir\\logfile.log")));
     }
 
     // Creates a filesystem director with a single rule at a deep level in the hierarchy and queries
@@ -199,18 +183,15 @@ namespace PathwinderTest
                 {L"C:\\Origin1\\file1.txt",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"C:\\Target1\\file1.txt",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
                 {L"C:\\Origin2\\Subdir2\\file2.txt",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"C:\\Target2\\Subdir2\\file2.txt",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
                 {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )}};
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}};
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
         {
@@ -218,8 +199,7 @@ namespace PathwinderTest
             const auto& expectedOutput = testRecord.second;
 
             auto actualOutput = director.GetInstructionForFileOperation(
-                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile()
-            );
+                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -234,16 +214,13 @@ namespace PathwinderTest
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1",
              FilesystemRule(
-                 L"C:\\Origin1", L"C:\\Target1", {}, FilesystemRule::ERedirectMode::Overlay
-             )},
+                 L"C:\\Origin1", L"C:\\Target1", {}, FilesystemRule::ERedirectMode::Overlay)},
             {L"2",
              FilesystemRule(
-                 L"C:\\Origin2", L"C:\\Target2", {}, FilesystemRule::ERedirectMode::Overlay
-             )},
+                 L"C:\\Origin2", L"C:\\Target2", {}, FilesystemRule::ERedirectMode::Overlay)},
             {L"3",
              FilesystemRule(
-                 L"C:\\Origin3", L"C:\\Target3", {}, FilesystemRule::ERedirectMode::Overlay
-             )},
+                 L"C:\\Origin3", L"C:\\Target3", {}, FilesystemRule::ERedirectMode::Overlay)},
         }));
 
         const std::pair<std::wstring_view, FileOperationInstruction>
@@ -251,18 +228,15 @@ namespace PathwinderTest
                 {L"C:\\Origin1\\file1.txt",
                  FileOperationInstruction::OverlayRedirectTo(
                      L"C:\\Target1\\file1.txt",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
                 {L"C:\\Origin2\\Subdir2\\file2.txt",
                  FileOperationInstruction::OverlayRedirectTo(
                      L"C:\\Target2\\Subdir2\\file2.txt",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
                 {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
                  FileOperationInstruction::OverlayRedirectTo(
                      L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )}};
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}};
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
         {
@@ -270,8 +244,7 @@ namespace PathwinderTest
             const auto& expectedOutput = testRecord.second;
 
             auto actualOutput = director.GetInstructionForFileOperation(
-                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile()
-            );
+                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -289,16 +262,13 @@ namespace PathwinderTest
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1",
              FilesystemRule(
-                 L"C:\\Origin1", L"C:\\Target1", {}, FilesystemRule::ERedirectMode::Overlay
-             )},
+                 L"C:\\Origin1", L"C:\\Target1", {}, FilesystemRule::ERedirectMode::Overlay)},
             {L"2",
              FilesystemRule(
-                 L"C:\\Origin2", L"C:\\Target2", {}, FilesystemRule::ERedirectMode::Overlay
-             )},
+                 L"C:\\Origin2", L"C:\\Target2", {}, FilesystemRule::ERedirectMode::Overlay)},
             {L"3",
              FilesystemRule(
-                 L"C:\\Origin3", L"C:\\Target3", {}, FilesystemRule::ERedirectMode::Overlay
-             )},
+                 L"C:\\Origin3", L"C:\\Target3", {}, FilesystemRule::ERedirectMode::Overlay)},
         }));
 
         const std::pair<std::wstring_view, FileOperationInstruction>
@@ -307,20 +277,20 @@ namespace PathwinderTest
                  FileOperationInstruction::OverlayRedirectTo(
                      L"C:\\Target1\\file1.txt",
                      FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
-                     FileOperationInstruction::ECreateDispositionPreference::PreferOpenExistingFile
-                 )},
+                     FileOperationInstruction::ECreateDispositionPreference::
+                         PreferOpenExistingFile)},
                 {L"C:\\Origin2\\Subdir2\\file2.txt",
                  FileOperationInstruction::OverlayRedirectTo(
                      L"C:\\Target2\\Subdir2\\file2.txt",
                      FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
-                     FileOperationInstruction::ECreateDispositionPreference::PreferOpenExistingFile
-                 )},
+                     FileOperationInstruction::ECreateDispositionPreference::
+                         PreferOpenExistingFile)},
                 {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
                  FileOperationInstruction::OverlayRedirectTo(
                      L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
                      FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
-                     FileOperationInstruction::ECreateDispositionPreference::PreferOpenExistingFile
-                 )}};
+                     FileOperationInstruction::ECreateDispositionPreference::
+                         PreferOpenExistingFile)}};
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
         {
@@ -330,8 +300,7 @@ namespace PathwinderTest
             auto actualOutput = director.GetInstructionForFileOperation(
                 testInput,
                 FileAccessMode::ReadOnly(),
-                CreateDisposition::CreateNewOrOpenExistingFile()
-            );
+                CreateDisposition::CreateNewOrOpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -342,8 +311,7 @@ namespace PathwinderTest
     // same hierarchy exists on the target side. When the query is for a file, whether or not it
     // exists on the origin side, no such pre-operation is necessary.
     TEST_CASE(
-        FilesystemDirector_GetInstructionForFileOperation_OriginHierarchyExists_OpenExistingFile
-    )
+        FilesystemDirector_GetInstructionForFileOperation_OriginHierarchyExists_OpenExistingFile)
     {
         MockFilesystemOperations mockFilesystem;
         mockFilesystem.AddDirectory(L"C:\\Origin1");
@@ -364,42 +332,34 @@ namespace PathwinderTest
                      L"C:\\Target1",
                      FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
                      {static_cast<int>(
-                         FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists
-                     )},
-                     L"C:\\Target1"
-                 )},
+                         FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)},
+                     L"C:\\Target1")},
                 {L"C:\\Origin2\\Subdir2",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"C:\\Target2\\Subdir2",
                      FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
                      {static_cast<int>(
-                         FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists
-                     )},
-                     L"C:\\Target2\\Subdir2"
-                 )},
+                         FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)},
+                     L"C:\\Target2\\Subdir2")},
                 {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C",
                      FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
                      {static_cast<int>(
-                         FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists
-                     )},
-                     L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C"
-                 )},
+                         FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)},
+                     L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C")},
                 {L"C:\\Origin1\\file1.txt",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"C:\\Target1\\file1.txt",
                      FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
                      {},
-                     L""
-                 )},
+                     L"")},
                 {L"C:\\Origin2\\Subdir2\\file2.bin",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"C:\\Target2\\Subdir2\\file2.bin",
                      FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
                      {},
-                     L""
-                 )}};
+                     L"")}};
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
         {
@@ -407,8 +367,7 @@ namespace PathwinderTest
             const auto& expectedOutput = testRecord.second;
 
             auto actualOutput = director.GetInstructionForFileOperation(
-                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile()
-            );
+                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -424,8 +383,7 @@ namespace PathwinderTest
         mockFilesystem.AddDirectory(L"C:\\Origin1");
 
         const FilesystemDirector director(
-            MakeFilesystemDirector({{L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")}})
-        );
+            MakeFilesystemDirector({{L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")}}));
 
         const std::pair<std::wstring_view, FileOperationInstruction>
             kTestInputsAndExpectedOutputs[] = {
@@ -434,10 +392,8 @@ namespace PathwinderTest
                      L"C:\\Target1\\AnyTypeOfFile",
                      FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
                      {static_cast<int>(
-                         FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists
-                     )},
-                     L"C:\\Target1"
-                 )}};
+                         FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)},
+                     L"C:\\Target1")}};
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
         {
@@ -445,8 +401,7 @@ namespace PathwinderTest
             const auto& expectedOutput = testRecord.second;
 
             auto actualOutput = director.GetInstructionForFileOperation(
-                testInput, FileAccessMode::ReadOnly(), CreateDisposition::CreateNewFile()
-            );
+                testInput, FileAccessMode::ReadOnly(), CreateDisposition::CreateNewFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -470,18 +425,15 @@ namespace PathwinderTest
                 {L"C:\\Origin1\\Subdir1\\",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"C:\\Target1\\Subdir1\\",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
                 {L"C:\\Origin2\\Subdir2\\Subdir2B\\",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"C:\\Target2\\Subdir2\\Subdir2B\\",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
                 {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )}};
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}};
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
         {
@@ -489,8 +441,7 @@ namespace PathwinderTest
             const auto& expectedOutput = testRecord.second;
 
             auto actualOutput = director.GetInstructionForFileOperation(
-                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile()
-            );
+                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -500,8 +451,7 @@ namespace PathwinderTest
     // This test case variation additionally adds namespace prefixes to the filenames submitted for
     // query. These should be passed through unchanged.
     TEST_CASE(
-        FilesystemDirector_GetInstructionForFileOperation_QueryInputContainsWindowsNamespacePrefix
-    )
+        FilesystemDirector_GetInstructionForFileOperation_QueryInputContainsWindowsNamespacePrefix)
     {
         MockFilesystemOperations mockFilesystem;
 
@@ -516,18 +466,15 @@ namespace PathwinderTest
                 {L"\\??\\C:\\Origin1\\file1.txt",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"\\??\\C:\\Target1\\file1.txt",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
                 {L"\\\\?\\C:\\Origin2\\Subdir2\\file2.txt",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"\\\\?\\C:\\Target2\\Subdir2\\file2.txt",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
                 {L"\\\\.\\C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"\\\\.\\C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )}};
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}};
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
         {
@@ -535,8 +482,7 @@ namespace PathwinderTest
             const auto& expectedOutput = testRecord.second;
 
             auto actualOutput = director.GetInstructionForFileOperation(
-                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile()
-            );
+                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -562,8 +508,7 @@ namespace PathwinderTest
             const auto& expectedOutput = testRecord.second;
 
             auto actualOutput = director.GetInstructionForFileOperation(
-                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile()
-            );
+                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -590,24 +535,18 @@ namespace PathwinderTest
             kTestInputsAndExpectedOutputs[] = {
                 {std::wstring_view(L"C:\\Base\\Origin", std::wstring_view(L"C:\\Base").length()),
                  FileOperationInstruction::InterceptWithoutRedirection(
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
                 {std::wstring_view(L"C:\\Base\\Origin", std::wstring_view(L"C:\\Base\\").length()),
                  FileOperationInstruction::InterceptWithoutRedirection(
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
                 {std::wstring_view(
-                     L"\\??\\C:\\Base\\Origin", std::wstring_view(L"\\??\\C:\\Base").length()
-                 ),
+                     L"\\??\\C:\\Base\\Origin", std::wstring_view(L"\\??\\C:\\Base").length()),
                  FileOperationInstruction::InterceptWithoutRedirection(
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
                 {std::wstring_view(
-                     L"\\??\\C:\\Base\\Origin", std::wstring_view(L"\\??\\C:\\Base\\").length()
-                 ),
+                     L"\\??\\C:\\Base\\Origin", std::wstring_view(L"\\??\\C:\\Base\\").length()),
                  FileOperationInstruction::InterceptWithoutRedirection(
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )}};
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}};
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
         {
@@ -615,8 +554,7 @@ namespace PathwinderTest
             const auto& expectedOutput = testRecord.second;
 
             auto actualOutput = director.GetInstructionForFileOperation(
-                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile()
-            );
+                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -639,13 +577,11 @@ namespace PathwinderTest
                 {L"C:\\Origin1",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"C:\\Target1",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
                 {L"C:\\Origin1\\",
                  FileOperationInstruction::SimpleRedirectTo(
                      L"C:\\Target1\\",
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
             };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -654,8 +590,7 @@ namespace PathwinderTest
             const auto& expectedOutput = testRecord.second;
 
             auto actualOutput = director.GetInstructionForFileOperation(
-                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile()
-            );
+                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -676,8 +611,7 @@ namespace PathwinderTest
             kTestInputsAndExpectedOutputs[] = {
                 {L"C:\\Base",
                  FileOperationInstruction::InterceptWithoutRedirection(
-                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                 )},
+                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
             };
 
         for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -686,8 +620,7 @@ namespace PathwinderTest
             const auto& expectedOutput = testRecord.second;
 
             auto actualOutput = director.GetInstructionForFileOperation(
-                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile()
-            );
+                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -713,8 +646,7 @@ namespace PathwinderTest
             const auto& expectedOutput = testRecord.second;
 
             auto actualOutput = director.GetInstructionForFileOperation(
-                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile()
-            );
+                testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
             TEST_ASSERT(actualOutput == expectedOutput);
         }
     }
@@ -737,22 +669,19 @@ namespace PathwinderTest
             director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(
-            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction
-        );
+            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
     // Creates a filesystem directory with a single filesystem rule without file patterns.
     // Requests a directory enumeration instruction such that the rule is configured for overlay
     // mode and verifies that it correctly merges the target and origin directory contents.
     TEST_CASE(
-        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryInOverlayMode
-    )
+        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryInOverlayMode)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1",
              FilesystemRule(
-                 L"C:\\Origin", L"C:\\Target", {}, FilesystemRule::ERedirectMode::Overlay
-             )},
+                 L"C:\\Origin", L"C:\\Target", {}, FilesystemRule::ERedirectMode::Overlay)},
         }));
 
         constexpr std::wstring_view associatedPath = L"C:\\Origin";
@@ -763,26 +692,21 @@ namespace PathwinderTest
                 {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                      IncludeOnlyMatchingFilenames(
                          DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath,
-                         *director.FindRuleByName(L"1")
-                     ),
+                         *director.FindRuleByName(L"1")),
                  DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                     DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath
-                 )}
-            );
+                     DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath)});
         const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
             director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(
-            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction
-        );
+            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
     // Creates a filesystem directory with a single filesystem rule with file patterns.
     // Requests a directory enumeration instruction and verifies that it correctly indicates to
     // merge in-scope target directory contents with out-of-scope origin directory contents.
     TEST_CASE(
-        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithFilePattern
-    )
+        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithFilePattern)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {L"*.txt", L"*.rtf"})},
@@ -796,20 +720,16 @@ namespace PathwinderTest
                 {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                      IncludeOnlyMatchingFilenames(
                          DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath,
-                         *director.FindRuleByName(L"1")
-                     ),
+                         *director.FindRuleByName(L"1")),
                  DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                      IncludeAllExceptMatchingFilenames(
                          DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath,
-                         *director.FindRuleByName(L"1")
-                     )}
-            );
+                         *director.FindRuleByName(L"1"))});
         const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
             director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(
-            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction
-        );
+            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
     // Creates a filesystem directory with three filesystem rules, two of which have origin
@@ -817,8 +737,7 @@ namespace PathwinderTest
     // instruction and verifies that it correcly inserts both origin directories into the
     // enumeration result.
     TEST_CASE(
-        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithChildRules
-    )
+        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithChildRules)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
@@ -831,14 +750,12 @@ namespace PathwinderTest
 
         const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction =
             DirectoryEnumerationInstruction::InsertRuleOriginDirectoryNames(
-                {*director.FindRuleByName(L"2"), *director.FindRuleByName(L"3")}
-            );
+                {*director.FindRuleByName(L"2"), *director.FindRuleByName(L"3")});
         const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
             director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(
-            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction
-        );
+            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
     // Creates a filesystem directory with multiple filesystem rules, one of which has a top-level
@@ -848,8 +765,7 @@ namespace PathwinderTest
     // child rule origin directories into the enumeration result such that the directories to be
     // inserted are in sorted order. The sorting is expected to be by origin directory base name.
     TEST_CASE(
-        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithMultipleSortedChildRules
-    )
+        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithMultipleSortedChildRules)
     {
         // Rule names are random and totally unordered strings to make sure that rule name is not
         // used for sorting. Rules are inserted in arbitrary order with origin directories also
@@ -875,14 +791,12 @@ namespace PathwinderTest
                  *director.FindRuleByName(L"PKwVeAGYUo"),
                  *director.FindRuleByName(L"OlwBqHThwu"),
                  *director.FindRuleByName(L"FinvonNsbQ"),
-                 *director.FindRuleByName(L"FVWrFofofc")}
-            );
+                 *director.FindRuleByName(L"FVWrFofofc")});
         const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
             director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(
-            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction
-        );
+            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
     // Creates a filesystem directory with three filesystem rules, two of which have origin
@@ -893,8 +807,7 @@ namespace PathwinderTest
     // contents with out-of-scope origin directory contents and correctly inserts both of the origin
     // directories into the enumeration result.
     TEST_CASE(
-        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithFilePatternAndChildRules
-    )
+        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithFilePatternAndChildRules)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {L"*.txt", L"*.rtf"})},
@@ -910,21 +823,17 @@ namespace PathwinderTest
                 {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                      IncludeOnlyMatchingFilenames(
                          DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath,
-                         *director.FindRuleByName(L"1")
-                     ),
+                         *director.FindRuleByName(L"1")),
                  DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                      IncludeAllExceptMatchingFilenames(
                          DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath,
-                         *director.FindRuleByName(L"1")
-                     )},
-                {*director.FindRuleByName(L"2"), *director.FindRuleByName(L"3")}
-            );
+                         *director.FindRuleByName(L"1"))},
+                {*director.FindRuleByName(L"2"), *director.FindRuleByName(L"3")});
         const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
             director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(
-            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction
-        );
+            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
     // Creates a filesystem directory with a single filesystem rule with no file patterns.
@@ -932,8 +841,7 @@ namespace PathwinderTest
     // verifies that it correctly indicates to enumerate the target-side redirected directory
     // without any further processing.
     TEST_CASE(
-        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectory
-    )
+        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectory)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
@@ -948,8 +856,7 @@ namespace PathwinderTest
             director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(
-            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction
-        );
+            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
     // Creates a filesystem directory with a single filesystem rule without file patterns.
@@ -957,14 +864,12 @@ namespace PathwinderTest
     // overlay mode and verifies that it correctly indicates to enumerate both target-side and
     // origin-side directories.
     TEST_CASE(
-        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectoryInOverlayMode
-    )
+        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectoryInOverlayMode)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1",
              FilesystemRule(
-                 L"C:\\Origin", L"C:\\Target", {}, FilesystemRule::ERedirectMode::Overlay
-             )},
+                 L"C:\\Origin", L"C:\\Target", {}, FilesystemRule::ERedirectMode::Overlay)},
         }));
 
         constexpr std::wstring_view associatedPath = L"C:\\Origin\\Subdir123\\AnotherDir";
@@ -973,18 +878,14 @@ namespace PathwinderTest
         const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction =
             DirectoryEnumerationInstruction::EnumerateDirectories(
                 {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                     DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath
-                 ),
+                     DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath),
                  DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                     DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath
-                 )}
-            );
+                     DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath)});
         const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
             director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(
-            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction
-        );
+            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
     // Creates a filesystem directory with a single filesystem rule with file patterns.
@@ -992,8 +893,7 @@ namespace PathwinderTest
     // is also within its scope, and verifies that it correctly indicates to enumerate the
     // target-side redirected directory without any further processing.
     TEST_CASE(
-        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectoryWithFilePatterns
-    )
+        FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectoryWithFilePatterns)
     {
         const FilesystemDirector director(MakeFilesystemDirector({
             {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {L"Subdir*"})},
@@ -1008,8 +908,7 @@ namespace PathwinderTest
             director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(
-            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction
-        );
+            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 
     // Creates a filesystem directory and requests an instruction for directory enumeration with a
@@ -1031,7 +930,6 @@ namespace PathwinderTest
             director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
         TEST_ASSERT(
-            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction
-        );
+            actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
     }
 }  // namespace PathwinderTest

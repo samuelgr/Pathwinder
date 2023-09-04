@@ -83,16 +83,14 @@ namespace Pathwinder
                         Globals::GetInstanceHandle(),
                         IDS_PATHWINDER_PRODUCT_NAME,
                         (wchar_t*)&stringStart,
-                        0
-                    );
+                        0);
 
                     while ((stringLength > 0) && (L'\0' == stringStart[stringLength - 1]))
                         stringLength -= 1;
 
                     if (stringLength > 0)
                         initString.assign(stringStart, &stringStart[stringLength]);
-                }
-            );
+                });
 
             return initString;
         }
@@ -113,8 +111,7 @@ namespace Pathwinder
                     GetModuleFileName(nullptr, buf.Data(), static_cast<DWORD>(buf.Capacity()));
 
                     initString.assign(buf.Data());
-                }
-            );
+                });
 
             return initString;
         }
@@ -138,8 +135,7 @@ namespace Pathwinder
                         executableBaseName.remove_prefix(1 + lastBackslashPos);
 
                     initString.assign(executableBaseName);
-                }
-            );
+                });
 
             return initString;
         }
@@ -162,12 +158,10 @@ namespace Pathwinder
                     if (std::wstring_view::npos != lastBackslashPos)
                     {
                         executableDirectoryName.remove_suffix(
-                            executableDirectoryName.length() - lastBackslashPos
-                        );
+                            executableDirectoryName.length() - lastBackslashPos);
                         initString.assign(executableDirectoryName);
                     }
-                }
-            );
+                });
 
             return initString;
         }
@@ -186,12 +180,12 @@ namespace Pathwinder
                 {
                     TemporaryBuffer<wchar_t> buf;
                     GetModuleFileName(
-                        Globals::GetInstanceHandle(), buf.Data(), static_cast<DWORD>(buf.Capacity())
-                    );
+                        Globals::GetInstanceHandle(),
+                        buf.Data(),
+                        static_cast<DWORD>(buf.Capacity()));
 
                     initString.assign(buf.Data());
-                }
-            );
+                });
 
             return initString;
         }
@@ -215,8 +209,7 @@ namespace Pathwinder
                         executableBaseName.remove_prefix(1 + lastBackslashPos);
 
                     initString.assign(executableBaseName);
-                }
-            );
+                });
 
             return initString;
         }
@@ -239,12 +232,10 @@ namespace Pathwinder
                     if (std::wstring_view::npos != lastBackslashPos)
                     {
                         executableDirectoryName.remove_suffix(
-                            executableDirectoryName.length() - lastBackslashPos
-                        );
+                            executableDirectoryName.length() - lastBackslashPos);
                         initString.assign(executableDirectoryName);
                     }
-                }
-            );
+                });
 
             return initString;
         }
@@ -275,8 +266,7 @@ namespace Pathwinder
 
                     for (int i = 0; i < _countof(pieces); ++i)
                         initString.append(pieces[i]);
-                }
-            );
+                });
 
             return initString;
         }
@@ -310,8 +300,7 @@ namespace Pathwinder
                                 << Globals::GetCurrentProcessId() << kStrLogFileExtension;
 
                     initString.assign(logFilename);
-                }
-            );
+                });
 
             return initString;
         }
@@ -329,8 +318,7 @@ namespace Pathwinder
         extern const std::wstring_view kStrLogFilename(GetLogFilename());
 
         template <typename CharType> int CompareCaseInsensitive(
-            std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB
-        )
+            std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB)
         {
             for (size_t i = 0; i < std::min(strA.length(), strB.length()); ++i)
             {
@@ -357,8 +345,7 @@ namespace Pathwinder
                     convertedStr.Data(),
                     convertedStr.Capacity(),
                     str,
-                    static_cast<size_t>(convertedStr.Capacity()) - 1
-                ))
+                    static_cast<size_t>(convertedStr.Capacity()) - 1))
                 convertedStr.UnsafeSetSize(static_cast<unsigned int>(numCharsConverted));
 
             return convertedStr;
@@ -375,16 +362,14 @@ namespace Pathwinder
                     convertedStr.Data(),
                     convertedStr.Capacity(),
                     str,
-                    static_cast<size_t>(convertedStr.Capacity()) - 1
-                ))
+                    static_cast<size_t>(convertedStr.Capacity()) - 1))
                 convertedStr[0] = '\0';
 
             return convertedStr;
         }
 
         template <typename CharType> bool EqualsCaseInsensitive(
-            std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB
-        )
+            std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB)
         {
             if (strA.length() != strB.length()) return false;
 
@@ -400,8 +385,7 @@ namespace Pathwinder
         template bool EqualsCaseInsensitive<wchar_t>(std::wstring_view, std::wstring_view);
 
         bool FileNameMatchesPattern(
-            std::wstring_view fileName, std::wstring_view filePatternUpperCase
-        )
+            std::wstring_view fileName, std::wstring_view filePatternUpperCase)
         {
             if (true == filePatternUpperCase.empty()) return true;
 
@@ -413,9 +397,7 @@ namespace Pathwinder
             return (
                 TRUE ==
                 Pathwinder::WindowsInternal::RtlIsNameInExpression(
-                    &filePatternString, &fileNameString, TRUE, nullptr
-                )
-            );
+                    &filePatternString, &fileNameString, TRUE, nullptr));
         }
 
         TemporaryString FormatString(_Printf_format_string_ const wchar_t* format, ...)
@@ -426,8 +408,7 @@ namespace Pathwinder
             va_start(args, format);
 
             buf.UnsafeSetSize(
-                static_cast<size_t>(vswprintf_s(buf.Data(), buf.Capacity(), format, args))
-            );
+                static_cast<size_t>(vswprintf_s(buf.Data(), buf.Capacity(), format, args)));
 
             va_end(args);
 
@@ -475,25 +456,20 @@ namespace Pathwinder
         {
             DebugAssert(
                 (strView.length() * sizeof(wchar_t)) <=
-                    static_cast<size_t>(std::numeric_limits<decltype(UNICODE_STRING::Length)>::max()
-                    ),
-                "Attempting to make an unrepresentable UNICODE_STRING due to the length exceeding representable range for Length."
-            );
+                    static_cast<size_t>(
+                        std::numeric_limits<decltype(UNICODE_STRING::Length)>::max()),
+                "Attempting to make an unrepresentable UNICODE_STRING due to the length exceeding representable range for Length.");
             DebugAssert(
                 (strView.length() * sizeof(wchar_t)) <=
                     static_cast<size_t>(
-                        std::numeric_limits<decltype(UNICODE_STRING::MaximumLength)>::max()
-                    ),
-                "Attempting to make an unrepresentable UNICODE_STRING due to the length exceeding representable range for MaximumLength."
-            );
+                        std::numeric_limits<decltype(UNICODE_STRING::MaximumLength)>::max()),
+                "Attempting to make an unrepresentable UNICODE_STRING due to the length exceeding representable range for MaximumLength.");
 
             return {
                 .Length = static_cast<decltype(UNICODE_STRING::Length)>(
-                    strView.length() * sizeof(wchar_t)
-                ),
+                    strView.length() * sizeof(wchar_t)),
                 .MaximumLength = static_cast<decltype(UNICODE_STRING::MaximumLength)>(
-                    strView.length() * sizeof(wchar_t)
-                ),
+                    strView.length() * sizeof(wchar_t)),
                 .Buffer = const_cast<decltype(UNICODE_STRING::Buffer)>(strView.data())};
         }
 
@@ -523,8 +499,7 @@ namespace Pathwinder
 
         template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(
             std::basic_string_view<CharType> stringToSplit,
-            std::basic_string_view<CharType> delimiter
-        )
+            std::basic_string_view<CharType> delimiter)
         {
             return SplitString(stringToSplit, &delimiter, 1);
         }
@@ -537,8 +512,7 @@ namespace Pathwinder
         template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(
             std::basic_string_view<CharType> stringToSplit,
             const std::basic_string_view<CharType>* delimiters,
-            unsigned int numDelimiters
-        )
+            unsigned int numDelimiters)
         {
             TemporaryVector<std::basic_string_view<CharType>> stringPieces;
 
@@ -550,8 +524,7 @@ namespace Pathwinder
             {
                 bool delimiterFound = false;
                 std::basic_string_view<CharType> remainingStringToSplit(
-                    endIter, stringToSplit.cend()
-                );
+                    endIter, stringToSplit.cend());
 
                 for (unsigned int i = 0; i < numDelimiters; ++i)
                 {
@@ -586,8 +559,7 @@ namespace Pathwinder
             SplitString<wchar_t>(std::wstring_view, const std::wstring_view*, unsigned int);
 
         template <typename CharType> bool StartsWithCaseInsensitive(
-            std::basic_string_view<CharType> str, std::basic_string_view<CharType> maybePrefix
-        )
+            std::basic_string_view<CharType> str, std::basic_string_view<CharType> maybePrefix)
         {
             if (str.length() < maybePrefix.length()) return false;
 
@@ -608,8 +580,7 @@ namespace Pathwinder
                 0,
                 systemErrorString.Data(),
                 systemErrorString.Capacity(),
-                nullptr
-            );
+                nullptr);
 
             if (0 == systemErrorLength)
             {
@@ -635,8 +606,7 @@ namespace Pathwinder
         template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(
             size_t& tokenizeState,
             std::basic_string_view<CharType> stringToTokenize,
-            std::basic_string_view<CharType> delimiter
-        )
+            std::basic_string_view<CharType> delimiter)
         {
             return TokenizeString(tokenizeState, stringToTokenize, &delimiter, 1);
         }
@@ -650,8 +620,7 @@ namespace Pathwinder
             size_t& tokenizeState,
             std::basic_string_view<CharType> stringToTokenize,
             const std::basic_string_view<CharType>* delimiters,
-            unsigned int numDelimiters
-        )
+            unsigned int numDelimiters)
         {
             if (stringToTokenize.length() < tokenizeState) return std::nullopt;
 
@@ -661,8 +630,7 @@ namespace Pathwinder
             while (stringToTokenize.cend() != endIter)
             {
                 std::basic_string_view<CharType> remainingStringToTokenize(
-                    endIter, stringToTokenize.cend()
-                );
+                    endIter, stringToTokenize.cend());
 
                 for (unsigned int i = 0; i < numDelimiters; ++i)
                 {
@@ -688,7 +656,6 @@ namespace Pathwinder
         template std::optional<std::string_view>
             TokenizeString<char>(size_t&, std::string_view, const std::string_view*, unsigned int);
         template std::optional<std::wstring_view> TokenizeString<wchar_t>(
-            size_t&, std::wstring_view, const std::wstring_view*, unsigned int
-        );
+            size_t&, std::wstring_view, const std::wstring_view*, unsigned int);
     }  // namespace Strings
 }  // namespace Pathwinder

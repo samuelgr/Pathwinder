@@ -742,8 +742,7 @@ namespace Pathwinder
 
             /// Allows contents to be specified directly. Intended for use by tests.
             inline ConfigurationData(
-                std::initializer_list<std::pair<std::wstring, Section>> contents
-            )
+                std::initializer_list<std::pair<std::wstring, Section>> contents)
                 : ConfigurationData()
             {
                 for (const auto& section : contents)
@@ -792,8 +791,8 @@ namespace Pathwinder
             /// @param [in] section Section name to extract.
             /// @return Pair containing the extracted section name and extracted section object, if
             /// the section was successfully located.
-            std::optional<std::pair<std::wstring, Section>> ExtractSection(std::wstring_view section
-            );
+            std::optional<std::pair<std::wstring, Section>>
+                ExtractSection(std::wstring_view section);
 
             /// Convenience wrapper for quickly attempting to obtain a single Boolean-typed
             /// configuration value.
@@ -1039,8 +1038,7 @@ namespace Pathwinder
             /// from the configuration file.
             /// @return Action to take with the name/value pair.
             virtual EAction ActionForValue(
-                std::wstring_view section, std::wstring_view name, TIntegerView value
-            ) = 0;
+                std::wstring_view section, std::wstring_view name, TIntegerView value) = 0;
 
             /// Invoked to allow the subclass to process the specified Boolean-typed configuration
             /// setting, identified by enclosing section name and by configuration setting name.
@@ -1056,8 +1054,7 @@ namespace Pathwinder
             /// from the configuration file.
             /// @return Action to take with the name/value pair.
             virtual EAction ActionForValue(
-                std::wstring_view section, std::wstring_view name, TBooleanView value
-            ) = 0;
+                std::wstring_view section, std::wstring_view name, TBooleanView value) = 0;
 
             /// Invoked to allow the subclass to process specified string-typed configuration
             /// setting, identified by enclosing section name and by configuration setting name.
@@ -1073,8 +1070,7 @@ namespace Pathwinder
             /// from the configuration file.
             /// @return Action to take with the name/value pair.
             virtual EAction ActionForValue(
-                std::wstring_view section, std::wstring_view name, TStringView value
-            ) = 0;
+                std::wstring_view section, std::wstring_view name, TStringView value) = 0;
 
             /// Specifies the type of the value for the given configuration setting.
             /// In lines that are of the form "name = value" parameters identify both the enclosing

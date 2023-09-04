@@ -254,8 +254,7 @@ namespace Pathwinder
                 return Strings::FormatString(kFormatString, createDisposition, L"FILE_OVERWRITE");
             case FILE_OVERWRITE_IF:
                 return Strings::FormatString(
-                    kFormatString, createDisposition, L"FILE_OVERWRITE_IF"
-                );
+                    kFormatString, createDisposition, L"FILE_OVERWRITE_IF");
             default:
                 return Strings::FormatString(kFormatString, createDisposition, L"unknown");
         }
@@ -412,13 +411,11 @@ namespace Pathwinder
         PVOID outputBuffer,
         ULONG outputBufferSizeBytes,
         ULONG queryFlags,
-        std::wstring_view queryFilePattern
-    )
+        std::wstring_view queryFilePattern)
     {
         DebugAssert(
             nullptr != enumerationState.queue,
-            "Advancing directory enumeration state without an operation queue."
-        );
+            "Advancing directory enumeration state without an operation queue.");
 
         if (queryFlags & Pathwinder::QueryFlag::kRestartScan)
         {
@@ -459,8 +456,7 @@ namespace Pathwinder
             if (outputBufferSizeBytes < enumerationState.queue->SizeOfFront())
             {
                 ioStatusBlock->Information = static_cast<ULONG_PTR>(
-                    enumerationState.queue->CopyFront(outputBuffer, outputBufferSizeBytes)
-                );
+                    enumerationState.queue->CopyFront(outputBuffer, outputBufferSizeBytes));
                 enumerationState.fileInformationStructLayout.ClearNextEntryOffset(outputBuffer);
                 return NtStatus::kBufferOverflow;
             }
@@ -479,8 +475,7 @@ namespace Pathwinder
         while ((NT_SUCCESS(enumerationStatus)) && (numElementsWritten < maxElementsToWrite))
         {
             void* const bufferPosition = reinterpret_cast<void*>(
-                reinterpret_cast<size_t>(outputBuffer) + static_cast<size_t>(numBytesWritten)
-            );
+                reinterpret_cast<size_t>(outputBuffer) + static_cast<size_t>(numBytesWritten));
             const unsigned int bufferCapacityLeftBytes = outputBufferSizeBytes - numBytesWritten;
 
             if (bufferCapacityLeftBytes < enumerationState.queue->SizeOfFront()) break;
@@ -504,8 +499,7 @@ namespace Pathwinder
             lastBufferPosition = bufferPosition;
 
             enumerationState.enumeratedFilenames.emplace(
-                std::wstring(enumerationState.queue->FileNameOfFront())
-            );
+                std::wstring(enumerationState.queue->FileNameOfFront()));
             enumerationState.queue->PopFront();
 
             // Enumeration status must be checked first because, if there are no file information
@@ -513,8 +507,7 @@ namespace Pathwinder
             // crash.
             while ((NT_SUCCESS(enumerationState.queue->EnumerationStatus())) &&
                    (enumerationState.enumeratedFilenames.contains(
-                       enumerationState.queue->FileNameOfFront()
-                   )))
+                       enumerationState.queue->FileNameOfFront())))
                 enumerationState.queue->PopFront();
 
             enumerationStatus = enumerationState.queue->EnumerationStatus();
@@ -553,8 +546,7 @@ namespace Pathwinder
     /// replaced.
     static FileRenameInformationAndFilename CopyFileRenameInformationAndReplaceFilename(
         const SFileRenameInformation& inputFileRenameInformation,
-        std::wstring_view replacementFilename
-    )
+        std::wstring_view replacementFilename)
     {
         TemporaryVector<uint8_t> newFileRenameInformation;
 
@@ -564,13 +556,11 @@ namespace Pathwinder
 
         for (size_t i = 0; i < offsetof(SFileRenameInformation, fileName); ++i)
             newFileRenameInformation.PushBack(
-                (reinterpret_cast<const uint8_t*>(&outputFileRenameInformation))[i]
-            );
+                (reinterpret_cast<const uint8_t*>(&outputFileRenameInformation))[i]);
 
         for (size_t i = 0; i < (replacementFilename.length() * sizeof(wchar_t)); ++i)
             newFileRenameInformation.PushBack(
-                (reinterpret_cast<const uint8_t*>(replacementFilename.data()))[i]
-            );
+                (reinterpret_cast<const uint8_t*>(replacementFilename.data()))[i]);
 
         return FileRenameInformationAndFilename(std::move(newFileRenameInformation));
     }
@@ -587,14 +577,12 @@ namespace Pathwinder
     static NTSTATUS ExecuteExtraPreOperations(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
-        const FileOperationInstruction& instruction
-    )
+        const FileOperationInstruction& instruction)
     {
         NTSTATUS extraPreOperationResult = NtStatus::kSuccess;
 
         if (instruction.GetExtraPreOperations().contains(static_cast<int>(
-                FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists
-            )) &&
+                FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)) &&
             (NT_SUCCESS(extraPreOperationResult)))
         {
             Message::OutputFormatted(
@@ -603,12 +591,10 @@ namespace Pathwinder
                 functionName,
                 functionRequestIdentifier,
                 static_cast<int>(instruction.GetExtraPreOperationOperand().length()),
-                instruction.GetExtraPreOperationOperand().data()
-            );
+                instruction.GetExtraPreOperationOperand().data());
             extraPreOperationResult =
                 static_cast<NTSTATUS>(FilesystemOperations::CreateDirectoryHierarchy(
-                    instruction.GetExtraPreOperationOperand()
-                ));
+                    instruction.GetExtraPreOperationOperand()));
         }
 
         if (!(NT_SUCCESS(extraPreOperationResult)))
@@ -617,8 +603,7 @@ namespace Pathwinder
                 L"%s(%u): A required pre-operation failed (NTSTATUS = 0x%08x).",
                 functionName,
                 functionRequestIdentifier,
-                static_cast<unsigned int>(extraPreOperationResult)
-            );
+                static_cast<unsigned int>(extraPreOperationResult));
 
         return extraPreOperationResult;
     }
@@ -684,8 +669,7 @@ namespace Pathwinder
     static void FillRedirectedObjectNameAndAttributesForInstruction(
         SObjectNameAndAttributes& redirectedObjectNameAndAttributes,
         const FileOperationInstruction& instruction,
-        const OBJECT_ATTRIBUTES& unredirectedObjectAttributes
-    )
+        const OBJECT_ATTRIBUTES& unredirectedObjectAttributes)
     {
         if (true == instruction.HasRedirectedFilename())
         {
@@ -730,8 +714,7 @@ namespace Pathwinder
         HANDLE rootDirectory,
         std::wstring_view inputFilename,
         FileAccessMode fileAccessMode,
-        CreateDisposition createDisposition
-    )
+        CreateDisposition createDisposition)
     {
         std::optional<TemporaryString> maybeRedirectedFilename = std::nullopt;
         std::optional<OpenHandleStore::SHandleDataView> maybeRootDirectoryHandleData =
@@ -753,8 +736,7 @@ namespace Pathwinder
 
             FileOperationInstruction redirectionInstruction =
                 Pathwinder::FilesystemDirector::Singleton().GetInstructionForFileOperation(
-                    inputFullFilename, fileAccessMode, createDisposition
-                );
+                    inputFullFilename, fileAccessMode, createDisposition);
             if (true == redirectionInstruction.HasRedirectedFilename())
                 Message::OutputFormatted(
                     Message::ESeverity::Debug,
@@ -767,8 +749,7 @@ namespace Pathwinder
                     static_cast<int>(inputFilename.length()),
                     inputFilename.data(),
                     static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()),
-                    redirectionInstruction.GetRedirectedFilename().data()
-                );
+                    redirectionInstruction.GetRedirectedFilename().data());
             else
                 Message::OutputFormatted(
                     Message::ESeverity::SuperDebug,
@@ -779,8 +760,7 @@ namespace Pathwinder
                     rootDirectoryHandlePath.data(),
                     reinterpret_cast<size_t>(rootDirectory),
                     static_cast<int>(inputFilename.length()),
-                    inputFilename.data()
-                );
+                    inputFilename.data());
 
             return {
                 .instruction = std::move(redirectionInstruction),
@@ -793,8 +773,7 @@ namespace Pathwinder
 
             FileOperationInstruction redirectionInstruction =
                 Pathwinder::FilesystemDirector::Singleton().GetInstructionForFileOperation(
-                    inputFilename, fileAccessMode, createDisposition
-                );
+                    inputFilename, fileAccessMode, createDisposition);
 
             if (true == redirectionInstruction.HasRedirectedFilename())
                 Message::OutputFormatted(
@@ -805,8 +784,7 @@ namespace Pathwinder
                     static_cast<int>(inputFilename.length()),
                     inputFilename.data(),
                     static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()),
-                    redirectionInstruction.GetRedirectedFilename().data()
-                );
+                    redirectionInstruction.GetRedirectedFilename().data());
             else
                 Message::OutputFormatted(
                     Message::ESeverity::SuperDebug,
@@ -814,8 +792,7 @@ namespace Pathwinder
                     functionName,
                     functionRequestIdentifier,
                     static_cast<int>(inputFilename.length()),
-                    inputFilename.data()
-                );
+                    inputFilename.data());
 
             return {
                 .instruction = std::move(redirectionInstruction),
@@ -835,8 +812,7 @@ namespace Pathwinder
                 functionRequestIdentifier,
                 reinterpret_cast<size_t>(rootDirectory),
                 static_cast<int>(inputFilename.length()),
-                inputFilename.data()
-            );
+                inputFilename.data());
             return {
                 .instruction = FileOperationInstruction::NoRedirectionOrInterception(),
                 .composedInputPath = std::nullopt};
@@ -857,8 +833,7 @@ namespace Pathwinder
                 &unusedStatusBlock,
                 &modeInformation,
                 sizeof(modeInformation),
-                SFileModeInformation::kFileInformationClass
-            ))))
+                SFileModeInformation::kFileInformationClass))))
             return EInputOutputMode::Unknown;
 
         switch (modeInformation.mode & (FILE_SYNCHRONOUS_IO_ALERT | FILE_SYNCHRONOUS_IO_NONALERT))
@@ -886,8 +861,7 @@ namespace Pathwinder
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
         const FileOperationInstruction& instruction,
-        ULONG ntParamCreateDisposition
-    )
+        ULONG ntParamCreateDisposition)
     {
         TCreateDispositionsList createDispositionsList;
 
@@ -981,8 +955,7 @@ namespace Pathwinder
                     L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationInstruction::ECreateDispositionPreference = %u).",
                     functionName,
                     functionRequestIdentifier,
-                    static_cast<unsigned int>(instruction.GetCreateDispositionPreference())
-                );
+                    static_cast<unsigned int>(instruction.GetCreateDispositionPreference()));
                 createDispositionsList.PushBack(NtStatus::kInternalError);
         }
 
@@ -1012,8 +985,7 @@ namespace Pathwinder
         unsigned int functionRequestIdentifier,
         const FileOperationInstruction& instruction,
         FileObjectType& unredirectedFileObject,
-        FileObjectType& redirectedFileObject
-    )
+        FileObjectType& redirectedFileObject)
     {
         TFileOperationsList<FileObjectType> fileOperationsList;
 
@@ -1043,8 +1015,7 @@ namespace Pathwinder
                     L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationInstruction::ETryFiles = %u).",
                     functionName,
                     functionRequestIdentifier,
-                    static_cast<unsigned int>(instruction.GetFilenamesToTry())
-                );
+                    static_cast<unsigned int>(instruction.GetFilenamesToTry()));
                 fileOperationsList.PushBack(NtStatus::kInternalError);
         }
 
@@ -1090,8 +1061,7 @@ namespace Pathwinder
         HANDLE newlyOpenedHandle,
         const FileOperationInstruction& instruction,
         std::wstring_view successfulPath,
-        std::wstring_view unredirectedPath
-    )
+        std::wstring_view unredirectedPath)
     {
         std::wstring_view selectedPath;
 
@@ -1118,8 +1088,7 @@ namespace Pathwinder
                     L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationInstruction::EAssociateNameWithHandle = %u).",
                     functionName,
                     functionRequestIdentifier,
-                    static_cast<unsigned int>(instruction.GetFilenameHandleAssociation())
-                );
+                    static_cast<unsigned int>(instruction.GetFilenameHandleAssociation()));
                 break;
         }
 
@@ -1129,8 +1098,7 @@ namespace Pathwinder
             selectedPath = Strings::RemoveTrailing(selectedPath, L'\\');
 
             OpenHandleStore::Singleton().InsertHandle(
-                newlyOpenedHandle, std::wstring(selectedPath), std::wstring(successfulPath)
-            );
+                newlyOpenedHandle, std::wstring(selectedPath), std::wstring(successfulPath));
             Message::OutputFormatted(
                 Message::ESeverity::Debug,
                 L"%s(%u): Handle %zu was opened for path \"%.*s\" and stored in association with path \"%.*s\".",
@@ -1140,8 +1108,7 @@ namespace Pathwinder
                 static_cast<int>(successfulPath.length()),
                 successfulPath.data(),
                 static_cast<int>(selectedPath.length()),
-                selectedPath.data()
-            );
+                selectedPath.data());
         }
     }
 
@@ -1161,8 +1128,7 @@ namespace Pathwinder
         HANDLE handleToUpdate,
         const FileOperationInstruction& instruction,
         std::wstring_view successfulPath,
-        std::wstring_view unredirectedPath
-    )
+        std::wstring_view unredirectedPath)
     {
         std::wstring_view selectedPath;
 
@@ -1179,8 +1145,7 @@ namespace Pathwinder
                         functionName,
                         functionRequestIdentifier,
                         reinterpret_cast<size_t>(handleToUpdate),
-                        erasedHandleData.associatedPath.c_str()
-                    );
+                        erasedHandleData.associatedPath.c_str());
                 break;
             }
 
@@ -1202,8 +1167,7 @@ namespace Pathwinder
                     L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationInstruction::EAssociateNameWithHandle = %u).",
                     functionName,
                     functionRequestIdentifier,
-                    static_cast<unsigned int>(instruction.GetFilenameHandleAssociation())
-                );
+                    static_cast<unsigned int>(instruction.GetFilenameHandleAssociation()));
                 break;
         }
 
@@ -1213,8 +1177,7 @@ namespace Pathwinder
             selectedPath = Strings::RemoveTrailing(selectedPath, L'\\');
 
             OpenHandleStore::Singleton().InsertOrUpdateHandle(
-                handleToUpdate, std::wstring(selectedPath), std::wstring(successfulPath)
-            );
+                handleToUpdate, std::wstring(selectedPath), std::wstring(successfulPath));
             Message::OutputFormatted(
                 Message::ESeverity::Debug,
                 L"%s(%u): Handle %zu was updated in storage to be opened with path \"%.*s\" and associated with path \"%.*s\".",
@@ -1224,8 +1187,7 @@ namespace Pathwinder
                 static_cast<int>(successfulPath.length()),
                 successfulPath.data(),
                 static_cast<int>(selectedPath.length()),
-                selectedPath.data()
-            );
+                selectedPath.data());
         }
     }
 
@@ -1246,8 +1208,7 @@ namespace Pathwinder
         ULONG createDisposition,
         ULONG createOptions,
         PVOID eaBuffer,
-        ULONG eaLength
-    )
+        ULONG eaLength)
     {
         const unsigned int requestIdentifier = GetRequestIdentifier();
 
@@ -1264,37 +1225,32 @@ namespace Pathwinder
                 Message::ESeverity::SuperDebug,
                 L"%s(%u): Invoked with these parameters:",
                 functionName,
-                requestIdentifier
-            );
+                requestIdentifier);
             Message::OutputFormatted(
                 Message::ESeverity::SuperDebug,
                 L"%s(%u):   ObjectName = \"%.*s\"",
                 functionName,
                 requestIdentifier,
                 static_cast<int>(objectNameParam.length()),
-                objectNameParam.data()
-            );
+                objectNameParam.data());
             Message::OutputFormatted(
                 Message::ESeverity::SuperDebug,
                 L"%s(%u):   RootDirectory = %zu",
                 functionName,
                 requestIdentifier,
-                reinterpret_cast<size_t>(objectAttributes->RootDirectory)
-            );
+                reinterpret_cast<size_t>(objectAttributes->RootDirectory));
             Message::OutputFormatted(
                 Message::ESeverity::SuperDebug,
                 L"%s(%u):   DesiredAccess = %s",
                 functionName,
                 requestIdentifier,
-                AccessMaskToString(desiredAccess).AsCString()
-            );
+                AccessMaskToString(desiredAccess).AsCString());
             Message::OutputFormatted(
                 Message::ESeverity::SuperDebug,
                 L"%s(%u):   ShareAccess = %s",
                 functionName,
                 requestIdentifier,
-                ShareAccessToString(shareAccess).AsCString()
-            );
+                ShareAccessToString(shareAccess).AsCString());
 
             if (functionNameView.contains(L"Create"))
             {
@@ -1303,15 +1259,13 @@ namespace Pathwinder
                     L"%s(%u):   CreateDisposition = %s",
                     functionName,
                     requestIdentifier,
-                    CreateDispositionToString(createDisposition).AsCString()
-                );
+                    CreateDispositionToString(createDisposition).AsCString());
                 Message::OutputFormatted(
                     Message::ESeverity::SuperDebug,
                     L"%s(%u):   CreateOptions = %s",
                     functionName,
                     requestIdentifier,
-                    CreateOrOpenOptionsToString(createOptions).AsCString()
-                );
+                    CreateOrOpenOptionsToString(createOptions).AsCString());
             }
             else if (functionNameView.contains(L"Open"))
             {
@@ -1320,8 +1274,7 @@ namespace Pathwinder
                     L"%s(%u):   OpenOptions = %s",
                     functionName,
                     requestIdentifier,
-                    CreateOrOpenOptionsToString(createOptions).AsCString()
-                );
+                    CreateOrOpenOptionsToString(createOptions).AsCString());
             }
         }
 
@@ -1331,21 +1284,18 @@ namespace Pathwinder
             objectAttributes->RootDirectory,
             Strings::NtConvertUnicodeStringToStringView(*(objectAttributes->ObjectName)),
             FileAccessModeFromNtParameter(desiredAccess),
-            CreateDispositionFromNtParameter(createDisposition)
-        );
+            CreateDispositionFromNtParameter(createDisposition));
         const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
         if (true == Globals::GetConfigurationData().isDryRunMode) return std::nullopt;
 
         NTSTATUS preOperationResult = ExecuteExtraPreOperations(
-            functionName, requestIdentifier, operationContext.instruction
-        );
+            functionName, requestIdentifier, operationContext.instruction);
         if (!(NT_SUCCESS(preOperationResult))) return preOperationResult;
 
         SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
         FillRedirectedObjectNameAndAttributesForInstruction(
-            redirectedObjectNameAndAttributes, operationContext.instruction, *objectAttributes
-        );
+            redirectedObjectNameAndAttributes, operationContext.instruction, *objectAttributes);
 
         HANDLE newlyOpenedHandle = nullptr;
         NTSTATUS systemCallResult = NtStatus::kInternalError;
@@ -1357,8 +1307,7 @@ namespace Pathwinder
         std::wstring_view lastAttemptedPath;
 
         for (const auto& createDispositionToTry : SelectCreateDispositionsToTry(
-                 functionName, requestIdentifier, redirectionInstruction, createDisposition
-             ))
+                 functionName, requestIdentifier, redirectionInstruction, createDisposition))
         {
             if (true == createDispositionToTry.HasError())
             {
@@ -1367,8 +1316,7 @@ namespace Pathwinder
                     L"%s(%u): NTSTATUS = 0x%08x (forced result).",
                     functionName,
                     requestIdentifier,
-                    static_cast<unsigned int>(createDispositionToTry.Error())
-                );
+                    static_cast<unsigned int>(createDispositionToTry.Error()));
                 return createDispositionToTry.Error();
             }
             else
@@ -1378,8 +1326,7 @@ namespace Pathwinder
                          requestIdentifier,
                          redirectionInstruction,
                          *objectAttributes,
-                         redirectedObjectNameAndAttributes.objectAttributes
-                     ))
+                         redirectedObjectNameAndAttributes.objectAttributes))
                 {
                     if (true == operationToTry.HasError())
                     {
@@ -1388,8 +1335,7 @@ namespace Pathwinder
                             L"%s(%u): NTSTATUS = 0x%08x (forced result).",
                             functionName,
                             requestIdentifier,
-                            static_cast<unsigned int>(operationToTry.Error())
-                        );
+                            static_cast<unsigned int>(operationToTry.Error()));
                         return operationToTry.Error();
                     }
                     else
@@ -1402,8 +1348,7 @@ namespace Pathwinder
                             ((nullptr != operationToTry.Value()->RootDirectory)
                                  ? operationContext.composedInputPath->AsStringView()
                                  : Strings::NtConvertUnicodeStringToStringView(
-                                       *(objectAttributesToTry->ObjectName)
-                                   ));
+                                       *(objectAttributesToTry->ObjectName)));
 
                         bool shouldTryThisFile = false;
                         switch (createDispositionToTry.Value().condition)
@@ -1429,9 +1374,7 @@ namespace Pathwinder
                                     functionName,
                                     requestIdentifier,
                                     static_cast<unsigned int>(
-                                        createDispositionToTry.Value().condition
-                                    )
-                                );
+                                        createDispositionToTry.Value().condition));
                                 return NtStatus::kInternalError;
                         }
 
@@ -1449,8 +1392,7 @@ namespace Pathwinder
                             ntParamCreateDispositionToTry,
                             createOptions,
                             eaBuffer,
-                            eaLength
-                        );
+                            eaLength);
 
                         if (true ==
                             Message::WillOutputMessageOfSeverity(Message::ESeverity::SuperDebug))
@@ -1463,8 +1405,7 @@ namespace Pathwinder
                                 CreateDispositionToString(ntParamCreateDispositionToTry)
                                     .AsCString(),
                                 static_cast<int>(lastAttemptedPath.length()),
-                                lastAttemptedPath.data()
-                            );
+                                lastAttemptedPath.data());
 
                         if (false == ShouldTryNextFilename(systemCallResult)) break;
                     }
@@ -1483,8 +1424,7 @@ namespace Pathwinder
                 newlyOpenedHandle,
                 redirectionInstruction,
                 lastAttemptedPath,
-                unredirectedPath
-            );
+                unredirectedPath);
 
         *fileHandle = newlyOpenedHandle;
         return systemCallResult;
@@ -1506,8 +1446,7 @@ namespace Pathwinder
         ULONG length,
         FILE_INFORMATION_CLASS fileInformationClass,
         ULONG queryFlags,
-        PUNICODE_STRING fileName
-    )
+        PUNICODE_STRING fileName)
     {
         std::optional<FileInformationStructLayout> maybeFileInformationStructLayout =
             FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass);
@@ -1530,8 +1469,7 @@ namespace Pathwinder
                     L"%s(%u): Application requested asynchronous directory enumeration with handle %zu, which is unimplemented.",
                     functionName,
                     requestIdentifier,
-                    reinterpret_cast<size_t>(fileHandle)
-                );
+                    reinterpret_cast<size_t>(fileHandle));
                 return std::nullopt;
 
             default:
@@ -1540,8 +1478,7 @@ namespace Pathwinder
                     L"%s(%u): Failed to determine I/O mode during directory enumeration for handle %zu.",
                     functionName,
                     requestIdentifier,
-                    reinterpret_cast<size_t>(fileHandle)
-                );
+                    reinterpret_cast<size_t>(fileHandle));
                 return std::nullopt;
         }
 
@@ -1558,8 +1495,7 @@ namespace Pathwinder
                 static_cast<int>(maybeHandleData->associatedPath.length()),
                 maybeHandleData->associatedPath.data(),
                 static_cast<int>(maybeHandleData->realOpenedPath.length()),
-                maybeHandleData->realOpenedPath.data()
-            );
+                maybeHandleData->realOpenedPath.data());
         else
             Message::OutputFormatted(
                 Message::ESeverity::Debug,
@@ -1572,8 +1508,7 @@ namespace Pathwinder
                 static_cast<int>(maybeHandleData->associatedPath.length()),
                 maybeHandleData->associatedPath.data(),
                 static_cast<int>(maybeHandleData->realOpenedPath.length()),
-                maybeHandleData->realOpenedPath.data()
-            );
+                maybeHandleData->realOpenedPath.data());
 
         // The underlying system calls are expected to behave slightly differently on a first
         // invocation versus subsequent invocations.
@@ -1586,8 +1521,7 @@ namespace Pathwinder
 
             DirectoryEnumerationInstruction directoryEnumerationInstruction =
                 FilesystemDirector::Singleton().GetInstructionForDirectoryEnumeration(
-                    maybeHandleData->associatedPath, maybeHandleData->realOpenedPath
-                );
+                    maybeHandleData->associatedPath, maybeHandleData->realOpenedPath);
 
             if (true == Globals::GetConfigurationData().isDryRunMode)
             {
@@ -1595,8 +1529,7 @@ namespace Pathwinder
                 // Future invocations will therefore not attempt to query for a directory
                 // enumeration instruction and will just be forwarded to the system.
                 OpenHandleStore::Singleton().AssociateDirectoryEnumerationState(
-                    fileHandle, nullptr, *maybeFileInformationStructLayout
-                );
+                    fileHandle, nullptr, *maybeFileInformationStructLayout);
                 return std::nullopt;
             }
 
@@ -1606,21 +1539,18 @@ namespace Pathwinder
                     fileInformationClass,
                     queryFilePattern,
                     maybeHandleData->associatedPath,
-                    maybeHandleData->realOpenedPath
-                );
+                    maybeHandleData->realOpenedPath);
             OpenHandleStore::Singleton().AssociateDirectoryEnumerationState(
                 fileHandle,
                 std::move(directoryOperationQueueUniquePtr),
-                *maybeFileInformationStructLayout
-            );
+                *maybeFileInformationStructLayout);
             newDirectoryEnumerationCreated = true;
         }
 
         maybeHandleData = OpenHandleStore::Singleton().GetDataForHandle(fileHandle);
         DebugAssert(
             (true == maybeHandleData->directoryEnumeration.has_value()),
-            "Failed to locate an in-progress directory enumearation stat data structure which should already exist."
-        );
+            "Failed to locate an in-progress directory enumearation stat data structure which should already exist.");
 
         // At this point a directory enumeration queue will be present.
         // If it is `nullptr` then it is a no-op and the original request just needs to be forwarded
@@ -1638,8 +1568,7 @@ namespace Pathwinder
             fileInformation,
             length,
             queryFlags,
-            queryFilePattern
-        );
+            queryFilePattern);
     }
 }  // namespace Pathwinder
 
@@ -1664,8 +1593,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtClose::Hook(HANDLE Handle)
             GetFunctionName(),
             requestIdentifier,
             reinterpret_cast<size_t>(Handle),
-            closedHandleData.associatedPath.c_str()
-        );
+            closedHandleData.associatedPath.c_str());
 
     return closeHandleResult;
 }
@@ -1681,8 +1609,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(
     ULONG CreateDisposition,
     ULONG CreateOptions,
     PVOID EaBuffer,
-    ULONG EaLength
-)
+    ULONG EaLength)
 {
     using namespace Pathwinder;
 
@@ -1698,8 +1625,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(
         CreateDisposition,
         CreateOptions,
         EaBuffer,
-        EaLength
-    );
+        EaLength);
     if (false == maybeHookFunctionResult.has_value())
         return Original(
             FileHandle,
@@ -1712,8 +1638,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(
             CreateDisposition,
             CreateOptions,
             EaBuffer,
-            EaLength
-        );
+            EaLength);
 
     return *maybeHookFunctionResult;
 }
@@ -1732,8 +1657,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(
     POBJECT_ATTRIBUTES ObjectAttributes,
     PIO_STATUS_BLOCK IoStatusBlock,
     ULONG ShareAccess,
-    ULONG OpenOptions
-)
+    ULONG OpenOptions)
 {
     using namespace Pathwinder;
 
@@ -1749,12 +1673,10 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(
         FILE_OPEN,
         OpenOptions,
         nullptr,
-        0
-    );
+        0);
     if (false == maybeHookFunctionResult.has_value())
         return Original(
-            FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions
-        );
+            FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
 
     return *maybeHookFunctionResult;
 }
@@ -1770,8 +1692,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(
     FILE_INFORMATION_CLASS FileInformationClass,
     BOOLEAN ReturnSingleEntry,
     PUNICODE_STRING FileName,
-    BOOLEAN RestartScan
-)
+    BOOLEAN RestartScan)
 {
     using namespace Pathwinder;
 
@@ -1790,8 +1711,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(
         Length,
         FileInformationClass,
         queryFlags,
-        FileName
-    );
+        FileName);
     if (false == maybeHookFunctionResult.has_value())
         return Original(
             FileHandle,
@@ -1804,8 +1724,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(
             FileInformationClass,
             ReturnSingleEntry,
             FileName,
-            RestartScan
-        );
+            RestartScan);
 
     return *maybeHookFunctionResult;
 }
@@ -1820,8 +1739,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(
     ULONG Length,
     FILE_INFORMATION_CLASS FileInformationClass,
     ULONG QueryFlags,
-    PUNICODE_STRING FileName
-)
+    PUNICODE_STRING FileName)
 {
     using namespace Pathwinder;
 
@@ -1836,8 +1754,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(
         Length,
         FileInformationClass,
         QueryFlags,
-        FileName
-    );
+        FileName);
     if (false == maybeHookFunctionResult.has_value())
         return Original(
             FileHandle,
@@ -1849,8 +1766,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(
             Length,
             FileInformationClass,
             QueryFlags,
-            FileName
-        );
+            FileName);
 
     return *maybeHookFunctionResult;
 }
@@ -1860,8 +1776,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(
     PIO_STATUS_BLOCK IoStatusBlock,
     PVOID FileInformation,
     ULONG Length,
-    FILE_INFORMATION_CLASS FileInformationClass
-)
+    FILE_INFORMATION_CLASS FileInformationClass)
 {
     using namespace Pathwinder;
 
@@ -1919,8 +1834,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(
     // "C:\Dir\file.txt" the path returned by the system call is "\Dir\file.txt" and hence
     // Pathwinder needs to do the same transformation.
     replacementFileName.remove_prefix(
-        Strings::PathGetWindowsNamespacePrefix(replacementFileName).length()
-    );
+        Strings::PathGetWindowsNamespacePrefix(replacementFileName).length());
     replacementFileName.remove_prefix(replacementFileName.find_first_of(L'\\'));
     if (replacementFileName == systemReturnedFileName) return systemCallResult;
 
@@ -1935,14 +1849,12 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(
         static_cast<int>(systemReturnedFileName.length()),
         systemReturnedFileName.data(),
         static_cast<int>(replacementFileName.length()),
-        replacementFileName.data()
-    );
+        replacementFileName.data());
 
     const size_t numReplacementCharsWritten = SetFileInformationStructFilename(
         *fileNameInformation,
         (static_cast<size_t>(Length) - fileNameInformationBufferOffset),
-        replacementFileName
-    );
+        replacementFileName);
     if (numReplacementCharsWritten < replacementFileName.length()) return NtStatus::kBufferOverflow;
 
     // If the original system call resulted in a buffer overflow, but the buffer was large enough to
@@ -1950,8 +1862,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(
     // succeeded. Any other return code should be passed back to the application without
     // modification.
     return (
-        (NtStatus::kBufferOverflow == systemCallResult) ? NtStatus::kSuccess : systemCallResult
-    );
+        (NtStatus::kBufferOverflow == systemCallResult) ? NtStatus::kSuccess : systemCallResult);
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
@@ -1959,8 +1870,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
     PIO_STATUS_BLOCK IoStatusBlock,
     PVOID FileInformation,
     ULONG Length,
-    FILE_INFORMATION_CLASS FileInformationClass
-)
+    FILE_INFORMATION_CLASS FileInformationClass)
 {
     using namespace Pathwinder;
 
@@ -1972,24 +1882,20 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
         ObjectAttributes->RootDirectory,
         Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)),
         FileAccessMode::ReadOnly(),
-        CreateDisposition::OpenExistingFile()
-    );
+        CreateDisposition::OpenExistingFile());
     const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(
-            ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass
-        );
+            ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
     NTSTATUS preOperationResult = ExecuteExtraPreOperations(
-        GetFunctionName(), requestIdentifier, operationContext.instruction
-    );
+        GetFunctionName(), requestIdentifier, operationContext.instruction);
     if (!(NT_SUCCESS(preOperationResult))) return preOperationResult;
 
     SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
     FillRedirectedObjectNameAndAttributesForInstruction(
-        redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes
-    );
+        redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
 
     std::wstring_view lastAttemptedPath;
 
@@ -2000,8 +1906,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
              requestIdentifier,
              redirectionInstruction,
              *ObjectAttributes,
-             redirectedObjectNameAndAttributes.objectAttributes
-         ))
+             redirectedObjectNameAndAttributes.objectAttributes))
     {
         if (true == operationToTry.HasError())
         {
@@ -2010,8 +1915,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
                 L"%s(%u): NTSTATUS = 0x%08x (forced result).",
                 GetFunctionName(),
                 requestIdentifier,
-                static_cast<unsigned int>(operationToTry.Error())
-            );
+                static_cast<unsigned int>(operationToTry.Error()));
             return operationToTry.Error();
         }
         else
@@ -2021,8 +1925,11 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
             lastAttemptedPath =
                 Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
             systemCallResult = Original(
-                objectAttributesToTry, IoStatusBlock, FileInformation, Length, FileInformationClass
-            );
+                objectAttributesToTry,
+                IoStatusBlock,
+                FileInformation,
+                Length,
+                FileInformationClass);
             Message::OutputFormatted(
                 Message::ESeverity::SuperDebug,
                 L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".",
@@ -2030,8 +1937,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
                 requestIdentifier,
                 systemCallResult,
                 static_cast<int>(lastAttemptedPath.length()),
-                lastAttemptedPath.data()
-            );
+                lastAttemptedPath.data());
 
             if (false == ShouldTryNextFilename(systemCallResult)) break;
         }
@@ -2039,8 +1945,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
 
     if (true == lastAttemptedPath.empty())
         return Original(
-            ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass
-        );
+            ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
     return systemCallResult;
 }
@@ -2050,8 +1955,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
     PIO_STATUS_BLOCK IoStatusBlock,
     PVOID FileInformation,
     ULONG Length,
-    FILE_INFORMATION_CLASS FileInformationClass
-)
+    FILE_INFORMATION_CLASS FileInformationClass)
 {
     using namespace Pathwinder;
 
@@ -2073,16 +1977,14 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
         unredirectedFileRenameInformation.rootDirectory,
         unredirectedPath,
         FileAccessMode::Delete(),
-        CreateDisposition::CreateNewFile()
-    );
+        CreateDisposition::CreateNewFile());
     const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
     NTSTATUS preOperationResult = ExecuteExtraPreOperations(
-        GetFunctionName(), requestIdentifier, operationContext.instruction
-    );
+        GetFunctionName(), requestIdentifier, operationContext.instruction);
     if (!(NT_SUCCESS(preOperationResult))) return preOperationResult;
 
     // Due to how the file rename information structure is laid out, including an embedded filename
@@ -2093,8 +1995,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
 
     FileRenameInformationAndFilename redirectedFileRenameInformationAndFilename =
         CopyFileRenameInformationAndReplaceFilename(
-            unredirectedFileRenameInformation, redirectionInstruction.GetRedirectedFilename()
-        );
+            unredirectedFileRenameInformation, redirectionInstruction.GetRedirectedFilename());
     SFileRenameInformation& redirectedFileRenameInformation =
         redirectedFileRenameInformationAndFilename.GetFileRenameInformation();
 
@@ -2106,8 +2007,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
              requestIdentifier,
              redirectionInstruction,
              unredirectedFileRenameInformation,
-             redirectedFileRenameInformation
-         ))
+             redirectedFileRenameInformation))
     {
         if (true == operationToTry.HasError())
         {
@@ -2116,8 +2016,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
                 L"%s(%u): NTSTATUS = 0x%08x (forced result).",
                 GetFunctionName(),
                 requestIdentifier,
-                static_cast<unsigned int>(operationToTry.Error())
-            );
+                static_cast<unsigned int>(operationToTry.Error()));
             return operationToTry.Error();
         }
         else
@@ -2130,8 +2029,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
                 IoStatusBlock,
                 reinterpret_cast<PVOID>(renameInformationToTry),
                 Length,
-                FileInformationClass
-            );
+                FileInformationClass);
             Message::OutputFormatted(
                 Message::ESeverity::SuperDebug,
                 L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".",
@@ -2139,8 +2037,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
                 requestIdentifier,
                 systemCallResult,
                 static_cast<int>(lastAttemptedPath.length()),
-                lastAttemptedPath.data()
-            );
+                lastAttemptedPath.data());
 
             if (false == ShouldTryNextFilename(systemCallResult)) break;
         }
@@ -2156,15 +2053,13 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
             FileHandle,
             redirectionInstruction,
             lastAttemptedPath,
-            unredirectedPath
-        );
+            unredirectedPath);
 
     return systemCallResult;
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
-    POBJECT_ATTRIBUTES ObjectAttributes, PFILE_BASIC_INFO FileInformation
-)
+    POBJECT_ATTRIBUTES ObjectAttributes, PFILE_BASIC_INFO FileInformation)
 {
     using namespace Pathwinder;
 
@@ -2176,22 +2071,19 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
         ObjectAttributes->RootDirectory,
         Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)),
         FileAccessMode::ReadOnly(),
-        CreateDisposition::OpenExistingFile()
-    );
+        CreateDisposition::OpenExistingFile());
     const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
     if (true == Globals::GetConfigurationData().isDryRunMode)
         return Original(ObjectAttributes, FileInformation);
 
     NTSTATUS preOperationResult = ExecuteExtraPreOperations(
-        GetFunctionName(), requestIdentifier, operationContext.instruction
-    );
+        GetFunctionName(), requestIdentifier, operationContext.instruction);
     if (!(NT_SUCCESS(preOperationResult))) return preOperationResult;
 
     SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
     FillRedirectedObjectNameAndAttributesForInstruction(
-        redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes
-    );
+        redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
 
     std::wstring_view lastAttemptedPath;
 
@@ -2202,8 +2094,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
              requestIdentifier,
              redirectionInstruction,
              *ObjectAttributes,
-             redirectedObjectNameAndAttributes.objectAttributes
-         ))
+             redirectedObjectNameAndAttributes.objectAttributes))
     {
         if (true == operationToTry.HasError())
         {
@@ -2212,8 +2103,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
                 L"%s(%u): NTSTATUS = 0x%08x (forced result).",
                 GetFunctionName(),
                 requestIdentifier,
-                static_cast<unsigned int>(operationToTry.Error())
-            );
+                static_cast<unsigned int>(operationToTry.Error()));
             return operationToTry.Error();
         }
         else
@@ -2230,8 +2120,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
                 requestIdentifier,
                 systemCallResult,
                 static_cast<int>(lastAttemptedPath.length()),
-                lastAttemptedPath.data()
-            );
+                lastAttemptedPath.data());
 
             if (false == ShouldTryNextFilename(systemCallResult)) break;
         }

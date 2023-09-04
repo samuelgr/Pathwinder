@@ -97,8 +97,7 @@ namespace Pathwinder
                     .directoryEnumeration =
                         ((true == directoryEnumeration.has_value())
                              ? std::optional<SInProgressDirectoryEnumeration*>(
-                                   &(*directoryEnumeration)
-                               )
+                                   &(*directoryEnumeration))
                              : std::nullopt)};
             }
         };
@@ -123,22 +122,19 @@ namespace Pathwinder
         inline void AssociateDirectoryEnumerationState(
             HANDLE handleToAssociate,
             std::unique_ptr<IDirectoryOperationQueue>&& directoryEnumerationQueue,
-            FileInformationStructLayout fileInformationStructLayout
-        )
+            FileInformationStructLayout fileInformationStructLayout)
         {
             std::shared_lock lock(openHandlesMutex);
 
             auto openHandleIter = openHandles.find(handleToAssociate);
             DebugAssert(
                 openHandleIter != openHandles.end(),
-                "Attempting to associate a directory enumeration queue with a handle that is not in storage."
-            );
+                "Attempting to associate a directory enumeration queue with a handle that is not in storage.");
             if (openHandleIter == openHandles.end()) return;
 
             DebugAssert(
                 false == openHandleIter->second.directoryEnumeration.has_value(),
-                "Attempting to re-associate a directory enumeration queue with a handle that already has one."
-            );
+                "Attempting to re-associate a directory enumeration queue with a handle that already has one.");
 
             openHandleIter->second.directoryEnumeration = SInProgressDirectoryEnumeration{
                 .queue = std::move(directoryEnumerationQueue),
@@ -165,8 +161,7 @@ namespace Pathwinder
         /// @param [in] associatedPath Path to associate internally with the handle.
         /// @param [in] realOpenedPath Path that was actually opened when producing the handle.
         inline void InsertHandle(
-            HANDLE handleToInsert, std::wstring&& associatedPath, std::wstring&& realOpenedPath
-        )
+            HANDLE handleToInsert, std::wstring&& associatedPath, std::wstring&& realOpenedPath)
         {
             std::unique_lock lock(openHandlesMutex);
 
@@ -174,8 +169,7 @@ namespace Pathwinder
                 openHandles
                     .emplace(
                         handleToInsert,
-                        SHandleData(std::move(associatedPath), std::move(realOpenedPath))
-                    )
+                        SHandleData(std::move(associatedPath), std::move(realOpenedPath)))
                     .second;
             DebugAssert(true == insertionWasSuccessful, "Failed to insert a handle into storage.");
         }
@@ -189,8 +183,7 @@ namespace Pathwinder
         inline void InsertOrUpdateHandle(
             HANDLE handleToInsertOrUpdate,
             std::wstring&& associatedPath,
-            std::wstring&& realOpenedPath
-        )
+            std::wstring&& realOpenedPath)
         {
             std::unique_lock lock(openHandlesMutex);
 
@@ -201,12 +194,10 @@ namespace Pathwinder
                     openHandles
                         .emplace(
                             handleToInsertOrUpdate,
-                            SHandleData(std::move(associatedPath), std::move(realOpenedPath))
-                        )
+                            SHandleData(std::move(associatedPath), std::move(realOpenedPath)))
                         .second;
                 DebugAssert(
-                    true == insertionWasSuccessful, "Failed to insert a handle into storage."
-                );
+                    true == insertionWasSuccessful, "Failed to insert a handle into storage.");
             }
             else
             {
@@ -253,8 +244,7 @@ namespace Pathwinder
             auto removalIter = openHandles.find(handleToRemove);
             DebugAssert(
                 openHandles.end() != removalIter,
-                "Attempting to close and erase a handle that was not previously stored."
-            );
+                "Attempting to close and erase a handle that was not previously stored.");
 
             NTSTATUS systemCallResult =
                 Hooks::ProtectedDependency::NtClose::SafeInvoke(handleToRemove);

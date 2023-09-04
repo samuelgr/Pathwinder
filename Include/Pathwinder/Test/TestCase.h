@@ -23,8 +23,7 @@
     do                                                                                             \
     {                                                                                              \
         ::PathwinderTest::PrintFormatted(                                                          \
-            L"%s(%d): Test failed: " reasonf, __FILEW__, __LINE__, ##__VA_ARGS__                   \
-        );                                                                                         \
+            L"%s(%d): Test failed: " reasonf, __FILEW__, __LINE__, ##__VA_ARGS__);                 \
         TEST_FAILED;                                                                               \
     }                                                                                              \
     while (0)
@@ -36,8 +35,7 @@
         if (!(expr))                                                                               \
         {                                                                                          \
             ::PathwinderTest::PrintFormatted(                                                      \
-                L"%s(%d): Assertion failed: %s", __FILEW__, __LINE__, L#expr                       \
-            );                                                                                     \
+                L"%s(%d): Assertion failed: %s", __FILEW__, __LINE__, L#expr);                     \
             TEST_FAILED;                                                                           \
         }                                                                                          \
     }                                                                                              \

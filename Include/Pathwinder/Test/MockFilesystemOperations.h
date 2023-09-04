@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include "TestCase.h"
+
 #include <map>
 #include <string>
 #include <string_view>
@@ -20,7 +22,6 @@
 #include "FilesystemOperations.h"
 #include "MockFreeFunctionContext.h"
 #include "Strings.h"
-#include "TestCase.h"
 #include "ValueOrError.h"
 
 namespace PathwinderTest
@@ -113,23 +114,20 @@ namespace PathwinderTest
         bool Exists(std::wstring_view absolutePath);
         bool IsDirectory(std::wstring_view absolutePath);
         Pathwinder::ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
-            std::wstring_view absoluteDirectoryPath
-        );
+            std::wstring_view absoluteDirectoryPath);
         NTSTATUS PartialEnumerateDirectoryContents(
             HANDLE directoryHandle,
             FILE_INFORMATION_CLASS fileInformationClass,
             void* enumerationBuffer,
             unsigned int enumerationBufferCapacityBytes,
             ULONG queryFlags,
-            std::wstring_view filePattern
-        );
+            std::wstring_view filePattern);
         NTSTATUS QuerySingleFileDirectoryInformation(
             std::wstring_view absoluteDirectoryPath,
             std::wstring_view fileName,
             FILE_INFORMATION_CLASS fileInformationClass,
             void* enumerationBuffer,
-            unsigned int enumerationBufferCapacityBytes
-        );
+            unsigned int enumerationBufferCapacityBytes);
 
     private:
 
@@ -140,8 +138,7 @@ namespace PathwinderTest
         /// @param [in] type Type of filesystem entity to be inserted.
         /// @param [in] sizeInBytes Size, in bytes, of the new filesystem entity.
         void AddFilesystemEntityInternal(
-            std::wstring_view absolutePath, EFilesystemEntityType type, unsigned int sizeInBytes
-        );
+            std::wstring_view absolutePath, EFilesystemEntityType type, unsigned int sizeInBytes);
 
         /// Contents of the mock filesystem.
         /// Top-level map key is an absolute directory name and value is a set of directory

@@ -37,8 +37,7 @@ namespace PathwinderTest
 
         MockDirectoryOperationQueue(
             Pathwinder::FileInformationStructLayout fileInformationStructLayout,
-            TFileNamesToEnumerate&& fileNamesToEnumerate
-        );
+            TFileNamesToEnumerate&& fileNamesToEnumerate);
 
         // IDirectoryOperationQueue
         unsigned int CopyFront(void* dest, unsigned int capacityBytes) const override;

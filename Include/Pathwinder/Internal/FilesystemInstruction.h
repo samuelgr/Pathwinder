@@ -85,8 +85,7 @@ namespace Pathwinder
             inline SingleDirectoryEnumeration(
                 EDirectoryPathSource directoryPathSource,
                 const FilesystemRule* filePatternSource,
-                bool invertFilePatternMatches
-            )
+                bool invertFilePatternMatches)
                 : directoryPathSource(directoryPathSource),
                   filePatternSource(filePatternSource),
                   invertFilePatternMatches(invertFilePatternMatches)
@@ -125,8 +124,7 @@ namespace Pathwinder
             /// for those filenames that match a file pattern associated with the specified rule and
             /// `false` otherwise.
             static inline SingleDirectoryEnumeration IncludeOnlyMatchingFilenames(
-                EDirectoryPathSource directoryPathSource, const FilesystemRule& filePatternSource
-            )
+                EDirectoryPathSource directoryPathSource, const FilesystemRule& filePatternSource)
             {
                 return SingleDirectoryEnumeration(directoryPathSource, &filePatternSource, false);
             }
@@ -142,8 +140,7 @@ namespace Pathwinder
             /// filenames that match a file pattern associated with the specified rule and `true`
             /// otherwise.
             static inline SingleDirectoryEnumeration IncludeAllExceptMatchingFilenames(
-                EDirectoryPathSource directoryPathSource, const FilesystemRule& filePatternSource
-            )
+                EDirectoryPathSource directoryPathSource, const FilesystemRule& filePatternSource)
             {
                 return SingleDirectoryEnumeration(directoryPathSource, &filePatternSource, true);
             }
@@ -165,8 +162,7 @@ namespace Pathwinder
             /// @return One of the two parameters, based on the directory path source enumerator, or
             /// an empty string if the enumerator is invalid.
             inline std::wstring_view SelectDirectoryPath(
-                std::wstring_view associatedPath, std::wstring_view realOpenedPath
-            ) const
+                std::wstring_view associatedPath, std::wstring_view realOpenedPath) const
             {
                 switch (GetDirectoryPathSource())
                 {
@@ -195,8 +191,7 @@ namespace Pathwinder
 
                 return (
                     filePatternSource->FileNameMatchesAnyPattern(filename) !=
-                    invertFilePatternMatches
-                );
+                    invertFilePatternMatches);
             }
         };
 
@@ -277,8 +272,7 @@ namespace Pathwinder
 
         inline DirectoryEnumerationInstruction(
             std::array<SingleDirectoryEnumeration, 2>&& directoriesToEnumerate,
-            std::optional<TemporaryVector<SingleDirectoryNameInsertion>>&& directoryNamesToInsert
-        )
+            std::optional<TemporaryVector<SingleDirectoryNameInsertion>>&& directoryNamesToInsert)
             : directoriesToEnumerate(std::move(directoriesToEnumerate)),
               directoryNamesToInsert(std::move(directoryNamesToInsert))
         {}
@@ -293,11 +287,9 @@ namespace Pathwinder
         {
             return DirectoryEnumerationInstruction(
                 {SingleDirectoryEnumeration::IncludeAllFilenames(
-                     EDirectoryPathSource::RealOpenedPath
-                 ),
+                     EDirectoryPathSource::RealOpenedPath),
                  SingleDirectoryEnumeration::NoEnumeration()},
-                std::nullopt
-            );
+                std::nullopt);
         }
 
         /// Creates a directory enumeration instruction that specifies a specific set of up to two
@@ -322,16 +314,13 @@ namespace Pathwinder
         /// @return Directory enumeration encoded to request insertion of the specific supplied
         /// directory names into the enumeration result.
         static inline DirectoryEnumerationInstruction InsertRuleOriginDirectoryNames(
-            TemporaryVector<SingleDirectoryNameInsertion>&& directoryNamesToInsert
-        )
+            TemporaryVector<SingleDirectoryNameInsertion>&& directoryNamesToInsert)
         {
             return DirectoryEnumerationInstruction(
                 {SingleDirectoryEnumeration::IncludeAllFilenames(
-                     EDirectoryPathSource::RealOpenedPath
-                 ),
+                     EDirectoryPathSource::RealOpenedPath),
                  SingleDirectoryEnumeration::NoEnumeration()},
-                std::move(directoryNamesToInsert)
-            );
+                std::move(directoryNamesToInsert));
         }
 
         /// Creates a directory enumeration instruction that specifies a specific set of up to two
@@ -348,12 +337,10 @@ namespace Pathwinder
         static inline DirectoryEnumerationInstruction
             EnumerateDirectoriesAndInsertRuleOriginDirectoryNames(
                 std::array<SingleDirectoryEnumeration, 2>&& directoriesToEnumerate,
-                TemporaryVector<SingleDirectoryNameInsertion>&& directoryNamesToInsert
-            )
+                TemporaryVector<SingleDirectoryNameInsertion>&& directoryNamesToInsert)
         {
             return DirectoryEnumerationInstruction(
-                std::move(directoriesToEnumerate), std::move(directoryNamesToInsert)
-            );
+                std::move(directoriesToEnumerate), std::move(directoryNamesToInsert));
         }
 
         /// Extracts the container of directory names to be inserted into the enumeration result.
@@ -362,16 +349,15 @@ namespace Pathwinder
         inline TemporaryVector<SingleDirectoryNameInsertion> ExtractDirectoryNamesToInsert(void)
         {
             TemporaryVector<SingleDirectoryNameInsertion> extractedDirectoryNamesToInsert(
-                std::move(*directoryNamesToInsert)
-            );
+                std::move(*directoryNamesToInsert));
             directoryNamesToInsert.reset();
             return extractedDirectoryNamesToInsert;
         }
 
         /// Obtains a read-only reference to the container of directories to be enumerated.
         /// @return Read-only reference to the container of directories to be enumerated.
-        inline const std::array<SingleDirectoryEnumeration, 2>& GetDirectoriesToEnumerate(void
-        ) const
+        inline const std::array<SingleDirectoryEnumeration, 2>&
+            GetDirectoriesToEnumerate(void) const
         {
             return directoriesToEnumerate;
         }
@@ -379,8 +365,8 @@ namespace Pathwinder
         /// Obtains a read-only reference to the container of directory names to be inserted into
         /// the enumeration result. Does not check that directory names are actually present.
         /// @return Read-only reference to the container of directory names to insert.
-        inline const TemporaryVector<SingleDirectoryNameInsertion>& GetDirectoryNamesToInsert(void
-        ) const
+        inline const TemporaryVector<SingleDirectoryNameInsertion>&
+            GetDirectoryNamesToInsert(void) const
         {
             return *directoryNamesToInsert;
         }
@@ -515,8 +501,7 @@ namespace Pathwinder
             ECreateDispositionPreference createDispositionPreference,
             EAssociateNameWithHandle filenameHandleAssociation,
             BitSetEnum<EExtraPreOperation>&& extraPreOperations,
-            std::wstring_view extraPreOperationOperand
-        )
+            std::wstring_view extraPreOperationOperand)
             : redirectedFilename(std::move(redirectedFilename)),
               filenamesToTry(filenamesToTry),
               createDispositionPreference(createDispositionPreference),
@@ -540,8 +525,7 @@ namespace Pathwinder
                 ECreateDispositionPreference::NoPreference,
                 EAssociateNameWithHandle::None,
                 {},
-                std::wstring_view()
-            );
+                std::wstring_view());
         }
 
         /// Creates a filesystem operation redirection instruction that indicates the request should
@@ -557,8 +541,7 @@ namespace Pathwinder
         static inline FileOperationInstruction InterceptWithoutRedirection(
             EAssociateNameWithHandle filenameHandleAssociation,
             BitSetEnum<EExtraPreOperation>&& extraPreOperations = {},
-            std::wstring_view extraPreOperationOperand = std::wstring_view()
-        )
+            std::wstring_view extraPreOperationOperand = std::wstring_view())
         {
             return FileOperationInstruction(
                 std::nullopt,
@@ -566,8 +549,7 @@ namespace Pathwinder
                 ECreateDispositionPreference::NoPreference,
                 filenameHandleAssociation,
                 std::move(extraPreOperations),
-                extraPreOperationOperand
-            );
+                extraPreOperationOperand);
         }
 
         /// Creates a filesystem operation redirection instruction that indicates the request should
@@ -586,8 +568,7 @@ namespace Pathwinder
             TemporaryString&& redirectedFilename,
             EAssociateNameWithHandle filenameHandleAssociation = EAssociateNameWithHandle::None,
             BitSetEnum<EExtraPreOperation>&& extraPreOperations = {},
-            std::wstring_view extraPreOperationOperand = std::wstring_view()
-        )
+            std::wstring_view extraPreOperationOperand = std::wstring_view())
         {
             return FileOperationInstruction(
                 std::move(redirectedFilename),
@@ -595,8 +576,7 @@ namespace Pathwinder
                 ECreateDispositionPreference::NoPreference,
                 filenameHandleAssociation,
                 std::move(extraPreOperations),
-                extraPreOperationOperand
-            );
+                extraPreOperationOperand);
         }
 
         /// Creates a filesystem operation redirection instruction that indicates the request should
@@ -621,8 +601,7 @@ namespace Pathwinder
             ECreateDispositionPreference createDispositionPreference =
                 ECreateDispositionPreference::NoPreference,
             BitSetEnum<EExtraPreOperation>&& extraPreOperations = {},
-            std::wstring_view extraPreOperationOperand = std::wstring_view()
-        )
+            std::wstring_view extraPreOperationOperand = std::wstring_view())
         {
             return FileOperationInstruction(
                 std::move(redirectedFilename),
@@ -630,8 +609,7 @@ namespace Pathwinder
                 createDispositionPreference,
                 filenameHandleAssociation,
                 std::move(extraPreOperations),
-                extraPreOperationOperand
-            );
+                extraPreOperationOperand);
         }
 
         /// Retrieves and returns the preferred way of handling a create disposition requested by
@@ -689,32 +667,24 @@ namespace Pathwinder
 #ifdef _WIN64
     static_assert(
         sizeof(DirectoryEnumerationInstruction::SingleDirectoryEnumeration) <= 16,
-        "Data structure size constraint violation."
-    );
+        "Data structure size constraint violation.");
     static_assert(
         sizeof(DirectoryEnumerationInstruction::SingleDirectoryNameInsertion) <= 16,
-        "Data structure size constraint violation."
-    );
+        "Data structure size constraint violation.");
     static_assert(
-        sizeof(DirectoryEnumerationInstruction) <= 64, "Data structure size constraint violation."
-    );
+        sizeof(DirectoryEnumerationInstruction) <= 64, "Data structure size constraint violation.");
     static_assert(
-        sizeof(FileOperationInstruction) <= 64, "Data structure size constraint violation."
-    );
+        sizeof(FileOperationInstruction) <= 64, "Data structure size constraint violation.");
 #else
     static_assert(
         sizeof(DirectoryEnumerationInstruction::SingleDirectoryEnumeration) <= 8,
-        "Data structure size constraint violation."
-    );
+        "Data structure size constraint violation.");
     static_assert(
         sizeof(DirectoryEnumerationInstruction::SingleDirectoryNameInsertion) <= 8,
-        "Data structure size constraint violation."
-    );
+        "Data structure size constraint violation.");
     static_assert(
-        sizeof(DirectoryEnumerationInstruction) <= 32, "Data structure size constraint violation."
-    );
+        sizeof(DirectoryEnumerationInstruction) <= 32, "Data structure size constraint violation.");
     static_assert(
-        sizeof(FileOperationInstruction) <= 32, "Data structure size constraint violation."
-    );
+        sizeof(FileOperationInstruction) <= 32, "Data structure size constraint violation.");
 #endif
 }  // namespace Pathwinder

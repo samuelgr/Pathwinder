@@ -33,33 +33,26 @@ namespace Pathwinder
             Configuration::kSectionNameGlobal,
             {
                 ConfigurationFileLayoutNameAndValueType(
-                    Strings::kStrConfigurationSettingDryRun, Configuration::EValueType::Boolean
-                ),
+                    Strings::kStrConfigurationSettingDryRun, Configuration::EValueType::Boolean),
                 ConfigurationFileLayoutNameAndValueType(
-                    Strings::kStrConfigurationSettingLogLevel, Configuration::EValueType::Integer
-                ),
-            }
-        ),
+                    Strings::kStrConfigurationSettingLogLevel, Configuration::EValueType::Integer),
+            }),
     };
 
     // Holds the layout of Pathwinder configuration sections that define filesystem rules.
     static Configuration::TConfigurationFileSectionLayout filesystemRuleSectionLayout = {
         ConfigurationFileLayoutNameAndValueType(
             Strings::kStrConfigurationSettingFilesystemRuleOriginDirectory,
-            Configuration::EValueType::String
-        ),
+            Configuration::EValueType::String),
         ConfigurationFileLayoutNameAndValueType(
             Strings::kStrConfigurationSettingFilesystemRuleTargetDirectory,
-            Configuration::EValueType::String
-        ),
+            Configuration::EValueType::String),
         ConfigurationFileLayoutNameAndValueType(
             Strings::kStrConfigurationSettingFilesystemRuleRedirectMode,
-            Configuration::EValueType::String
-        ),
+            Configuration::EValueType::String),
         ConfigurationFileLayoutNameAndValueType(
             Strings::kStrConfigurationSettingFilesystemRuleFilePattern,
-            Configuration::EValueType::StringMultiValue
-        ),
+            Configuration::EValueType::StringMultiValue),
     };
 
     /// Checks if the specified section name could correspond with a section that defines a
@@ -72,8 +65,7 @@ namespace Pathwinder
     {
         return (
             (Strings::kStrConfigurationSectionFilesystemRulePrefix.length() < section.length()) &&
-            (section.starts_with(Strings::kStrConfigurationSectionFilesystemRulePrefix))
-        );
+            (section.starts_with(Strings::kStrConfigurationSectionFilesystemRulePrefix)));
     }
 
     EAction PathwinderConfigReader::ActionForSection(std::wstring_view section)
@@ -88,8 +80,7 @@ namespace Pathwinder
     }
 
     EAction PathwinderConfigReader::ActionForValue(
-        std::wstring_view section, std::wstring_view name, TIntegerView value
-    )
+        std::wstring_view section, std::wstring_view name, TIntegerView value)
     {
         if (value >= 0) return EAction::Process;
 
@@ -97,15 +88,13 @@ namespace Pathwinder
     }
 
     EAction PathwinderConfigReader::ActionForValue(
-        std::wstring_view section, std::wstring_view name, TBooleanView value
-    )
+        std::wstring_view section, std::wstring_view name, TBooleanView value)
     {
         return EAction::Process;
     }
 
     EAction PathwinderConfigReader::ActionForValue(
-        std::wstring_view section, std::wstring_view name, TStringView value
-    )
+        std::wstring_view section, std::wstring_view name, TStringView value)
     {
         return EAction::Process;
     }

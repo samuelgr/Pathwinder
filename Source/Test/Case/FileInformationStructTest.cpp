@@ -44,8 +44,7 @@ namespace PathwinderTest
     /// @return Last wide character in the trailing `fileName` field of the file information
     /// structure.
     static inline wchar_t LastWideCharacterInFileName(
-        const void* fileInformationStruct, unsigned int structSizeInBytes
-    )
+        const void* fileInformationStruct, unsigned int structSizeInBytes)
     {
         const unsigned int lastWideCharacterIndex = (structSizeInBytes / sizeof(wchar_t)) - 1;
         return (reinterpret_cast<const wchar_t*>(fileInformationStruct))[lastWideCharacterIndex];
@@ -70,8 +69,7 @@ namespace PathwinderTest
         {
             TEST_ASSERT(
                 true ==
-                FileInformationStructLayout::LayoutForFileInformationClass(testInput).has_value()
-            );
+                FileInformationStructLayout::LayoutForFileInformationClass(testInput).has_value());
         }
     }
 
@@ -192,8 +190,7 @@ namespace PathwinderTest
         TEST_ASSERT(
             testValue ==
             FileInformationStructLayout::LayoutForFileInformationClass(testFileInformationClass)
-                ->ReadNextEntryOffset(&testStruct)
-        );
+                ->ReadNextEntryOffset(&testStruct));
     }
 
     TEST_CASE(FileInformationStructLayout_ReadNextEntryOffset)
@@ -222,8 +219,7 @@ namespace PathwinderTest
         TEST_ASSERT(
             testValue ==
             FileInformationStructLayout::LayoutForFileInformationClass(testFileInformationClass)
-                ->ReadFileNameLength(&testStruct)
-        );
+                ->ReadFileNameLength(&testStruct));
     }
 
     TEST_CASE(FileInformationStructLayout_ReadFileNameLength)
@@ -254,8 +250,7 @@ namespace PathwinderTest
                 .value();
 
         std::wmemcpy(
-            testStructLayout.FileNamePointer(testStruct), testValue.data(), testValue.length()
-        );
+            testStructLayout.FileNamePointer(testStruct), testValue.data(), testValue.length());
         testStruct->fileNameLength = static_cast<ULONG>(testValue.length() * sizeof(testValue[0]));
 
         TEST_ASSERT(testValue == testStructLayout.ReadFileName(testStruct));
@@ -300,13 +295,11 @@ namespace PathwinderTest
         // If the filename extends beyond the structure's base size then the size of the structure
         // should exactly lead to the last character in the filename field.
         std::wmemcpy(
-            testStructLayout.FileNamePointer(testStruct), testValue.data(), testValue.length()
-        );
+            testStructLayout.FileNamePointer(testStruct), testValue.data(), testValue.length());
         testStruct->fileNameLength = static_cast<ULONG>(testValue.length() * sizeof(testValue[0]));
         TEST_ASSERT(
             LastWideCharacterInFileName(testStruct, testStructLayout.SizeOfStruct(testStruct)) ==
-            testValue.back()
-        );
+            testValue.back());
     }
 
     TEST_CASE(FileInformationStructLayout_SizeOfStruct)
@@ -343,8 +336,7 @@ namespace PathwinderTest
         constexpr std::wstring_view testValue = L"AbCdEfG hIjKlMnOp";
 
         std::wmemcpy(
-            testStructLayout.FileNamePointer(testStruct), testValue.data(), testValue.length()
-        );
+            testStructLayout.FileNamePointer(testStruct), testValue.data(), testValue.length());
         testStruct->fileNameLength = static_cast<ULONG>(testValue.length() * sizeof(testValue[0]));
 
         testStructLayout.UpdateNextEntryOffset(testStruct);
@@ -417,8 +409,7 @@ namespace PathwinderTest
         TEST_ASSERT(testStructLayout.SizeOfStruct(testStruct) == testStruct->nextEntryOffset);
         TEST_ASSERT(
             LastWideCharacterInFileName(testStruct, testStructLayout.SizeOfStruct(testStruct)) ==
-            testValue.back()
-        );
+            testValue.back());
     }
 
     TEST_CASE(FileInformationStructLayout_WriteFileName_Nominal)
@@ -463,8 +454,7 @@ namespace PathwinderTest
         TEST_ASSERT(testStructLayout.SizeOfStruct(testStruct) == testStruct->nextEntryOffset);
         TEST_ASSERT(
             LastWideCharacterInFileName(testStruct, testStructLayout.SizeOfStruct(testStruct)) ==
-            expectedLastFileNameChar
-        );
+            expectedLastFileNameChar);
 
         // This loop verifies that the next 100 bytes after the size of the buffer provided to write
         // the filename has not been touched and is still all 0 as initialized.

@@ -55,8 +55,7 @@ namespace Pathwinder
         {
             return (
                 (true == AttributesIndicateFileExists(attributes)) &&
-                (0 != (FILE_ATTRIBUTE_DIRECTORY & attributes))
-            );
+                (0 != (FILE_ATTRIBUTE_DIRECTORY & attributes)));
         }
 
         /// Ensures the specified directory exists.
@@ -79,8 +78,7 @@ namespace Pathwinder
                 &absoluteDirectoryPathSystemString,
                 0,
                 nullptr,
-                nullptr
-            );
+                nullptr);
 
             IO_STATUS_BLOCK unusedStatusBlock{};
             NTSTATUS createOrOpenDirectoryResult =
@@ -95,8 +93,7 @@ namespace Pathwinder
                     FILE_OPEN_IF,
                     FILE_DIRECTORY_FILE,
                     nullptr,
-                    0
-                );
+                    0);
 
             if (NT_SUCCESS(createOrOpenDirectoryResult))
                 Hooks::ProtectedDependency::NtClose::SafeInvoke(directoryHandle);
@@ -118,8 +115,7 @@ namespace Pathwinder
                 Strings::NtConvertStringViewToUnicodeString(absolutePath);
             OBJECT_ATTRIBUTES absolutePathObjectAttributes{};
             InitializeObjectAttributes(
-                &absolutePathObjectAttributes, &absolutePathSystemString, 0, nullptr, nullptr
-            );
+                &absolutePathObjectAttributes, &absolutePathSystemString, 0, nullptr, nullptr);
 
             IO_STATUS_BLOCK unusedStatusBlock{};
             NTSTATUS queryResult = Hooks::ProtectedDependency::NtQueryInformationByName::SafeInvoke(
@@ -127,8 +123,7 @@ namespace Pathwinder
                 &unusedStatusBlock,
                 &absolutePathObjectInfo,
                 sizeof(absolutePathObjectInfo),
-                SFileStatInformation::kFileInformationClass
-            );
+                SFileStatInformation::kFileInformationClass);
 
             if (!(NT_SUCCESS(queryResult))) return INVALID_FILE_ATTRIBUTES;
 
@@ -178,8 +173,7 @@ namespace Pathwinder
             const std::wstring_view windowsNamespacePrefix =
                 Strings::PathGetWindowsNamespacePrefix(absoluteDirectoryPath);
             const std::wstring_view absoluteDirectoryPathTrimmed = Strings::RemoveTrailing(
-                absoluteDirectoryPath.substr(windowsNamespacePrefix.length()), L'\\'
-            );
+                absoluteDirectoryPath.substr(windowsNamespacePrefix.length()), L'\\');
 
             std::wstring_view driveLetterPrefix =
                 PathGetDriveLetterPrefix(absoluteDirectoryPathTrimmed);
@@ -202,8 +196,7 @@ namespace Pathwinder
             do
             {
                 std::wstring_view currentDirectoryToTryWithPrefix = absoluteDirectoryPath.substr(
-                    0, currentDirectoryToTry.length() + windowsNamespacePrefix.length()
-                );
+                    0, currentDirectoryToTry.length() + windowsNamespacePrefix.length());
 
                 if (true == IsDirectory(currentDirectoryToTryWithPrefix)) break;
 
@@ -227,12 +220,10 @@ namespace Pathwinder
                  Strings::Tokenizer(remainingHierarchyToCreate, L"\\"))
             {
                 currentDirectoryToTry = absoluteDirectoryPathTrimmed.substr(
-                    0, 1 + currentDirectoryToTry.length() + nextHierarchyLevelToCreate.length()
-                );
+                    0, 1 + currentDirectoryToTry.length() + nextHierarchyLevelToCreate.length());
 
                 std::wstring_view currentDirectoryToTryWithPrefix = absoluteDirectoryPath.substr(
-                    0, currentDirectoryToTry.length() + windowsNamespacePrefix.length()
-                );
+                    0, currentDirectoryToTry.length() + windowsNamespacePrefix.length());
                 NTSTATUS currentDirectoryCreateResult =
                     EnsureDirectoryExists(currentDirectoryToTry);
                 if (!(NT_SUCCESS(currentDirectoryCreateResult)))
@@ -254,9 +245,8 @@ namespace Pathwinder
                 // if it does not have a trailing backslash.
 
                 wchar_t driveLetterWithBackslash[] = {absolutePath[0], absolutePath[1], L'\\'};
-                pathAttributes = GetAttributesForPath(
-                    std::wstring_view(driveLetterWithBackslash, _countof(driveLetterWithBackslash))
-                );
+                pathAttributes = GetAttributesForPath(std::wstring_view(
+                    driveLetterWithBackslash, _countof(driveLetterWithBackslash)));
             }
             else
             {
@@ -278,9 +268,8 @@ namespace Pathwinder
                 // if it does not have a trailing backslash.
 
                 wchar_t driveLetterWithBackslash[] = {absolutePath[0], absolutePath[1], L'\\'};
-                pathAttributes = GetAttributesForPath(
-                    std::wstring_view(driveLetterWithBackslash, _countof(driveLetterWithBackslash))
-                );
+                pathAttributes = GetAttributesForPath(std::wstring_view(
+                    driveLetterWithBackslash, _countof(driveLetterWithBackslash)));
             }
             else
             {
@@ -305,8 +294,7 @@ namespace Pathwinder
                 &absoluteDirectoryPathSystemString,
                 0,
                 nullptr,
-                nullptr
-            );
+                nullptr);
 
             IO_STATUS_BLOCK unusedStatusBlock{};
 
@@ -317,8 +305,7 @@ namespace Pathwinder
                     &absoluteDirectoryPathObjectAttributes,
                     &unusedStatusBlock,
                     (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
-                    (FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT)
-                );
+                    (FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT));
             if (!(NT_SUCCESS(openDirectoryForEnumerationResult)))
                 return openDirectoryForEnumerationResult;
 
@@ -331,8 +318,7 @@ namespace Pathwinder
             void* enumerationBuffer,
             unsigned int enumerationBufferCapacityBytes,
             ULONG queryFlags,
-            std::wstring_view filePattern
-        )
+            std::wstring_view filePattern)
         {
             UNICODE_STRING filePatternSystemString{};
             UNICODE_STRING* filePatternSystemStringPtr = nullptr;
@@ -356,8 +342,7 @@ namespace Pathwinder
                     enumerationBufferCapacityBytes,
                     fileInformationClass,
                     queryFlags,
-                    filePatternSystemStringPtr
-                );
+                    filePatternSystemStringPtr);
             if (NT_SUCCESS(directoryEnumerationResult) && (0 == statusBlock.Information))
                 return NtStatus::kBufferTooSmall;
 
@@ -369,8 +354,7 @@ namespace Pathwinder
             std::wstring_view fileName,
             FILE_INFORMATION_CLASS fileInformationClass,
             void* enumerationBuffer,
-            unsigned int enumerationBufferCapacityBytes
-        )
+            unsigned int enumerationBufferCapacityBytes)
         {
             auto maybeDirectoryHandle = OpenDirectoryForEnumeration(absoluteDirectoryPath);
             if (true == maybeDirectoryHandle.HasError()) return maybeDirectoryHandle.Error();
@@ -390,8 +374,7 @@ namespace Pathwinder
                     static_cast<ULONG>(enumerationBufferCapacityBytes),
                     fileInformationClass,
                     0,
-                    &fileNameSystemString
-                );
+                    &fileNameSystemString);
             Hooks::ProtectedDependency::NtClose::SafeInvoke(maybeDirectoryHandle.Value());
 
             return directoryEnumResult;

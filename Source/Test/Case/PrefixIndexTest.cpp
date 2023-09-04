@@ -151,11 +151,9 @@ namespace PathwinderTest
         TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5"));
         TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6"));
         TEST_ASSERT(
-            false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7")
-        );
+            false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7"));
         TEST_ASSERT(
-            true == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7\\Level8")
-        );
+            true == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7\\Level8"));
     }
 
     // Inserts a few strings into the prefix index, as with the nominal test case but this time with
@@ -199,8 +197,7 @@ namespace PathwinderTest
         index.Insert(L"Level1\\/\\////\\Level2///\\Level3\\Level4", kTestData[4]);
         index.Insert(
             L"Level1/Level2\\\\Level3\\/\\\\Level4////\\Level5/\\\\\\Level6\\Level7//Level8",
-            kTestData[8]
-        );
+            kTestData[8]);
 
         TEST_ASSERT(false == index.Contains(L"Level1"));
         TEST_ASSERT(false == index.Contains(L"Level1/Level2"));
@@ -209,11 +206,9 @@ namespace PathwinderTest
         TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5"));
         TEST_ASSERT(false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6"));
         TEST_ASSERT(
-            false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7")
-        );
+            false == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7"));
         TEST_ASSERT(
-            true == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7\\Level8")
-        );
+            true == index.Contains(L"Level1/Level2\\Level3\\Level4/Level5\\Level6/Level7\\Level8"));
     }
 
     // Inserts a few strings into the prefix index.
@@ -266,16 +261,13 @@ namespace PathwinderTest
 
         TEST_ASSERT(
             std::make_pair(level3Node, false) ==
-            index.Insert(L"Level1\\Level2\\Level3", kTestData[6])
-        );
+            index.Insert(L"Level1\\Level2\\Level3", kTestData[6]));
         TEST_ASSERT(
             std::make_pair(level3Node, false) ==
-            index.Insert(L"Level1\\Level2\\Level3", kTestData[7])
-        );
+            index.Insert(L"Level1\\Level2\\Level3", kTestData[7]));
         TEST_ASSERT(
             std::make_pair(level3Node, false) ==
-            index.Insert(L"Level1\\Level2\\Level3", kTestData[8])
-        );
+            index.Insert(L"Level1\\Level2\\Level3", kTestData[8]));
 
         TEST_ASSERT(level3Node->GetData() == &kTestData[3]);
     }
@@ -315,8 +307,7 @@ namespace PathwinderTest
         TEST_ASSERT(level5Node->GetData() == &kTestData[5]);
 
         TEST_ASSERT(
-            level5Node == index.Update(L"Level1\\Level2\\Level3\\Level4\\Level5", kTestData[10])
-        );
+            level5Node == index.Update(L"Level1\\Level2\\Level3\\Level4\\Level5", kTestData[10]));
         TEST_ASSERT(level5Node->GetData() == &kTestData[10]);
 
         TEST_ASSERT(level2Node == index.Update(L"Level1\\Level2", kTestData[14]));
@@ -337,8 +328,7 @@ namespace PathwinderTest
 
         TEST_ASSERT(true == index.Contains(L"Root\\Level1\\A\\Level2\\Level3"));
         TEST_ASSERT(
-            true == index.Contains(L"Root\\Level1\\A\\Level2\\Level3\\Level4\\Level5\\Level6")
-        );
+            true == index.Contains(L"Root\\Level1\\A\\Level2\\Level3\\Level4\\Level5\\Level6"));
         TEST_ASSERT(true == index.Contains(L"Root\\Level1\\B\\Level7\\Level8\\Level9"));
         TEST_ASSERT(true == index.Contains(L"Root\\Level1\\B\\Level7\\Level8"));
 
@@ -347,8 +337,7 @@ namespace PathwinderTest
 
         TEST_ASSERT(false == index.Contains(L"Root\\Level1\\A\\Level2\\Level3"));
         TEST_ASSERT(
-            true == index.Contains(L"Root\\Level1\\A\\Level2\\Level3\\Level4\\Level5\\Level6")
-        );
+            true == index.Contains(L"Root\\Level1\\A\\Level2\\Level3\\Level4\\Level5\\Level6"));
         TEST_ASSERT(false == index.Contains(L"Root\\Level1\\B\\Level7\\Level8\\Level9"));
         TEST_ASSERT(true == index.Contains(L"Root\\Level1\\B\\Level7\\Level8"));
     }
@@ -381,8 +370,7 @@ namespace PathwinderTest
         TEST_ASSERT(nullptr != level4Node);
 
         auto longestMatchingPrefixNode = index.LongestMatchingPrefix(
-            L"Level1\\Level2\\Level3\\Level4\\Level5\\Level6\\Level7\\Level8\\Level9\\Level10"
-        );
+            L"Level1\\Level2\\Level3\\Level4\\Level5\\Level6\\Level7\\Level8\\Level9\\Level10");
         TEST_ASSERT(level4Node == longestMatchingPrefixNode);
     }
 
@@ -424,12 +412,10 @@ namespace PathwinderTest
 
         TEST_ASSERT(
             true ==
-            index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", kTestData[14]).second
-        );
+            index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", kTestData[14]).second);
         TEST_ASSERT(
             true ==
-            index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", kTestData[15]).second
-        );
+            index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", kTestData[15]).second);
         TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch", kTestData[0]).second);
 
         auto branchNode = index.Find(L"Root\\Level1\\Level2\\Branch");
@@ -450,12 +436,10 @@ namespace PathwinderTest
 
         TEST_ASSERT(
             true ==
-            index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", kTestData[14]).second
-        );
+            index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", kTestData[14]).second);
         TEST_ASSERT(
             true ==
-            index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", kTestData[15]).second
-        );
+            index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", kTestData[15]).second);
 
         auto longestMatchingPrefixNode =
             index.LongestMatchingPrefix(L"Root\\Level1\\Level2\\Branch\\Level7\\Level8");

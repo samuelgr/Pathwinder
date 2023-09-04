@@ -58,8 +58,7 @@ namespace Pathwinder
             const auto builtinStringsIter = kBuiltinStrings.find(name);
             if (kBuiltinStrings.cend() == builtinStringsIter)
                 return ResolvedStringOrError::MakeError(Strings::FormatString(
-                    L"%s: Unrecognized built-in string", std::wstring(name).c_str()
-                ));
+                    L"%s: Unrecognized built-in string", std::wstring(name).c_str()));
 
             return ResolvedStringOrError::MakeValue(builtinStringsIter->second);
         }
@@ -74,14 +73,12 @@ namespace Pathwinder
             const auto configuredDefinitionIter = configuredDefinitions.find(name);
             if (configuredDefinitions.cend() == configuredDefinitionIter)
                 return ResolvedStringOrError::MakeError(Strings::FormatString(
-                    L"%s: Unrecognized variable name", std::wstring(name).c_str()
-                ));
+                    L"%s: Unrecognized variable name", std::wstring(name).c_str()));
 
             std::pair resolutionInProgress = resolutionsInProgress.emplace(name);
             if (false == resolutionInProgress.second)
                 return ResolvedStringOrError::MakeError(
-                    Strings::FormatString(L"%s: Circular reference", std::wstring(name).c_str())
-                );
+                    Strings::FormatString(L"%s: Circular reference", std::wstring(name).c_str()));
 
             ResolvedStringOrError resolvedDefinition =
                 ResolveAllReferences(configuredDefinitionIter->second);
@@ -99,20 +96,17 @@ namespace Pathwinder
             const DWORD getEnvironmentVariableResult = GetEnvironmentVariable(
                 std::wstring(name).c_str(),
                 environmentVariableValue.Data(),
-                environmentVariableValue.Capacity()
-            );
+                environmentVariableValue.Capacity());
 
             if (getEnvironmentVariableResult >= environmentVariableValue.Capacity())
                 return ResolvedStringOrError::MakeError(Strings::FormatString(
                     L"%s: Failed to obtain environment variable value: Value is too long",
-                    std::wstring(name).c_str()
-                ));
+                    std::wstring(name).c_str()));
             else if (0 == getEnvironmentVariableResult)
                 return ResolvedStringOrError::MakeError(Strings::FormatString(
                     L"%s: Failed to obtain environment variable value: %s",
                     std::wstring(name).c_str(),
-                    Strings::SystemErrorCodeString(GetLastError()).AsCString()
-                ));
+                    Strings::SystemErrorCodeString(GetLastError()).AsCString()));
 
             return ResolvedStringOrError::MakeValue(environmentVariableValue.Data());
         }
@@ -275,13 +269,11 @@ namespace Pathwinder
             const auto knownFolderIter = kKnownFolderIdentifiers.find(name);
             if (kKnownFolderIdentifiers.cend() == knownFolderIter)
                 return ResolvedStringOrError::MakeError(Strings::FormatString(
-                    L"%s: Unrecognized known folder identifier", std::wstring(name).c_str()
-                ));
+                    L"%s: Unrecognized known folder identifier", std::wstring(name).c_str()));
 
             wchar_t* knownFolderPath = nullptr;
             const HRESULT getKnownFolderPathResult = SHGetKnownFolderPath(
-                *knownFolderIter->second, KF_FLAG_DEFAULT, NULL, &knownFolderPath
-            );
+                *knownFolderIter->second, KF_FLAG_DEFAULT, NULL, &knownFolderPath);
 
             if (S_OK != getKnownFolderPathResult)
             {
@@ -290,8 +282,7 @@ namespace Pathwinder
                 return ResolvedStringOrError::MakeError(Strings::FormatString(
                     L"%s: Failed to obtain known folder path: error code 0x%08lx",
                     std::wstring(name).c_str(),
-                    static_cast<unsigned long>(getKnownFolderPathResult)
-                ));
+                    static_cast<unsigned long>(getKnownFolderPathResult)));
             }
             else
             {
@@ -336,24 +327,21 @@ namespace Pathwinder
 
                 default:
                     return ResolvedStringViewOrError::MakeError(Strings::FormatString(
-                        L"%s: Unparseable reference", std::wstring(str).c_str()
-                    ));
+                        L"%s: Unparseable reference", std::wstring(str).c_str()));
             }
 
             const auto resolverByDomainIter = kResolversByDomain.find(strPartReferenceDomain);
             if (kResolversByDomain.cend() == resolverByDomainIter)
                 return ResolvedStringViewOrError::MakeError(Strings::FormatString(
                     L"%s: Unrecognized reference domain",
-                    std::wstring(strPartReferenceDomain).c_str()
-                ));
+                    std::wstring(strPartReferenceDomain).c_str()));
 
             ResolvedStringOrError resolveResult =
                 resolverByDomainIter->second(strPartReferenceName);
 
             if (true == resolveResult.HasValue())
                 return ResolvedStringViewOrError::MakeValue(
-                    resolvedSingleReferenceCache.emplace(str, resolveResult.Value()).first->second
-                );
+                    resolvedSingleReferenceCache.emplace(str, resolveResult.Value()).first->second);
             else
                 return ResolvedStringViewOrError::MakeError(std::move(resolveResult.Error()));
         }
@@ -362,8 +350,7 @@ namespace Pathwinder
             std::wstring_view str,
             std::wstring_view escapeCharacters,
             std::wstring_view escapeSequenceStart,
-            std::wstring_view escapeSequenceEnd
-        )
+            std::wstring_view escapeSequenceEnd)
         {
             TemporaryString resolvedStr;
             TemporaryVector<std::wstring_view> strParts =
@@ -373,8 +360,7 @@ namespace Pathwinder
                 return ResolvedStringOrError::MakeError(Strings::FormatString(
                     L"%s: Unmatched '%s' delimiters",
                     std::wstring(str).c_str(),
-                    Strings::kStrDelimiterReferenceVsLiteral.data()
-                ));
+                    Strings::kStrDelimiterReferenceVsLiteral.data()));
 
             resolvedStr << strParts[0];
 
@@ -393,8 +379,7 @@ namespace Pathwinder
                         return ResolvedStringOrError::MakeError(Strings::FormatString(
                             L"%s: Failed to resolve reference: %s",
                             std::wstring(str).c_str(),
-                            resolvedReferenceResult.Error().AsCString()
-                        ));
+                            resolvedReferenceResult.Error().AsCString()));
 
                     if (true == escapeCharacters.empty())
                     {
@@ -426,8 +411,7 @@ namespace Pathwinder
                 return ResolvedStringOrError::MakeError(Strings::FormatString(
                     L"%s: Successfully resolved, but result exceeds the limit of %u characters",
                     std::wstring(str).c_str(),
-                    resolvedStr.Capacity()
-                ));
+                    resolvedStr.Capacity()));
 
             return ResolvedStringOrError::MakeValue(resolvedStr);
         }
@@ -445,8 +429,7 @@ namespace Pathwinder
         }
 
         void SetConfiguredDefinitionsFromSection(
-            Configuration::Section&& configuredDefinitionsSection
-        )
+            Configuration::Section&& configuredDefinitionsSection)
         {
             TConfiguredDefinitions configuredDefinitions;
 
@@ -456,15 +439,13 @@ namespace Pathwinder
             {
                 DebugAssert(
                     Configuration::EValueType::String == definitionRecord->second.GetType(),
-                    "Configured definitions section contains a non-string value."
-                );
+                    "Configured definitions section contains a non-string value.");
 
                 std::wstring definitionName = std::move(definitionRecord->first);
                 std::wstring definitionValue = *definitionRecord->second.ExtractFirstStringValue();
 
                 configuredDefinitions.emplace(
-                    std::move(definitionName), std::move(definitionValue)
-                );
+                    std::move(definitionName), std::move(definitionValue));
             }
 
             SetConfiguredDefinitions(std::move(configuredDefinitions));

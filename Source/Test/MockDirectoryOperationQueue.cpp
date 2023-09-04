@@ -33,8 +33,7 @@ namespace PathwinderTest
 
     MockDirectoryOperationQueue::MockDirectoryOperationQueue(
         Pathwinder::FileInformationStructLayout fileInformationStructLayout,
-        TFileNamesToEnumerate&& fileNamesToEnumerate
-    )
+        TFileNamesToEnumerate&& fileNamesToEnumerate)
         : fileInformationStructLayout(fileInformationStructLayout),
           fileNamesToEnumerate(std::move(fileNamesToEnumerate)),
           nextFileNameToEnumerate(),
@@ -43,14 +42,12 @@ namespace PathwinderTest
         if (Pathwinder::FileInformationStructLayout() == this->fileInformationStructLayout)
             TEST_FAILED_BECAUSE(
                 L"%s: Test implementation error due to creation of a directory operation queue with an unsupported file information class.",
-                __FUNCTIONW__
-            );
+                __FUNCTIONW__);
 
         if (true == this->fileNamesToEnumerate.empty())
             TEST_FAILED_BECAUSE(
                 L"%s: Test implementation error due to creation of a directory operation queue with an empty set of filenames to enumerate.",
-                __FUNCTIONW__
-            );
+                __FUNCTIONW__);
 
         Restart();
     }
@@ -104,7 +101,6 @@ namespace PathwinderTest
         if (true == fileNamesToEnumerate.empty()) return 0;
 
         return fileInformationStructLayout.HypotheticalSizeForFileNameLength(
-            static_cast<unsigned int>(FileNameOfFront().length())
-        );
+            static_cast<unsigned int>(FileNameOfFront().length()));
     }
 }  // namespace PathwinderTest

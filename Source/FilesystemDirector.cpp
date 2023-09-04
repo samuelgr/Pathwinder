@@ -49,8 +49,8 @@ namespace Pathwinder
         return *singleton;
     }
 
-    const FilesystemRule* FilesystemDirector::SelectRuleForPath(std::wstring_view absolutePath
-    ) const
+    const FilesystemRule*
+        FilesystemDirector::SelectRuleForPath(std::wstring_view absolutePath) const
     {
         // It is possible that multiple rules all have a prefix that matches the directory part of
         // the full file path. We want to pick the most specific one to apply, meaning it has the
@@ -66,8 +66,7 @@ namespace Pathwinder
     }
 
     DirectoryEnumerationInstruction FilesystemDirector::GetInstructionForDirectoryEnumeration(
-        std::wstring_view associatedPath, std::wstring_view realOpenedPath
-    ) const
+        std::wstring_view associatedPath, std::wstring_view realOpenedPath) const
     {
         associatedPath = Strings::RemoveTrailing(associatedPath, L'\\');
         realOpenedPath = Strings::RemoveTrailing(realOpenedPath, L'\\');
@@ -123,25 +122,20 @@ namespace Pathwinder
                     Message::ESeverity::Error,
                     L"Directory enumeration query for path \"%.*s\" did not match any rules due to an internal error.",
                     static_cast<int>(associatedPath.length()),
-                    associatedPath.data()
-                );
+                    associatedPath.data());
                 return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
             }
 
             DebugAssert(
                 FilesystemRule::EDirectoryCompareResult::Unrelated !=
                     directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(
-                        unredirectedPathTrimmedForQuery
-                    ),
-                "Origin directory must be somehow related to the unredirected path."
-            );
+                        unredirectedPathTrimmedForQuery),
+                "Origin directory must be somehow related to the unredirected path.");
             DebugAssert(
                 FilesystemRule::EDirectoryCompareResult::Unrelated !=
                     directoryEnumerationRedirectRule->DirectoryCompareWithTarget(
-                        redirectedPathTrimmedForQuery
-                    ),
-                "Target directory must be somehow related to the redirected path."
-            );
+                        redirectedPathTrimmedForQuery),
+                "Target directory must be somehow related to the redirected path.");
 
             if (FilesystemRule::ERedirectMode::Overlay ==
                 directoryEnumerationRedirectRule->GetRedirectMode())
@@ -162,20 +156,17 @@ namespace Pathwinder
                     static_cast<int>(directoryEnumerationRedirectRule->GetName().length()),
                     directoryEnumerationRedirectRule->GetName().data(),
                     static_cast<int>(redirectedPath.length()),
-                    redirectedPath.data()
-                );
+                    redirectedPath.data());
                 if (FilesystemRule::EDirectoryCompareResult::Equal ==
                     directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(
-                        unredirectedPathTrimmedForQuery
-                    ))
+                        unredirectedPathTrimmedForQuery))
                 {
                     directoriesToEnumerate = {
                         DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                             IncludeOnlyMatchingFilenames(
                                 DirectoryEnumerationInstruction::EDirectoryPathSource::
                                     RealOpenedPath,
-                                *directoryEnumerationRedirectRule
-                            ),
+                                *directoryEnumerationRedirectRule),
                         DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                             IncludeAllFilenames(DirectoryEnumerationInstruction::
                                                     EDirectoryPathSource::AssociatedPath)};
@@ -194,8 +185,8 @@ namespace Pathwinder
             else if (
                 (false == directoryEnumerationRedirectRule->HasFilePatterns()) ||
                 (FilesystemRule::EDirectoryCompareResult::Equal !=
-                    directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(unredirectedPathTrimmedForQuery))
-            )
+                 directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(
+                     unredirectedPathTrimmedForQuery)))
             {
                 // This is a simplification for two potential common cases:
                 // (1) Filesystem rule that did the redirection does not actually define any file
@@ -230,13 +221,11 @@ namespace Pathwinder
                     static_cast<int>(directoryEnumerationRedirectRule->GetName().length()),
                     directoryEnumerationRedirectRule->GetName().data(),
                     static_cast<int>(redirectedPath.length()),
-                    redirectedPath.data()
-                );
+                    redirectedPath.data());
                 directoriesToEnumerate = {
                     DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                         IncludeAllFilenames(
-                            DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath
-                        )};
+                            DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath)};
             }
             else
             {
@@ -252,19 +241,16 @@ namespace Pathwinder
                     static_cast<int>(unredirectedPath.length()),
                     unredirectedPath.data(),
                     static_cast<int>(directoryEnumerationRedirectRule->GetName().length()),
-                    directoryEnumerationRedirectRule->GetName().data()
-                );
+                    directoryEnumerationRedirectRule->GetName().data());
                 directoriesToEnumerate = {
                     DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                         IncludeOnlyMatchingFilenames(
                             DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath,
-                            *directoryEnumerationRedirectRule
-                        ),
+                            *directoryEnumerationRedirectRule),
                     DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                         IncludeAllExceptMatchingFilenames(
                             DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath,
-                            *directoryEnumerationRedirectRule
-                        )};
+                            *directoryEnumerationRedirectRule)};
             }
         }
         else
@@ -275,12 +261,10 @@ namespace Pathwinder
                 Message::ESeverity::SuperDebug,
                 L"Directory enumeration query for path \"%.*s\" does not match any rules.",
                 static_cast<int>(realOpenedPath.length()),
-                realOpenedPath.data()
-            );
+                realOpenedPath.data());
             directoriesToEnumerate = {
                 DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                    DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath
-                )};
+                    DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath)};
         }
 
         std::optional<
@@ -333,8 +317,7 @@ namespace Pathwinder
                             static_cast<int>(childRule.GetOriginDirectoryName().length()),
                             childRule.GetOriginDirectoryName().data(),
                             static_cast<int>(childRule.GetName().length()),
-                            childRule.GetName().data()
-                        );
+                            childRule.GetName().data());
 
                         directoryNamesToInsert->EmplaceBack(childRule);
                     }
@@ -349,38 +332,32 @@ namespace Pathwinder
                     directoryNamesToInsert->begin(),
                     directoryNamesToInsert->end(),
                     [](const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion& a,
-                       const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion& b
-                    ) -> bool
+                       const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion& b)
+                        -> bool
                     {
                         return (
                             Strings::CompareCaseInsensitive(
-                                a.FileNameToInsert(), b.FileNameToInsert()
-                            ) < 0
-                        );
-                    }
-                );
+                                a.FileNameToInsert(), b.FileNameToInsert()) < 0);
+                    });
             }
         }
         while (false);
 
         return DirectoryEnumerationInstruction(
-            std::move(directoriesToEnumerate), std::move(directoryNamesToInsert)
-        );
+            std::move(directoriesToEnumerate), std::move(directoryNamesToInsert));
     }
 
     FileOperationInstruction FilesystemDirector::GetInstructionForFileOperation(
         std::wstring_view absoluteFilePath,
         FileAccessMode fileAccessMode,
-        CreateDisposition createDisposition
-    ) const
+        CreateDisposition createDisposition) const
     {
         const std::wstring_view windowsNamespacePrefix =
             Strings::PathGetWindowsNamespacePrefix(absoluteFilePath);
         const std::wstring_view extraSuffix =
             ((true == absoluteFilePath.ends_with(L'\\')) ? L"\\" : L"");
         const std::wstring_view absoluteFilePathTrimmedForQuery = Strings::RemoveTrailing(
-            absoluteFilePath.substr(windowsNamespacePrefix.length()), L'\\'
-        );
+            absoluteFilePath.substr(windowsNamespacePrefix.length()), L'\\');
 
         if (false == PathBeginsWithDriveLetter(absoluteFilePathTrimmedForQuery))
         {
@@ -388,8 +365,7 @@ namespace Pathwinder
                 Message::ESeverity::SuperDebug,
                 L"File operation redirection query for path \"%.*s\" does not begin with a drive letter and was therefore skipped for redirection.",
                 static_cast<int>(absoluteFilePath.length()),
-                absoluteFilePath.data()
-            );
+                absoluteFilePath.data());
             return FileOperationInstruction::NoRedirectionOrInterception();
         }
 
@@ -400,8 +376,7 @@ namespace Pathwinder
                 Message::ESeverity::SuperDebug,
                 L"File operation redirection query for path \"%.*s\" does not contain a final path separator and was therefore skipped for redirection.",
                 static_cast<int>(absoluteFilePath.length()),
-                absoluteFilePath.data()
-            );
+                absoluteFilePath.data());
             return FileOperationInstruction::NoRedirectionOrInterception();
         }
 
@@ -413,8 +388,7 @@ namespace Pathwinder
                 Message::ESeverity::SuperDebug,
                 L"File operation redirection query for path \"%.*s\" did not match any rules.",
                 static_cast<int>(absoluteFilePath.length()),
-                absoluteFilePath.data()
-            );
+                absoluteFilePath.data());
 
             if (true == IsPrefixForAnyRule(absoluteFilePathTrimmedForQuery))
             {
@@ -424,8 +398,7 @@ namespace Pathwinder
                 // redirected. Therefore, if a file handle is being created, it needs to be
                 // associated with the unredirected path.
                 return FileOperationInstruction::InterceptWithoutRedirection(
-                    FileOperationInstruction::EAssociateNameWithHandle::Unredirected
-                );
+                    FileOperationInstruction::EAssociateNameWithHandle::Unredirected);
             }
             else
             {
@@ -449,15 +422,13 @@ namespace Pathwinder
             // exist.
             unredirectedPathDirectoryPart = absoluteFilePathTrimmedForQuery;
             unredirectedPathDirectoryPartWithWindowsNamespacePrefix = absoluteFilePath.substr(
-                0, windowsNamespacePrefix.length() + absoluteFilePathTrimmedForQuery.length()
-            );
+                0, windowsNamespacePrefix.length() + absoluteFilePathTrimmedForQuery.length());
 
             maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(
                 unredirectedPathDirectoryPart,
                 unredirectedPathFilePart,
                 windowsNamespacePrefix,
-                extraSuffix
-            );
+                extraSuffix);
             if (false == maybeRedirectedFilePath.has_value())
             {
                 Message::OutputFormatted(
@@ -465,8 +436,7 @@ namespace Pathwinder
                     L"File operation redirection query for path \"%.*s\" did not match rule \"%s\" due to an internal error.",
                     static_cast<int>(absoluteFilePath.length()),
                     absoluteFilePath.data(),
-                    selectedRule->GetName().data()
-                );
+                    selectedRule->GetName().data());
                 return FileOperationInstruction::NoRedirectionOrInterception();
             }
 
@@ -476,8 +446,7 @@ namespace Pathwinder
                 static_cast<int>(absoluteFilePath.length()),
                 absoluteFilePath.data(),
                 selectedRule->GetName().data(),
-                maybeRedirectedFilePath->AsCString()
-            );
+                maybeRedirectedFilePath->AsCString());
         }
         else
         {
@@ -493,8 +462,7 @@ namespace Pathwinder
                 unredirectedPathDirectoryPart,
                 unredirectedPathFilePart,
                 windowsNamespacePrefix,
-                extraSuffix
-            );
+                extraSuffix);
             if (false == maybeRedirectedFilePath.has_value())
             {
                 Message::OutputFormatted(
@@ -502,8 +470,7 @@ namespace Pathwinder
                     L"File operation redirection query for path \"%.*s\" did not match rule \"%s\" because a file pattern put it out of the rule's scope.",
                     static_cast<int>(absoluteFilePath.length()),
                     absoluteFilePath.data(),
-                    selectedRule->GetName().data()
-                );
+                    selectedRule->GetName().data());
                 return FileOperationInstruction::NoRedirectionOrInterception();
             }
 
@@ -513,8 +480,7 @@ namespace Pathwinder
                 static_cast<int>(absoluteFilePath.length()),
                 absoluteFilePath.data(),
                 selectedRule->GetName().data(),
-                maybeRedirectedFilePath->AsCString()
-            );
+                maybeRedirectedFilePath->AsCString());
         }
 
         std::wstring_view redirectedFilePath = maybeRedirectedFilePath->AsStringView();
@@ -531,15 +497,12 @@ namespace Pathwinder
             // potentially created, if said hierarchy also exists on the origin side.
 
             if (FilesystemOperations::IsDirectory(
-                    unredirectedPathDirectoryPartWithWindowsNamespacePrefix
-                ))
+                    unredirectedPathDirectoryPartWithWindowsNamespacePrefix))
             {
                 extraPreOperations.insert(static_cast<int>(
-                    FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists
-                ));
+                    FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
                 extraPreOperationOperand = Strings::RemoveTrailing(
-                    redirectedFilePath.substr(0, redirectedFilePath.find_last_of(L'\\')), L'\\'
-                );
+                    redirectedFilePath.substr(0, redirectedFilePath.find_last_of(L'\\')), L'\\');
             }
         }
         else
@@ -552,8 +515,7 @@ namespace Pathwinder
             if (FilesystemOperations::IsDirectory(absoluteFilePath))
             {
                 extraPreOperations.insert(static_cast<int>(
-                    FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists
-                ));
+                    FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
                 extraPreOperationOperand = Strings::RemoveTrailing(redirectedFilePath, L'\\');
             }
         }
@@ -582,15 +544,14 @@ namespace Pathwinder
                         ((true == createDisposition.AllowsCreateNewFile())
                              ? FileOperationInstruction::ECreateDispositionPreference::
                                    PreferOpenExistingFile
-                             : FileOperationInstruction::ECreateDispositionPreference::NoPreference
-                        );
+                             : FileOperationInstruction::ECreateDispositionPreference::
+                                   NoPreference);
                 return FileOperationInstruction::OverlayRedirectTo(
                     std::move(*maybeRedirectedFilePath),
                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
                     createDispositionPreference,
                     std::move(extraPreOperations),
-                    extraPreOperationOperand
-                );
+                    extraPreOperationOperand);
             }
 
             case FilesystemRule::ERedirectMode::Simple:
@@ -601,8 +562,7 @@ namespace Pathwinder
                     std::move(*maybeRedirectedFilePath),
                     FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
                     std::move(extraPreOperations),
-                    extraPreOperationOperand
-                );
+                    extraPreOperationOperand);
             }
         }
 
@@ -611,8 +571,7 @@ namespace Pathwinder
             L"Internal error: unrecognized file redirection mode (FilesystemRule::ERedirectMode = %u) encountered while processing file operation redirection query for path \"%.*s\".",
             static_cast<unsigned int>(selectedRule->GetRedirectMode()),
             static_cast<int>(absoluteFilePath.length()),
-            absoluteFilePath.data()
-        );
+            absoluteFilePath.data());
         return FileOperationInstruction::NoRedirectionOrInterception();
     }
 }  // namespace Pathwinder

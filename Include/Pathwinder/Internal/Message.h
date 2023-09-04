@@ -93,8 +93,7 @@ namespace Pathwinder
         /// @param [in] severity Severity of the message.
         /// @param [in] format Message string, possibly with format specifiers.
         void OutputFormatted(
-            const ESeverity severity, _Printf_format_string_ const wchar_t* format, ...
-        );
+            const ESeverity severity, _Printf_format_string_ const wchar_t* format, ...);
 
         /// Sets the minimum message severity required for a message to be output.
         /// Does nothing if the requested severity level is less than the minimum value allowed to

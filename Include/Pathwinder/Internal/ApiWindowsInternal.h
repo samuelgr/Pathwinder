@@ -522,8 +522,8 @@ namespace Pathwinder
         GetFileInformationStructFilename(const FileInformationStructType& fileInformationStruct)
     {
         return std::wstring_view(
-            fileInformationStruct.fileName, (fileInformationStruct.fileNameLength / sizeof(wchar_t))
-        );
+            fileInformationStruct.fileName,
+            (fileInformationStruct.fileNameLength / sizeof(wchar_t)));
     }
 
     /// Changes the stored filename within one of the many structures that uses a dangling filename
@@ -547,8 +547,7 @@ namespace Pathwinder
     inline size_t SetFileInformationStructFilename(
         FileInformationStructType& fileInformationStruct,
         size_t bufferSizeBytes,
-        std::wstring_view filename
-    )
+        std::wstring_view filename)
     {
         wchar_t* const filenameBuffer = fileInformationStruct.fileName;
         const size_t filenameBufferCapacityChars =
@@ -560,8 +559,8 @@ namespace Pathwinder
 
         std::wmemcpy(filenameBuffer, filename.data(), filenameNumberOfCharsToWrite);
         fileInformationStruct.fileNameLength =
-            static_cast<decltype(fileInformationStruct.fileNameLength)>(filenameNumberOfBytesNeeded
-            );
+            static_cast<decltype(fileInformationStruct.fileNameLength)>(
+                filenameNumberOfBytesNeeded);
 
         return filenameNumberOfCharsToWrite;
     }
@@ -572,7 +571,6 @@ namespace Pathwinder
         /// header file and requires dynamically linking.
         /// https://learn.microsoft.com/en-us/windows/win32/devnotes/rtlisnameinexpression
         BOOLEAN RtlIsNameInExpression(
-            PUNICODE_STRING Expression, PUNICODE_STRING Name, BOOLEAN IgnoreCase, PWCH UpcaseTable
-        );
+            PUNICODE_STRING Expression, PUNICODE_STRING Name, BOOLEAN IgnoreCase, PWCH UpcaseTable);
     }  // namespace WindowsInternal
 }  // namespace Pathwinder

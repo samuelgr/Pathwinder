@@ -79,12 +79,10 @@ namespace PathwinderTest
 
         size_t tokenizeState = 0;
         for (std::optional<std::wstring_view> maybeNextPiece = Strings::TokenizeString(
-                 tokenizeState, kInputString, kTokenDelimiters, _countof(kTokenDelimiters)
-             );
+                 tokenizeState, kInputString, kTokenDelimiters, _countof(kTokenDelimiters));
              true == maybeNextPiece.has_value();
              maybeNextPiece = Strings::TokenizeString(
-                 tokenizeState, kInputString, kTokenDelimiters, _countof(kTokenDelimiters)
-             ))
+                 tokenizeState, kInputString, kTokenDelimiters, _countof(kTokenDelimiters)))
             actualPieces.PushBack(maybeNextPiece.value());
 
         TEST_ASSERT(actualPieces == expectedPieces);
@@ -197,8 +195,7 @@ namespace PathwinderTest
         const TemporaryVector<std::wstring_view> expectedPieces = {
             L"ABCD", L"EFGH", L"IJKL", L"MNOP", L"QRSTUV", L"WX", L"YZ"};
         const TemporaryVector<std::wstring_view> actualPieces = Strings::SplitString<wchar_t>(
-            kInputString, kSplitDelimiters, _countof(kSplitDelimiters)
-        );
+            kInputString, kSplitDelimiters, _countof(kSplitDelimiters));
         TEST_ASSERT(actualPieces == expectedPieces);
     }
 

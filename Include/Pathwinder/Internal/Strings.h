@@ -122,8 +122,7 @@ namespace Pathwinder
         /// @return Negative number if strA is "less than" strB, positive number of strA is "greater
         /// than" strB, and 0 if the two strings are equal.
         template <typename CharType> int CompareCaseInsensitive(
-            std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB
-        );
+            std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB);
 
         /// Converts characters in a narrow character string to wide character format.
         /// @param [in] str Null-terminated string to convert.
@@ -142,8 +141,7 @@ namespace Pathwinder
         /// @param [in] strB Second string in the comparison.
         /// @return `true` if the strings compare equal, `false` otherwise.
         template <typename CharType> bool EqualsCaseInsensitive(
-            std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB
-        );
+            std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB);
 
         /// Determines if the specified filename matches the specified file pattern. An empty file
         /// pattern is presumed to match everything. Input filename must not contain any backslash
@@ -156,8 +154,7 @@ namespace Pathwinder
         /// @return `true` if the file name matches the supplied pattern or if it is entirely empty,
         /// `false` otherwise.
         bool FileNameMatchesPattern(
-            std::wstring_view fileName, std::wstring_view filePatternUpperCase
-        );
+            std::wstring_view fileName, std::wstring_view filePatternUpperCase);
 
         /// Formats a string and returns the result in a newly-allocated null-terminated temporary
         /// buffer.
@@ -189,8 +186,8 @@ namespace Pathwinder
         /// Converts a Windows internal Unicode string view to a standard string view.
         /// @param [in] unicodeStr Unicode string view to convert.
         /// @return Resulting standard string view.
-        inline std::wstring_view NtConvertUnicodeStringToStringView(const UNICODE_STRING& unicodeStr
-        )
+        inline std::wstring_view
+            NtConvertUnicodeStringToStringView(const UNICODE_STRING& unicodeStr)
         {
             return std::wstring_view(unicodeStr.Buffer, (unicodeStr.Length / sizeof(wchar_t)));
         }
@@ -254,8 +251,7 @@ namespace Pathwinder
         /// the specified delimiter.
         template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(
             std::basic_string_view<CharType> stringToSplit,
-            std::basic_string_view<CharType> delimiter
-        );
+            std::basic_string_view<CharType> delimiter);
 
         /// Splits a string using the specified delimiter strings and returns a list of views each
         /// corresponding to a part of the input string. If there are too many delimiters present
@@ -272,8 +268,7 @@ namespace Pathwinder
         template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(
             std::basic_string_view<CharType> stringToSplit,
             const std::basic_string_view<CharType>* delimiters,
-            unsigned int numDelimiters
-        );
+            unsigned int numDelimiters);
 
         /// Checks if one string is a prefix of another without regard for the case of each
         /// individual character.
@@ -283,8 +278,7 @@ namespace Pathwinder
         /// @return `true` if the candidate prefix is a prefix of the specified string, `false`
         /// otherwise.
         template <typename CharType> bool StartsWithCaseInsensitive(
-            std::basic_string_view<CharType> str, std::basic_string_view<CharType> maybePrefix
-        );
+            std::basic_string_view<CharType> str, std::basic_string_view<CharType> maybePrefix);
 
         /// Tokenizes a string, one token at a time, using the specified delimiter. Returns the next
         /// token found and updates the state variable for subsequent calls. Each invocation returns
@@ -300,8 +294,7 @@ namespace Pathwinder
         template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(
             size_t& tokenizeState,
             std::basic_string_view<CharType> stringToTokenize,
-            std::basic_string_view<CharType> delimiter
-        );
+            std::basic_string_view<CharType> delimiter);
 
         /// Tokenizes a string, one token at a time, using the specified delimiter strings. Returns
         /// the next token found and updates the state variable for subsequent calls. Each
@@ -319,8 +312,7 @@ namespace Pathwinder
             size_t& tokenizeState,
             std::basic_string_view<CharType> stringToTokenize,
             const std::basic_string_view<CharType>* delimiters,
-            unsigned int numDelimiters
-        );
+            unsigned int numDelimiters);
 
         /// Generates a string representation of a system error code.
         /// @param [in] systemErrorCode System error code for which to generate a string.
@@ -351,8 +343,7 @@ namespace Pathwinder
 
             constexpr bool operator()(
                 const std::basic_string_view<CharType>& lhs,
-                const std::basic_string_view<CharType>& rhs
-            ) const
+                const std::basic_string_view<CharType>& rhs) const
             {
                 return EqualsCaseInsensitive(lhs, rhs);
             }
@@ -368,8 +359,7 @@ namespace Pathwinder
 
             constexpr bool operator()(
                 const std::basic_string_view<CharType>& lhs,
-                const std::basic_string_view<CharType>& rhs
-            ) const
+                const std::basic_string_view<CharType>& rhs) const
             {
                 return (CompareCaseInsensitive(lhs, rhs) > 0);
             }
@@ -385,8 +375,7 @@ namespace Pathwinder
 
             constexpr bool operator()(
                 const std::basic_string_view<CharType>& lhs,
-                const std::basic_string_view<CharType>& rhs
-            ) const
+                const std::basic_string_view<CharType>& rhs) const
             {
                 return (CompareCaseInsensitive(lhs, rhs) < 0);
             }
@@ -412,8 +401,7 @@ namespace Pathwinder
                 constexpr Iterator(
                     const Tokenizer& tokenizer,
                     size_t tokenizeState = 0,
-                    std::optional<std::basic_string_view<CharType>> token = std::nullopt
-                )
+                    std::optional<std::basic_string_view<CharType>> token = std::nullopt)
                     : tokenizer(tokenizer), tokenizeState(tokenizeState), token(token)
                 {}
 
@@ -429,12 +417,10 @@ namespace Pathwinder
                             tokenizeState,
                             tokenizer.stringToTokenize,
                             tokenizer.multiDelimiters,
-                            tokenizer.numDelimiters
-                        );
+                            tokenizer.numDelimiters);
                     else
                         token = TokenizeString(
-                            tokenizeState, tokenizer.stringToTokenize, tokenizer.delimiter
-                        );
+                            tokenizeState, tokenizer.stringToTokenize, tokenizer.delimiter);
 
                     if (false == token.has_value()) tokenizeState = kTokenizeStateEnd;
 
@@ -445,8 +431,7 @@ namespace Pathwinder
                 {
                     DebugAssert(
                         &tokenizer == &(other.tokenizer),
-                        "Iterators refer to different tokenization operations."
-                    );
+                        "Iterators refer to different tokenization operations.");
                     return ((tokenizeState == other.tokenizeState) && (token == other.token));
                 }
 
@@ -464,8 +449,7 @@ namespace Pathwinder
 
             constexpr Tokenizer(
                 std::basic_string_view<CharType> stringToTokenize,
-                std::basic_string_view<CharType> delimiter
-            )
+                std::basic_string_view<CharType> delimiter)
                 : stringToTokenize(stringToTokenize),
                   delimiter(delimiter),
                   multiDelimiters(nullptr),
@@ -474,22 +458,19 @@ namespace Pathwinder
 
             constexpr Tokenizer(
                 std::basic_string_view<CharType> stringToTokenize,
-                const std::basic_string<CharType>& delimiter
-            )
+                const std::basic_string<CharType>& delimiter)
                 : Tokenizer(stringToTokenize, std::basic_string_view<CharType>(delimiter))
             {}
 
             constexpr Tokenizer(
-                std::basic_string_view<CharType> stringToTokenize, const CharType* delimiter
-            )
+                std::basic_string_view<CharType> stringToTokenize, const CharType* delimiter)
                 : Tokenizer(stringToTokenize, std::basic_string_view<CharType>(delimiter))
             {}
 
             constexpr Tokenizer(
                 std::basic_string_view<CharType> stringToTokenize,
                 const std::basic_string_view<CharType>* delimiters,
-                unsigned int numDelimiters
-            )
+                unsigned int numDelimiters)
                 : stringToTokenize(stringToTokenize),
                   delimiter(),
                   multiDelimiters(delimiters),

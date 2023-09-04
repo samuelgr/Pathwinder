@@ -74,8 +74,7 @@ namespace Pathwinder
             Message::OutputFormatted(
                 Message::ESeverity::Debug,
                 L"Attempting to hook %u Windows API function(s).",
-                static_cast<unsigned int>(_countof(hookRecords))
-            );
+                static_cast<unsigned int>(_countof(hookRecords)));
 
             for (const auto& hookRecord : hookRecords)
             {
@@ -95,8 +94,7 @@ namespace Pathwinder
                             static_cast<int>(Strings::kStrProductName.length()),
                             Strings::kStrProductName.data(),
                             hookRecord.hookProxy.GetFunctionName(),
-                            static_cast<unsigned int>(setHookResult)
-                        );
+                            static_cast<unsigned int>(setHookResult));
                         TerminateProcess(Globals::GetCurrentProcessHandle(), (UINT)-1);
                     }
                 }
@@ -106,8 +104,7 @@ namespace Pathwinder
                     // Setting it successfully is considered optional.
 
                     const Hookshot::EResult setHookResult = hookRecord.hookProxy.SetHook(
-                        hookshot, hookRecord.unprotectedHookOriginalAddress
-                    );
+                        hookshot, hookRecord.unprotectedHookOriginalAddress);
 
                     if (false == Hookshot::SuccessfulResult(setHookResult))
                     {
@@ -115,8 +112,7 @@ namespace Pathwinder
                             Message::ESeverity::Warning,
                             L"Failed to hook the \"%s\" Windows API function (Hookshot::EResult = %u).",
                             hookRecord.hookProxy.GetFunctionName(),
-                            static_cast<unsigned int>(setHookResult)
-                        );
+                            static_cast<unsigned int>(setHookResult));
                         continue;
                     }
                 }
@@ -124,8 +120,7 @@ namespace Pathwinder
                 Message::OutputFormatted(
                     Message::ESeverity::Debug,
                     L"Successfully hooked the \"%s\" Windows API function.",
-                    hookRecord.hookProxy.GetFunctionName()
-                );
+                    hookRecord.hookProxy.GetFunctionName());
             }
         }
     }  // namespace Hooks

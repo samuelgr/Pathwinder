@@ -37,16 +37,14 @@ namespace Pathwinder
         DirectoryEnumerationInstruction::SingleDirectoryEnumeration matchInstruction,
         std::wstring_view absoluteDirectoryPath,
         FILE_INFORMATION_CLASS fileInformationClass,
-        std::wstring_view filePattern
-    )
+        std::wstring_view filePattern)
         : IDirectoryOperationQueue(),
           matchInstruction(matchInstruction),
           directoryHandle(NULL),
           fileInformationClass(fileInformationClass),
           fileInformationStructLayout(
               FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass)
-                  .value_or(FileInformationStructLayout())
-          ),
+                  .value_or(FileInformationStructLayout())),
           enumerationBuffer(),
           enumerationBufferBytePosition(),
           enumerationStatus()
@@ -110,16 +108,14 @@ namespace Pathwinder
         TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&&
             nameInsertionQueue,
         FILE_INFORMATION_CLASS fileInformationClass,
-        std::wstring_view queryFilePattern
-    )
+        std::wstring_view queryFilePattern)
         : IDirectoryOperationQueue(),
           nameInsertionQueue(std::move(nameInsertionQueue)),
           nameInsertionQueuePosition(0),
           fileInformationClass(fileInformationClass),
           fileInformationStructLayout(
               FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass)
-                  .value_or(FileInformationStructLayout())
-          ),
+                  .value_or(FileInformationStructLayout())),
           enumerationBuffer(),
           enumerationStatus(),
           filePattern()
@@ -134,8 +130,7 @@ namespace Pathwinder
     }
 
     MergedFileInformationQueue::MergedFileInformationQueue(
-        std::array<std::unique_ptr<IDirectoryOperationQueue>, 3>&& queuesToMerge
-    )
+        std::array<std::unique_ptr<IDirectoryOperationQueue>, 3>&& queuesToMerge)
         : IDirectoryOperationQueue(),
           queuesToMerge(std::move(queuesToMerge)),
           frontElementSourceQueue(nullptr)
@@ -144,8 +139,7 @@ namespace Pathwinder
     }
 
     void EnumerationQueue::AdvanceQueueContentsInternal(
-        ULONG queryFlags, std::wstring_view filePattern
-    )
+        ULONG queryFlags, std::wstring_view filePattern)
     {
         if (NULL == directoryHandle)
         {
@@ -163,8 +157,7 @@ namespace Pathwinder
                 enumerationBuffer.Data(),
                 enumerationBuffer.Size(),
                 queryFlags,
-                filePattern
-            );
+                filePattern);
         if (!(NT_SUCCESS(directoryEnumerationResult)))
         {
             // This failure block includes `STATUS_NO_MORE_FILES` in which case enumeration is
@@ -233,8 +226,7 @@ namespace Pathwinder
                 nameInsertion->DirectoryInformationSourceFilePart(),
                 fileInformationClass,
                 enumerationBuffer.Data(),
-                enumerationBuffer.Size()
-            );
+                enumerationBuffer.Size());
 
             // It is not an error for the filesystem entities being queried not to exist and thus be
             // unavailable. They can just be skipped, and the next name insertion tried. Anything
@@ -261,8 +253,7 @@ namespace Pathwinder
 
         nameInsertionQueuePosition += 1;
         fileInformationStructLayout.WriteFileName(
-            enumerationBuffer.Data(), nameInsertion->FileNameToInsert(), enumerationBuffer.Size()
-        );
+            enumerationBuffer.Data(), nameInsertion->FileNameToInsert(), enumerationBuffer.Size());
 
         enumerationStatus = NtStatus::kMoreEntries;
     }
@@ -282,8 +273,8 @@ namespace Pathwinder
 
             if ((nullptr == nextFrontQueueCandidate) ||
                 (Strings::CompareCaseInsensitive(
-                     underlyingQueue->FileNameOfFront(), nextFrontQueueCandidate->FileNameOfFront()
-                 ) < 0))
+                     underlyingQueue->FileNameOfFront(),
+                     nextFrontQueueCandidate->FileNameOfFront()) < 0))
                 nextFrontQueueCandidate = underlyingQueue.get();
         }
 
@@ -443,8 +434,7 @@ namespace Pathwinder
         FILE_INFORMATION_CLASS fileInformationClass,
         std::wstring_view queryFilePattern,
         std::wstring_view handleAssociatedPath,
-        std::wstring_view handleRealOpenedPath
-    )
+        std::wstring_view handleRealOpenedPath)
     {
         if (instruction == DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery())
             return nullptr;
@@ -459,21 +449,21 @@ namespace Pathwinder
         {
             DebugAssert(
                 numCreatedQueues < createdQueues.size(),
-                "Too many directory operation queues are being created."
-            );
+                "Too many directory operation queues are being created.");
 
             if (DirectoryEnumerationInstruction::SingleDirectoryEnumeration::NoEnumeration() ==
                 singleDirectoryEnumeration)
                 continue;
 
             std::wstring_view enumerationPath = singleDirectoryEnumeration.SelectDirectoryPath(
-                handleAssociatedPath, handleRealOpenedPath
-            );
+                handleAssociatedPath, handleRealOpenedPath);
             DebugAssert(false == enumerationPath.empty(), "Empty directory enumeration path.");
 
             createdQueues[numCreatedQueues] = std::make_unique<EnumerationQueue>(
-                singleDirectoryEnumeration, enumerationPath, fileInformationClass, queryFilePattern
-            );
+                singleDirectoryEnumeration,
+                enumerationPath,
+                fileInformationClass,
+                queryFilePattern);
             numCreatedQueues += 1;
         }
 
@@ -481,12 +471,12 @@ namespace Pathwinder
         {
             DebugAssert(
                 numCreatedQueues < createdQueues.size(),
-                "Too many directory operation queues are being created."
-            );
+                "Too many directory operation queues are being created.");
 
             createdQueues[numCreatedQueues] = std::make_unique<NameInsertionQueue>(
-                instruction.ExtractDirectoryNamesToInsert(), fileInformationClass, queryFilePattern
-            );
+                instruction.ExtractDirectoryNamesToInsert(),
+                fileInformationClass,
+                queryFilePattern);
             numCreatedQueues += 1;
         }
 

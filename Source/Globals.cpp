@@ -73,8 +73,7 @@ namespace Pathwinder
                 GetModuleHandleEx(
                     GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
                     (LPCWSTR)&GlobalData::GetInstance,
-                    &gInstanceHandle
-                );
+                    &gInstanceHandle);
                 GetNativeSystemInfo(&gSystemInformation);
             }
 
@@ -112,13 +111,11 @@ namespace Pathwinder
                 if (true == Message::IsLogFileEnabled())
                     Message::Output(
                         Message::ESeverity::ForcedInteractiveWarning,
-                        L"Errors were encountered during filesystem rule creation. See log file for more information."
-                    );
+                        L"Errors were encountered during filesystem rule creation. See log file for more information.");
                 else
                     Message::Output(
                         Message::ESeverity::ForcedInteractiveWarning,
-                        L"Errors were encountered during filesystem rule creation. Enable logging and see log file for more information."
-                    );
+                        L"Errors were encountered during filesystem rule creation. Enable logging and see log file for more information.");
             }
         }
 
@@ -133,8 +130,7 @@ namespace Pathwinder
                 [logLevel]() -> void
                 {
                     Message::CreateAndEnableLogFile();
-                }
-            );
+                });
 
             Message::SetMinimumSeverityForOutput(logLevel);
         }
@@ -143,18 +139,17 @@ namespace Pathwinder
         /// @param [in] configData Read-only reference to a configuration data object.
         static void EnableLogIfConfigured(const Configuration::ConfigurationData& configData)
         {
-            const int64_t logLevel =
-                configData
-                    .GetFirstIntegerValue(
-                        Configuration::kSectionNameGlobal, Strings::kStrConfigurationSettingLogLevel
-                    )
-                    .value_or(0);
+            const int64_t logLevel = configData
+                                         .GetFirstIntegerValue(
+                                             Configuration::kSectionNameGlobal,
+                                             Strings::kStrConfigurationSettingLogLevel)
+                                         .value_or(0);
 
             if (logLevel > 0)
             {
                 // Offset the requested severity so that 0 = disabled, 1 = error, 2 = warning, etc.
-                const Message::ESeverity configuredSeverity = (Message::ESeverity
-                )(logLevel + (int64_t)Message::ESeverity::LowerBoundConfigurableValue);
+                const Message::ESeverity configuredSeverity = (Message::ESeverity)(
+                    logLevel + (int64_t)Message::ESeverity::LowerBoundConfigurableValue);
                 EnableLog(configuredSeverity);
             }
         }
@@ -178,8 +173,7 @@ namespace Pathwinder
                 .isDryRunMode = configData
                                     .GetFirstBooleanValue(
                                         Configuration::kSectionNameGlobal,
-                                        Strings::kStrConfigurationSettingDryRun
-                                    )
+                                        Strings::kStrConfigurationSettingDryRun)
                                     .value_or(false)};
         }
 
@@ -199,19 +193,16 @@ namespace Pathwinder
 
                 Message::Output(
                     Message::ESeverity::Error,
-                    L"Errors were encountered during configuration file reading."
-                );
+                    L"Errors were encountered during configuration file reading.");
                 for (const auto& readErrorMessage : configData.GetReadErrorMessages())
                     Message::OutputFormatted(
-                        Message::ESeverity::Error, L"    %s", readErrorMessage.c_str()
-                    );
+                        Message::ESeverity::Error, L"    %s", readErrorMessage.c_str());
 
                 configData.ClearReadErrorMessages();
 
                 Message::Output(
                     Message::ESeverity::ForcedInteractiveWarning,
-                    L"Errors were encountered during configuration file reading. See log file on the Desktop for more information."
-                );
+                    L"Errors were encountered during configuration file reading. See log file on the Desktop for more information.");
             }
 
             return configData;
@@ -226,8 +217,7 @@ namespace Pathwinder
                 configData.Sections().find(Strings::kStrConfigurationSectionDefinitions);
             if (configData.Sections().end() != configuredDefinitionsSectionIter)
                 Resolver::SetConfiguredDefinitionsFromSection(
-                    configData.ExtractSection(configuredDefinitionsSectionIter).second
-                );
+                    configData.ExtractSection(configuredDefinitionsSectionIter).second);
         }
 #endif
 
@@ -262,8 +252,7 @@ namespace Pathwinder
         {
             constexpr uint16_t kVersionStructured[] = {GIT_VERSION_STRUCT};
             static_assert(
-                4 == _countof(kVersionStructured), "Invalid structured version information."
-            );
+                4 == _countof(kVersionStructured), "Invalid structured version information.");
 
             return {
                 .major = kVersionStructured[0],
@@ -286,8 +275,7 @@ namespace Pathwinder
                 Message::OutputFormatted(
                     Message::ESeverity::Warning,
                     L"%s is set to DRY RUN mode. All redirection queries will be logged, but no redirection will actually occur.",
-                    Strings::kStrProductName.data()
-                );
+                    Strings::kStrProductName.data());
 
             BuildFilesystemRules(configData);
 #endif

@@ -49,8 +49,7 @@ namespace PathwinderTest
                 kDirectoryTestRecord.second.second;
 
             const FilesystemRule filesystemRule(
-                expectedOriginDirectoryFullPath, expectedTargetDirectoryFullPath
-            );
+                expectedOriginDirectoryFullPath, expectedTargetDirectoryFullPath);
 
             const std::wstring_view actualOriginDirectoryFullPath =
                 filesystemRule.GetOriginDirectoryFullPath();
@@ -93,8 +92,7 @@ namespace PathwinderTest
                 kDirectoryTestRecord.second.second;
 
             const FilesystemRule filesystemRule(
-                kDirectoryTestRecord.first.first, kDirectoryTestRecord.second.first
-            );
+                kDirectoryTestRecord.first.first, kDirectoryTestRecord.second.first);
 
             const std::wstring_view actualOriginDirectoryParent =
                 filesystemRule.GetOriginDirectoryParent();
@@ -160,8 +158,7 @@ namespace PathwinderTest
 
             std::optional<TemporaryString> actualOutputPath =
                 filesystemRule.RedirectPathOriginToTarget(
-                    kOriginDirectory, kTestFile.data(), kNamespacePrefix
-                );
+                    kOriginDirectory, kTestFile.data(), kNamespacePrefix);
             TEST_ASSERT(true == actualOutputPath.has_value());
             TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
         }
@@ -173,8 +170,7 @@ namespace PathwinderTest
 
             std::optional<TemporaryString> actualOutputPath =
                 filesystemRule.RedirectPathTargetToOrigin(
-                    kTargetDirectory, kTestFile.data(), kNamespacePrefix
-                );
+                    kTargetDirectory, kTestFile.data(), kNamespacePrefix);
             TEST_ASSERT(true == actualOutputPath.has_value());
             TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
         }
@@ -214,8 +210,7 @@ namespace PathwinderTest
             L"    ASDF", L"gh.jkl", L"A", L"test.file"};
 
         const FilesystemRule filesystemRule(
-            kOriginDirectory, kTargetDirectory, std::move(filePatterns)
-        );
+            kOriginDirectory, kTargetDirectory, std::move(filePatterns));
 
         for (const auto& kTestFile : kTestFilesMatching)
         {
@@ -233,8 +228,7 @@ namespace PathwinderTest
             TEST_ASSERT(
                 false ==
                 filesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data())
-                    .has_value()
-            );
+                    .has_value());
         }
     }
 
@@ -271,8 +265,7 @@ namespace PathwinderTest
         constexpr std::wstring_view kInputFile = L"file.txt";
 
         const FilesystemRule filesystemRule(
-            kOriginDirectory, kTargetDirectory, std::move(filePatterns)
-        );
+            kOriginDirectory, kTargetDirectory, std::move(filePatterns));
         std::optional<TemporaryString> actualOutputPath =
             filesystemRule.RedirectPathOriginToTarget(kInputDirectory, kInputFile);
         TEST_ASSERT(false == actualOutputPath.has_value());
@@ -290,21 +283,17 @@ namespace PathwinderTest
 
         TEST_ASSERT(
             FilesystemRule::EDirectoryCompareResult::Equal ==
-            filesystemRule.DirectoryCompareWithOrigin(kOriginDirectory)
-        );
+            filesystemRule.DirectoryCompareWithOrigin(kOriginDirectory));
         TEST_ASSERT(
             FilesystemRule::EDirectoryCompareResult::Unrelated ==
-            filesystemRule.DirectoryCompareWithTarget(kOriginDirectory)
-        );
+            filesystemRule.DirectoryCompareWithTarget(kOriginDirectory));
 
         TEST_ASSERT(
             FilesystemRule::EDirectoryCompareResult::Unrelated ==
-            filesystemRule.DirectoryCompareWithOrigin(kTargetDirectory)
-        );
+            filesystemRule.DirectoryCompareWithOrigin(kTargetDirectory));
         TEST_ASSERT(
             FilesystemRule::EDirectoryCompareResult::Equal ==
-            filesystemRule.DirectoryCompareWithTarget(kTargetDirectory)
-        );
+            filesystemRule.DirectoryCompareWithTarget(kTargetDirectory));
     }
 
     // Verifies that directories are compared without regard for case.
@@ -320,12 +309,10 @@ namespace PathwinderTest
 
         TEST_ASSERT(
             FilesystemRule::EDirectoryCompareResult::Equal ==
-            filesystemRule.DirectoryCompareWithOrigin(kOriginCompareDirectory)
-        );
+            filesystemRule.DirectoryCompareWithOrigin(kOriginCompareDirectory));
         TEST_ASSERT(
             FilesystemRule::EDirectoryCompareResult::Equal ==
-            filesystemRule.DirectoryCompareWithTarget(kTargetCompareDirectory)
-        );
+            filesystemRule.DirectoryCompareWithTarget(kTargetCompareDirectory));
     }
 
     // Verifies that directories that are children or descendants of a directory associated with a
@@ -356,8 +343,7 @@ namespace PathwinderTest
         for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
             TEST_ASSERT(
                 kDirectoryTestRecord.second ==
-                filesystemRule.DirectoryCompareWithOrigin(kDirectoryTestRecord.first)
-            );
+                filesystemRule.DirectoryCompareWithOrigin(kDirectoryTestRecord.first));
     }
 
     // Verifies that directories that are parents or ancestors of a directory associated with a
@@ -382,8 +368,7 @@ namespace PathwinderTest
         for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
             TEST_ASSERT(
                 kDirectoryTestRecord.second ==
-                filesystemRule.DirectoryCompareWithTarget(kDirectoryTestRecord.first)
-            );
+                filesystemRule.DirectoryCompareWithTarget(kDirectoryTestRecord.first));
     }
 
     // Verifies that directories that are unrelated to a directory associated with a filesystem rule
@@ -407,12 +392,10 @@ namespace PathwinderTest
         {
             TEST_ASSERT(
                 FilesystemRule::EDirectoryCompareResult::Unrelated ==
-                filesystemRule.DirectoryCompareWithOrigin(kDirectory)
-            );
+                filesystemRule.DirectoryCompareWithOrigin(kDirectory));
             TEST_ASSERT(
                 FilesystemRule::EDirectoryCompareResult::Unrelated ==
-                filesystemRule.DirectoryCompareWithTarget(kDirectory)
-            );
+                filesystemRule.DirectoryCompareWithTarget(kDirectory));
         }
     }
 }  // namespace PathwinderTest

@@ -54,8 +54,7 @@ namespace Pathwinder
         {
             static_assert(
                 std::is_function<T>::value,
-                "Supplied template argument must map to a function type."
-            );
+                "Supplied template argument must map to a function type.");
         };
 
         /// Protected dependency wrapper. API functions that are hooked will potentially need to be
@@ -77,8 +76,7 @@ namespace Pathwinder
 
             inline static const DynamicHookType::TFunctionPtr initialFunctionPointer =
                 static_cast<DynamicHookType::TFunctionPtr>(
-                    GetInternalWindowsApiFunctionAddress(kFunctionName)
-                );
+                    GetInternalWindowsApiFunctionAddress(kFunctionName));
 
         public:
 
@@ -93,8 +91,7 @@ namespace Pathwinder
             {
                 DebugAssert(
                     nullptr != initialFunctionPointer,
-                    "Unable to locate initial address for an API function."
-                );
+                    "Unable to locate initial address for an API function.");
 
                 if (DynamicHookType::IsHookSet())
                     return DynamicHookType::Original(std::forward<ArgumentTypes>(args)...);
@@ -109,8 +106,7 @@ namespace Pathwinder
             {
                 DebugAssert(
                     nullptr != initialFunctionPointer,
-                    "Unable to locate initial address for an API function."
-                );
+                    "Unable to locate initial address for an API function.");
                 return DynamicHookType::SetHook(hookshot, initialFunctionPointer);
             }
         };
@@ -131,83 +127,75 @@ namespace Pathwinder
         // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntcreatefile
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
             NtCreateFile,
-            NTSTATUS(__stdcall
-            )(PHANDLE,
-              ACCESS_MASK,
-              POBJECT_ATTRIBUTES,
-              PIO_STATUS_BLOCK,
-              PLARGE_INTEGER,
-              ULONG,
-              ULONG,
-              ULONG,
-              ULONG,
-              PVOID,
-              ULONG)
-        );
+            NTSTATUS(__stdcall)(
+                PHANDLE,
+                ACCESS_MASK,
+                POBJECT_ATTRIBUTES,
+                PIO_STATUS_BLOCK,
+                PLARGE_INTEGER,
+                ULONG,
+                ULONG,
+                ULONG,
+                ULONG,
+                PVOID,
+                ULONG));
 
         // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-zwdeletefile
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
-            NtDeleteFile, NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES)
-        );
+            NtDeleteFile, NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES));
 
         // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntopenfile
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
             NtOpenFile,
-            NTSTATUS(__stdcall
-            )(PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES, PIO_STATUS_BLOCK, ULONG, ULONG)
-        );
+            NTSTATUS(__stdcall)(
+                PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES, PIO_STATUS_BLOCK, ULONG, ULONG));
 
         // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntquerydirectoryfile
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
             NtQueryDirectoryFile,
-            NTSTATUS(__stdcall
-            )(HANDLE,
-              HANDLE,
-              PIO_APC_ROUTINE,
-              PVOID,
-              PIO_STATUS_BLOCK,
-              PVOID,
-              ULONG,
-              FILE_INFORMATION_CLASS,
-              BOOLEAN,
-              PUNICODE_STRING,
-              BOOLEAN)
-        );
+            NTSTATUS(__stdcall)(
+                HANDLE,
+                HANDLE,
+                PIO_APC_ROUTINE,
+                PVOID,
+                PIO_STATUS_BLOCK,
+                PVOID,
+                ULONG,
+                FILE_INFORMATION_CLASS,
+                BOOLEAN,
+                PUNICODE_STRING,
+                BOOLEAN));
 
         // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntquerydirectoryfileex
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
             NtQueryDirectoryFileEx,
-            NTSTATUS(__stdcall
-            )(HANDLE,
-              HANDLE,
-              PIO_APC_ROUTINE,
-              PVOID,
-              PIO_STATUS_BLOCK,
-              PVOID,
-              ULONG,
-              FILE_INFORMATION_CLASS,
-              ULONG,
-              PUNICODE_STRING)
-        );
+            NTSTATUS(__stdcall)(
+                HANDLE,
+                HANDLE,
+                PIO_APC_ROUTINE,
+                PVOID,
+                PIO_STATUS_BLOCK,
+                PVOID,
+                ULONG,
+                FILE_INFORMATION_CLASS,
+                ULONG,
+                PUNICODE_STRING));
 
         // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntqueryinformationbyname
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
             NtQueryInformationByName,
-            NTSTATUS(__stdcall
-            )(POBJECT_ATTRIBUTES, PIO_STATUS_BLOCK, PVOID, ULONG, FILE_INFORMATION_CLASS)
-        );
+            NTSTATUS(__stdcall)(
+                POBJECT_ATTRIBUTES, PIO_STATUS_BLOCK, PVOID, ULONG, FILE_INFORMATION_CLASS));
 
         // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntqueryinformationfile
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
             NtQueryInformationFile,
-            NTSTATUS(__stdcall)(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG, FILE_INFORMATION_CLASS)
-        );
+            NTSTATUS(__stdcall)(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG, FILE_INFORMATION_CLASS));
 
         // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntsetinformationfile
         PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
             NtSetInformationFile,
-            NTSTATUS(__stdcall)(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG, FILE_INFORMATION_CLASS)
-        );
+            NTSTATUS(__stdcall)(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG, FILE_INFORMATION_CLASS));
 
         // Pathwinder does not require these hooks to be set in order to function correctly, nor
         // does it ever invoke their original versions. These functions are internal to Windows,
@@ -215,7 +203,6 @@ namespace Pathwinder
 
         // https://learn.microsoft.com/en-us/windows/win32/devnotes/ntqueryattributesfile
         HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
-            NtQueryAttributesFile, NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES, PFILE_BASIC_INFO)
-        );
+            NtQueryAttributesFile, NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES, PFILE_BASIC_INFO));
     }  // namespace Hooks
 }  // namespace Pathwinder

@@ -12,13 +12,14 @@
 
 #pragma once
 
+#include "TestCase.h"
+
 #include <array>
 #include <cstddef>
 #include <shared_mutex>
 #include <string_view>
 
 #include "MutexWrapper.h"
-#include "TestCase.h"
 
 /// Recommended way of declaring a class that implements a mock context for free functions.
 /// Requires a class name and the number of contexts to create.
@@ -45,8 +46,7 @@
 #define MOCK_FREE_FUNCTION_MULTICONTEXT_BODY(classname, methodname, index, ...)                    \
     std::shared_lock lock(MockFreeFunctionContextInternalAlias<classname>::LockContext(index));    \
     return MockFreeFunctionContextInternalAlias<classname>::GetContext(index).methodname(          \
-        __VA_ARGS__                                                                                \
-    );
+        __VA_ARGS__);
 
 /// Recommended way of implementing a free function whose invocation is fowarded to a mock object
 /// controlling the behavior context, when only one context exists. Requires a class name, method
@@ -75,15 +75,13 @@ namespace PathwinderTest
         {
             static_assert(
                 std::derived_from<MockObjectType, std::remove_reference_t<decltype(*this)>>,
-                "Class hierarchy constraint violation."
-            );
+                "Class hierarchy constraint violation.");
 
             if (index > contexts.size())
                 TEST_FAILED_BECAUSE(
                     L"Out-of-bounds creation attempt for instance %z of mock free function context object %s.",
                     index,
-                    kMockObjectTypeName
-                );
+                    kMockObjectTypeName);
 
             std::unique_lock lock(contextGuards[contextIndex]);
 
@@ -93,13 +91,11 @@ namespace PathwinderTest
                     TEST_FAILED_BECAUSE(
                         L"Multiple instances for instance %z of mock free function context object %s.",
                         index,
-                        kMockObjectTypeName
-                    );
+                        kMockObjectTypeName);
                 else
                     TEST_FAILED_BECAUSE(
                         L"Multiple instances of mock free function context object %s.",
-                        kMockObjectTypeName
-                    );
+                        kMockObjectTypeName);
             }
 
             contexts[index] = static_cast<MockObjectType*>(this);
@@ -123,8 +119,7 @@ namespace PathwinderTest
                 TEST_FAILED_BECAUSE(
                     L"Out-of-bounds request for instance %z of mock free function context object %s.",
                     index,
-                    kMockObjectTypeName
-                );
+                    kMockObjectTypeName);
 
             if (nullptr == contexts[index])
             {
@@ -132,13 +127,11 @@ namespace PathwinderTest
                     TEST_FAILED_BECAUSE(
                         L"Missing instance %z of mock free function context object %s.",
                         index,
-                        kMockObjectTypeName
-                    );
+                        kMockObjectTypeName);
                 else
                     TEST_FAILED_BECAUSE(
                         L"Missing instance of mock free function context object %s.",
-                        kMockObjectTypeName
-                    );
+                        kMockObjectTypeName);
             }
 
             return *(contexts[index]);
@@ -153,8 +146,7 @@ namespace PathwinderTest
                 TEST_FAILED_BECAUSE(
                     L"Out-of-bounds lock attempt for instance %z of mock free function context object %s.",
                     index,
-                    kMockObjectTypeName
-                );
+                    kMockObjectTypeName);
 
             return std::shared_lock(contextGuards[index]);
         }

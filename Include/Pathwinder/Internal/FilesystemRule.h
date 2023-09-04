@@ -83,8 +83,7 @@ namespace Pathwinder
             std::wstring_view originDirectoryFullPath,
             std::wstring_view targetDirectoryFullPath,
             std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>(),
-            ERedirectMode redirectMode = ERedirectMode::Simple
-        );
+            ERedirectMode redirectMode = ERedirectMode::Simple);
 
         bool operator==(const FilesystemRule& other) const = default;
 
@@ -92,15 +91,15 @@ namespace Pathwinder
         /// @param [in] candidateDirectory Directory to compare with the origin directory.
         /// @return Result of the comparison. See #EDirectoryCompareResult documentation for more
         /// information.
-        EDirectoryCompareResult DirectoryCompareWithOrigin(std::wstring_view candidateDirectory
-        ) const;
+        EDirectoryCompareResult
+            DirectoryCompareWithOrigin(std::wstring_view candidateDirectory) const;
 
         /// Compares the specified directory with the target directory associated with this object.
         /// @param [in] candidateDirectory Directory to compare with the origin directory.
         /// @return Result of the comparison. See #EDirectoryCompareResult documentation for more
         /// information.
-        EDirectoryCompareResult DirectoryCompareWithTarget(std::wstring_view candidateDirectory
-        ) const;
+        EDirectoryCompareResult
+            DirectoryCompareWithTarget(std::wstring_view candidateDirectory) const;
 
         /// Determines if the specified filename matches any of the file patterns associated with
         /// this object. Input filename must not contain any backslash separators, as it is intended
@@ -152,8 +151,7 @@ namespace Pathwinder
 
             std::wstring_view originDirectoryParent = originDirectoryFullPath;
             originDirectoryParent.remove_suffix(
-                originDirectoryParent.length() - originDirectorySeparator
-            );
+                originDirectoryParent.length() - originDirectorySeparator);
 
             return originDirectoryParent;
         }
@@ -187,8 +185,7 @@ namespace Pathwinder
 
             std::wstring_view targetDirectoryParent = targetDirectoryFullPath;
             targetDirectoryParent.remove_suffix(
-                targetDirectoryParent.length() - targetDirectorySeparator
-            );
+                targetDirectoryParent.length() - targetDirectorySeparator);
 
             return targetDirectoryParent;
         }
@@ -225,8 +222,7 @@ namespace Pathwinder
             std::wstring_view candidatePathDirectoryPart,
             std::wstring_view candidatePathFilePart,
             std::wstring_view namespacePrefix = std::wstring_view(),
-            std::wstring_view extraSuffix = std::wstring_view()
-        ) const;
+            std::wstring_view extraSuffix = std::wstring_view()) const;
 
         /// Computes and returns the result of redirecting from the specified candidate path to the
         /// origin directory associated with this rule. Input candidate path is split into two
@@ -248,8 +244,7 @@ namespace Pathwinder
             std::wstring_view candidatePathDirectoryPart,
             std::wstring_view candidatePathFilePart,
             std::wstring_view namespacePrefix = std::wstring_view(),
-            std::wstring_view extraSuffix = std::wstring_view()
-        ) const;
+            std::wstring_view extraSuffix = std::wstring_view()) const;
 
         /// Sets the name of this rule.
         /// param [in] newName New name for this rule.
