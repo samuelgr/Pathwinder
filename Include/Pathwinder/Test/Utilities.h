@@ -15,11 +15,11 @@
 
 namespace PathwinderTest
 {
-    /// Prints the specified message and appends a newline.
-    /// @param [in] str Message string.
-    void Print(const wchar_t* const str);
+  /// Prints the specified message and appends a newline.
+  /// @param [in] str Message string.
+  void Print(const wchar_t* const str);
 
-    /// Formats and prints the specified message.
-    /// @param [in] format Message string, possibly with format specifiers.
-    void PrintFormatted(_Printf_format_string_ const wchar_t* const format, ...);
-}  // namespace PathwinderTest
+  /// Formats and prints the specified message.
+  /// @param [in] format Message string, possibly with format specifiers.
+  void PrintFormatted(_Printf_format_string_ const wchar_t* const format, ...);
+} // namespace PathwinderTest

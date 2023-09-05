@@ -18,13 +18,13 @@
 
 namespace Pathwinder
 {
-    /// Retrieves the proper internal address of a Windows API function.
-    /// Many Windows API functions have been moved to lower-level binaries, and some functions are
-    /// intended for drivers rather than applications.
-    /// https://docs.microsoft.com/en-us/windows/win32/win7appqual/new-low-level-binaries
-    /// @param [in] funcName API function name.
-    /// @return Address to use for the Windows API function, or `nullptr` if the API function could
-    /// not be located.
-    void* GetInternalWindowsApiFunctionAddress(const char* const funcName);
+  /// Retrieves the proper internal address of a Windows API function.
+  /// Many Windows API functions have been moved to lower-level binaries, and some functions are
+  /// intended for drivers rather than applications.
+  /// https://docs.microsoft.com/en-us/windows/win32/win7appqual/new-low-level-binaries
+  /// @param [in] funcName API function name.
+  /// @return Address to use for the Windows API function, or `nullptr` if the API function could
+  /// not be located.
+  void* GetInternalWindowsApiFunctionAddress(const char* const funcName);
 
-}  // namespace Pathwinder
+} // namespace Pathwinder

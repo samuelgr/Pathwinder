@@ -16,19 +16,19 @@
 
 namespace Pathwinder
 {
-    namespace WindowsInternal
+  namespace WindowsInternal
+  {
+    BOOLEAN RtlIsNameInExpression(
+        PUNICODE_STRING Expression, PUNICODE_STRING Name, BOOLEAN IgnoreCase, PWCH UpcaseTable)
     {
-        BOOLEAN RtlIsNameInExpression(
-            PUNICODE_STRING Expression, PUNICODE_STRING Name, BOOLEAN IgnoreCase, PWCH UpcaseTable)
-        {
-            static decltype(&RtlIsNameInExpression) functionPtr =
-                reinterpret_cast<decltype(&RtlIsNameInExpression)>(
-                    GetInternalWindowsApiFunctionAddress("RtlIsNameInExpression"));
-            DebugAssert(
-                nullptr != functionPtr,
-                "Failed to locate the address of the \"" __FUNCTIONW__ "\" function.");
+      static decltype(&RtlIsNameInExpression) functionPtr =
+          reinterpret_cast<decltype(&RtlIsNameInExpression)>(
+              GetInternalWindowsApiFunctionAddress("RtlIsNameInExpression"));
+      DebugAssert(
+          nullptr != functionPtr,
+          "Failed to locate the address of the \"" __FUNCTIONW__ "\" function.");
 
-            return functionPtr(Expression, Name, IgnoreCase, UpcaseTable);
-        }
-    }  // namespace WindowsInternal
-}  // namespace Pathwinder
+      return functionPtr(Expression, Name, IgnoreCase, UpcaseTable);
+    }
+  } // namespace WindowsInternal
+} // namespace Pathwinder

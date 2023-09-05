@@ -13,27 +13,25 @@
 
 namespace Pathwinder
 {
-    void* GetInternalWindowsApiFunctionAddress(const char* const funcName)
+  void* GetInternalWindowsApiFunctionAddress(const char* const funcName)
+  {
+    // List of low-level binary module handles, specified as the result of a call to LoadLibrary
+    // with the name of the binary. Each is checked in sequence for the specified function,
+    // which is looked up by base name. Order matters, with lowest-level binaries specified
+    // first.
+    static const HMODULE hmodLowLevelBinaries[] = {
+        LoadLibrary(L"ntdll.dll"), LoadLibrary(L"kernelbase.dll"), LoadLibrary(L"kernel32.dll")};
+
+    for (int i = 0; i < _countof(hmodLowLevelBinaries); ++i)
     {
-        // List of low-level binary module handles, specified as the result of a call to LoadLibrary
-        // with the name of the binary. Each is checked in sequence for the specified function,
-        // which is looked up by base name. Order matters, with lowest-level binaries specified
-        // first.
-        static const HMODULE hmodLowLevelBinaries[] = {
-            LoadLibrary(L"ntdll.dll"),
-            LoadLibrary(L"kernelbase.dll"),
-            LoadLibrary(L"kernel32.dll")};
+      if (nullptr != hmodLowLevelBinaries[i])
+      {
+        void* const funcPossibleAddress = GetProcAddress(hmodLowLevelBinaries[i], funcName);
 
-        for (int i = 0; i < _countof(hmodLowLevelBinaries); ++i)
-        {
-            if (nullptr != hmodLowLevelBinaries[i])
-            {
-                void* const funcPossibleAddress = GetProcAddress(hmodLowLevelBinaries[i], funcName);
-
-                if (nullptr != funcPossibleAddress) return funcPossibleAddress;
-            }
-        }
-
-        return nullptr;
+        if (nullptr != funcPossibleAddress) return funcPossibleAddress;
+      }
     }
-}  // namespace Pathwinder
+
+    return nullptr;
+  }
+} // namespace Pathwinder

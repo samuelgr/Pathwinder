@@ -17,8 +17,8 @@
 
 namespace PathwinderTest
 {
-    ITestCase::ITestCase(std::wstring_view name)
-    {
-        Harness::RegisterTestCase(this, name);
-    }
-}  // namespace PathwinderTest
+  ITestCase::ITestCase(std::wstring_view name)
+  {
+    Harness::RegisterTestCase(this, name);
+  }
+} // namespace PathwinderTest

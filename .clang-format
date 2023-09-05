@@ -16,7 +16,7 @@
 
 Language:                                                   Cpp
 Standard:                                                   Latest
-AccessModifierOffset:                                       -4
+AccessModifierOffset:                                       -2
 AlignAfterOpenBracket:                                      AlwaysBreak
 AlignArrayOfStructures:                                     None
 AlignConsecutiveAssignments:                                None
@@ -98,7 +98,7 @@ IndentExternBlock:                                          AfterExternBlock
 IndentGotoLabels:                                           true
 IndentPPDirectives:                                         None
 IndentRequiresClause:                                       true
-IndentWidth:                                                4
+IndentWidth:                                                2
 IndentWrappedFunctionNames:                                 true
 InsertBraces:                                               false
 # InsertNewlineAtEOF:                                         true
@@ -145,7 +145,7 @@ SpaceBeforeParensOptions:
 SpaceBeforeRangeBasedForLoopColon:                          true
 SpaceBeforeSquareBrackets:                                  false
 SpaceInEmptyBlock:                                          false
-SpacesBeforeTrailingComments:                               2
+SpacesBeforeTrailingComments:                               1
 SpacesInAngles:                                             false
 SpacesInContainerLiterals:                                  false
 SpacesInLineCommentPrefix:

@@ -20,222 +20,222 @@
 
 namespace Pathwinder
 {
-    /// Implements a list-type container backed by a fixed-size array object.
-    /// Optimized for efficiency. Performs no boundary checks.
-    /// @tparam kCapacity Desired capacity, in number of elements.
-    template <typename T, const unsigned int kCapacity> class ArrayList
+  /// Implements a list-type container backed by a fixed-size array object.
+  /// Optimized for efficiency. Performs no boundary checks.
+  /// @tparam kCapacity Desired capacity, in number of elements.
+  template <typename T, const unsigned int kCapacity> class ArrayList
+  {
+  public:
+
+    /// Iterator type for providing mutable access to the contents of the backing array.
+    using TIterator = ContiguousRandomAccessIterator<T>;
+
+    /// Iterator type for providing read-only access to the contents of the backing array.
+    using TConstIterator = ContiguousRandomAccessConstIterator<T>;
+
+    /// Capacity of the entire array list object, in bytes.
+    static constexpr unsigned int kCapacityBytes = (sizeof(T) * kCapacity);
+
+    constexpr ArrayList(void) : backingArray(), size(0) {}
+
+    inline ArrayList(std::initializer_list<T> initializers) : ArrayList()
     {
-    public:
+      *this = initializers;
+    }
 
-        /// Iterator type for providing mutable access to the contents of the backing array.
-        using TIterator = ContiguousRandomAccessIterator<T>;
+    inline ArrayList(const ArrayList& other) : ArrayList()
+    {
+      *this = other;
+    }
 
-        /// Iterator type for providing read-only access to the contents of the backing array.
-        using TConstIterator = ContiguousRandomAccessConstIterator<T>;
+    inline ArrayList(ArrayList&& other) : ArrayList()
+    {
+      *this = std::move(other);
+    }
 
-        /// Capacity of the entire array list object, in bytes.
-        static constexpr unsigned int kCapacityBytes = (sizeof(T) * kCapacity);
+    inline ArrayList& operator=(const ArrayList& other)
+    {
+      Clear();
 
-        constexpr ArrayList(void) : backingArray(), size(0) {}
+      for (const auto& element : other)
+        PushBack(element);
 
-        inline ArrayList(std::initializer_list<T> initializers) : ArrayList()
-        {
-            *this = initializers;
-        }
+      return *this;
+    }
 
-        inline ArrayList(const ArrayList& other) : ArrayList()
-        {
-            *this = other;
-        }
+    inline ArrayList& operator=(ArrayList&& other)
+    {
+      Clear();
 
-        inline ArrayList(ArrayList&& other) : ArrayList()
-        {
-            *this = std::move(other);
-        }
+      for (auto& element : other)
+        PushBack(std::move(element));
 
-        inline ArrayList& operator=(const ArrayList& other)
-        {
-            Clear();
+      return *this;
+    }
 
-            for (const auto& element : other)
-                PushBack(element);
+    inline ArrayList& operator=(std::initializer_list<T> initializers)
+    {
+      Clear();
 
-            return *this;
-        }
+      for (auto& element : initializers)
+        PushBack(element);
 
-        inline ArrayList& operator=(ArrayList&& other)
-        {
-            Clear();
+      return *this;
+    }
 
-            for (auto& element : other)
-                PushBack(std::move(element));
+    inline bool operator==(const ArrayList& other) const
+    {
+      if (other.size != size) return false;
 
-            return *this;
-        }
+      for (int i = 0; i < size; ++i)
+      {
+        if (other.backingArray[i] != backingArray[i]) return false;
+      }
 
-        inline ArrayList& operator=(std::initializer_list<T> initializers)
-        {
-            Clear();
+      return true;
+    }
 
-            for (auto& element : initializers)
-                PushBack(element);
+    constexpr const T& operator[](unsigned int index) const
+    {
+      DebugAssert(index < Size(), "Index is out of bounds.");
+      return Data()[index];
+    }
 
-            return *this;
-        }
+    constexpr T& operator[](unsigned int index)
+    {
+      DebugAssert(index < Size(), "Index is out of bounds.");
+      return Data()[index];
+    }
 
-        inline bool operator==(const ArrayList& other) const
-        {
-            if (other.size != size) return false;
+    inline TConstIterator cbegin(void) const
+    {
+      return TConstIterator(this->Data(), 0);
+    }
 
-            for (int i = 0; i < size; ++i)
-            {
-                if (other.backingArray[i] != backingArray[i]) return false;
-            }
+    inline TConstIterator cend(void) const
+    {
+      return TConstIterator(this->Data(), size);
+    }
 
-            return true;
-        }
+    inline TConstIterator begin(void) const
+    {
+      return cbegin();
+    }
 
-        constexpr const T& operator[](unsigned int index) const
-        {
-            DebugAssert(index < Size(), "Index is out of bounds.");
-            return Data()[index];
-        }
+    inline TConstIterator end(void) const
+    {
+      return cend();
+    }
 
-        constexpr T& operator[](unsigned int index)
-        {
-            DebugAssert(index < Size(), "Index is out of bounds.");
-            return Data()[index];
-        }
+    inline TIterator begin(void)
+    {
+      return TIterator(this->Data(), 0);
+    }
 
-        inline TConstIterator cbegin(void) const
-        {
-            return TConstIterator(this->Data(), 0);
-        }
+    inline TIterator end(void)
+    {
+      return TIterator(this->Data(), size);
+    }
 
-        inline TConstIterator cend(void) const
-        {
-            return TConstIterator(this->Data(), size);
-        }
+    /// Retrieves the size of the buffer space, in number of elements of type T.
+    /// @return Size of the buffer, in T-sized elements.
+    static constexpr unsigned int Capacity(void)
+    {
+      return kCapacity;
+    }
 
-        inline TConstIterator begin(void) const
-        {
-            return cbegin();
-        }
+    /// Retrieves the size of the buffer space, in bytes.
+    /// @return Size of the buffer, in bytes.
+    static constexpr unsigned int CapacityBytes(void)
+    {
+      return kCapacityBytes;
+    }
 
-        inline TConstIterator end(void) const
-        {
-            return cend();
-        }
+    /// Removes all elements from this container, destroying each in sequence.
+    inline void Clear(void)
+    {
+      if constexpr (std::is_trivially_destructible_v<T>)
+      {
+        size = 0;
+      }
+      else
+      {
+        while (0 != size)
+          PopBack();
+      }
+    }
 
-        inline TIterator begin(void)
-        {
-            return TIterator(this->Data(), 0);
-        }
+    /// Retrieves a properly-typed pointer to the buffer itself, constant version.
+    /// @return Typed pointer to the buffer.
+    constexpr const T* Data(void) const
+    {
+      return reinterpret_cast<const T*>(backingArray);
+    }
 
-        inline TIterator end(void)
-        {
-            return TIterator(this->Data(), size);
-        }
+    /// Retrieves a properly-typed pointer to the buffer itself, mutable version.
+    /// @return Typed pointer to the buffer.
+    constexpr T* Data(void)
+    {
+      return reinterpret_cast<T*>(backingArray);
+    }
 
-        /// Retrieves the size of the buffer space, in number of elements of type T.
-        /// @return Size of the buffer, in T-sized elements.
-        static constexpr unsigned int Capacity(void)
-        {
-            return kCapacity;
-        }
+    /// Constructs a new element using the specified arguments at the end of this container.
+    /// @return Reference to the constructed and inserted element.
+    template <typename... Args> inline T& EmplaceBack(Args&&... args)
+    {
+      DebugAssert(Size() < Capacity(), "Emplacing into an already-full ArrayList object.");
 
-        /// Retrieves the size of the buffer space, in bytes.
-        /// @return Size of the buffer, in bytes.
-        static constexpr unsigned int CapacityBytes(void)
-        {
-            return kCapacityBytes;
-        }
+      new (&Data()[size]) T(std::forward<Args>(args)...);
+      return Data()[size++];
+    }
 
-        /// Removes all elements from this container, destroying each in sequence.
-        inline void Clear(void)
-        {
-            if constexpr (std::is_trivially_destructible_v<T>)
-            {
-                size = 0;
-            }
-            else
-            {
-                while (0 != size)
-                    PopBack();
-            }
-        }
+    /// Specifies if this container contains no elements.
+    /// @return `true` if this is container is empty, `false` otherwise.
+    inline bool Empty(void) const
+    {
+      return (0 == Size());
+    }
 
-        /// Retrieves a properly-typed pointer to the buffer itself, constant version.
-        /// @return Typed pointer to the buffer.
-        constexpr const T* Data(void) const
-        {
-            return reinterpret_cast<const T*>(backingArray);
-        }
+    /// Removes the last element from this container and destroys it.
+    inline void PopBack(void)
+    {
+      DebugAssert(Empty(), "Popping from an empty ArrayList object.");
 
-        /// Retrieves a properly-typed pointer to the buffer itself, mutable version.
-        /// @return Typed pointer to the buffer.
-        constexpr T* Data(void)
-        {
-            return reinterpret_cast<T*>(backingArray);
-        }
+      Data()[size--].~T();
+    }
 
-        /// Constructs a new element using the specified arguments at the end of this container.
-        /// @return Reference to the constructed and inserted element.
-        template <typename... Args> inline T& EmplaceBack(Args&&... args)
-        {
-            DebugAssert(Size() < Capacity(), "Emplacing into an already-full ArrayList object.");
+    /// Appends the specified element to the end of this container using copy semantics.
+    /// @param [in] value Value to be appended.
+    inline void PushBack(const T& value)
+    {
+      DebugAssert(Size() < Capacity(), "Pushing into an already-full ArrayList object.");
 
-            new (&Data()[size]) T(std::forward<Args>(args)...);
-            return Data()[size++];
-        }
+      new (&Data()[size++]) T(value);
+    }
 
-        /// Specifies if this container contains no elements.
-        /// @return `true` if this is container is empty, `false` otherwise.
-        inline bool Empty(void) const
-        {
-            return (0 == Size());
-        }
+    /// Appends the specified element to the end of this container using move semantics.
+    /// @param [in] value Value to be appended.
+    inline void PushBack(T&& value)
+    {
+      DebugAssert(Size() < Capacity(), "Pushing into an already-full ArrayList object.");
 
-        /// Removes the last element from this container and destroys it.
-        inline void PopBack(void)
-        {
-            DebugAssert(Empty(), "Popping from an empty ArrayList object.");
+      new (&Data()[size++]) T(std::move(value));
+    }
 
-            Data()[size--].~T();
-        }
+    /// Retrieves the number of elements held in this container.
+    /// @return Number of elements in the container.
+    inline unsigned int Size(void) const
+    {
+      return size;
+    }
 
-        /// Appends the specified element to the end of this container using copy semantics.
-        /// @param [in] value Value to be appended.
-        inline void PushBack(const T& value)
-        {
-            DebugAssert(Size() < Capacity(), "Pushing into an already-full ArrayList object.");
+  private:
 
-            new (&Data()[size++]) T(value);
-        }
+    /// Backing array. Holds all values. Implemented in a byte-wise manner to avoid
+    /// default-constructing objects in empty positions in the array.
+    uint8_t backingArray[kCapacityBytes];
 
-        /// Appends the specified element to the end of this container using move semantics.
-        /// @param [in] value Value to be appended.
-        inline void PushBack(T&& value)
-        {
-            DebugAssert(Size() < Capacity(), "Pushing into an already-full ArrayList object.");
-
-            new (&Data()[size++]) T(std::move(value));
-        }
-
-        /// Retrieves the number of elements held in this container.
-        /// @return Number of elements in the container.
-        inline unsigned int Size(void) const
-        {
-            return size;
-        }
-
-    private:
-
-        /// Backing array. Holds all values. Implemented in a byte-wise manner to avoid
-        /// default-constructing objects in empty positions in the array.
-        uint8_t backingArray[kCapacityBytes];
-
-        /// Number of elements held by this container.
-        unsigned int size;
-    };
-}  // namespace Pathwinder
+    /// Number of elements held by this container.
+    unsigned int size;
+  };
+} // namespace Pathwinder
