@@ -45,7 +45,6 @@
 
 namespace Pathwinder
 {
-
   namespace _ProtectedDependencyInternal
   {
     /// Primary template for protected dependencies. Only the specializations are useful.

@@ -11,10 +11,19 @@
 
 #pragma once
 
-#define NOMINMAX
+// Windows header files are sensitive to include order. Compilation will fail if the order is
+// incorrect. Top-level macros and headers must come first, followed by headers for other parts
+// of system functionality.
 
+// clang-format off
+#define NOMINMAX
 #include <sdkddkver.h>
 #include <windows.h>
+// clang-format on
+
+#include <knownfolders.h>
+#include <psapi.h>
+#include <shlobj.h>
 
 namespace Pathwinder
 {

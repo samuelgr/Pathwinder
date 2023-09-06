@@ -24,11 +24,6 @@ namespace Pathwinder
   /// @tparam ErrorType Type used to represent errors.
   template <typename ValueType, typename ErrorType> class ValueOrError
   {
-  private:
-
-    /// Value or error itself.
-    std::variant<ValueType, ErrorType> valueOrError;
-
   public:
 
     /// Resulting object holds a default-constructed value.
@@ -136,5 +131,10 @@ namespace Pathwinder
 
       return std::forward<DefaultValueType>(defaultValue);
     }
+
+  private:
+
+    /// Value or error itself.
+    std::variant<ValueType, ErrorType> valueOrError;
   };
 } // namespace Pathwinder

@@ -869,7 +869,7 @@ namespace Pathwinder
       /// during the configuration file read attempt that fills this object.
       inline void InsertReadErrorMessage(std::wstring_view errorMessage)
       {
-        if (readErrors.has_value()) readErrors.emplace();
+        if (false == readErrors.has_value()) readErrors.emplace();
 
         readErrors->emplace_back(errorMessage);
       }

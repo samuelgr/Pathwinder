@@ -23,7 +23,7 @@
   {                                                                                                \
     .protectedHookSetFunc =                                                                        \
         ::Pathwinder::Hooks::ProtectedDependency::##windowsApiFunctionName::SetHook,               \
-    .hookProxy = DynamicHook_##windowsApiFunctionName::GetProxy()                                  \
+    .hookProxy = HOOKSHOT_DYNAMIC_HOOK_PROXY(windowsApiFunctionName)                               \
   }
 
 /// Convenience wrapper for instantiating a hook record structure for an unprotected hook given the
@@ -32,7 +32,7 @@
   {                                                                                                \
     .unprotectedHookOriginalAddress =                                                              \
         GetInternalWindowsApiFunctionAddress(#windowsApiFunctionName),                             \
-    .hookProxy = DynamicHook_##windowsApiFunctionName::GetProxy()                                  \
+    .hookProxy = HOOKSHOT_DYNAMIC_HOOK_PROXY(windowsApiFunctionName)                               \
   }
 
 namespace Pathwinder

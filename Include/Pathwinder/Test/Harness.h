@@ -49,6 +49,15 @@ namespace PathwinderTest
 
   private:
 
+    Harness(void) = default;
+
+    Harness(const Harness&) = delete;
+
+    /// Returns a reference to the singleton instance of this class.
+    /// Not intended to be invoked externally.
+    /// @return Reference to the singleton instance.
+    static Harness& GetInstance(void);
+
     /// Internal implementation of test case registration.
     /// @param [in] testCase Test case object to register.
     /// @param [in] name Name of the test case.
@@ -62,14 +71,5 @@ namespace PathwinderTest
 
     /// Holds all registered test cases in alphabetical order.
     std::map<std::wstring_view, const ITestCase*> testCases;
-
-    Harness(void) = default;
-
-    Harness(const Harness&) = delete;
-
-    /// Returns a reference to the singleton instance of this class.
-    /// Not intended to be invoked externally.
-    /// @return Reference to the singleton instance.
-    static Harness& GetInstance(void);
   };
 } // namespace PathwinderTest

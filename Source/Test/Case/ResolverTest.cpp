@@ -17,7 +17,7 @@
 #include <string>
 #include <string_view>
 
-#include "ApiWindowsShell.h"
+#include "ApiWindows.h"
 #include "Configuration.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"

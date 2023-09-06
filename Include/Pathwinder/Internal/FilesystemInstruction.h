@@ -59,19 +59,6 @@ namespace Pathwinder
     /// a larger directory enumeration operation. Immutable once constructed.
     class SingleDirectoryEnumeration
     {
-    private:
-
-      /// Filesystem rule to query for a file pattern match.
-      /// If `nullptr` then everything is presumed to match.
-      const FilesystemRule* filePatternSource;
-
-      /// Whether or not the match result should be inverted.
-      /// Only meaningful if the source filesystem rule is present.
-      bool invertFilePatternMatches;
-
-      /// Enumerator to specify how to obtain the path of the directory to be enumerated.
-      EDirectoryPathSource directoryPathSource;
-
     public:
 
       inline SingleDirectoryEnumeration(void)
@@ -191,6 +178,19 @@ namespace Pathwinder
 
         return (filePatternSource->FileNameMatchesAnyPattern(filename) != invertFilePatternMatches);
       }
+
+    private:
+
+      /// Filesystem rule to query for a file pattern match.
+      /// If `nullptr` then everything is presumed to match.
+      const FilesystemRule* filePatternSource;
+
+      /// Whether or not the match result should be inverted.
+      /// Only meaningful if the source filesystem rule is present.
+      bool invertFilePatternMatches;
+
+      /// Enumerator to specify how to obtain the path of the directory to be enumerated.
+      EDirectoryPathSource directoryPathSource;
     };
 
     /// Holds the information needed to describe how to insert a single directory name into the
@@ -198,13 +198,6 @@ namespace Pathwinder
     /// constructed.
     class SingleDirectoryNameInsertion
     {
-    private:
-
-      /// Filesystem rule that will be queried to determine how the directory name insertion
-      /// should occur. Queries would be for information about the origin and target
-      /// directories.
-      const FilesystemRule* filesystemRule;
-
     public:
 
       inline SingleDirectoryNameInsertion(const FilesystemRule& filesystemRule)
@@ -253,20 +246,14 @@ namespace Pathwinder
       {
         return filesystemRule->GetOriginDirectoryName();
       }
+
+    private:
+
+      /// Filesystem rule that will be queried to determine how the directory name insertion
+      /// should occur. Queries would be for information about the origin and target
+      /// directories.
+      const FilesystemRule* filesystemRule;
     };
-
-  private:
-
-    /// Descriptions of how to enumerate the directories that need to be enumerated as the
-    /// execution of this directory enumeration instruction.
-    std::array<SingleDirectoryEnumeration, 2> directoriesToEnumerate;
-
-    /// Base names of any directories that should be inserted into the enumeration result.
-    /// These are not subject to any additional file pattern matching.
-    /// If not present then no additional names need to be inserted.
-    std::optional<TemporaryVector<SingleDirectoryNameInsertion>> directoryNamesToInsert;
-
-  public:
 
     inline DirectoryEnumerationInstruction(
         std::array<SingleDirectoryEnumeration, 2>&& directoriesToEnumerate,
@@ -373,6 +360,17 @@ namespace Pathwinder
     {
       return directoryNamesToInsert.has_value();
     }
+
+  private:
+
+    /// Descriptions of how to enumerate the directories that need to be enumerated as the
+    /// execution of this directory enumeration instruction.
+    std::array<SingleDirectoryEnumeration, 2> directoriesToEnumerate;
+
+    /// Base names of any directories that should be inserted into the enumeration result.
+    /// These are not subject to any additional file pattern matching.
+    /// If not present then no additional names need to be inserted.
+    std::optional<TemporaryVector<SingleDirectoryNameInsertion>> directoryNamesToInsert;
   };
 
   /// Contains all of the information needed to execute a file operation complete with potential
@@ -460,33 +458,6 @@ namespace Pathwinder
       /// enumeration.
       Count
     };
-
-  private:
-
-    /// Redirected filename. This would result from a file operation redirection query that
-    /// matches a rule and ends up being redirected. If not present, then no redirection
-    /// occurred.
-    std::optional<TemporaryString> redirectedFilename;
-
-    /// Filenames to try when submitting a file operation to the underlying system call.
-    ETryFiles filenamesToTry;
-
-    /// Whether to prefer creating a new file or opening an existing file, if the application is
-    /// willing to accept both.
-    ECreateDispositionPreference createDispositionPreference;
-
-    /// Filename to associate with a newly-created file handle that results from successful
-    /// execution of the file operation.
-    EAssociateNameWithHandle filenameHandleAssociation;
-
-    /// Extra operations to perform before submitting the filesystem operation to the underlying
-    /// system call.
-    BitSetEnum<EExtraPreOperation> extraPreOperations;
-
-    /// Operand to be used as a parameter for extra pre-operations.
-    std::wstring_view extraPreOperationOperand;
-
-  public:
 
     /// Not intended to be invoked externally. Objects should generally be created using factory
     /// methods.
@@ -657,6 +628,31 @@ namespace Pathwinder
     {
       return redirectedFilename.has_value();
     }
+
+  private:
+
+    /// Redirected filename. This would result from a file operation redirection query that
+    /// matches a rule and ends up being redirected. If not present, then no redirection
+    /// occurred.
+    std::optional<TemporaryString> redirectedFilename;
+
+    /// Filenames to try when submitting a file operation to the underlying system call.
+    ETryFiles filenamesToTry;
+
+    /// Whether to prefer creating a new file or opening an existing file, if the application is
+    /// willing to accept both.
+    ECreateDispositionPreference createDispositionPreference;
+
+    /// Filename to associate with a newly-created file handle that results from successful
+    /// execution of the file operation.
+    EAssociateNameWithHandle filenameHandleAssociation;
+
+    /// Extra operations to perform before submitting the filesystem operation to the underlying
+    /// system call.
+    BitSetEnum<EExtraPreOperation> extraPreOperations;
+
+    /// Operand to be used as a parameter for extra pre-operations.
+    std::wstring_view extraPreOperationOperand;
   };
 
 #ifdef _WIN64

@@ -53,13 +53,13 @@ namespace Pathwinder
 
     ~TemporaryBufferBase(void);
 
-    inline TemporaryBufferBase(TemporaryBufferBase&& other)
+    inline TemporaryBufferBase(TemporaryBufferBase&& other) noexcept
         : buffer(nullptr), isHeapAllocated(false)
     {
       *this = std::move(other);
     }
 
-    inline TemporaryBufferBase& operator=(TemporaryBufferBase&& other)
+    inline TemporaryBufferBase& operator=(TemporaryBufferBase&& other) noexcept
     {
       std::swap(buffer, other.buffer);
       std::swap(isHeapAllocated, other.isHeapAllocated);
@@ -92,9 +92,10 @@ namespace Pathwinder
 
     inline TemporaryBuffer(void) : TemporaryBufferBase() {}
 
-    inline TemporaryBuffer(TemporaryBuffer&& other) : TemporaryBufferBase(std::move(other)) {}
+    inline TemporaryBuffer(TemporaryBuffer&& other) noexcept : TemporaryBufferBase(std::move(other))
+    {}
 
-    inline TemporaryBuffer& operator=(TemporaryBuffer&& other)
+    inline TemporaryBuffer& operator=(TemporaryBuffer&& other) noexcept
     {
       TemporaryBufferBase::operator=(std::move(other));
       return *this;
@@ -165,7 +166,7 @@ namespace Pathwinder
       *this = other;
     }
 
-    inline TemporaryVector(TemporaryVector&& other) : TemporaryBuffer<T>(std::move(other))
+    inline TemporaryVector(TemporaryVector&& other) noexcept : TemporaryBuffer<T>(std::move(other))
     {
       std::swap(size, other.size);
     }
@@ -185,7 +186,7 @@ namespace Pathwinder
       return *this;
     }
 
-    inline TemporaryVector& operator=(TemporaryVector&& other)
+    inline TemporaryVector& operator=(TemporaryVector&& other) noexcept
     {
       TemporaryBuffer<T>::operator=(std::move(other));
       std::swap(size, other.size);
@@ -335,7 +336,9 @@ namespace Pathwinder
       (*this)[size] = L'\0';
     }
 
-    inline TemporaryString(TemporaryString&& other) : TemporaryVector<wchar_t>(std::move(other)) {}
+    inline TemporaryString(TemporaryString&& other) noexcept
+        : TemporaryVector<wchar_t>(std::move(other))
+    {}
 
     inline TemporaryString& operator=(const TemporaryString& other)
     {
@@ -344,7 +347,7 @@ namespace Pathwinder
       return *this;
     }
 
-    inline TemporaryString& operator=(TemporaryString&& other)
+    inline TemporaryString& operator=(TemporaryString&& other) noexcept
     {
       TemporaryVector<wchar_t>::operator=(std::move(other));
       return *this;

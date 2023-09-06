@@ -342,10 +342,9 @@ namespace Pathwinder
           (value < std::numeric_limits<TIntegerValue>::min()))
         return false;
 
-      // Verify that the whole string was consumed.
-      if (source.length() !=
-          (reinterpret_cast<size_t>(endptr) - reinterpret_cast<size_t>(source.data())))
-        return false;
+      // Verify that the whole string was consumed. This uses pointer arithmetic, and so the logic
+      // holds regardless of the size of the individual characters.
+      if (source.length() != (endptr - source.data())) return false;
 
       dest = (TIntegerValue)value;
       return true;

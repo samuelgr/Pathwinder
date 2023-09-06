@@ -28,7 +28,7 @@ namespace PathwinderTest
   static constexpr int kTestData[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 
   /// Type alias for all tests that exercise the prefix index data structure.
-  typedef PrefixIndex<wchar_t, int> TTestPrefixIndex;
+  using TTestPrefixIndex = PrefixIndex<wchar_t, int>;
 
   /// Compares the contents of two array-indexable container types for their contents being equal
   /// where order is unimportant.

@@ -18,7 +18,7 @@
 #include <mutex>
 #include <string>
 
-#include "ApiWindowsShell.h"
+#include "ApiWindows.h"
 #include "Globals.h"
 #include "MutexWrapper.h"
 #include "Strings.h"

@@ -18,7 +18,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "ApiWindowsShell.h"
+#include "ApiWindows.h"
 #include "Configuration.h"
 #include "DebugAssert.h"
 #include "Strings.h"
@@ -33,7 +33,7 @@ namespace Pathwinder
         Strings::kStrReferenceDomainEnvironmentVariable;
 
     /// Type for all functions that attempt to resolve a specific type of reference.
-    typedef ResolvedStringOrError (*TResolveReferenceFunc)(std::wstring_view);
+    using TResolveReferenceFunc = ResolvedStringOrError (*)(std::wstring_view);
 
     /// Holds configured definitions, which correspond to the CONF domain.
     static TConfiguredDefinitions configuredDefinitions;
