@@ -316,8 +316,8 @@ namespace Pathwinder
     /// @param [in] format Message string, possibly with format specifiers.
     /// @param [in] args Variable-length list of arguments to be used for any format specifiers
     /// in the message string.
-    static void
-        OutputFormattedInternal(const ESeverity severity, const wchar_t* format, va_list args)
+    static void OutputFormattedInternal(
+        const ESeverity severity, const wchar_t* format, va_list args)
     {
       TemporaryBuffer<wchar_t> messageBuf;
 
@@ -374,8 +374,8 @@ namespace Pathwinder
       SetLastError(lastError);
     }
 
-    void
-        OutputFormatted(const ESeverity severity, _Printf_format_string_ const wchar_t* format, ...)
+    void OutputFormatted(
+        const ESeverity severity, _Printf_format_string_ const wchar_t* format, ...)
     {
       const DWORD lastError = GetLastError();
 

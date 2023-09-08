@@ -63,7 +63,6 @@ namespace Pathwinder
 
     private:
 
-      /// Default constructor. Objects cannot be constructed externally.
       GlobalData(void)
           : gCurrentProcessHandle(GetCurrentProcess()),
             gCurrentProcessId(GetProcessId(GetCurrentProcess())),
@@ -77,7 +76,6 @@ namespace Pathwinder
         GetNativeSystemInfo(&gSystemInformation);
       }
 
-      /// Copy constructor. Should never be invoked.
       GlobalData(const GlobalData& other) = delete;
     };
 
@@ -149,7 +147,7 @@ namespace Pathwinder
       {
         // Offset the requested severity so that 0 = disabled, 1 = error, 2 = warning, etc.
         const Message::ESeverity configuredSeverity = (Message::ESeverity)(
-            logLevel + (int64_t)Message::ESeverity::LowerBoundConfigurableValue);
+            logLevel + static_cast<int64_t>(Message::ESeverity::LowerBoundConfigurableValue));
         EnableLog(configuredSeverity);
       }
     }
@@ -166,8 +164,8 @@ namespace Pathwinder
     /// object read from a configuration file.
     /// @param [in] configData Read-only reference to a configuration data object.
     /// @return Resulting parsed configuration data structure.
-    static SConfigurationData
-        ParseConfigurationData(const Configuration::ConfigurationData& configData)
+    static SConfigurationData ParseConfigurationData(
+        const Configuration::ConfigurationData& configData)
     {
       return {
           .isDryRunMode =

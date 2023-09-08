@@ -131,14 +131,14 @@ namespace Pathwinder
     /// @return Typed pointer to the buffer.
     inline const T* Data(void) const
     {
-      return (T*)Buffer();
+      return reinterpret_cast<const T*>(Buffer());
     }
 
     /// Retrieves a properly-typed pointer to the buffer itself, mutable version.
     /// @return Typed pointer to the buffer.
     inline T* Data(void)
     {
-      return (T*)Buffer();
+      return reinterpret_cast<T*>(Buffer());
     }
   };
 

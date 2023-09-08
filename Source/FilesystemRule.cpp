@@ -220,14 +220,14 @@ namespace Pathwinder
     }
   }
 
-  FilesystemRule::EDirectoryCompareResult
-      FilesystemRule::DirectoryCompareWithOrigin(std::wstring_view candidateDirectory) const
+  FilesystemRule::EDirectoryCompareResult FilesystemRule::DirectoryCompareWithOrigin(
+      std::wstring_view candidateDirectory) const
   {
     return DirectoryCompareInternal(candidateDirectory, originDirectoryFullPath);
   }
 
-  FilesystemRule::EDirectoryCompareResult
-      FilesystemRule::DirectoryCompareWithTarget(std::wstring_view candidateDirectory) const
+  FilesystemRule::EDirectoryCompareResult FilesystemRule::DirectoryCompareWithTarget(
+      std::wstring_view candidateDirectory) const
   {
     return DirectoryCompareInternal(candidateDirectory, targetDirectoryFullPath);
   }

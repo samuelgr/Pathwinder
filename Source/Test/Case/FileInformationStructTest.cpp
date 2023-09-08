@@ -43,8 +43,8 @@ namespace PathwinderTest
   /// field.
   /// @return Last wide character in the trailing `fileName` field of the file information
   /// structure.
-  static inline wchar_t
-      LastWideCharacterInFileName(const void* fileInformationStruct, unsigned int structSizeInBytes)
+  static inline wchar_t LastWideCharacterInFileName(
+      const void* fileInformationStruct, unsigned int structSizeInBytes)
   {
     const unsigned int lastWideCharacterIndex = (structSizeInBytes / sizeof(wchar_t)) - 1;
     return (reinterpret_cast<const wchar_t*>(fileInformationStruct))[lastWideCharacterIndex];
@@ -425,8 +425,8 @@ namespace PathwinderTest
   // Verifies that the trailing file name field can be correctly updated and consistency is
   // maintained with both the length field and the overall size of the structure. The buffer is
   // too small to contain the entire filename.
-  template <typename FileInformationStructType>
-  static void TestCaseBodyWriteFileNameShortWrite(void)
+  template <typename FileInformationStructType> static void TestCaseBodyWriteFileNameShortWrite(
+      void)
   {
     constexpr FILE_INFORMATION_CLASS testFileInformationClass =
         FileInformationStructType::kFileInformationClass;

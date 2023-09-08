@@ -17,7 +17,6 @@
 
 namespace PathwinderTest
 {
-
   void Print(const wchar_t* const str)
   {
     if (IsDebuggerPresent())

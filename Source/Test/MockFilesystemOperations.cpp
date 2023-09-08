@@ -110,8 +110,8 @@ namespace PathwinderTest
     openDirectoryHandles.erase(directoryHandleIter);
   }
 
-  intptr_t
-      MockFilesystemOperations::CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath)
+  intptr_t MockFilesystemOperations::CreateDirectoryHierarchy(
+      std::wstring_view absoluteDirectoryPath)
   {
     TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
   }
@@ -135,8 +135,8 @@ namespace PathwinderTest
     return filesystemContents.contains(absolutePath);
   }
 
-  Pathwinder::ValueOrError<HANDLE, NTSTATUS>
-      MockFilesystemOperations::OpenDirectoryForEnumeration(std::wstring_view absoluteDirectoryPath)
+  Pathwinder::ValueOrError<HANDLE, NTSTATUS> MockFilesystemOperations::OpenDirectoryForEnumeration(
+      std::wstring_view absoluteDirectoryPath)
   {
     const auto directoryIter = filesystemContents.find(absoluteDirectoryPath);
     if (filesystemContents.cend() == directoryIter)
@@ -341,8 +341,8 @@ namespace Pathwinder
       MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, IsDirectory, absolutePath);
     }
 
-    Pathwinder::ValueOrError<HANDLE, NTSTATUS>
-        OpenDirectoryForEnumeration(std::wstring_view absoluteDirectoryPath)
+    Pathwinder::ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
+        std::wstring_view absoluteDirectoryPath)
     {
       MOCK_FREE_FUNCTION_BODY(
           MockFilesystemOperations, OpenDirectoryForEnumeration, absoluteDirectoryPath);

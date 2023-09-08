@@ -48,8 +48,8 @@ namespace Pathwinder
     /// Opens the specified directory for synchronous enumeration.
     /// @param [in] absoluteDirectoryPath Absolute path to the directory to be opened.
     /// @return Handle for the directory file on success, Windows error code on failure.
-    ValueOrError<HANDLE, NTSTATUS>
-        OpenDirectoryForEnumeration(std::wstring_view absoluteDirectoryPath);
+    ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
+        std::wstring_view absoluteDirectoryPath);
 
     /// Attempts to enumerate the contents of the directory identified by open handle, up to
     /// whatever portion of the overall contents will fit in the specified buffer. Can be

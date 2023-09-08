@@ -160,8 +160,8 @@ namespace Pathwinder
     /// needed.
     /// @return Layout information for the specified file information class, if the file
     /// information class is supported.
-    static std::optional<FileInformationStructLayout>
-        LayoutForFileInformationClass(FILE_INFORMATION_CLASS fileInformationClass);
+    static std::optional<FileInformationStructLayout> LayoutForFileInformationClass(
+        FILE_INFORMATION_CLASS fileInformationClass);
 
     /// Returns the base size of the file information structure whose layout is represented by
     /// this object.
@@ -280,8 +280,8 @@ namespace Pathwinder
     /// @param [in, out] fileInformationStruct Address of the first byte of the file information
     /// structure of interest.
     /// @param [in] newFileNameLength New value to be written to the `fileNameLength` field.
-    inline void
-        WriteFileNameLength(void* fileInformationStruct, TFileNameLength newFileNameLength) const
+    inline void WriteFileNameLength(
+        void* fileInformationStruct, TFileNameLength newFileNameLength) const
     {
       *(reinterpret_cast<TFileNameLength*>(
           reinterpret_cast<size_t>(fileInformationStruct) +

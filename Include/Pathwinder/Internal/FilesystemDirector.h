@@ -77,8 +77,8 @@ namespace Pathwinder
     /// corresponding object, if found.
     /// @param [in] ruleOriginDirectoryFullPath Full path of the directory for which to search.
     /// @return Pointer to the rule, or `nullptr` if no matching rule is found.
-    inline const FilesystemRule*
-        FindRuleByOriginDirectory(std::wstring_view ruleOriginDirectoryFullPath) const
+    inline const FilesystemRule* FindRuleByOriginDirectory(
+        std::wstring_view ruleOriginDirectoryFullPath) const
     {
       const auto ruleNode = originDirectoryIndex.Find(ruleOriginDirectoryFullPath);
       if (nullptr == ruleNode) return nullptr;

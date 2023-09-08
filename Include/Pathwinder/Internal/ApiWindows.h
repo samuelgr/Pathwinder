@@ -16,9 +16,11 @@
 // of system functionality.
 
 // clang-format off
+
 #define NOMINMAX
 #include <sdkddkver.h>
 #include <windows.h>
+
 // clang-format on
 
 #include <knownfolders.h>

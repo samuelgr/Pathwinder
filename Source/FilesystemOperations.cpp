@@ -275,8 +275,8 @@ namespace Pathwinder
       return AttributesIndicateFileExistsAndIsDirectory(pathAttributes);
     }
 
-    ValueOrError<HANDLE, NTSTATUS>
-        OpenDirectoryForEnumeration(std::wstring_view absoluteDirectoryPath)
+    ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
+        std::wstring_view absoluteDirectoryPath)
     {
       ENSURE_ABSOLUTE_PATH_PARAM_HAS_WINDOWS_NAMESPCE_PREFIX(absoluteDirectoryPath);
 

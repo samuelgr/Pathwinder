@@ -67,8 +67,6 @@ namespace Pathwinder
 
   public:
 
-    /// Initialization constructor. Requires an already-constructed bytewise buffer, which is
-    /// moved into place.
     inline FileRenameInformationAndFilename(TemporaryVector<uint8_t>&& bytewiseBuffer)
         : bytewiseBuffer(std::move(bytewiseBuffer))
     {}

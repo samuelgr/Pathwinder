@@ -44,8 +44,8 @@ namespace Pathwinder
 
     /// Creates an object that holds an error.
     /// @return Newly-created object containing an error.
-    template <typename... Args>
-    static constexpr ValueOrError<ValueType, ErrorType> MakeError(Args&&... args)
+    template <typename... Args> static constexpr ValueOrError<ValueType, ErrorType> MakeError(
+        Args&&... args)
     {
       return ValueOrError<ValueType, ErrorType>(
           std::in_place_index<1>, ErrorType(std::forward<Args>(args)...));
@@ -53,8 +53,8 @@ namespace Pathwinder
 
     /// Creates an object that holds a value.
     /// @return Newly-created object containing a value.
-    template <typename... Args>
-    static constexpr ValueOrError<ValueType, ErrorType> MakeValue(Args&&... args)
+    template <typename... Args> static constexpr ValueOrError<ValueType, ErrorType> MakeValue(
+        Args&&... args)
     {
       return ValueOrError<ValueType, ErrorType>(
           std::in_place_index<0>, ValueType(std::forward<Args>(args)...));
@@ -109,8 +109,8 @@ namespace Pathwinder
     /// @param [in] defaultValue Default value to use in the absence of a value.
     /// @return Value held by this object or default value, depending on the state of this
     /// object.
-    template <typename DefaultValueType>
-    constexpr ValueType ValueOr(DefaultValueType&& defaultValue) const&
+    template <typename DefaultValueType> constexpr ValueType ValueOr(
+        DefaultValueType&& defaultValue) const&
     {
       if (true == HasValue()) return Value();
 
@@ -124,8 +124,8 @@ namespace Pathwinder
     /// @param [in] defaultValue Default value to use in the absence of a value.
     /// @return Value held by this object or default value, depending on the state of this
     /// object.
-    template <typename DefaultValueType>
-    constexpr ValueType ValueOr(DefaultValueType&& defaultValue) &&
+    template <typename DefaultValueType> constexpr ValueType ValueOr(
+        DefaultValueType&& defaultValue) &&
     {
       if (true == HasValue()) return std::move(Value());
 

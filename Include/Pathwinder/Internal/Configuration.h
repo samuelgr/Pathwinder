@@ -578,8 +578,8 @@ namespace Pathwinder
       /// semantics. If the configuration setting is single-valued then it is destroyed.
       /// @tparam ValueType Expected value type of the configuration setting to extract.
       /// @return Extracted value if the value type matches the template parameter.
-      template <typename ValueType>
-      std::optional<ValueType> ExtractFirstValue(std::wstring_view name);
+      template <typename ValueType> std::optional<ValueType> ExtractFirstValue(
+          std::wstring_view name);
 
       /// Extracts the first Boolean value from the specified configuration setting using move
       /// semantics.
@@ -615,8 +615,8 @@ namespace Pathwinder
       /// @param [in] name Name of the configuration setting to extract.
       /// @return Vector of extracted values, if the name exists in this section and is of the
       /// correct type as identified by the template parameter.
-      template <typename ValueType>
-      std::optional<std::vector<ValueType>> ExtractValues(std::wstring_view name);
+      template <typename ValueType> std::optional<std::vector<ValueType>> ExtractValues(
+          std::wstring_view name);
 
       /// Extracts all Boolean values from the specified configuration setting using move
       /// semantics, erasing the entire setting from this section data object and returning
@@ -793,8 +793,8 @@ namespace Pathwinder
       /// @param [in] section Section name to search for the value.
       /// @param [in] name Name of the value for which to search.
       /// @return First value associated with the section and name, if it exists.
-      inline std::optional<TBooleanView>
-          GetFirstBooleanValue(std::wstring_view section, std::wstring_view name) const
+      inline std::optional<TBooleanView> GetFirstBooleanValue(
+          std::wstring_view section, std::wstring_view name) const
       {
         const auto sectionIterator = sections.find(section);
         if (sections.cend() == sectionIterator) return std::nullopt;
@@ -807,8 +807,8 @@ namespace Pathwinder
       /// @param [in] section Section name to search for the value.
       /// @param [in] name Name of the value for which to search.
       /// @return First value associated with the section and name, if it exists.
-      inline std::optional<TIntegerView>
-          GetFirstIntegerValue(std::wstring_view section, std::wstring_view name) const
+      inline std::optional<TIntegerView> GetFirstIntegerValue(
+          std::wstring_view section, std::wstring_view name) const
       {
         const auto sectionIterator = sections.find(section);
         if (sections.cend() == sectionIterator) return std::nullopt;
@@ -821,8 +821,8 @@ namespace Pathwinder
       /// @param [in] section Section name to search for the value.
       /// @param [in] name Name of the value for which to search.
       /// @return First value associated with the section and name, if it exists.
-      inline std::optional<TStringView>
-          GetFirstStringValue(std::wstring_view section, std::wstring_view name) const
+      inline std::optional<TStringView> GetFirstStringValue(
+          std::wstring_view section, std::wstring_view name) const
       {
         const auto sectionIterator = sections.find(section);
         if (sections.cend() == sectionIterator) return std::nullopt;
@@ -954,8 +954,8 @@ namespace Pathwinder
       /// to exist. This requirement is unusual, so the default behavior is not to require it.
       /// @return Configuration data object filled based on the contents of the configuration
       /// file.
-      ConfigurationData
-          ReadConfigurationFile(std::wstring_view configFileName, bool mustExist = false);
+      ConfigurationData ReadConfigurationFile(
+          std::wstring_view configFileName, bool mustExist = false);
 
       /// Reads and parses a configuration file held in memory, storing the settings in the
       /// supplied configuration object. Intended to be invoked externally, primarily by
@@ -1030,8 +1030,8 @@ namespace Pathwinder
       /// @param [in] value View of the value of the configuration setting, as read and parsed
       /// from the configuration file.
       /// @return Action to take with the name/value pair.
-      virtual EAction
-          ActionForValue(std::wstring_view section, std::wstring_view name, TIntegerView value) = 0;
+      virtual EAction ActionForValue(
+          std::wstring_view section, std::wstring_view name, TIntegerView value) = 0;
 
       /// Invoked to allow the subclass to process the specified Boolean-typed configuration
       /// setting, identified by enclosing section name and by configuration setting name.
@@ -1046,8 +1046,8 @@ namespace Pathwinder
       /// @param [in] value View of the value of the configuration setting, as read and parsed
       /// from the configuration file.
       /// @return Action to take with the name/value pair.
-      virtual EAction
-          ActionForValue(std::wstring_view section, std::wstring_view name, TBooleanView value) = 0;
+      virtual EAction ActionForValue(
+          std::wstring_view section, std::wstring_view name, TBooleanView value) = 0;
 
       /// Invoked to allow the subclass to process specified string-typed configuration
       /// setting, identified by enclosing section name and by configuration setting name.
@@ -1062,8 +1062,8 @@ namespace Pathwinder
       /// @param [in] value View of the value of the configuration setting, as read and parsed
       /// from the configuration file.
       /// @return Action to take with the name/value pair.
-      virtual EAction
-          ActionForValue(std::wstring_view section, std::wstring_view name, TStringView value) = 0;
+      virtual EAction ActionForValue(
+          std::wstring_view section, std::wstring_view name, TStringView value) = 0;
 
       /// Specifies the type of the value for the given configuration setting.
       /// In lines that are of the form "name = value" parameters identify both the enclosing
@@ -1103,8 +1103,8 @@ namespace Pathwinder
       /// process.
       /// @param [in] configSourceName Name associated with the source of the configuration
       /// file data that can be used to identify it in logs and error messages.
-      template <typename ReadHandleType> ConfigurationData
-          ReadConfiguration(ReadHandleType& readHandle, std::wstring_view configSourceName);
+      template <typename ReadHandleType> ConfigurationData ReadConfiguration(
+          ReadHandleType& readHandle, std::wstring_view configSourceName);
 
       /// Holds a semantically-rich error message to be presented to the user whenever there
       /// is an error processing a configuration value. Used for temporary internal state

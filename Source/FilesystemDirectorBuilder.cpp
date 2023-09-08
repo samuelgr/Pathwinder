@@ -37,8 +37,8 @@ namespace Pathwinder
   /// configuration information.
   /// @return Redirection mode enumerator, if it is either absent from the configuration section
   /// data object or present and maps to a valid enumerator.
-  static std::optional<FilesystemRule::ERedirectMode>
-      RedirectModeFromConfigurationSection(const Configuration::Section& configSection)
+  static std::optional<FilesystemRule::ERedirectMode> RedirectModeFromConfigurationSection(
+      const Configuration::Section& configSection)
   {
     constexpr FilesystemRule::ERedirectMode kDefaultRedirectMode =
         FilesystemRule::ERedirectMode::Simple;

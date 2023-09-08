@@ -211,8 +211,8 @@ namespace Pathwinder
     /// @param [in] str String view from which to remove the leading character.
     /// @param [in] leadingChar Leading character to strip from this string.
     /// @return Resulting string view after the leading character is removed.
-    template <typename CharType> inline std::basic_string_view<CharType>
-        RemoveLeading(std::basic_string_view<CharType> str, CharType leadingChar)
+    template <typename CharType> inline std::basic_string_view<CharType> RemoveLeading(
+        std::basic_string_view<CharType> str, CharType leadingChar)
     {
       while (str.starts_with(leadingChar))
         str.remove_prefix(1);
@@ -226,8 +226,8 @@ namespace Pathwinder
     /// @param [in] str String view from which to remove the trailing character.
     /// @param [in] trailingChar Trailing character to strip from this string.
     /// @return Resulting string view after the trailing character is removed.
-    template <typename CharType> inline std::basic_string_view<CharType>
-        RemoveTrailing(std::basic_string_view<CharType> str, CharType trailingChar)
+    template <typename CharType> inline std::basic_string_view<CharType> RemoveTrailing(
+        std::basic_string_view<CharType> str, CharType trailingChar)
     {
       while (str.ends_with(trailingChar))
         str.remove_suffix(1);

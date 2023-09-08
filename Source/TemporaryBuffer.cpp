@@ -52,10 +52,8 @@ namespace Pathwinder
 
   private:
 
-    /// Default constructor. Objects cannot be constructed externally.
     TemporaryBufferData(void) = default;
 
-    /// Copy constructor. Should never be invoked.
     TemporaryBufferData(const TemporaryBufferData& other) = delete;
   };
 

@@ -44,8 +44,8 @@ namespace Pathwinder
     /// @param [in] Mutable reference to a configuration data object containing sections that
     /// define filesystem rules.
     /// @return Newly-created filesystem director object if successful.
-    static std::optional<FilesystemDirector>
-        BuildFromConfigurationData(Configuration::ConfigurationData& configData);
+    static std::optional<FilesystemDirector> BuildFromConfigurationData(
+        Configuration::ConfigurationData& configData);
 
     /// Checks if the specified candidate directory string is valid for use as an origin or a
     /// target directory. It must not be empty, must not contain any disallowed characters, and

@@ -206,8 +206,8 @@ namespace Pathwinder
     /// @param [in] buf Buffer containing the configuration file line.
     /// @param [in] length Number of characters in the buffer.
     /// @return Configuration line classification.
-    static ELineClassification
-        ClassifyConfigurationFileLine(const wchar_t* const buf, const int length)
+    static ELineClassification ClassifyConfigurationFileLine(
+        const wchar_t* const buf, const int length)
     {
       // Skip over all whitespace at the start of the input line.
       const wchar_t* realBuf = buf;
@@ -590,8 +590,8 @@ namespace Pathwinder
       return std::make_pair(std::move(extractedName.key()), std::move(extractedName.mapped()));
     }
 
-    template <typename ValueType>
-    std::optional<ValueType> Section::ExtractFirstValue(std::wstring_view name)
+    template <typename ValueType> std::optional<ValueType> Section::ExtractFirstValue(
+        std::wstring_view name)
     {
       auto nameIterator = names.find(name);
       if (names.end() == nameIterator) return std::nullopt;
@@ -613,8 +613,8 @@ namespace Pathwinder
     template std::optional<TIntegerValue> Section::ExtractFirstValue(std::wstring_view);
     template std::optional<TStringValue> Section::ExtractFirstValue(std::wstring_view);
 
-    template <typename ValueType>
-    std::optional<std::vector<ValueType>> Section::ExtractValues(std::wstring_view name)
+    template <typename ValueType> std::optional<std::vector<ValueType>> Section::ExtractValues(
+        std::wstring_view name)
     {
       auto nameIterator = names.find(name);
       if (names.end() == nameIterator) return std::nullopt;
@@ -625,12 +625,12 @@ namespace Pathwinder
       return extractedName.mapped().ExtractValues<ValueType>().value();
     }
 
-    template std::optional<std::vector<TBooleanValue>>
-        Section::ExtractValues<TBooleanValue>(std::wstring_view name);
-    template std::optional<std::vector<TIntegerValue>>
-        Section::ExtractValues<TIntegerValue>(std::wstring_view name);
-    template std::optional<std::vector<TStringValue>>
-        Section::ExtractValues<TStringValue>(std::wstring_view name);
+    template std::optional<std::vector<TBooleanValue>> Section::ExtractValues<TBooleanValue>(
+        std::wstring_view name);
+    template std::optional<std::vector<TIntegerValue>> Section::ExtractValues<TIntegerValue>(
+        std::wstring_view name);
+    template std::optional<std::vector<TStringValue>> Section::ExtractValues<TStringValue>(
+        std::wstring_view name);
 
     std::optional<TBooleanView> Section::GetFirstBooleanValue(std::wstring_view name) const
     {
@@ -686,16 +686,16 @@ namespace Pathwinder
       return nameIter->second.GetFirstValue().GetStringValue();
     }
 
-    std::pair<std::wstring, Section>
-        ConfigurationData::ExtractSection(TSections::const_iterator position)
+    std::pair<std::wstring, Section> ConfigurationData::ExtractSection(
+        TSections::const_iterator position)
     {
       auto extractedSection = sections.extract(position);
       return std::make_pair(
           std::move(extractedSection.key()), std::move(extractedSection.mapped()));
     }
 
-    std::optional<std::pair<std::wstring, Section>>
-        ConfigurationData::ExtractSection(std::wstring_view section)
+    std::optional<std::pair<std::wstring, Section>> ConfigurationData::ExtractSection(
+        std::wstring_view section)
     {
       auto sectionIterator = sections.find(section);
       if (sections.end() == sectionIterator) return std::nullopt;
@@ -721,8 +721,8 @@ namespace Pathwinder
       return ReadConfiguration(configFileHandle, configFileName);
     }
 
-    ConfigurationData
-        ConfigurationFileReader::ReadInMemoryConfigurationFile(std::wstring_view configBuffer)
+    ConfigurationData ConfigurationFileReader::ReadInMemoryConfigurationFile(
+        std::wstring_view configBuffer)
     {
       MemoryBufferHandle configBufferHandle(configBuffer);
       return ReadConfiguration(

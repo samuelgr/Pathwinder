@@ -493,10 +493,10 @@ namespace Pathwinder
       return SplitString(stringToSplit, &delimiter, 1);
     }
 
-    template TemporaryVector<std::string_view>
-        SplitString<char>(std::string_view, std::string_view);
-    template TemporaryVector<std::wstring_view>
-        SplitString<wchar_t>(std::wstring_view, std::wstring_view);
+    template TemporaryVector<std::string_view> SplitString<char>(
+        std::string_view, std::string_view);
+    template TemporaryVector<std::wstring_view> SplitString<wchar_t>(
+        std::wstring_view, std::wstring_view);
 
     template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(
         std::basic_string_view<CharType> stringToSplit,
@@ -540,10 +540,10 @@ namespace Pathwinder
       return stringPieces;
     }
 
-    template TemporaryVector<std::string_view>
-        SplitString<char>(std::string_view, const std::string_view*, unsigned int);
-    template TemporaryVector<std::wstring_view>
-        SplitString<wchar_t>(std::wstring_view, const std::wstring_view*, unsigned int);
+    template TemporaryVector<std::string_view> SplitString<char>(
+        std::string_view, const std::string_view*, unsigned int);
+    template TemporaryVector<std::wstring_view> SplitString<wchar_t>(
+        std::wstring_view, const std::wstring_view*, unsigned int);
 
     template <typename CharType> bool StartsWithCaseInsensitive(
         std::basic_string_view<CharType> str, std::basic_string_view<CharType> maybePrefix)
@@ -598,10 +598,10 @@ namespace Pathwinder
       return TokenizeString(tokenizeState, stringToTokenize, &delimiter, 1);
     }
 
-    template std::optional<std::string_view>
-        TokenizeString<char>(size_t&, std::string_view, std::string_view);
-    template std::optional<std::wstring_view>
-        TokenizeString<wchar_t>(size_t&, std::wstring_view, std::wstring_view);
+    template std::optional<std::string_view> TokenizeString<char>(
+        size_t&, std::string_view, std::string_view);
+    template std::optional<std::wstring_view> TokenizeString<wchar_t>(
+        size_t&, std::wstring_view, std::wstring_view);
 
     template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(
         size_t& tokenizeState,
@@ -640,9 +640,9 @@ namespace Pathwinder
       return std::basic_string_view<CharType>(beginIter, endIter);
     }
 
-    template std::optional<std::string_view>
-        TokenizeString<char>(size_t&, std::string_view, const std::string_view*, unsigned int);
-    template std::optional<std::wstring_view>
-        TokenizeString<wchar_t>(size_t&, std::wstring_view, const std::wstring_view*, unsigned int);
+    template std::optional<std::string_view> TokenizeString<char>(
+        size_t&, std::string_view, const std::string_view*, unsigned int);
+    template std::optional<std::wstring_view> TokenizeString<wchar_t>(
+        size_t&, std::wstring_view, const std::wstring_view*, unsigned int);
   } // namespace Strings
 } // namespace Pathwinder

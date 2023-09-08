@@ -518,8 +518,8 @@ namespace Pathwinder
       typename FileInformationStructType,
       typename = decltype(FileInformationStructType::fileNameLength),
       typename = decltype(FileInformationStructType::fileName[0])>
-  constexpr std::wstring_view
-      GetFileInformationStructFilename(const FileInformationStructType& fileInformationStruct)
+  constexpr std::wstring_view GetFileInformationStructFilename(
+      const FileInformationStructType& fileInformationStruct)
   {
     return std::wstring_view(
         fileInformationStruct.fileName, (fileInformationStruct.fileNameLength / sizeof(wchar_t)));

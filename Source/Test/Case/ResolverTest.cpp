@@ -35,15 +35,11 @@ namespace PathwinderTest
   {
   public:
 
-    /// Initialization constructor.
-    /// Requires a map of configured definitions.
     inline TemporaryConfiguredDefinitions(TConfiguredDefinitions&& configuredDefinitions)
     {
       SetConfiguredDefinitions(std::move(configuredDefinitions));
     }
 
-    /// Initialization constructor.
-    /// Requires a configuration data section containing definitions.
     inline TemporaryConfiguredDefinitions(Configuration::Section&& configuredDefinitionsSection)
     {
       SetConfiguredDefinitionsFromSection(std::move(configuredDefinitionsSection));

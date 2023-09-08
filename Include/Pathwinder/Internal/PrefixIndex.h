@@ -306,8 +306,8 @@ namespace Pathwinder
     /// @return Pair consisting of a pointer to the node that corresponds to the very last
     /// component (i.e. deepest within the tree) of the prefix string and a Boolean value
     /// (`true` if the tree was modified, `false` if not).
-    std::pair<const Node*, bool>
-        Insert(std::basic_string_view<CharType> prefix, const DataType& data)
+    std::pair<const Node*, bool> Insert(
+        std::basic_string_view<CharType> prefix, const DataType& data)
     {
       Node* const node = PrefixPathCreateInternal(prefix);
 

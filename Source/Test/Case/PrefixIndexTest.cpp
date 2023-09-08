@@ -38,8 +38,8 @@ namespace PathwinderTest
   /// @param [in] b Second container in the comparison.
   /// @return `true` if the contents of the two containers are the same, regardless of order, or
   /// `false` otherwise.
-  template <typename ArrayIndexableTypeA, typename ArrayIndexableTypeB>
-  bool UnorderedContentsEqual(const ArrayIndexableTypeA& a, const ArrayIndexableTypeB& b)
+  template <typename ArrayIndexableTypeA, typename ArrayIndexableTypeB> bool UnorderedContentsEqual(
+      const ArrayIndexableTypeA& a, const ArrayIndexableTypeB& b)
   {
     std::unordered_map<std::remove_const_t<std::remove_reference_t<decltype(a[0])>>, int>
         contentsOfA;

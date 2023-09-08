@@ -34,8 +34,8 @@ namespace PathwinderTest
   /// @param [in] filesystemRules Map of filesystem rule names to filesystem rules, which is
   /// consumed using move semantics.
   /// @return Newly-constructed filesystem director object.
-  static FilesystemDirector
-      MakeFilesystemDirector(std::map<std::wstring, FilesystemRule, std::less<>>&& filesystemRules)
+  static FilesystemDirector MakeFilesystemDirector(
+      std::map<std::wstring, FilesystemRule, std::less<>>&& filesystemRules)
   {
     PrefixIndex<wchar_t, FilesystemRule> originDirectoryIndex(L"\\");
 

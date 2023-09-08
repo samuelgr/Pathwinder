@@ -94,8 +94,8 @@ namespace Pathwinder
       /// @return Instance of this class that represents an enumeration to be done and will
       /// return `true` unconditionally when the #ShouldIncludeInDirectoryEnumeration method
       /// is invoked.
-      static inline SingleDirectoryEnumeration
-          IncludeAllFilenames(EDirectoryPathSource directoryPathSource)
+      static inline SingleDirectoryEnumeration IncludeAllFilenames(
+          EDirectoryPathSource directoryPathSource)
       {
         return SingleDirectoryEnumeration(directoryPathSource, nullptr, false);
       }
@@ -283,8 +283,8 @@ namespace Pathwinder
     /// @param [in] directoriesToEnumerate Directories to be enumerated in the supplied order.
     /// @return Directory enumeration instruction encoded to request enumeration of the
     /// directories in the order provided.
-    static inline DirectoryEnumerationInstruction
-        EnumerateDirectories(std::array<SingleDirectoryEnumeration, 2>&& directoriesToEnumerate)
+    static inline DirectoryEnumerationInstruction EnumerateDirectories(
+        std::array<SingleDirectoryEnumeration, 2>&& directoriesToEnumerate)
     {
       return DirectoryEnumerationInstruction(std::move(directoriesToEnumerate), std::nullopt);
     }
@@ -347,8 +347,8 @@ namespace Pathwinder
     /// Obtains a read-only reference to the container of directory names to be inserted into
     /// the enumeration result. Does not check that directory names are actually present.
     /// @return Read-only reference to the container of directory names to insert.
-    inline const TemporaryVector<SingleDirectoryNameInsertion>&
-        GetDirectoryNamesToInsert(void) const
+    inline const TemporaryVector<SingleDirectoryNameInsertion>& GetDirectoryNamesToInsert(
+        void) const
     {
       return *directoryNamesToInsert;
     }
