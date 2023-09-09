@@ -101,16 +101,6 @@ namespace Pathwinder
       }
     };
 
-    /// Retrieves a reference to the singleton instance of this object.
-    /// It holds all open handles for directories that might at some point become the
-    /// `RootDirectory` member of an `OBJECT_ATTRIBUTES` structure or the subject of a directory
-    /// enumeration query.
-    static inline OpenHandleStore& Singleton(void)
-    {
-      static OpenHandleStore* const openHandleCache = new OpenHandleStore;
-      return *openHandleCache;
-    }
-
     /// Associates a directory enumeration state object with the specified handle.
     /// @param [in] handleToAssociate Handle to be associated with the directory enumeration
     /// queue.
