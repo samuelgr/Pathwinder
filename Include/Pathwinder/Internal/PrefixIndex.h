@@ -50,7 +50,7 @@ namespace Pathwinder
 
       Node(const Node&) = delete;
 
-      inline Node(Node&& other)
+      inline Node(Node&& other) noexcept
           : data(other.data),
             parent(other.parent),
             parentKey(other.parentKey),

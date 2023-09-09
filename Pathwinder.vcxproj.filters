@@ -143,9 +143,6 @@
     <ClInclude Include="Include\Pathwinder\Internal\FileInformationStruct.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Internal\FilesystemTypes.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\Iterator.h">
       <Filter>Header Files</Filter>
     </ClInclude>

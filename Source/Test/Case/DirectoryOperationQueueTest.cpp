@@ -46,7 +46,7 @@ namespace PathwinderTest
       InstructionToIncludeAllFiles(void)
   {
     return DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-        DirectoryEnumerationInstruction::EDirectoryPathSource::None);
+        EDirectoryPathSource::None);
   }
 
   /// Generates and returns a single directory enumeration instruction that includes only those
@@ -58,8 +58,7 @@ namespace PathwinderTest
       InstructionToIncludeMatchingFiles(const FilesystemRule& filePatternSource)
   {
     return DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-        IncludeOnlyMatchingFilenames(
-            DirectoryEnumerationInstruction::EDirectoryPathSource::None, filePatternSource);
+        IncludeOnlyMatchingFilenames(EDirectoryPathSource::None, filePatternSource);
   }
 
   /// Generates and returns a single directory enumeration instruction that includes only those
@@ -71,8 +70,7 @@ namespace PathwinderTest
       InstructionToExcludeMatchingFiles(const FilesystemRule& filePatternSource)
   {
     return DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-        IncludeAllExceptMatchingFilenames(
-            DirectoryEnumerationInstruction::EDirectoryPathSource::None, filePatternSource);
+        IncludeAllExceptMatchingFilenames(EDirectoryPathSource::None, filePatternSource);
   }
 
   // Creates a directory with a small number of files and expects that they are all enumerated.

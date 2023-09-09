@@ -171,7 +171,7 @@ namespace Pathwinder
         }
       }
 
-      inline Value(Value&& other)
+      inline Value(Value&& other) noexcept
           : lineNumber(std::move(other.lineNumber)), type(std::move(other.type))
       {
         switch (other.type)

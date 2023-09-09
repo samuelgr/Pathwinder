@@ -126,18 +126,17 @@ namespace Pathwinder
       }
 
       DebugAssert(
-          FilesystemRule::EDirectoryCompareResult::Unrelated !=
+          EDirectoryCompareResult::Unrelated !=
               directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(
                   unredirectedPathTrimmedForQuery),
           "Origin directory must be somehow related to the unredirected path.");
       DebugAssert(
-          FilesystemRule::EDirectoryCompareResult::Unrelated !=
+          EDirectoryCompareResult::Unrelated !=
               directoryEnumerationRedirectRule->DirectoryCompareWithTarget(
                   redirectedPathTrimmedForQuery),
           "Target directory must be somehow related to the redirected path.");
 
-      if (FilesystemRule::ERedirectMode::Overlay ==
-          directoryEnumerationRedirectRule->GetRedirectMode())
+      if (ERedirectMode::Overlay == directoryEnumerationRedirectRule->GetRedirectMode())
       {
         // In overlay mode, the target-side contents that are in the filesystem rule scope
         // are always enumerated and merged with the origin-side contents. If the
@@ -156,30 +155,29 @@ namespace Pathwinder
             directoryEnumerationRedirectRule->GetName().data(),
             static_cast<int>(redirectedPath.length()),
             redirectedPath.data());
-        if (FilesystemRule::EDirectoryCompareResult::Equal ==
+        if (EDirectoryCompareResult::Equal ==
             directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(
                 unredirectedPathTrimmedForQuery))
         {
           directoriesToEnumerate = {
               DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                   IncludeOnlyMatchingFilenames(
-                      DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath,
-                      *directoryEnumerationRedirectRule),
+                      EDirectoryPathSource::RealOpenedPath, *directoryEnumerationRedirectRule),
               DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                  DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath)};
+                  EDirectoryPathSource::AssociatedPath)};
         }
         else
         {
           directoriesToEnumerate = {
               DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                  DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath),
+                  EDirectoryPathSource::RealOpenedPath),
               DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                  DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath)};
+                  EDirectoryPathSource::AssociatedPath)};
         }
       }
       else if (
           (false == directoryEnumerationRedirectRule->HasFilePatterns()) ||
-          (FilesystemRule::EDirectoryCompareResult::Equal !=
+          (EDirectoryCompareResult::Equal !=
            directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(
                unredirectedPathTrimmedForQuery)))
       {
@@ -219,7 +217,7 @@ namespace Pathwinder
             redirectedPath.data());
         directoriesToEnumerate = {
             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath)};
+                EDirectoryPathSource::RealOpenedPath)};
       }
       else
       {
@@ -239,12 +237,10 @@ namespace Pathwinder
         directoriesToEnumerate = {
             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                 IncludeOnlyMatchingFilenames(
-                    DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath,
-                    *directoryEnumerationRedirectRule),
+                    EDirectoryPathSource::RealOpenedPath, *directoryEnumerationRedirectRule),
             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                 IncludeAllExceptMatchingFilenames(
-                    DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath,
-                    *directoryEnumerationRedirectRule)};
+                    EDirectoryPathSource::AssociatedPath, *directoryEnumerationRedirectRule)};
       }
     }
     else
@@ -258,7 +254,7 @@ namespace Pathwinder
           realOpenedPath.data());
       directoriesToEnumerate = {
           DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-              DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath)};
+              EDirectoryPathSource::RealOpenedPath)};
     }
 
     std::optional<TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>>
@@ -387,7 +383,7 @@ namespace Pathwinder
         // redirected. Therefore, if a file handle is being created, it needs to be
         // associated with the unredirected path.
         return FileOperationInstruction::InterceptWithoutRedirection(
-            FileOperationInstruction::EAssociateNameWithHandle::Unredirected);
+            EAssociateNameWithHandle::Unredirected);
       }
       else
       {
@@ -403,7 +399,7 @@ namespace Pathwinder
     std::wstring_view unredirectedPathFilePart;
     std::optional<TemporaryString> maybeRedirectedFilePath;
 
-    if (FilesystemRule::EDirectoryCompareResult::Equal ==
+    if (EDirectoryCompareResult::Equal ==
         selectedRule->DirectoryCompareWithOrigin(absoluteFilePathTrimmedForQuery))
     {
       // If the input path is exactly equal to the origin directory of the filesystem rule,
@@ -473,7 +469,7 @@ namespace Pathwinder
 
     std::wstring_view redirectedFilePath = maybeRedirectedFilePath->AsStringView();
 
-    BitSetEnum<FileOperationInstruction::EExtraPreOperation> extraPreOperations;
+    BitSetEnum<EExtraPreOperation> extraPreOperations;
     std::wstring_view extraPreOperationOperand;
 
     if (true == createDisposition.AllowsCreateNewFile())
@@ -487,8 +483,7 @@ namespace Pathwinder
       if (FilesystemOperations::IsDirectory(
               unredirectedPathDirectoryPartWithWindowsNamespacePrefix))
       {
-        extraPreOperations.insert(static_cast<int>(
-            FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
+        extraPreOperations.insert(static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists));
         extraPreOperationOperand = Strings::RemoveTrailing(
             redirectedFilePath.substr(0, redirectedFilePath.find_last_of(L'\\')), L'\\');
       }
@@ -502,16 +497,15 @@ namespace Pathwinder
 
       if (FilesystemOperations::IsDirectory(absoluteFilePath))
       {
-        extraPreOperations.insert(static_cast<int>(
-            FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists));
+        extraPreOperations.insert(static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists));
         extraPreOperationOperand = Strings::RemoveTrailing(redirectedFilePath, L'\\');
       }
     }
 
     switch (selectedRule->GetRedirectMode())
     {
-      case FilesystemRule::ERedirectMode::Overlay:
-      case FilesystemRule::ERedirectMode::OverlayCopyOnWrite:
+      case ERedirectMode::Overlay:
+      case ERedirectMode::OverlayCopyOnWrite:
       {
         // In overlay redirection mode, if the application is willing to create a new
         // file, then a preference towards already-existing files needs to be set in the
@@ -527,25 +521,25 @@ namespace Pathwinder
         // preference, which is encoded in the returned instruction, and create
         // disposition, which is supplied by the application.
 
-        const FileOperationInstruction::ECreateDispositionPreference createDispositionPreference =
+        const ECreateDispositionPreference createDispositionPreference =
             ((true == createDisposition.AllowsCreateNewFile())
-                 ? FileOperationInstruction::ECreateDispositionPreference::PreferOpenExistingFile
-                 : FileOperationInstruction::ECreateDispositionPreference::NoPreference);
+                 ? ECreateDispositionPreference::PreferOpenExistingFile
+                 : ECreateDispositionPreference::NoPreference);
         return FileOperationInstruction::OverlayRedirectTo(
             std::move(*maybeRedirectedFilePath),
-            FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
+            EAssociateNameWithHandle::Unredirected,
             createDispositionPreference,
             std::move(extraPreOperations),
             extraPreOperationOperand);
       }
 
-      case FilesystemRule::ERedirectMode::Simple:
+      case ERedirectMode::Simple:
       {
         // In simple redirection mode there is nothing further to do. Only one file is
         // attempted, so no preference based on create disposition needs to be set.
         return FileOperationInstruction::SimpleRedirectTo(
             std::move(*maybeRedirectedFilePath),
-            FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
+            EAssociateNameWithHandle::Unredirected,
             std::move(extraPreOperations),
             extraPreOperationOperand);
       }
@@ -553,7 +547,7 @@ namespace Pathwinder
 
     Message::OutputFormatted(
         Message::ESeverity::Error,
-        L"Internal error: unrecognized file redirection mode (FilesystemRule::ERedirectMode = %u) encountered while processing file operation redirection query for path \"%.*s\".",
+        L"Internal error: unrecognized file redirection mode (ERedirectMode = %u) encountered while processing file operation redirection query for path \"%.*s\".",
         static_cast<unsigned int>(selectedRule->GetRedirectMode()),
         static_cast<int>(absoluteFilePath.length()),
         absoluteFilePath.data());

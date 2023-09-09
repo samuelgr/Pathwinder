@@ -28,7 +28,7 @@ namespace Pathwinder
   /// associated with a filesystem rule object.
   /// @return Result of the comparison. See #EDirectoryCompareResult documentation for more
   /// information.
-  static FilesystemRule::EDirectoryCompareResult DirectoryCompareInternal(
+  static EDirectoryCompareResult DirectoryCompareInternal(
       std::wstring_view candidateDirectory, std::wstring_view comparisonTargetDirectory)
   {
     if (candidateDirectory.length() == comparisonTargetDirectory.length())
@@ -36,7 +36,7 @@ namespace Pathwinder
       // Lengths are the same, so the two could be equal if they are related at all.
 
       if (Strings::EqualsCaseInsensitive(candidateDirectory, comparisonTargetDirectory))
-        return FilesystemRule::EDirectoryCompareResult::Equal;
+        return EDirectoryCompareResult::Equal;
     }
     else if (candidateDirectory.length() < comparisonTargetDirectory.length())
     {
@@ -52,9 +52,9 @@ namespace Pathwinder
         comparisonTargetDirectory.remove_prefix(candidateDirectory.length());
 
         if (0 == comparisonTargetDirectory.find_last_of(L'\\'))
-          return FilesystemRule::EDirectoryCompareResult::CandidateIsParent;
+          return EDirectoryCompareResult::CandidateIsParent;
         else
-          return FilesystemRule::EDirectoryCompareResult::CandidateIsAncestor;
+          return EDirectoryCompareResult::CandidateIsAncestor;
       }
     }
     else
@@ -71,13 +71,13 @@ namespace Pathwinder
         candidateDirectory.remove_prefix(comparisonTargetDirectory.length());
 
         if (0 == candidateDirectory.find_last_of(L'\\'))
-          return FilesystemRule::EDirectoryCompareResult::CandidateIsChild;
+          return EDirectoryCompareResult::CandidateIsChild;
         else
-          return FilesystemRule::EDirectoryCompareResult::CandidateIsDescendant;
+          return EDirectoryCompareResult::CandidateIsDescendant;
       }
     }
 
-    return FilesystemRule::EDirectoryCompareResult::Unrelated;
+    return EDirectoryCompareResult::Unrelated;
   }
 
   /// Determines the position of the final separator character in a filesystem path.
@@ -140,7 +140,7 @@ namespace Pathwinder
   {
     switch (DirectoryCompareInternal(candidatePathDirectoryPart, fromDirectory))
     {
-      case FilesystemRule::EDirectoryCompareResult::Equal:
+      case EDirectoryCompareResult::Equal:
       {
         // Candidate directory and origin directory are equal. This is the simplest case.
         // If the candidate file part is either empty or matches the redirection file
@@ -155,8 +155,8 @@ namespace Pathwinder
         break;
       }
 
-      case FilesystemRule::EDirectoryCompareResult::CandidateIsChild:
-      case FilesystemRule::EDirectoryCompareResult::CandidateIsDescendant:
+      case EDirectoryCompareResult::CandidateIsChild:
+      case EDirectoryCompareResult::CandidateIsDescendant:
       {
         // Candidate directory is a descendent of the origin directory. This case is
         // slightly more complicated. Since an entire directory hierarchy could be involved,
@@ -220,13 +220,13 @@ namespace Pathwinder
     }
   }
 
-  FilesystemRule::EDirectoryCompareResult FilesystemRule::DirectoryCompareWithOrigin(
+  EDirectoryCompareResult FilesystemRule::DirectoryCompareWithOrigin(
       std::wstring_view candidateDirectory) const
   {
     return DirectoryCompareInternal(candidateDirectory, originDirectoryFullPath);
   }
 
-  FilesystemRule::EDirectoryCompareResult FilesystemRule::DirectoryCompareWithTarget(
+  EDirectoryCompareResult FilesystemRule::DirectoryCompareWithTarget(
       std::wstring_view candidateDirectory) const
   {
     return DirectoryCompareInternal(candidateDirectory, targetDirectoryFullPath);

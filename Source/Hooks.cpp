@@ -26,7 +26,6 @@
 #include "FilesystemDirector.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemOperations.h"
-#include "FilesystemTypes.h"
 #include "Globals.h"
 #include "Message.h"
 #include "OpenHandleStore.h"
@@ -570,8 +569,8 @@ namespace Pathwinder
   {
     NTSTATUS extraPreOperationResult = NtStatus::kSuccess;
 
-    if (instruction.GetExtraPreOperations().contains(static_cast<int>(
-            FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)) &&
+    if (instruction.GetExtraPreOperations().contains(
+            static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)) &&
         (NT_SUCCESS(extraPreOperationResult)))
     {
       Message::OutputFormatted(
@@ -852,13 +851,13 @@ namespace Pathwinder
 
     switch (instruction.GetCreateDispositionPreference())
     {
-      case FileOperationInstruction::ECreateDispositionPreference::NoPreference:
+      case ECreateDispositionPreference::NoPreference:
         createDispositionsList.PushBack(SCreateDispositionToTry{
             .condition = SCreateDispositionToTry::ECondition::Unconditional,
             .ntParamCreateDisposition = ntParamCreateDisposition});
         break;
 
-      case FileOperationInstruction::ECreateDispositionPreference::PreferCreateNewFile:
+      case ECreateDispositionPreference::PreferCreateNewFile:
         switch (ntParamCreateDisposition)
         {
           case FILE_OPEN_IF:
@@ -896,7 +895,7 @@ namespace Pathwinder
         }
         break;
 
-      case FileOperationInstruction::ECreateDispositionPreference::PreferOpenExistingFile:
+      case ECreateDispositionPreference::PreferOpenExistingFile:
         switch (ntParamCreateDisposition)
         {
           case FILE_OPEN_IF:
@@ -937,7 +936,7 @@ namespace Pathwinder
       default:
         Message::OutputFormatted(
             Message::ESeverity::Error,
-            L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationInstruction::ECreateDispositionPreference = %u).",
+            L"%s(%u): Internal error: unrecognized file operation instruction (ECreateDispositionPreference = %u).",
             functionName,
             functionRequestIdentifier,
             static_cast<unsigned int>(instruction.GetCreateDispositionPreference()));
@@ -975,28 +974,28 @@ namespace Pathwinder
 
     switch (instruction.GetFilenamesToTry())
     {
-      case FileOperationInstruction::ETryFiles::UnredirectedOnly:
+      case ETryFiles::UnredirectedOnly:
         fileOperationsList.PushBack(&unredirectedFileObject);
         break;
 
-      case FileOperationInstruction::ETryFiles::UnredirectedFirst:
+      case ETryFiles::UnredirectedFirst:
         fileOperationsList.PushBack(&unredirectedFileObject);
         fileOperationsList.PushBack(&redirectedFileObject);
         break;
 
-      case FileOperationInstruction::ETryFiles::RedirectedFirst:
+      case ETryFiles::RedirectedFirst:
         fileOperationsList.PushBack(&redirectedFileObject);
         fileOperationsList.PushBack(&unredirectedFileObject);
         break;
 
-      case FileOperationInstruction::ETryFiles::RedirectedOnly:
+      case ETryFiles::RedirectedOnly:
         fileOperationsList.PushBack(&redirectedFileObject);
         break;
 
       default:
         Message::OutputFormatted(
             Message::ESeverity::Error,
-            L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationInstruction::ETryFiles = %u).",
+            L"%s(%u): Internal error: unrecognized file operation instruction (ETryFiles = %u).",
             functionName,
             functionRequestIdentifier,
             static_cast<unsigned int>(instruction.GetFilenamesToTry()));
@@ -1051,25 +1050,25 @@ namespace Pathwinder
 
     switch (instruction.GetFilenameHandleAssociation())
     {
-      case FileOperationInstruction::EAssociateNameWithHandle::None:
+      case EAssociateNameWithHandle::None:
         break;
 
-      case FileOperationInstruction::EAssociateNameWithHandle::WhicheverWasSuccessful:
+      case EAssociateNameWithHandle::WhicheverWasSuccessful:
         selectedPath = successfulPath;
         break;
 
-      case FileOperationInstruction::EAssociateNameWithHandle::Unredirected:
+      case EAssociateNameWithHandle::Unredirected:
         selectedPath = unredirectedPath;
         break;
 
-      case FileOperationInstruction::EAssociateNameWithHandle::Redirected:
+      case EAssociateNameWithHandle::Redirected:
         selectedPath = instruction.GetRedirectedFilename();
         break;
 
       default:
         Message::OutputFormatted(
             Message::ESeverity::Error,
-            L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationInstruction::EAssociateNameWithHandle = %u).",
+            L"%s(%u): Internal error: unrecognized file operation instruction (EAssociateNameWithHandle = %u).",
             functionName,
             functionRequestIdentifier,
             static_cast<unsigned int>(instruction.GetFilenameHandleAssociation()));
@@ -1118,7 +1117,7 @@ namespace Pathwinder
 
     switch (instruction.GetFilenameHandleAssociation())
     {
-      case FileOperationInstruction::EAssociateNameWithHandle::None:
+      case EAssociateNameWithHandle::None:
       {
         OpenHandleStore::SHandleData erasedHandleData;
         if (true == OpenHandleStore::Singleton().RemoveHandle(handleToUpdate, &erasedHandleData))
@@ -1132,22 +1131,22 @@ namespace Pathwinder
         break;
       }
 
-      case FileOperationInstruction::EAssociateNameWithHandle::WhicheverWasSuccessful:
+      case EAssociateNameWithHandle::WhicheverWasSuccessful:
         selectedPath = successfulPath;
         break;
 
-      case FileOperationInstruction::EAssociateNameWithHandle::Unredirected:
+      case EAssociateNameWithHandle::Unredirected:
         selectedPath = unredirectedPath;
         break;
 
-      case FileOperationInstruction::EAssociateNameWithHandle::Redirected:
+      case EAssociateNameWithHandle::Redirected:
         selectedPath = instruction.GetRedirectedFilename();
         break;
 
       default:
         Message::OutputFormatted(
             Message::ESeverity::Error,
-            L"%s(%u): Internal error: unrecognized file operation instruction (FileOperationInstruction::EAssociateNameWithHandle = %u).",
+            L"%s(%u): Internal error: unrecognized file operation instruction (EAssociateNameWithHandle = %u).",
             functionName,
             functionRequestIdentifier,
             static_cast<unsigned int>(instruction.GetFilenameHandleAssociation()));

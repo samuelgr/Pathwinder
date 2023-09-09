@@ -85,7 +85,7 @@ namespace Pathwinder
         std::wstring_view originDirectory,
         std::wstring_view targetDirectory,
         std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>(),
-        FilesystemRule::ERedirectMode redirectMode = FilesystemRule::ERedirectMode::Simple);
+        ERedirectMode redirectMode = ERedirectMode::Simple);
 
     /// Attempts to create a new rule and insert it into the candidate filesystem director,
     /// reading settings from a configuration data section. The same constraints are imposed as

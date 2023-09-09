@@ -21,6 +21,53 @@
 
 namespace Pathwinder
 {
+  /// Enumerates the possible results of comparing a directory with either the origin or
+  /// target directory associated with a filesystem rule.
+  enum class EDirectoryCompareResult
+  {
+    /// Candidate directory is exactly equal to the comparison target directory.
+    Equal,
+
+    /// Candidate directory is not related to the comparison target directory. Paths
+    /// diverge, and one is not an ancestor or descendant of the other.
+    Unrelated,
+
+    /// Candidate directory is the immediate parent of the comparison target directory.
+    CandidateIsParent,
+
+    /// Candidate directory is the immediate child of the comparison target directory.
+    CandidateIsChild,
+
+    /// Candidate directory is an ancestor, but not the immediate parent, of the comparison
+    /// target directory.
+    CandidateIsAncestor,
+
+    /// Candidate directory is a descendant, but not the immediate child, of the comparison
+    /// target directory.
+    CandidateIsDescendant
+  };
+
+  /// Enumerates the different types of redirection modes that can be configured for each
+  /// filesystem rule.
+  enum class ERedirectMode
+  {
+    /// Simple redirection mode. Either a file operation is redirected or it is not, and
+    /// only one file name is tried. Redirected files either exist on the target side or do
+    /// not exist at all. Non-redirected files either exist on the origin side or do not
+    /// exist at all.
+    Simple,
+
+    /// Overlay redirection mode. File operations merge the target side with the origin
+    /// side, with files on the target side given priority.
+    Overlay,
+
+    /// Overlay redirection mode with copy-on-write. File operations merge the target side
+    /// with the origin side, with files on the target side given priority. However, any
+    /// attempt to write to an in-scope file on the origin side causes it to be copied to
+    /// the target side before the write proceeds.
+    OverlayCopyOnWrite,
+  };
+
   /// Holds all of the data needed to represent a single filesystem redirection rule.
   /// Implements all of the behavior needed to determine whether and how paths are covered by the
   /// rule. From the application's point of view, the origin directory is where files covered by
@@ -28,53 +75,6 @@ namespace Pathwinder
   class FilesystemRule
   {
   public:
-
-    /// Enumerates the possible results of comparing a directory with either the origin or
-    /// target directory associated with a filesystem rule.
-    enum class EDirectoryCompareResult
-    {
-      /// Candidate directory is exactly equal to the comparison target directory.
-      Equal,
-
-      /// Candidate directory is not related to the comparison target directory. Paths
-      /// diverge, and one is not an ancestor or descendant of the other.
-      Unrelated,
-
-      /// Candidate directory is the immediate parent of the comparison target directory.
-      CandidateIsParent,
-
-      /// Candidate directory is the immediate child of the comparison target directory.
-      CandidateIsChild,
-
-      /// Candidate directory is an ancestor, but not the immediate parent, of the comparison
-      /// target directory.
-      CandidateIsAncestor,
-
-      /// Candidate directory is a descendant, but not the immediate child, of the comparison
-      /// target directory.
-      CandidateIsDescendant
-    };
-
-    /// Enumerates the different types of redirection modes that can be configured for each
-    /// filesystem rule.
-    enum class ERedirectMode
-    {
-      /// Simple redirection mode. Either a file operation is redirected or it is not, and
-      /// only one file name is tried. Redirected files either exist on the target side or do
-      /// not exist at all. Non-redirected files either exist on the origin side or do not
-      /// exist at all.
-      Simple,
-
-      /// Overlay redirection mode. File operations merge the target side with the origin
-      /// side, with files on the target side given priority.
-      Overlay,
-
-      /// Overlay redirection mode with copy-on-write. File operations merge the target side
-      /// with the origin side, with files on the target side given priority. However, any
-      /// attempt to write to an in-scope file on the origin side causes it to be copied to
-      /// the target side before the write proceeds.
-      OverlayCopyOnWrite,
-    };
 
     /// File patterns are optional, with default behavior matching all files. This is preferred
     /// over a single-element vector containing "*" because file pattern match checking can be

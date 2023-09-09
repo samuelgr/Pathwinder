@@ -59,12 +59,13 @@ namespace Pathwinder
 
     FileInformationStructBuffer(const FileInformationStructBuffer& other) = delete;
 
-    inline FileInformationStructBuffer(FileInformationStructBuffer&& other) : buffer(nullptr)
+    inline FileInformationStructBuffer(FileInformationStructBuffer&& other) noexcept
+        : buffer(nullptr)
     {
       *this = std::move(other);
     }
 
-    inline FileInformationStructBuffer& operator=(FileInformationStructBuffer&& other)
+    inline FileInformationStructBuffer& operator=(FileInformationStructBuffer&& other) noexcept
     {
       std::swap(buffer, other.buffer);
       return *this;
@@ -130,7 +131,8 @@ namespace Pathwinder
     using TFileNameChar = WCHAR;
 
     constexpr FileInformationStructLayout(void)
-        : structureBaseSizeBytes(),
+        : fileInformationClass(),
+          structureBaseSizeBytes(),
           offsetOfNextEntryOffset(),
           offsetOfFileNameLength(),
           offsetOfFileName()

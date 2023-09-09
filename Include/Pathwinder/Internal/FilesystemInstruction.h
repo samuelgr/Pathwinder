@@ -23,6 +23,103 @@
 
 namespace Pathwinder
 {
+  /// Possible ways of associating a filename with a newly-created file handle.
+  enum class EAssociateNameWithHandle : uint8_t
+  {
+    /// Do not associate any filename with the newly-created file handle. The filename used
+    /// to create the handle is not interesting.
+    None,
+
+    /// Associate with the handle whichever filename resulted in its successful creation.
+    WhicheverWasSuccessful,
+
+    /// Associate the unredirected filename with the newly-created file handle.
+    Unredirected,
+
+    /// Associate the redirected filename with the newly-created file handle.
+    Redirected,
+
+    /// Not used as a value. Identifies the number of enumerators present in this
+    /// enumeration.
+    Count
+  };
+
+  /// Possible preferences for creating a new file or opening an existing file.
+  enum class ECreateDispositionPreference : uint8_t
+  {
+    /// No preference on creating a new file or opening an existing file. Do whatever the
+    /// application requests and accept whatever is successful first.
+    NoPreference,
+
+    /// If the application is willing to create a new file or open an existing file, prefer to
+    /// create a new file.
+    PreferCreateNewFile,
+
+    /// If the application is willing to create a new file or open an existing file, prefer to open
+    /// an existing file.
+    PreferOpenExistingFile,
+
+    /// Not used as a value. Identifies the number of enumerators present in this enumeration.
+    Count
+  };
+
+  /// Possible ways of obtaining a directory path from an open handle, typically useful for
+  /// determining which directory to enumerate. Directory enumeration operations are requested
+  /// using an open directory handle, which would have been subject to file operation redirection.
+  /// Therefore the possible valid sources of a directory path include the path associated
+  /// internally with the handle and the path actually submitted to the system and used to open
+  /// the handle.
+  enum class EDirectoryPathSource : uint8_t
+  {
+    /// No directory path source. Indicates that no directory should be enumerated.
+    None,
+
+    /// Path internally associated with the handle.
+    AssociatedPath,
+
+    /// Path actually submitted to the system call used to open the handle.
+    RealOpenedPath,
+
+    /// Not used as a value. Identifies the number of enumerators present in this enumeration.
+    Count
+  };
+
+  /// Possible additional operations that should be performed prior to executing a file operation.
+  /// Each filesystem operation can require multiple such pre-operations, but order of execution is
+  /// not important.
+  enum class EExtraPreOperation : uint8_t
+  {
+    /// Ensure all directories in path hierarchy exist up to the directory that is specified as an
+    /// extra operand.
+    EnsurePathHierarchyExists,
+
+    /// Not used as a value. Identifies the number of enumerators present in this enumeration.
+    Count
+  };
+
+  /// Possible ways of submitting filenames to the underlying system call as part of a file
+  /// operation.
+  enum class ETryFiles : uint8_t
+  {
+    /// Only try submitting the unredirected filename.
+    UnredirectedOnly,
+
+    /// First try submitting the unredirected filename. If the operation fails, then try
+    /// submitting the redirected filename.
+    UnredirectedFirst,
+
+    /// First try submitting the redirected filename. If the operation fails, then try
+    /// submitting the unredirected filename.
+    RedirectedFirst,
+
+    /// Only try submitting the redirected filename.
+    RedirectedOnly,
+
+    /// Not used as a value. Identifies the number of enumerators present in this
+    /// enumeration.
+    Count
+  };
+
   /// Contains all of the information needed to execute a directory enumeration complete with
   /// potential path redirection. Execution steps described by an instruction are in addition to
   /// performing the original enumeration requested by the application, with the caveat that any
@@ -33,27 +130,6 @@ namespace Pathwinder
   class DirectoryEnumerationInstruction
   {
   public:
-
-    /// Enumerates the possible ways of obtaining a directory path to enumerate.
-    /// Directory enumeration operations are requested using an open directory handle, which
-    /// would have been subject to file operation redirection. Therefore the possible valid
-    /// sources of a directory path include the path associated internally with the handle and
-    /// the path actually submitted to the system and used to open the handle.
-    enum class EDirectoryPathSource : uint8_t
-    {
-      /// No directory path source. Indicates that no directory should be enumerated.
-      None,
-
-      /// Path internally associated with the handle.
-      AssociatedPath,
-
-      /// Path actually submitted to the system call used to open the handle.
-      RealOpenedPath,
-
-      /// Not used as a value. Identifies the number of enumerators present in this
-      /// enumeration.
-      Count
-    };
 
     /// Holds the information needed to describe how to enumerate a single directory as part of
     /// a larger directory enumeration operation. Immutable once constructed.
@@ -380,84 +456,6 @@ namespace Pathwinder
   class FileOperationInstruction
   {
   public:
-
-    /// Enumerates possible modes for submitting a file operation to the underlying system call.
-    enum class ETryFiles : uint8_t
-    {
-      /// Only try submitting the unredirected filename.
-      UnredirectedOnly,
-
-      /// First try submitting the unredirected filename. If the operation fails, then try
-      /// submitting the redirected filename.
-      UnredirectedFirst,
-
-      /// First try submitting the redirected filename. If the operation fails, then try
-      /// submitting the unredirected filename.
-      RedirectedFirst,
-
-      /// Only try submitting the redirected filename.
-      RedirectedOnly,
-
-      /// Not used as a value. Identifies the number of enumerators present in this
-      /// enumeration.
-      Count
-    };
-
-    /// Enumerates different possible preferences for creating a new file or opening an existing
-    /// file.
-    enum class ECreateDispositionPreference : uint8_t
-    {
-      /// No preference on creating a new file or opening an existing file. Do whatever the
-      /// application requests and accept whatever is successful first.
-      NoPreference,
-
-      /// If the application is willing to create a new file or open an existing file, prefer
-      /// to create a new file.
-      PreferCreateNewFile,
-
-      /// If the application is willing to create a new file or open an existing file, prefer
-      /// to open an existing file.
-      PreferOpenExistingFile,
-
-      /// Not used as a value. Identifies the number of enumerators present in this
-      /// enumeration.
-      Count
-    };
-
-    /// Enumerates possible ways of associating a filename with a newly-created file handle.
-    enum class EAssociateNameWithHandle : uint8_t
-    {
-      /// Do not associate any filename with the newly-created file handle. The filename used
-      /// to create the handle is not interesting.
-      None,
-
-      /// Associate with the handle whichever filename resulted in its successful creation.
-      WhicheverWasSuccessful,
-
-      /// Associate the unredirected filename with the newly-created file handle.
-      Unredirected,
-
-      /// Associate the redirected filename with the newly-created file handle.
-      Redirected,
-
-      /// Not used as a value. Identifies the number of enumerators present in this
-      /// enumeration.
-      Count
-    };
-
-    /// Possible additional operations that should be performed prior to submitting a file
-    /// operation to the underlying system call. Each filesystem operation can require multiple
-    /// such pre-operations, but order of execution is not important.
-    enum class EExtraPreOperation : uint8_t
-    {
-      /// Ensure all directories in path hierarchy exist up to the directory that is
-      /// specified as an extra operand.
-      EnsurePathHierarchyExists,
-
-      /// Not used as a value. Identifies the number of enumerators present in this
-      /// enumeration.
-      Count
-    };
 
     /// Not intended to be invoked externally. Objects should generally be created using factory
     /// methods.

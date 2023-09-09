@@ -102,18 +102,16 @@ namespace PathwinderTest
     FilesystemDirectorBuilder directorBuilder;
 
     auto maybeConfigRule1 = directorBuilder.AddRule(
-        L"1", L"C:\\OriginDir1", L"C:\\TargetDir1", {}, FilesystemRule::ERedirectMode::Simple);
+        L"1", L"C:\\OriginDir1", L"C:\\TargetDir1", {}, ERedirectMode::Simple);
     TEST_ASSERT(maybeConfigRule1.HasValue());
-    TEST_ASSERT(
-        maybeConfigRule1.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Simple);
+    TEST_ASSERT(maybeConfigRule1.Value()->GetRedirectMode() == ERedirectMode::Simple);
     TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
     TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
 
     auto maybeConfigRule2 = directorBuilder.AddRule(
-        L"2", L"C:\\OriginDir2", L"C:\\TargetDir2", {}, FilesystemRule::ERedirectMode::Overlay);
+        L"2", L"C:\\OriginDir2", L"C:\\TargetDir2", {}, ERedirectMode::Overlay);
     TEST_ASSERT(maybeConfigRule2.HasValue());
-    TEST_ASSERT(
-        maybeConfigRule2.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Overlay);
+    TEST_ASSERT(maybeConfigRule2.Value()->GetRedirectMode() == ERedirectMode::Overlay);
     TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
     TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
   }
@@ -240,15 +238,13 @@ namespace PathwinderTest
 
     auto maybeConfigRule1 = directorBuilder.AddRuleFromConfigurationSection(L"1", configSection1);
     TEST_ASSERT(maybeConfigRule1.HasValue());
-    TEST_ASSERT(
-        maybeConfigRule1.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Simple);
+    TEST_ASSERT(maybeConfigRule1.Value()->GetRedirectMode() == ERedirectMode::Simple);
     TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
     TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
 
     auto maybeConfigRule2 = directorBuilder.AddRuleFromConfigurationSection(L"2", configSection2);
     TEST_ASSERT(maybeConfigRule2.HasValue());
-    TEST_ASSERT(
-        maybeConfigRule2.Value()->GetRedirectMode() == FilesystemRule::ERedirectMode::Overlay);
+    TEST_ASSERT(maybeConfigRule2.Value()->GetRedirectMode() == ERedirectMode::Overlay);
     TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
     TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
   }

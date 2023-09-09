@@ -37,21 +37,20 @@ namespace Pathwinder
   /// configuration information.
   /// @return Redirection mode enumerator, if it is either absent from the configuration section
   /// data object or present and maps to a valid enumerator.
-  static std::optional<FilesystemRule::ERedirectMode> RedirectModeFromConfigurationSection(
+  static std::optional<ERedirectMode> RedirectModeFromConfigurationSection(
       const Configuration::Section& configSection)
   {
-    constexpr FilesystemRule::ERedirectMode kDefaultRedirectMode =
-        FilesystemRule::ERedirectMode::Simple;
+    constexpr ERedirectMode kDefaultRedirectMode = ERedirectMode::Simple;
 
     static const std::unordered_map<
         std::wstring_view,
-        FilesystemRule::ERedirectMode,
+        ERedirectMode,
         Strings::CaseInsensitiveHasher<wchar_t>,
         Strings::CaseInsensitiveEqualityComparator<wchar_t>>
         kRedirectModeStrings = {
-            {L"Simple", FilesystemRule::ERedirectMode::Simple},
-            {L"Overlay", FilesystemRule::ERedirectMode::Overlay},
-            {L"OverlayCopyOnWrite", FilesystemRule::ERedirectMode::OverlayCopyOnWrite}};
+            {L"Simple", ERedirectMode::Simple},
+            {L"Overlay", ERedirectMode::Overlay},
+            {L"OverlayCopyOnWrite", ERedirectMode::OverlayCopyOnWrite}};
 
     if (false ==
         configSection.NameExists(Strings::kStrConfigurationSettingFilesystemRuleRedirectMode))
@@ -68,17 +67,17 @@ namespace Pathwinder
   /// Useful for logging.
   /// @param [in] redirectMode Redirection mode enumerator.
   /// @return String representation of the redirection mode enumerator.
-  static std::wstring_view RedirectModeToString(FilesystemRule::ERedirectMode redirectMode)
+  static std::wstring_view RedirectModeToString(ERedirectMode redirectMode)
   {
     switch (redirectMode)
     {
-      case FilesystemRule::ERedirectMode::Simple:
+      case ERedirectMode::Simple:
         return L"Simple";
 
-      case FilesystemRule::ERedirectMode::Overlay:
+      case ERedirectMode::Overlay:
         return L"Overlay";
 
-      case FilesystemRule::ERedirectMode::OverlayCopyOnWrite:
+      case ERedirectMode::OverlayCopyOnWrite:
         return L"OverlayCopyOnWrite";
 
       default:
@@ -252,7 +251,7 @@ namespace Pathwinder
       std::wstring_view originDirectory,
       std::wstring_view targetDirectory,
       std::vector<std::wstring>&& filePatterns,
-      FilesystemRule::ERedirectMode redirectMode)
+      ERedirectMode redirectMode)
   {
     if (true == filesystemRules.contains(ruleName))
       return Strings::FormatString(

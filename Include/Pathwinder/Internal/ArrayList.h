@@ -48,7 +48,7 @@ namespace Pathwinder
       *this = other;
     }
 
-    inline ArrayList(ArrayList&& other) : ArrayList()
+    inline ArrayList(ArrayList&& other) noexcept : ArrayList()
     {
       *this = std::move(other);
     }

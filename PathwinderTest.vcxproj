@@ -157,7 +157,6 @@
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemOperations.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemRule.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirector.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\FilesystemTypes.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Iterator.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Message.h" />

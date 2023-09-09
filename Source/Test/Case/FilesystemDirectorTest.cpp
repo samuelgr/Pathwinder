@@ -19,7 +19,6 @@
 #include <string_view>
 
 #include "FilesystemInstruction.h"
-#include "FilesystemTypes.h"
 #include "MockFilesystemOperations.h"
 #include "PrefixIndex.h"
 #include "TemporaryBuffer.h"
@@ -177,16 +176,14 @@ namespace PathwinderTest
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
         {L"C:\\Origin1\\file1.txt",
          FileOperationInstruction::SimpleRedirectTo(
-             L"C:\\Target1\\file1.txt",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             L"C:\\Target1\\file1.txt", EAssociateNameWithHandle::Unredirected)},
         {L"C:\\Origin2\\Subdir2\\file2.txt",
          FileOperationInstruction::SimpleRedirectTo(
-             L"C:\\Target2\\Subdir2\\file2.txt",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             L"C:\\Target2\\Subdir2\\file2.txt", EAssociateNameWithHandle::Unredirected)},
         {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
          FileOperationInstruction::SimpleRedirectTo(
              L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}};
+             EAssociateNameWithHandle::Unredirected)}};
 
     for (const auto& testRecord : kTestInputsAndExpectedOutputs)
     {
@@ -207,30 +204,22 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
 
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1",
-         FilesystemRule(
-             L"C:\\Origin1", L"C:\\Target1", {}, FilesystemRule::ERedirectMode::Overlay)},
-        {L"2",
-         FilesystemRule(
-             L"C:\\Origin2", L"C:\\Target2", {}, FilesystemRule::ERedirectMode::Overlay)},
-        {L"3",
-         FilesystemRule(
-             L"C:\\Origin3", L"C:\\Target3", {}, FilesystemRule::ERedirectMode::Overlay)},
+        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1", {}, ERedirectMode::Overlay)},
+        {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2", {}, ERedirectMode::Overlay)},
+        {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3", {}, ERedirectMode::Overlay)},
     }));
 
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
         {L"C:\\Origin1\\file1.txt",
          FileOperationInstruction::OverlayRedirectTo(
-             L"C:\\Target1\\file1.txt",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             L"C:\\Target1\\file1.txt", EAssociateNameWithHandle::Unredirected)},
         {L"C:\\Origin2\\Subdir2\\file2.txt",
          FileOperationInstruction::OverlayRedirectTo(
-             L"C:\\Target2\\Subdir2\\file2.txt",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             L"C:\\Target2\\Subdir2\\file2.txt", EAssociateNameWithHandle::Unredirected)},
         {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
          FileOperationInstruction::OverlayRedirectTo(
              L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}};
+             EAssociateNameWithHandle::Unredirected)}};
 
     for (const auto& testRecord : kTestInputsAndExpectedOutputs)
     {
@@ -254,33 +243,27 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
 
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1",
-         FilesystemRule(
-             L"C:\\Origin1", L"C:\\Target1", {}, FilesystemRule::ERedirectMode::Overlay)},
-        {L"2",
-         FilesystemRule(
-             L"C:\\Origin2", L"C:\\Target2", {}, FilesystemRule::ERedirectMode::Overlay)},
-        {L"3",
-         FilesystemRule(
-             L"C:\\Origin3", L"C:\\Target3", {}, FilesystemRule::ERedirectMode::Overlay)},
+        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1", {}, ERedirectMode::Overlay)},
+        {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2", {}, ERedirectMode::Overlay)},
+        {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3", {}, ERedirectMode::Overlay)},
     }));
 
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
         {L"C:\\Origin1\\file1.txt",
          FileOperationInstruction::OverlayRedirectTo(
              L"C:\\Target1\\file1.txt",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
-             FileOperationInstruction::ECreateDispositionPreference::PreferOpenExistingFile)},
+             EAssociateNameWithHandle::Unredirected,
+             ECreateDispositionPreference::PreferOpenExistingFile)},
         {L"C:\\Origin2\\Subdir2\\file2.txt",
          FileOperationInstruction::OverlayRedirectTo(
              L"C:\\Target2\\Subdir2\\file2.txt",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
-             FileOperationInstruction::ECreateDispositionPreference::PreferOpenExistingFile)},
+             EAssociateNameWithHandle::Unredirected,
+             ECreateDispositionPreference::PreferOpenExistingFile)},
         {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
          FileOperationInstruction::OverlayRedirectTo(
              L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
-             FileOperationInstruction::ECreateDispositionPreference::PreferOpenExistingFile)}};
+             EAssociateNameWithHandle::Unredirected,
+             ECreateDispositionPreference::PreferOpenExistingFile)}};
 
     for (const auto& testRecord : kTestInputsAndExpectedOutputs)
     {
@@ -317,36 +300,27 @@ namespace PathwinderTest
         {L"C:\\Origin1",
          FileOperationInstruction::SimpleRedirectTo(
              L"C:\\Target1",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
-             {static_cast<int>(
-                 FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)},
+             EAssociateNameWithHandle::Unredirected,
+             {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
              L"C:\\Target1")},
         {L"C:\\Origin2\\Subdir2",
          FileOperationInstruction::SimpleRedirectTo(
              L"C:\\Target2\\Subdir2",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
-             {static_cast<int>(
-                 FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)},
+             EAssociateNameWithHandle::Unredirected,
+             {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
              L"C:\\Target2\\Subdir2")},
         {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C",
          FileOperationInstruction::SimpleRedirectTo(
              L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
-             {static_cast<int>(
-                 FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)},
+             EAssociateNameWithHandle::Unredirected,
+             {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
              L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C")},
         {L"C:\\Origin1\\file1.txt",
          FileOperationInstruction::SimpleRedirectTo(
-             L"C:\\Target1\\file1.txt",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
-             {},
-             L"")},
+             L"C:\\Target1\\file1.txt", EAssociateNameWithHandle::Unredirected, {}, L"")},
         {L"C:\\Origin2\\Subdir2\\file2.bin",
          FileOperationInstruction::SimpleRedirectTo(
-             L"C:\\Target2\\Subdir2\\file2.bin",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
-             {},
-             L"")}};
+             L"C:\\Target2\\Subdir2\\file2.bin", EAssociateNameWithHandle::Unredirected, {}, L"")}};
 
     for (const auto& testRecord : kTestInputsAndExpectedOutputs)
     {
@@ -376,9 +350,8 @@ namespace PathwinderTest
         {L"C:\\Origin1\\AnyTypeOfFile",
          FileOperationInstruction::SimpleRedirectTo(
              L"C:\\Target1\\AnyTypeOfFile",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected,
-             {static_cast<int>(
-                 FileOperationInstruction::EExtraPreOperation::EnsurePathHierarchyExists)},
+             EAssociateNameWithHandle::Unredirected,
+             {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
              L"C:\\Target1")}};
 
     for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -409,16 +382,14 @@ namespace PathwinderTest
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
         {L"C:\\Origin1\\Subdir1\\",
          FileOperationInstruction::SimpleRedirectTo(
-             L"C:\\Target1\\Subdir1\\",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             L"C:\\Target1\\Subdir1\\", EAssociateNameWithHandle::Unredirected)},
         {L"C:\\Origin2\\Subdir2\\Subdir2B\\",
          FileOperationInstruction::SimpleRedirectTo(
-             L"C:\\Target2\\Subdir2\\Subdir2B\\",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             L"C:\\Target2\\Subdir2\\Subdir2B\\", EAssociateNameWithHandle::Unredirected)},
         {L"C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\",
          FileOperationInstruction::SimpleRedirectTo(
              L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}};
+             EAssociateNameWithHandle::Unredirected)}};
 
     for (const auto& testRecord : kTestInputsAndExpectedOutputs)
     {
@@ -449,16 +420,14 @@ namespace PathwinderTest
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
         {L"\\??\\C:\\Origin1\\file1.txt",
          FileOperationInstruction::SimpleRedirectTo(
-             L"\\??\\C:\\Target1\\file1.txt",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             L"\\??\\C:\\Target1\\file1.txt", EAssociateNameWithHandle::Unredirected)},
         {L"\\\\?\\C:\\Origin2\\Subdir2\\file2.txt",
          FileOperationInstruction::SimpleRedirectTo(
-             L"\\\\?\\C:\\Target2\\Subdir2\\file2.txt",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             L"\\\\?\\C:\\Target2\\Subdir2\\file2.txt", EAssociateNameWithHandle::Unredirected)},
         {L"\\\\.\\C:\\Origin3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
          FileOperationInstruction::SimpleRedirectTo(
              L"\\\\.\\C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}};
+             EAssociateNameWithHandle::Unredirected)}};
 
     for (const auto& testRecord : kTestInputsAndExpectedOutputs)
     {
@@ -517,18 +486,18 @@ namespace PathwinderTest
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
         {std::wstring_view(L"C:\\Base\\Origin", std::wstring_view(L"C:\\Base").length()),
          FileOperationInstruction::InterceptWithoutRedirection(
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             EAssociateNameWithHandle::Unredirected)},
         {std::wstring_view(L"C:\\Base\\Origin", std::wstring_view(L"C:\\Base\\").length()),
          FileOperationInstruction::InterceptWithoutRedirection(
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             EAssociateNameWithHandle::Unredirected)},
         {std::wstring_view(
              L"\\??\\C:\\Base\\Origin", std::wstring_view(L"\\??\\C:\\Base").length()),
          FileOperationInstruction::InterceptWithoutRedirection(
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             EAssociateNameWithHandle::Unredirected)},
         {std::wstring_view(
              L"\\??\\C:\\Base\\Origin", std::wstring_view(L"\\??\\C:\\Base\\").length()),
          FileOperationInstruction::InterceptWithoutRedirection(
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)}};
+             EAssociateNameWithHandle::Unredirected)}};
 
     for (const auto& testRecord : kTestInputsAndExpectedOutputs)
     {
@@ -557,10 +526,10 @@ namespace PathwinderTest
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
         {L"C:\\Origin1",
          FileOperationInstruction::SimpleRedirectTo(
-             L"C:\\Target1", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             L"C:\\Target1", EAssociateNameWithHandle::Unredirected)},
         {L"C:\\Origin1\\",
          FileOperationInstruction::SimpleRedirectTo(
-             L"C:\\Target1\\", FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             L"C:\\Target1\\", EAssociateNameWithHandle::Unredirected)},
     };
 
     for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -589,7 +558,7 @@ namespace PathwinderTest
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
         {L"C:\\Base",
          FileOperationInstruction::InterceptWithoutRedirection(
-             FileOperationInstruction::EAssociateNameWithHandle::Unredirected)},
+             EAssociateNameWithHandle::Unredirected)},
     };
 
     for (const auto& testRecord : kTestInputsAndExpectedOutputs)
@@ -655,8 +624,7 @@ namespace PathwinderTest
       FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryInOverlayMode)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1",
-         FilesystemRule(L"C:\\Origin", L"C:\\Target", {}, FilesystemRule::ERedirectMode::Overlay)},
+        {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {}, ERedirectMode::Overlay)},
     }));
 
     constexpr std::wstring_view associatedPath = L"C:\\Origin";
@@ -666,10 +634,9 @@ namespace PathwinderTest
         DirectoryEnumerationInstruction::EnumerateDirectories(
             {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                  IncludeOnlyMatchingFilenames(
-                     DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath,
-                     *director.FindRuleByName(L"1")),
+                     EDirectoryPathSource::RealOpenedPath, *director.FindRuleByName(L"1")),
              DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                 DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath)});
+                 EDirectoryPathSource::AssociatedPath)});
     const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
         director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
@@ -693,12 +660,10 @@ namespace PathwinderTest
         DirectoryEnumerationInstruction::EnumerateDirectories(
             {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                  IncludeOnlyMatchingFilenames(
-                     DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath,
-                     *director.FindRuleByName(L"1")),
+                     EDirectoryPathSource::RealOpenedPath, *director.FindRuleByName(L"1")),
              DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                  IncludeAllExceptMatchingFilenames(
-                     DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath,
-                     *director.FindRuleByName(L"1"))});
+                     EDirectoryPathSource::AssociatedPath, *director.FindRuleByName(L"1"))});
     const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
         director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
@@ -793,12 +758,10 @@ namespace PathwinderTest
         DirectoryEnumerationInstruction::EnumerateDirectoriesAndInsertRuleOriginDirectoryNames(
             {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                  IncludeOnlyMatchingFilenames(
-                     DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath,
-                     *director.FindRuleByName(L"1")),
+                     EDirectoryPathSource::RealOpenedPath, *director.FindRuleByName(L"1")),
              DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                  IncludeAllExceptMatchingFilenames(
-                     DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath,
-                     *director.FindRuleByName(L"1"))},
+                     EDirectoryPathSource::AssociatedPath, *director.FindRuleByName(L"1"))},
             {*director.FindRuleByName(L"2"), *director.FindRuleByName(L"3")});
     const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
         director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
@@ -836,8 +799,7 @@ namespace PathwinderTest
       FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectoryInOverlayMode)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1",
-         FilesystemRule(L"C:\\Origin", L"C:\\Target", {}, FilesystemRule::ERedirectMode::Overlay)},
+        {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {}, ERedirectMode::Overlay)},
     }));
 
     constexpr std::wstring_view associatedPath = L"C:\\Origin\\Subdir123\\AnotherDir";
@@ -846,9 +808,9 @@ namespace PathwinderTest
     const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction =
         DirectoryEnumerationInstruction::EnumerateDirectories(
             {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                 DirectoryEnumerationInstruction::EDirectoryPathSource::RealOpenedPath),
+                 EDirectoryPathSource::RealOpenedPath),
              DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                 DirectoryEnumerationInstruction::EDirectoryPathSource::AssociatedPath)});
+                 EDirectoryPathSource::AssociatedPath)});
     const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
         director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
