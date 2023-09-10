@@ -13,12 +13,14 @@
 #include "Hooks.h"
 
 #include <atomic>
+#include <functional>
 #include <optional>
 
 #include <Hookshot/DynamicHook.h>
 
 #include "ApiWindowsInternal.h"
 #include "FileInformationStruct.h"
+#include "FilesystemDirector.h"
 #include "FilesystemExecutor.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemOperations.h"
@@ -312,77 +314,22 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
     ULONG Length,
     FILE_INFORMATION_CLASS FileInformationClass)
 {
-  using namespace Pathwinder;
+  auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::EntryPointQueryByObjectAttributes(
+      GetFunctionName(),
+      GetRequestIdentifier(),
+      Pathwinder::FileAccessMode::ReadOnly(),
+      ObjectAttributes,
+      [IoStatusBlock, FileInformation, Length, FileInformationClass](
+          POBJECT_ATTRIBUTES ObjectAttributes) -> NTSTATUS
+      {
+        return Original(
+            ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
+      });
 
-  const unsigned int requestIdentifier = GetRequestIdentifier();
-
-  const FilesystemExecutor::SFileOperationContext operationContext =
-      FilesystemExecutor::GetFileOperationRedirectionInformation(
-          GetFunctionName(),
-          requestIdentifier,
-          ObjectAttributes->RootDirectory,
-          Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)),
-          FileAccessMode::ReadOnly(),
-          CreateDisposition::OpenExistingFile());
-  const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
-
-  if (true == Globals::GetConfigurationData().isDryRunMode)
+  if (false == maybeHookFunctionResult.has_value())
     return Original(ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
-  NTSTATUS preOperationResult = FilesystemExecutor::ExecuteExtraPreOperations(
-      GetFunctionName(), requestIdentifier, operationContext.instruction);
-  if (!(NT_SUCCESS(preOperationResult))) return preOperationResult;
-
-  FilesystemExecutor::SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
-  FilesystemExecutor::FillRedirectedObjectNameAndAttributesForInstruction(
-      redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
-
-  std::wstring_view lastAttemptedPath;
-
-  NTSTATUS systemCallResult = NtStatus::kInternalError;
-
-  for (const auto& operationToTry : FilesystemExecutor::SelectFileOperationsToTry(
-           GetFunctionName(),
-           requestIdentifier,
-           redirectionInstruction,
-           *ObjectAttributes,
-           redirectedObjectNameAndAttributes.objectAttributes))
-  {
-    if (true == operationToTry.HasError())
-    {
-      Message::OutputFormatted(
-          Message::ESeverity::SuperDebug,
-          L"%s(%u): NTSTATUS = 0x%08x (forced result).",
-          GetFunctionName(),
-          requestIdentifier,
-          static_cast<unsigned int>(operationToTry.Error()));
-      return operationToTry.Error();
-    }
-    else
-    {
-      const POBJECT_ATTRIBUTES objectAttributesToTry = operationToTry.Value();
-
-      lastAttemptedPath =
-          Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
-      systemCallResult = Original(
-          objectAttributesToTry, IoStatusBlock, FileInformation, Length, FileInformationClass);
-      Message::OutputFormatted(
-          Message::ESeverity::SuperDebug,
-          L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".",
-          GetFunctionName(),
-          requestIdentifier,
-          systemCallResult,
-          static_cast<int>(lastAttemptedPath.length()),
-          lastAttemptedPath.data());
-
-      if (false == FilesystemExecutor::ShouldTryNextFilename(systemCallResult)) break;
-    }
-  }
-
-  if (true == lastAttemptedPath.empty())
-    return Original(ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
-
-  return systemCallResult;
+  return *maybeHookFunctionResult;
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
@@ -497,73 +444,18 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
     POBJECT_ATTRIBUTES ObjectAttributes, PFILE_BASIC_INFO FileInformation)
 {
-  using namespace Pathwinder;
+  auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::EntryPointQueryByObjectAttributes(
+      GetFunctionName(),
+      GetRequestIdentifier(),
+      Pathwinder::FileAccessMode::ReadOnly(),
+      ObjectAttributes,
+      [FileInformation](POBJECT_ATTRIBUTES ObjectAttributes) -> NTSTATUS
+      {
+        return Original(ObjectAttributes, FileInformation);
+      });
 
-  const unsigned int requestIdentifier = GetRequestIdentifier();
-
-  const FilesystemExecutor::SFileOperationContext operationContext =
-      FilesystemExecutor::GetFileOperationRedirectionInformation(
-          GetFunctionName(),
-          requestIdentifier,
-          ObjectAttributes->RootDirectory,
-          Strings::NtConvertUnicodeStringToStringView(*(ObjectAttributes->ObjectName)),
-          FileAccessMode::ReadOnly(),
-          CreateDisposition::OpenExistingFile());
-  const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
-
-  if (true == Globals::GetConfigurationData().isDryRunMode)
+  if (false == maybeHookFunctionResult.has_value())
     return Original(ObjectAttributes, FileInformation);
 
-  NTSTATUS preOperationResult = FilesystemExecutor::ExecuteExtraPreOperations(
-      GetFunctionName(), requestIdentifier, operationContext.instruction);
-  if (!(NT_SUCCESS(preOperationResult))) return preOperationResult;
-
-  FilesystemExecutor::SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
-  FilesystemExecutor::FillRedirectedObjectNameAndAttributesForInstruction(
-      redirectedObjectNameAndAttributes, operationContext.instruction, *ObjectAttributes);
-
-  std::wstring_view lastAttemptedPath;
-
-  NTSTATUS systemCallResult = NtStatus::kInternalError;
-
-  for (const auto& operationToTry : FilesystemExecutor::SelectFileOperationsToTry(
-           GetFunctionName(),
-           requestIdentifier,
-           redirectionInstruction,
-           *ObjectAttributes,
-           redirectedObjectNameAndAttributes.objectAttributes))
-  {
-    if (true == operationToTry.HasError())
-    {
-      Message::OutputFormatted(
-          Message::ESeverity::SuperDebug,
-          L"%s(%u): NTSTATUS = 0x%08x (forced result).",
-          GetFunctionName(),
-          requestIdentifier,
-          static_cast<unsigned int>(operationToTry.Error()));
-      return operationToTry.Error();
-    }
-    else
-    {
-      const POBJECT_ATTRIBUTES objectAttributesToTry = operationToTry.Value();
-
-      lastAttemptedPath =
-          Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
-      systemCallResult = Original(objectAttributesToTry, FileInformation);
-      Message::OutputFormatted(
-          Message::ESeverity::SuperDebug,
-          L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".",
-          GetFunctionName(),
-          requestIdentifier,
-          systemCallResult,
-          static_cast<int>(lastAttemptedPath.length()),
-          lastAttemptedPath.data());
-
-      if (false == FilesystemExecutor::ShouldTryNextFilename(systemCallResult)) break;
-    }
-  }
-
-  if (true == lastAttemptedPath.empty()) return Original(ObjectAttributes, FileInformation);
-
-  return systemCallResult;
+  return *maybeHookFunctionResult;
 }

@@ -13,6 +13,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 
 #include "ApiWindowsInternal.h"
 #include "ArrayList.h"
@@ -147,6 +148,26 @@ namespace Pathwinder
     std::optional<NTSTATUS> EntryPointCloseHandle(
         const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE handle);
 
+    /// Common internal entry point for intercepting directory enumerations. Parameters correspond
+    /// to the `NtQueryDirectoryFileEx` system call, with the exception of `functionName` and
+    /// `functionRequestIdentifier` which are the hook function name and request identifier for
+    /// logging purposes.
+    /// @return Result to be returned to the application on system call completion, or nothing at
+    /// all if the request should be forwarded unmodified to the system.
+    std::optional<NTSTATUS> EntryPointDirectoryEnumeration(
+        const wchar_t* functionName,
+        unsigned int functionRequestIdentifier,
+        HANDLE fileHandle,
+        HANDLE event,
+        PIO_APC_ROUTINE apcRoutine,
+        PVOID apcContext,
+        PIO_STATUS_BLOCK ioStatusBlock,
+        PVOID fileInformation,
+        ULONG length,
+        FILE_INFORMATION_CLASS fileInformationClass,
+        ULONG queryFlags,
+        PUNICODE_STRING fileName);
+
     /// Common internal entry point for intercepting attempts to create or open files, resulting in
     /// the creation of a new file handle. Parameters correspond to the `NtCreateFile` system call,
     /// with the exception of `functionName` and `functionRequestIdentifier` which are the hook
@@ -168,25 +189,29 @@ namespace Pathwinder
         PVOID eaBuffer,
         ULONG eaLength);
 
-    /// Common internal entry point for intercepting directory enumerations. Parameters correspond
-    /// to the `NtQueryDirectoryFileEx` system call, with the exception of `functionName` and
-    /// `functionRequestIdentifier` which are the hook function name and request identifier for
-    /// logging purposes.
+    /// Common internal entry point for intercepting queries for file information such that the
+    /// input is a name identified in an `OBJECT_ATTRIBUTES` structure but the operation does not
+    /// result in a new file handle being created. Because these types of functions can vary in
+    /// signature, an invokable function object is required that will be used to submit any
+    /// intercepted queries to the underlying system call.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this
+    /// function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
+    /// the named function. Used only for logging.
+    /// @param [in] fileAccessMode Type of access or accesses to be performed on the file.
+    /// @param [in] objectAttributes Object attributes received as input from the application.
+    /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
+    /// operation, with the only variable parameter being object attributes. Any and all other
+    /// information is expected to be captured within the object itself, including other
+    /// application-specified parameters.
     /// @return Result to be returned to the application on system call completion, or nothing at
     /// all if the request should be forwarded unmodified to the system.
-    std::optional<NTSTATUS> EntryPointDirectoryEnumeration(
+    std::optional<NTSTATUS> EntryPointQueryByObjectAttributes(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
-        HANDLE fileHandle,
-        HANDLE event,
-        PIO_APC_ROUTINE apcRoutine,
-        PVOID apcContext,
-        PIO_STATUS_BLOCK ioStatusBlock,
-        PVOID fileInformation,
-        ULONG length,
-        FILE_INFORMATION_CLASS fileInformationClass,
-        ULONG queryFlags,
-        PUNICODE_STRING fileName);
+        FileAccessMode fileAccessMode,
+        POBJECT_ATTRIBUTES objectAttributes,
+        std::function<NTSTATUS(POBJECT_ATTRIBUTES)> underlyingSystemCallInvoker);
 
     /// Generates a string representation of the specified access mask. Useful for logging.
     /// @param [in] accessMask Access mask, typically received from an application when creating or
