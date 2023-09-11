@@ -140,13 +140,20 @@ namespace Pathwinder
         ArrayList<ValueOrError<FileObjectType*, NTSTATUS>, 2>;
 
     /// Common internal entry point for intercepting attempts to close an existing file handle.
-    /// Parameters correspond to the `NtClose` system call, with the exception of `functionName` and
-    /// `functionRequestIdentifier` which are the hook function name and request identifier for
-    /// logging purposes.
-    /// @return Result to be returned to the application on system call completion, or nothing at
-    /// all if the request should be forwarded unmodified to the system.
-    std::optional<NTSTATUS> EntryPointCloseHandle(
-        const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE handle);
+    /// @param [in] functionName Name of the API function whose hook function is invoking this
+    /// function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
+    /// the named function. Used only for logging.
+    /// @param [in] handle Handle that the application has requested to close.
+    /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
+    /// operation, with the only variable parameter being the handle to close. Any and all other
+    /// information is expected to be captured within the object itself.
+    /// @return Result of the system call, which should be returned to the application.
+    NTSTATUS EntryPointCloseHandle(
+        const wchar_t* functionName,
+        unsigned int functionRequestIdentifier,
+        HANDLE handle,
+        std::function<NTSTATUS(HANDLE)> underlyingSystemCallInvoker);
 
     /// Common internal entry point for intercepting directory enumerations. Parameters correspond
     /// to the `NtQueryDirectoryFileEx` system call, with the exception of `functionName` and
@@ -169,44 +176,51 @@ namespace Pathwinder
         PUNICODE_STRING fileName);
 
     /// Common internal entry point for intercepting attempts to create or open files, resulting in
-    /// the creation of a new file handle. Parameters correspond to the `NtCreateFile` system call,
-    /// with the exception of `functionName` and `functionRequestIdentifier` which are the hook
-    /// function name and request identifier for logging purposes.
-    /// @return Result to be returned to the application on system call completion, or nothing at
-    /// all if the request should be forwarded unmodified to the system.
-    std::optional<NTSTATUS> EntryPointNewFileHandle(
+    /// the creation of a new file handle.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this
+    /// function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
+    /// the named function. Used only for logging.
+    /// @param [in] fileHandle Address that will receive the newly-created file handle, if this
+    /// function is successful.
+    /// @param [in] desiredAccess Desired file access types requested by the application.
+    /// @param [in] objectAttributes Object attributes that identify the filesystem entity for which
+    /// a new handle should be created. As received from the application.
+    /// @param [in] shareAccess Sharing mask received from the application.
+    /// @param [in] createDisposition Create disposition received from the application. Identifies
+    /// whether a new file should be created, existing file should be opened, and so on.
+    /// @param [in] createOptions File creation or opening options received from the application.
+    /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
+    /// operation, with the variable parameters being destination file handle address, object
+    /// attributes of the file to attempt, and a create disposition.
+    /// @return Result of the system call, which should be returned to the application.
+    NTSTATUS EntryPointNewFileHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
         PHANDLE fileHandle,
         ACCESS_MASK desiredAccess,
         POBJECT_ATTRIBUTES objectAttributes,
-        PIO_STATUS_BLOCK ioStatusBlock,
-        PLARGE_INTEGER allocationSize,
-        ULONG fileAttributes,
         ULONG shareAccess,
         ULONG createDisposition,
         ULONG createOptions,
-        PVOID eaBuffer,
-        ULONG eaLength);
+        std::function<NTSTATUS(PHANDLE, POBJECT_ATTRIBUTES, ULONG)> underlyingSystemCallInvoker);
 
     /// Common internal entry point for intercepting queries for file information such that the
     /// input is a name identified in an `OBJECT_ATTRIBUTES` structure but the operation does not
-    /// result in a new file handle being created. Because these types of functions can vary in
-    /// signature, an invokable function object is required that will be used to submit any
-    /// intercepted queries to the underlying system call.
+    /// result in a new file handle being created.
     /// @param [in] functionName Name of the API function whose hook function is invoking this
     /// function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
     /// the named function. Used only for logging.
-    /// @param [in] fileAccessMode Type of access or accesses to be performed on the file.
+    /// @param [in] fileAccessMode Type of accesses that the underlying system call is expected to
+    /// perform on the file.
     /// @param [in] objectAttributes Object attributes received as input from the application.
     /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
     /// operation, with the only variable parameter being object attributes. Any and all other
     /// information is expected to be captured within the object itself, including other
     /// application-specified parameters.
-    /// @return Result to be returned to the application on system call completion, or nothing at
-    /// all if the request should be forwarded unmodified to the system.
-    std::optional<NTSTATUS> EntryPointQueryByObjectAttributes(
+    /// @return Result of the system call, which should be returned to the application.
+    NTSTATUS EntryPointQueryByObjectAttributes(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
         FileAccessMode fileAccessMode,

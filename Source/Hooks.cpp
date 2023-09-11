@@ -19,6 +19,7 @@
 #include <Hookshot/DynamicHook.h>
 
 #include "ApiWindowsInternal.h"
+#include "DebugAssert.h"
 #include "FileInformationStruct.h"
 #include "FilesystemDirector.h"
 #include "FilesystemExecutor.h"
@@ -39,12 +40,14 @@ static inline unsigned int GetRequestIdentifier(void)
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtClose::Hook(HANDLE Handle)
 {
-  auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::EntryPointCloseHandle(
-      GetFunctionName(), GetRequestIdentifier(), Handle);
-
-  if (false == maybeHookFunctionResult.has_value()) return Original(Handle);
-
-  return *maybeHookFunctionResult;
+  return Pathwinder::FilesystemExecutor::EntryPointCloseHandle(
+      GetFunctionName(),
+      GetRequestIdentifier(),
+      Handle,
+      [](HANDLE handle) -> NTSTATUS
+      {
+        return Original(handle);
+      });
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(
@@ -60,36 +63,38 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(
     PVOID EaBuffer,
     ULONG EaLength)
 {
-  auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::EntryPointNewFileHandle(
+  return Pathwinder::FilesystemExecutor::EntryPointNewFileHandle(
       GetFunctionName(),
       GetRequestIdentifier(),
       FileHandle,
       DesiredAccess,
       ObjectAttributes,
-      IoStatusBlock,
-      AllocationSize,
-      FileAttributes,
       ShareAccess,
       CreateDisposition,
       CreateOptions,
-      EaBuffer,
-      EaLength);
-
-  if (false == maybeHookFunctionResult.has_value())
-    return Original(
-        FileHandle,
-        DesiredAccess,
-        ObjectAttributes,
-        IoStatusBlock,
-        AllocationSize,
-        FileAttributes,
-        ShareAccess,
-        CreateDisposition,
-        CreateOptions,
-        EaBuffer,
-        EaLength);
-
-  return *maybeHookFunctionResult;
+      [DesiredAccess,
+       IoStatusBlock,
+       AllocationSize,
+       FileAttributes,
+       ShareAccess,
+       CreateOptions,
+       EaBuffer,
+       EaLength](PHANDLE fileHandle, POBJECT_ATTRIBUTES objectAttributes, ULONG createDisposition)
+          -> NTSTATUS
+      {
+        return Original(
+            fileHandle,
+            DesiredAccess,
+            objectAttributes,
+            IoStatusBlock,
+            AllocationSize,
+            FileAttributes,
+            ShareAccess,
+            createDisposition,
+            CreateOptions,
+            EaBuffer,
+            EaLength);
+      });
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtDeleteFile::Hook(POBJECT_ATTRIBUTES ObjectAttributes)
@@ -106,26 +111,43 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(
     ULONG ShareAccess,
     ULONG OpenOptions)
 {
-  auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::EntryPointNewFileHandle(
-      GetFunctionName(),
-      GetRequestIdentifier(),
+  const wchar_t* const functionName = GetFunctionName();
+  const unsigned int requestIdentifier = GetRequestIdentifier();
+
+  return Pathwinder::FilesystemExecutor::EntryPointNewFileHandle(
+      functionName,
+      requestIdentifier,
       FileHandle,
       DesiredAccess,
       ObjectAttributes,
-      IoStatusBlock,
-      nullptr,
-      0,
       ShareAccess,
       FILE_OPEN,
       OpenOptions,
-      nullptr,
-      0);
+      [functionName, requestIdentifier, DesiredAccess, IoStatusBlock, ShareAccess, OpenOptions](
+          PHANDLE fileHandle,
+          POBJECT_ATTRIBUTES objectAttributes,
+          ULONG createDisposition) -> NTSTATUS
+      {
+        // `NtOpenFile` only supports a single create disposition, `FILE_OPEN`, because its
+        // semantics are by definition to open a file that already exists. The top-level hook
+        // function also hard-codes the create disposition as `FILE_OPEN`, so it is reasonable to
+        // expect that same value to be present here too.
+        if (FILE_OPEN != createDisposition)
+        {
+          Pathwinder::Message::OutputFormatted(
+              Pathwinder::Message::ESeverity::Error,
+              L"%s(%u): Internal error: Invoked with an invalid create disposition (0x%08x).",
+              functionName,
+              requestIdentifier,
+              createDisposition);
+          return Pathwinder::NtStatus::kInvalidParameter;
+        }
 
-  if (false == maybeHookFunctionResult.has_value())
-    return Original(
-        FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
+        DebugAssert(FILE_OPEN == createDisposition, "Invalid create disposition for NtOpenFile.");
 
-  return *maybeHookFunctionResult;
+        return Original(
+            fileHandle, DesiredAccess, objectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
+      });
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(
@@ -314,7 +336,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
     ULONG Length,
     FILE_INFORMATION_CLASS FileInformationClass)
 {
-  auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::EntryPointQueryByObjectAttributes(
+  return Pathwinder::FilesystemExecutor::EntryPointQueryByObjectAttributes(
       GetFunctionName(),
       GetRequestIdentifier(),
       Pathwinder::FileAccessMode::ReadOnly(),
@@ -325,11 +347,6 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
         return Original(
             ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
       });
-
-  if (false == maybeHookFunctionResult.has_value())
-    return Original(ObjectAttributes, IoStatusBlock, FileInformation, Length, FileInformationClass);
-
-  return *maybeHookFunctionResult;
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
@@ -444,7 +461,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
     POBJECT_ATTRIBUTES ObjectAttributes, PFILE_BASIC_INFO FileInformation)
 {
-  auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::EntryPointQueryByObjectAttributes(
+  return Pathwinder::FilesystemExecutor::EntryPointQueryByObjectAttributes(
       GetFunctionName(),
       GetRequestIdentifier(),
       Pathwinder::FileAccessMode::ReadOnly(),
@@ -453,9 +470,4 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
       {
         return Original(ObjectAttributes, FileInformation);
       });
-
-  if (false == maybeHookFunctionResult.has_value())
-    return Original(ObjectAttributes, FileInformation);
-
-  return *maybeHookFunctionResult;
 }

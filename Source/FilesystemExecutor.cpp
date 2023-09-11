@@ -35,18 +35,111 @@ namespace Pathwinder
   {
     /// Retrieves a reference to the open handle store instance. It is maintained on the heap so it
     /// is not destroyed automatically by the runtime on program exit.
+    /// @return Mutable reference to the open handle store instance.
     static inline OpenHandleStore& OpenHandleStoreInstance(void)
     {
       static OpenHandleStore* const openHandleStore = new OpenHandleStore;
       return *openHandleStore;
     }
 
-    std::optional<NTSTATUS> EntryPointCloseHandle(
-        const wchar_t* functionName, unsigned int functionRequestIdentifier, HANDLE handle)
+    /// Dumps to the log all relevant invocation parameters for a file operation that results in the
+    /// creation of a new file handle. Parameters are a subset of those that would normally be
+    /// passed to `NtCreateFile`, with the exception of some additional metadata about the invoked
+    /// system call function for logging purposes.
+    static void DumpNewFileHandleParameters(
+        const wchar_t* functionName,
+        unsigned int functionRequestIdentifier,
+        POBJECT_ATTRIBUTES objectAttributes,
+        ACCESS_MASK desiredAccess,
+        ULONG shareAccess,
+        ULONG createDisposition,
+        ULONG createOptions)
+    {
+      constexpr Message::ESeverity kDumpSeverity = Message::ESeverity::SuperDebug;
+
+      // There is overhead involved with producing a dump of parameter values.
+      // This is why it is helpful to guard the block on whether or not the output would actually
+      // be logged.
+      if (true == Message::WillOutputMessageOfSeverity(kDumpSeverity))
+      {
+        const std::wstring_view functionNameView = std::wstring_view(functionName);
+        const std::wstring_view objectNameParam =
+            Strings::NtConvertUnicodeStringToStringView(*objectAttributes->ObjectName);
+
+        // Ensures that multiple functions invoked at the same time do not overlap when dumping
+        // their parameters to the log file. This is just a cosmetic readability issue. Furthermore,
+        // using a mutex does not prevent other log messages unrelated to dumping parameters from
+        // being interleaved.
+        static Mutex paramPrintMutex;
+        std::unique_lock paramPrintLock(paramPrintMutex);
+
+        Message::OutputFormatted(
+            kDumpSeverity,
+            L"%s(%u): Invoked with these parameters:",
+            functionName,
+            functionRequestIdentifier);
+        Message::OutputFormatted(
+            kDumpSeverity,
+            L"%s(%u):   ObjectName = \"%.*s\"",
+            functionName,
+            functionRequestIdentifier,
+            static_cast<int>(objectNameParam.length()),
+            objectNameParam.data());
+        Message::OutputFormatted(
+            kDumpSeverity,
+            L"%s(%u):   RootDirectory = %zu",
+            functionName,
+            functionRequestIdentifier,
+            reinterpret_cast<size_t>(objectAttributes->RootDirectory));
+        Message::OutputFormatted(
+            kDumpSeverity,
+            L"%s(%u):   DesiredAccess = %s",
+            functionName,
+            functionRequestIdentifier,
+            NtAccessMaskToString(desiredAccess).AsCString());
+        Message::OutputFormatted(
+            kDumpSeverity,
+            L"%s(%u):   ShareAccess = %s",
+            functionName,
+            functionRequestIdentifier,
+            NtShareAccessToString(shareAccess).AsCString());
+
+        if (functionNameView.contains(L"Create"))
+        {
+          Message::OutputFormatted(
+              kDumpSeverity,
+              L"%s(%u):   CreateDisposition = %s",
+              functionName,
+              functionRequestIdentifier,
+              NtCreateDispositionToString(createDisposition).AsCString());
+          Message::OutputFormatted(
+              kDumpSeverity,
+              L"%s(%u):   CreateOptions = %s",
+              functionName,
+              functionRequestIdentifier,
+              NtCreateOrOpenOptionsToString(createOptions).AsCString());
+        }
+        else if (functionNameView.contains(L"Open"))
+        {
+          Message::OutputFormatted(
+              kDumpSeverity,
+              L"%s(%u):   OpenOptions = %s",
+              functionName,
+              functionRequestIdentifier,
+              NtCreateOrOpenOptionsToString(createOptions).AsCString());
+        }
+      }
+    }
+
+    NTSTATUS EntryPointCloseHandle(
+        const wchar_t* functionName,
+        unsigned int functionRequestIdentifier,
+        HANDLE handle,
+        std::function<NTSTATUS(HANDLE)> underlyingSystemCallInvoker)
     {
       std::optional<OpenHandleStore::SHandleDataView> maybeClosedHandleData =
           OpenHandleStoreInstance().GetDataForHandle(handle);
-      if (false == maybeClosedHandleData.has_value()) return std::nullopt;
+      if (false == maybeClosedHandleData.has_value()) return underlyingSystemCallInvoker(handle);
 
       OpenHandleStore::SHandleData closedHandleData;
       NTSTATUS closeHandleResult =
@@ -203,93 +296,25 @@ namespace Pathwinder
           queryFilePattern);
     }
 
-    std::optional<NTSTATUS> EntryPointNewFileHandle(
+    NTSTATUS EntryPointNewFileHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
         PHANDLE fileHandle,
         ACCESS_MASK desiredAccess,
         POBJECT_ATTRIBUTES objectAttributes,
-        PIO_STATUS_BLOCK ioStatusBlock,
-        PLARGE_INTEGER allocationSize,
-        ULONG fileAttributes,
         ULONG shareAccess,
         ULONG createDisposition,
         ULONG createOptions,
-        PVOID eaBuffer,
-        ULONG eaLength)
+        std::function<NTSTATUS(PHANDLE, POBJECT_ATTRIBUTES, ULONG)> underlyingSystemCallInvoker)
     {
-      // There is overhead involved with producing a dump of parameter values.
-      // This is why it is helpful to guard the block on whether or not the output would actually
-      // be logged.
-      if (true == Message::WillOutputMessageOfSeverity(Message::ESeverity::SuperDebug))
-      {
-        const std::wstring_view functionNameView = std::wstring_view(functionName);
-        const std::wstring_view objectNameParam =
-            Strings::NtConvertUnicodeStringToStringView(*objectAttributes->ObjectName);
-
-        // Ensures that multiple functions invoked at the same time do not overlap when dumping
-        // their parameters to the log file. This is just a cosmetic readability issue. Furthermore,
-        // using a mutex does not prevent other log messages unrelated to dumping parameters from
-        // being interleaved.
-        static Mutex paramPrintMutex;
-        std::unique_lock paramPrintLock(paramPrintMutex);
-
-        Message::OutputFormatted(
-            Message::ESeverity::SuperDebug,
-            L"%s(%u): Invoked with these parameters:",
-            functionName,
-            functionRequestIdentifier);
-        Message::OutputFormatted(
-            Message::ESeverity::SuperDebug,
-            L"%s(%u):   ObjectName = \"%.*s\"",
-            functionName,
-            functionRequestIdentifier,
-            static_cast<int>(objectNameParam.length()),
-            objectNameParam.data());
-        Message::OutputFormatted(
-            Message::ESeverity::SuperDebug,
-            L"%s(%u):   RootDirectory = %zu",
-            functionName,
-            functionRequestIdentifier,
-            reinterpret_cast<size_t>(objectAttributes->RootDirectory));
-        Message::OutputFormatted(
-            Message::ESeverity::SuperDebug,
-            L"%s(%u):   DesiredAccess = %s",
-            functionName,
-            functionRequestIdentifier,
-            NtAccessMaskToString(desiredAccess).AsCString());
-        Message::OutputFormatted(
-            Message::ESeverity::SuperDebug,
-            L"%s(%u):   ShareAccess = %s",
-            functionName,
-            functionRequestIdentifier,
-            NtShareAccessToString(shareAccess).AsCString());
-
-        if (functionNameView.contains(L"Create"))
-        {
-          Message::OutputFormatted(
-              Message::ESeverity::SuperDebug,
-              L"%s(%u):   CreateDisposition = %s",
-              functionName,
-              functionRequestIdentifier,
-              NtCreateDispositionToString(createDisposition).AsCString());
-          Message::OutputFormatted(
-              Message::ESeverity::SuperDebug,
-              L"%s(%u):   CreateOptions = %s",
-              functionName,
-              functionRequestIdentifier,
-              NtCreateOrOpenOptionsToString(createOptions).AsCString());
-        }
-        else if (functionNameView.contains(L"Open"))
-        {
-          Message::OutputFormatted(
-              Message::ESeverity::SuperDebug,
-              L"%s(%u):   OpenOptions = %s",
-              functionName,
-              functionRequestIdentifier,
-              NtCreateOrOpenOptionsToString(createOptions).AsCString());
-        }
-      }
+      DumpNewFileHandleParameters(
+          functionName,
+          functionRequestIdentifier,
+          objectAttributes,
+          desiredAccess,
+          shareAccess,
+          createDisposition,
+          createOptions);
 
       const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(
           functionName,
@@ -302,7 +327,7 @@ namespace Pathwinder
 
       if (true == Globals::GetConfigurationData().isDryRunMode ||
           (FileOperationInstruction::NoRedirectionOrInterception() == redirectionInstruction))
-        return std::nullopt;
+        return underlyingSystemCallInvoker(fileHandle, objectAttributes, createDisposition);
 
       NTSTATUS preOperationResult = ExecuteExtraPreOperations(
           functionName, functionRequestIdentifier, operationContext.instruction);
@@ -391,18 +416,8 @@ namespace Pathwinder
           if (false == shouldTryThisFile) continue;
 
           lastAttemptedPath = fileToTryAbsolutePath;
-          systemCallResult = Hooks::ProtectedDependency::NtCreateFile::SafeInvoke(
-              &newlyOpenedHandle,
-              desiredAccess,
-              objectAttributesToTry,
-              ioStatusBlock,
-              allocationSize,
-              fileAttributes,
-              shareAccess,
-              ntParamCreateDispositionToTry,
-              createOptions,
-              eaBuffer,
-              eaLength);
+          systemCallResult = underlyingSystemCallInvoker(
+              &newlyOpenedHandle, objectAttributesToTry, ntParamCreateDispositionToTry);
 
           if (true == Message::WillOutputMessageOfSeverity(Message::ESeverity::SuperDebug))
             Message::OutputFormatted(
@@ -421,7 +436,8 @@ namespace Pathwinder
         if (false == ShouldTryNextFilename(systemCallResult)) break;
       }
 
-      if (true == lastAttemptedPath.empty()) return std::nullopt;
+      if (true == lastAttemptedPath.empty())
+        return underlyingSystemCallInvoker(fileHandle, objectAttributes, createDisposition);
 
       if (NT_SUCCESS(systemCallResult))
         SelectFilenameAndStoreNewlyOpenedHandle(
@@ -436,7 +452,7 @@ namespace Pathwinder
       return systemCallResult;
     }
 
-    std::optional<NTSTATUS> EntryPointQueryByObjectAttributes(
+    NTSTATUS EntryPointQueryByObjectAttributes(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
         FileAccessMode fileAccessMode,
@@ -455,7 +471,7 @@ namespace Pathwinder
 
       if (true == Globals::GetConfigurationData().isDryRunMode ||
           (FileOperationInstruction::NoRedirectionOrInterception() == redirectionInstruction))
-        return std::nullopt;
+        return underlyingSystemCallInvoker(objectAttributes);
 
       NTSTATUS preOperationResult = FilesystemExecutor::ExecuteExtraPreOperations(
           functionName, functionRequestIdentifier, operationContext.instruction);
@@ -504,7 +520,7 @@ namespace Pathwinder
         if (false == FilesystemExecutor::ShouldTryNextFilename(systemCallResult)) break;
       }
 
-      if (true == lastAttemptedPath.empty()) return std::nullopt;
+      if (true == lastAttemptedPath.empty()) return underlyingSystemCallInvoker(objectAttributes);
 
       return systemCallResult;
     }
