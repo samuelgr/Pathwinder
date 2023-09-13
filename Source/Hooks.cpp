@@ -356,106 +356,27 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
     ULONG Length,
     FILE_INFORMATION_CLASS FileInformationClass)
 {
-  using namespace Pathwinder;
-
-  // This invocation is only interesting if it is a rename operation. Otherwise there is no change
-  // being made to the input file handle, which is already open.
-  if (SFileRenameInformation::kFileInformationClass != FileInformationClass)
+  if (Pathwinder::SFileRenameInformation::kFileInformationClass != FileInformationClass)
     return Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
-  const unsigned int requestIdentifier = GetRequestIdentifier();
-
-  SFileRenameInformation& unredirectedFileRenameInformation =
-      *(reinterpret_cast<SFileRenameInformation*>(FileInformation));
-  std::wstring_view unredirectedPath =
-      GetFileInformationStructFilename(unredirectedFileRenameInformation);
-
-  const FilesystemExecutor::SFileOperationContext operationContext =
-      FilesystemExecutor::GetFileOperationRedirectionInformation(
-          GetFunctionName(),
-          requestIdentifier,
-          unredirectedFileRenameInformation.rootDirectory,
-          unredirectedPath,
-          FileAccessMode::Delete(),
-          CreateDisposition::CreateNewFile());
-  const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
-
-  if (true == Globals::GetConfigurationData().isDryRunMode)
-    return Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
-
-  NTSTATUS preOperationResult = FilesystemExecutor::ExecuteExtraPreOperations(
-      GetFunctionName(), requestIdentifier, operationContext.instruction);
-  if (!(NT_SUCCESS(preOperationResult))) return preOperationResult;
-
-  // Due to how the file rename information structure is laid out, including an embedded filename
-  // buffer of variable size, there is overhead to generating a new one. Without a redirected
-  // filename present it is better to bail early than to generate a new one unconditionally.
-  if (false == redirectionInstruction.HasRedirectedFilename())
-    return Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
-
-  FilesystemExecutor::FileRenameInformationAndFilename redirectedFileRenameInformationAndFilename =
-      FilesystemExecutor::CopyFileRenameInformationAndReplaceFilename(
-          unredirectedFileRenameInformation, redirectionInstruction.GetRedirectedFilename());
-  SFileRenameInformation& redirectedFileRenameInformation =
-      redirectedFileRenameInformationAndFilename.GetFileRenameInformation();
-
-  NTSTATUS systemCallResult = NtStatus::kInternalError;
-  std::wstring_view lastAttemptedPath;
-
-  for (const auto& operationToTry : FilesystemExecutor::SelectFileOperationsToTry(
-           GetFunctionName(),
-           requestIdentifier,
-           redirectionInstruction,
-           unredirectedFileRenameInformation,
-           redirectedFileRenameInformation))
-  {
-    if (true == operationToTry.HasError())
-    {
-      Message::OutputFormatted(
-          Message::ESeverity::SuperDebug,
-          L"%s(%u): NTSTATUS = 0x%08x (forced result).",
-          GetFunctionName(),
-          requestIdentifier,
-          static_cast<unsigned int>(operationToTry.Error()));
-      return operationToTry.Error();
-    }
-    else
-    {
-      SFileRenameInformation* const renameInformationToTry = operationToTry.Value();
-
-      lastAttemptedPath = GetFileInformationStructFilename(*renameInformationToTry);
-      systemCallResult = Original(
-          FileHandle,
-          IoStatusBlock,
-          reinterpret_cast<PVOID>(renameInformationToTry),
-          Length,
-          FileInformationClass);
-      Message::OutputFormatted(
-          Message::ESeverity::SuperDebug,
-          L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".",
-          GetFunctionName(),
-          requestIdentifier,
-          systemCallResult,
-          static_cast<int>(lastAttemptedPath.length()),
-          lastAttemptedPath.data());
-
-      if (false == FilesystemExecutor::ShouldTryNextFilename(systemCallResult)) break;
-    }
-  }
-
-  if (true == lastAttemptedPath.empty())
-    return Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
-
-  if (NT_SUCCESS(systemCallResult))
-    FilesystemExecutor::SelectFilenameAndUpdateOpenHandle(
-        GetFunctionName(),
-        requestIdentifier,
-        FileHandle,
-        redirectionInstruction,
-        lastAttemptedPath,
-        unredirectedPath);
-
-  return systemCallResult;
+  return Pathwinder::FilesystemExecutor::EntryPointRenameByHandle(
+      GetFunctionName(),
+      GetRequestIdentifier(),
+      FileHandle,
+      *reinterpret_cast<Pathwinder::SFileRenameInformation*>(FileInformation),
+      Length,
+      [IoStatusBlock, FileInformationClass](
+          HANDLE fileHandle,
+          Pathwinder::SFileRenameInformation& renameInformation,
+          ULONG renameInformationLength) -> NTSTATUS
+      {
+        return Original(
+            fileHandle,
+            IoStatusBlock,
+            &renameInformation,
+            renameInformationLength,
+            FileInformationClass);
+      });
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(

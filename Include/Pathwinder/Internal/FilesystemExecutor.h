@@ -148,7 +148,7 @@ namespace Pathwinder
     /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
     /// operation, with the only variable parameter being the handle to close. Any and all other
     /// information is expected to be captured within the object itself.
-    /// @return Result of the system call, which should be returned to the application.
+    /// @return Result of the operation, which should be returned to the application.
     NTSTATUS EntryPointCloseHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
@@ -193,7 +193,7 @@ namespace Pathwinder
     /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
     /// operation, with the variable parameters being destination file handle address, object
     /// attributes of the file to attempt, and a create disposition.
-    /// @return Result of the system call, which should be returned to the application.
+    /// @return Result of the operation, which should be returned to the application.
     NTSTATUS EntryPointNewFileHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
@@ -204,6 +204,31 @@ namespace Pathwinder
         ULONG createDisposition,
         ULONG createOptions,
         std::function<NTSTATUS(PHANDLE, POBJECT_ATTRIBUTES, ULONG)> underlyingSystemCallInvoker);
+
+    /// Common internal entry point for intercepting attempts to rename a file or directory that has
+    /// already been opened and associated with a file handle.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this
+    /// function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
+    /// the named function. Used only for logging.
+    /// @param [in] fileHandle Open handle associated with the file or directory being renamed.
+    /// @param [in] renameInformation Windows structure describing the rename operation, as supplied
+    /// by the application. Among other things, contains the desired new name.
+    /// @param [in] renameInformationLength Size of the rename information structure, in bytes, as
+    /// supplied by the application.
+    /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
+    /// operation, with the only variable parameters being open file handle, rename information
+    /// structure, and rename information structure length in bytes. Any and all other information
+    /// is expected to be captured within the object itself, including other application-specified
+    /// parameters.
+    /// @return Result of the operation, which should be returned to the application.
+    NTSTATUS EntryPointRenameByHandle(
+        const wchar_t* functionName,
+        unsigned int functionRequestIdentifier,
+        HANDLE fileHandle,
+        SFileRenameInformation& renameInformation,
+        ULONG renameInformationLength,
+        std::function<NTSTATUS(HANDLE, SFileRenameInformation&, ULONG)> underlyingSystemCallInvoker);
 
     /// Common internal entry point for intercepting queries for file information such that the
     /// input is a name identified in an `OBJECT_ATTRIBUTES` structure but the operation does not
@@ -219,7 +244,7 @@ namespace Pathwinder
     /// operation, with the only variable parameter being object attributes. Any and all other
     /// information is expected to be captured within the object itself, including other
     /// application-specified parameters.
-    /// @return Result of the system call, which should be returned to the application.
+    /// @return Result of the operation, which should be returned to the application.
     NTSTATUS EntryPointQueryByObjectAttributes(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,

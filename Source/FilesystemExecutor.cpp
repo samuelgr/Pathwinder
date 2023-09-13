@@ -452,6 +452,100 @@ namespace Pathwinder
       return systemCallResult;
     }
 
+    NTSTATUS EntryPointRenameByHandle(
+        const wchar_t* functionName,
+        unsigned int functionRequestIdentifier,
+        HANDLE fileHandle,
+        SFileRenameInformation& renameInformation,
+        ULONG renameInformationLength,
+        std::function<NTSTATUS(HANDLE, SFileRenameInformation&, ULONG)> underlyingSystemCallInvoker)
+    {
+      std::wstring_view unredirectedPath = GetFileInformationStructFilename(renameInformation);
+
+      const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(
+          functionName,
+          functionRequestIdentifier,
+          renameInformation.rootDirectory,
+          unredirectedPath,
+          FileAccessMode::Delete(),
+          CreateDisposition::CreateNewFile());
+      const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
+
+      if (true == Globals::GetConfigurationData().isDryRunMode ||
+          (FileOperationInstruction::NoRedirectionOrInterception() == redirectionInstruction))
+        return underlyingSystemCallInvoker(fileHandle, renameInformation, renameInformationLength);
+
+      NTSTATUS preOperationResult = ExecuteExtraPreOperations(
+          functionName, functionRequestIdentifier, operationContext.instruction);
+      if (!(NT_SUCCESS(preOperationResult))) return preOperationResult;
+
+      // Due to how the file rename information structure is laid out, including an embedded
+      // filename buffer of variable size, there is overhead to generating a new one. Without a
+      // redirected filename present it is better to bail early than to generate a new one
+      // unconditionally.
+      if (false == redirectionInstruction.HasRedirectedFilename())
+        return underlyingSystemCallInvoker(fileHandle, renameInformation, renameInformationLength);
+
+      FileRenameInformationAndFilename redirectedFileRenameInformationAndFilename =
+          CopyFileRenameInformationAndReplaceFilename(
+              renameInformation, redirectionInstruction.GetRedirectedFilename());
+      SFileRenameInformation& redirectedFileRenameInformation =
+          redirectedFileRenameInformationAndFilename.GetFileRenameInformation();
+
+      NTSTATUS systemCallResult = NtStatus::kInternalError;
+      std::wstring_view lastAttemptedPath;
+
+      for (const auto& operationToTry : SelectFileOperationsToTry(
+               functionName,
+               functionRequestIdentifier,
+               redirectionInstruction,
+               renameInformation,
+               redirectedFileRenameInformation))
+      {
+        if (true == operationToTry.HasError())
+        {
+          Message::OutputFormatted(
+              Message::ESeverity::SuperDebug,
+              L"%s(%u): NTSTATUS = 0x%08x (forced result).",
+              functionName,
+              functionRequestIdentifier,
+              static_cast<unsigned int>(operationToTry.Error()));
+          return operationToTry.Error();
+        }
+        SFileRenameInformation* const renameInformationToTry = operationToTry.Value();
+
+        lastAttemptedPath = GetFileInformationStructFilename(*renameInformationToTry);
+        systemCallResult = underlyingSystemCallInvoker(
+            fileHandle,
+            *renameInformationToTry,
+            renameInformationLength); // TODO: renameInformationLength is wrong here
+        Message::OutputFormatted(
+            Message::ESeverity::SuperDebug,
+            L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".",
+            functionName,
+            functionRequestIdentifier,
+            systemCallResult,
+            static_cast<int>(lastAttemptedPath.length()),
+            lastAttemptedPath.data());
+
+        if (false == ShouldTryNextFilename(systemCallResult)) break;
+      }
+
+      if (true == lastAttemptedPath.empty())
+        return underlyingSystemCallInvoker(fileHandle, renameInformation, renameInformationLength);
+
+      if (NT_SUCCESS(systemCallResult))
+        SelectFilenameAndUpdateOpenHandle(
+            functionName,
+            functionRequestIdentifier,
+            fileHandle,
+            redirectionInstruction,
+            lastAttemptedPath,
+            unredirectedPath);
+
+      return systemCallResult;
+    }
+
     NTSTATUS EntryPointQueryByObjectAttributes(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
@@ -459,33 +553,32 @@ namespace Pathwinder
         POBJECT_ATTRIBUTES objectAttributes,
         std::function<NTSTATUS(POBJECT_ATTRIBUTES)> underlyingSystemCallInvoker)
     {
-      const FilesystemExecutor::SFileOperationContext operationContext =
-          FilesystemExecutor::GetFileOperationRedirectionInformation(
-              functionName,
-              functionRequestIdentifier,
-              objectAttributes->RootDirectory,
-              Strings::NtConvertUnicodeStringToStringView(*(objectAttributes->ObjectName)),
-              fileAccessMode,
-              CreateDisposition::OpenExistingFile());
+      const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(
+          functionName,
+          functionRequestIdentifier,
+          objectAttributes->RootDirectory,
+          Strings::NtConvertUnicodeStringToStringView(*(objectAttributes->ObjectName)),
+          fileAccessMode,
+          CreateDisposition::OpenExistingFile());
       const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
       if (true == Globals::GetConfigurationData().isDryRunMode ||
           (FileOperationInstruction::NoRedirectionOrInterception() == redirectionInstruction))
         return underlyingSystemCallInvoker(objectAttributes);
 
-      NTSTATUS preOperationResult = FilesystemExecutor::ExecuteExtraPreOperations(
+      NTSTATUS preOperationResult = ExecuteExtraPreOperations(
           functionName, functionRequestIdentifier, operationContext.instruction);
       if (!(NT_SUCCESS(preOperationResult))) return preOperationResult;
 
-      FilesystemExecutor::SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
-      FilesystemExecutor::FillRedirectedObjectNameAndAttributesForInstruction(
+      SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
+      FillRedirectedObjectNameAndAttributesForInstruction(
           redirectedObjectNameAndAttributes, operationContext.instruction, *objectAttributes);
 
       std::wstring_view lastAttemptedPath;
 
       NTSTATUS systemCallResult = NtStatus::kInternalError;
 
-      for (const auto& operationToTry : FilesystemExecutor::SelectFileOperationsToTry(
+      for (const auto& operationToTry : SelectFileOperationsToTry(
                functionName,
                functionRequestIdentifier,
                redirectionInstruction,
@@ -517,7 +610,7 @@ namespace Pathwinder
             static_cast<int>(lastAttemptedPath.length()),
             lastAttemptedPath.data());
 
-        if (false == FilesystemExecutor::ShouldTryNextFilename(systemCallResult)) break;
+        if (false == ShouldTryNextFilename(systemCallResult)) break;
       }
 
       if (true == lastAttemptedPath.empty()) return underlyingSystemCallInvoker(objectAttributes);
