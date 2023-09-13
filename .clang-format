@@ -62,7 +62,7 @@ BraceWrapping:
     SplitEmptyNamespace:                                    false
 # BreakAfterAttributes:                                       Always
 BreakBeforeBinaryOperators:                                 None
-BreakBeforeConceptDeclarations:                             Always
+BreakBeforeConceptDeclarations:                             Allowed
 # BreakBeforeInlineASMColon:                                  Always
 BreakBeforeTernaryOperators:                                true
 BreakConstructorInitializers:                               BeforeColon
@@ -121,7 +121,7 @@ ReferenceAlignment:                                         Pointer
 ReflowComments:                                             true
 # RemoveParentheses:                                          Leave
 # RemoveSemicolon:                                            false
-RequiresClausePosition:                                     WithPreceding
+RequiresClausePosition:                                     OwnLine
 # RequiresExpressionIndentation:                              OuterScope
 SeparateDefinitionBlocks:                                   Always
 ShortNamespaceLines:                                        0

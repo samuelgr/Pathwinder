@@ -18,7 +18,7 @@
 #include <cstring>
 #include <optional>
 #include <string_view>
-#include <utility>
+#include <type_traits>
 
 #include "ApiWindowsInternal.h"
 #include "BufferPool.h"
@@ -26,6 +26,17 @@
 
 namespace Pathwinder
 {
+  // Determines whether or not the specified type is one of the known Windows internal file
+  // information structures defined earlier in this file.
+  template <typename FileInformationStructType> concept IsFileInformationStruct = std::is_same_v<
+      const FILE_INFORMATION_CLASS,
+      decltype(FileInformationStructType::kFileInformationClass)>;
+
+  // Determines whether or not the specified type has a dangling filename field.
+  template <typename FileInformationStructType> concept HasDanglingFilenameField =
+      std::is_same_v<ULONG, decltype(FileInformationStructType::fileNameLength)> &&
+      std::is_same_v<WCHAR[1], decltype(FileInformationStructType::fileName)>;
+
   /// Implements a byte-wise buffer for holding one or more file information structures without
   /// regard for their type or individual size. Directory enumeration system calls often produce
   /// multiple file information structures, which are placed contiguously in memory. This class
@@ -165,6 +176,73 @@ namespace Pathwinder
     static std::optional<FileInformationStructLayout> LayoutForFileInformationClass(
         FILE_INFORMATION_CLASS fileInformationClass);
 
+    /// Retrieves the stored filename from within one of the many structures that uses a dangling
+    /// filename field, whose type must be known at compile-time.
+    /// @tparam FileInformationStructType Windows internal structure type that uses a wide-character
+    /// dangling filename field.
+    /// @param [in] fileInformationStruct Read-only reference to a structure with a wide-character
+    /// dangling filename field.
+    /// @return String view representation of the wide-character dangling filename field.
+    template <typename FileInformationStructType>
+      requires IsFileInformationStruct<FileInformationStructType> &&
+        HasDanglingFilenameField<FileInformationStructType>
+    static constexpr std::wstring_view ReadFileNameByType(
+        const FileInformationStructType& fileInformationStruct)
+    {
+      return ReadFileNameInternal(
+          &fileInformationStruct,
+          offsetof(FileInformationStructType, fileName),
+          offsetof(FileInformationStructType, fileNameLength));
+    }
+
+    /// Computes the size, in bytes, of one of the many structures that uses a dangling filename
+    /// field, whose type must be known at compile-time.
+    /// @tparam FileInformationStructType Windows internal structure type that uses a wide-character
+    /// dangling filename field.
+    /// @param [in] fileInformationStruct Read-only reference to a structure with a wide-character
+    /// dangling filename field.
+    /// @return Total size, in bytes, of the specified structure.
+    template <typename FileInformationStructType>
+      requires IsFileInformationStruct<FileInformationStructType> &&
+        HasDanglingFilenameField<FileInformationStructType>
+    static inline unsigned int SizeOfStructByType(
+        const FileInformationStructType& fileInformationStruct)
+    {
+      return HypotheticalSizeForFileNameLengthInternal(
+          sizeof(FileInformationStructType),
+          offsetof(FileInformationStructType, fileName),
+          ReadFileNameLengthInternal(
+              &fileInformationStruct, offsetof(FileInformationStructType, fileNameLength)));
+    }
+
+    /// Changes the stored filename within one of the many structures that uses a dangling filename
+    /// field. On output, the filename member is updated to represent the specified filename string,
+    /// but only up to whatever number of characters fit in the buffer containing the structure.
+    /// Regardless, the length field is updated to represent the number of characters needed to
+    /// represent the entire string.
+    /// @tparam FileInformationStructType Windows internal structure type that uses a wide-character
+    /// dangling filename field.
+    /// @param [in, out] fileInformationStruct Mutable reference to a structure with a
+    /// wide-character dangling filename field.
+    /// @param [in] bufferCapacityBytes Total capacity of the buffer containing the file information
+    /// structure, in bytes.
+    /// @param [in] newFileName Filename to be set in the file information structure.
+    template <typename FileInformationStructType>
+      requires IsFileInformationStruct<FileInformationStructType> &&
+        HasDanglingFilenameField<FileInformationStructType>
+    static inline void WriteFileNameByType(
+        FileInformationStructType& fileInformationStruct,
+        unsigned int bufferCapacityBytes,
+        std::wstring_view newFileName)
+    {
+      return WriteFileNameInternal(
+          &fileInformationStruct,
+          newFileName,
+          bufferCapacityBytes,
+          offsetof(FileInformationStructType, fileName),
+          offsetof(FileInformationStructType, fileNameLength));
+    }
+
     /// Returns the base size of the file information structure whose layout is represented by
     /// this object.
     /// @return Base structure size in bytes.
@@ -201,8 +279,7 @@ namespace Pathwinder
     /// @return Pointer to the file information structure's trailing `fileName[1]` field.
     inline TFileNameChar* FileNamePointer(const void* fileInformationStruct) const
     {
-      return reinterpret_cast<TFileNameChar*>(
-          reinterpret_cast<size_t>(fileInformationStruct) + static_cast<size_t>(offsetOfFileName));
+      return FileNamePointerInternal(fileInformationStruct, offsetOfFileName);
     }
 
     /// Computes the hypothetical size, in bytes, of a file information structure if its
@@ -212,7 +289,8 @@ namespace Pathwinder
     /// @return Hypothetical size, in bytes, of a file information structure.
     inline unsigned int HypotheticalSizeForFileNameLength(unsigned int fileNameLengthBytes) const
     {
-      return std::max(structureBaseSizeBytes, offsetOfFileName + fileNameLengthBytes);
+      return HypotheticalSizeForFileNameLengthInternal(
+          structureBaseSizeBytes, offsetOfFileName, fileNameLengthBytes);
     }
 
     /// Reads the `nextEntryOffset` field from the specified file information structure.
@@ -234,9 +312,7 @@ namespace Pathwinder
     /// @return Value of the `fileNameLength` field of the file information structure.
     inline TFileNameLength ReadFileNameLength(const void* fileInformationStruct) const
     {
-      return *reinterpret_cast<TFileNameLength*>(
-          reinterpret_cast<size_t>(fileInformationStruct) +
-          static_cast<size_t>(offsetOfFileNameLength));
+      return ReadFileNameLengthInternal(fileInformationStruct, offsetOfFileNameLength);
     }
 
     /// Converts the trailing `fileName` field from the specified file information structure
@@ -247,9 +323,7 @@ namespace Pathwinder
     /// information structure.
     std::basic_string_view<TFileNameChar> ReadFileName(const void* fileInformationStruct) const
     {
-      return std::wstring_view(
-          FileNamePointer(fileInformationStruct),
-          (ReadFileNameLength(fileInformationStruct) / sizeof(TFileNameChar)));
+      return ReadFileNameInternal(fileInformationStruct, offsetOfFileName, offsetOfFileNameLength);
     }
 
     /// Computes the size, in bytes, of the specified file information structure including its
@@ -285,9 +359,7 @@ namespace Pathwinder
     inline void WriteFileNameLength(
         void* fileInformationStruct, TFileNameLength newFileNameLength) const
     {
-      *(reinterpret_cast<TFileNameLength*>(
-          reinterpret_cast<size_t>(fileInformationStruct) +
-          static_cast<size_t>(offsetOfFileNameLength))) = newFileNameLength;
+      WriteFileNameLengthInternal(fileInformationStruct, newFileNameLength, offsetOfFileNameLength);
       UpdateNextEntryOffset(fileInformationStruct);
     }
 
@@ -305,15 +377,56 @@ namespace Pathwinder
         std::basic_string_view<TFileNameChar> newFileName,
         unsigned int bufferCapacityBytes) const
     {
-      const unsigned int numBytesToWrite = std::min(
-          (bufferCapacityBytes - offsetOfFileName),
-          static_cast<unsigned int>(newFileName.length() * sizeof(TFileNameChar)));
-
-      std::memcpy(FileNamePointer(fileInformationStruct), newFileName.data(), numBytesToWrite);
-      WriteFileNameLength(fileInformationStruct, numBytesToWrite);
+      WriteFileNameInternal(
+          fileInformationStruct,
+          newFileName,
+          bufferCapacityBytes,
+          offsetOfFileName,
+          offsetOfFileNameLength);
+      UpdateNextEntryOffset(fileInformationStruct);
     }
 
   private:
+
+    /// Internal implementation of #HypotheticalSizeForFileNameLength.
+    /// Relies on parameters instead of reading from instance variables.
+    static unsigned int HypotheticalSizeForFileNameLengthInternal(
+        unsigned int structureBaseSizeBytes,
+        unsigned int offsetOfFileName,
+        unsigned int fileNameLengthBytes);
+
+    /// Internal implementation of #FileNamePointer.
+    /// Relies on parameters instead of reading from instance variables.
+    static TFileNameChar* FileNamePointerInternal(
+        const void* fileInformationStruct, unsigned int offsetOfFileName);
+
+    /// Internal implementation of #ReadFileName.
+    /// Relies on parameters instead of reading from instance variables.
+    static std::wstring_view ReadFileNameInternal(
+        const void* fileInformationStruct,
+        unsigned int offsetOfFileName,
+        unsigned int offsetOfFileNameLength);
+
+    /// Internal implementation of #ReadFileNameLength.
+    /// Relies on parameters instead of reading from instance variables.
+    static TFileNameLength ReadFileNameLengthInternal(
+        const void* fileInformationStruct, unsigned int offsetOfFileNameLength);
+
+    /// Internal implementation of #WriteFileName.
+    /// Relies on parameters instead of reading from instance variables.
+    static void WriteFileNameInternal(
+        void* fileInformationStruct,
+        std::basic_string_view<TFileNameChar> newFileName,
+        unsigned int bufferCapacityBytes,
+        unsigned int offsetOfFileName,
+        unsigned int offsetOfFileNameLength);
+
+    /// Internal implementation of #WriteFileNameLength.
+    /// Relies on parameters instead of reading from instance variables.
+    static void WriteFileNameLengthInternal(
+        void* fileInformationStruct,
+        TFileNameLength newFileNameLength,
+        unsigned int offsetOfFileNameLength);
 
     /// File information class enumerator that identifies the structure for which layout
     /// information is being supplied.

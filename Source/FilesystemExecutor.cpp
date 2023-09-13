@@ -20,6 +20,7 @@
 
 #include "ApiWindowsInternal.h"
 #include "ArrayList.h"
+#include "FileInformationStruct.h"
 #include "FilesystemOperations.h"
 #include "Globals.h"
 #include "Message.h"
@@ -460,7 +461,8 @@ namespace Pathwinder
         ULONG renameInformationLength,
         std::function<NTSTATUS(HANDLE, SFileRenameInformation&, ULONG)> underlyingSystemCallInvoker)
     {
-      std::wstring_view unredirectedPath = GetFileInformationStructFilename(renameInformation);
+      std::wstring_view unredirectedPath =
+          FileInformationStructLayout::ReadFileNameByType(renameInformation);
 
       const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(
           functionName,
@@ -514,11 +516,11 @@ namespace Pathwinder
         }
         SFileRenameInformation* const renameInformationToTry = operationToTry.Value();
 
-        lastAttemptedPath = GetFileInformationStructFilename(*renameInformationToTry);
+        lastAttemptedPath = FileInformationStructLayout::ReadFileNameByType(*renameInformationToTry);
         systemCallResult = underlyingSystemCallInvoker(
             fileHandle,
             *renameInformationToTry,
-            renameInformationLength); // TODO: renameInformationLength is wrong here
+            FileInformationStructLayout::SizeOfStructByType(*renameInformationToTry));
         Message::OutputFormatted(
             Message::ESeverity::SuperDebug,
             L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".",
@@ -1368,19 +1370,6 @@ namespace Pathwinder
 
       return fileOperationsList;
     }
-
-    template TFileOperationsList<OBJECT_ATTRIBUTES> SelectFileOperationsToTry(
-        const wchar_t* functionName,
-        unsigned int functionRequestIdentifier,
-        const FileOperationInstruction& instruction,
-        OBJECT_ATTRIBUTES& unredirectedFileObject,
-        OBJECT_ATTRIBUTES& redirectedFileObject);
-    template TFileOperationsList<SFileRenameInformation> SelectFileOperationsToTry(
-        const wchar_t* functionName,
-        unsigned int functionRequestIdentifier,
-        const FileOperationInstruction& instruction,
-        SFileRenameInformation& unredirectedFileObject,
-        SFileRenameInformation& redirectedFileObject);
 
     bool ShouldTryNextFilename(NTSTATUS systemCallResult)
     {

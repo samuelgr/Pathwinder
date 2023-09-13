@@ -228,7 +228,8 @@ namespace Pathwinder
         HANDLE fileHandle,
         SFileRenameInformation& renameInformation,
         ULONG renameInformationLength,
-        std::function<NTSTATUS(HANDLE, SFileRenameInformation&, ULONG)> underlyingSystemCallInvoker);
+        std::function<NTSTATUS(HANDLE, SFileRenameInformation&, ULONG)>
+            underlyingSystemCallInvoker);
 
     /// Common internal entry point for intercepting queries for file information such that the
     /// input is a name identified in an `OBJECT_ATTRIBUTES` structure but the operation does not

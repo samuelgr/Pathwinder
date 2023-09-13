@@ -289,7 +289,8 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(
 
   // The `NtQueryInformationFile` always returns full path and file name information beginning with
   // a backslash character, omitting the drive letter.
-  std::wstring_view systemReturnedFileName = GetFileInformationStructFilename(*fileNameInformation);
+  std::wstring_view systemReturnedFileName =
+      FileInformationStructLayout::ReadFileNameByType(*fileNameInformation);
   if (false == systemReturnedFileName.starts_with(L'\\')) return systemCallResult;
 
   auto maybeHandleAssociatedPath = FilesystemExecutor::GetHandleAssociatedPath(FileHandle);
@@ -316,11 +317,14 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(
       static_cast<int>(replacementFileName.length()),
       replacementFileName.data());
 
-  const size_t numReplacementCharsWritten = SetFileInformationStructFilename(
+  FileInformationStructLayout::WriteFileNameByType(
       *fileNameInformation,
-      (static_cast<size_t>(Length) - fileNameInformationBufferOffset),
+      (static_cast<unsigned int>(Length) -
+       static_cast<unsigned int>(fileNameInformationBufferOffset)),
       replacementFileName);
-  if (numReplacementCharsWritten < replacementFileName.length()) return NtStatus::kBufferOverflow;
+  if (FileInformationStructLayout::ReadFileNameByType(*fileNameInformation).length() <
+      replacementFileName.length())
+    return NtStatus::kBufferOverflow;
 
   // If the original system call resulted in a buffer overflow, but the buffer was large enough to
   // hold the replacement filename, then the application should be told that the operation

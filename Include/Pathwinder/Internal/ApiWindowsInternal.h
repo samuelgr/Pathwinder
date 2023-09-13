@@ -507,62 +507,6 @@ namespace Pathwinder
     WCHAR fileName[1];
   };
 
-  /// Retrieves the stored filename from within one of the many structures that uses a dangling
-  /// filename field.
-  /// @tparam FileInformationStructType Windows internal structure type that uses a wide-character
-  /// dangling filename field.
-  /// @param [in] fileInformationStruct Read-only reference to a structure with a wide-character
-  /// dangling filename field.
-  /// @return String view representation of the wide-character dangling filename field.
-  template <
-      typename FileInformationStructType,
-      typename = decltype(FileInformationStructType::fileNameLength),
-      typename = decltype(FileInformationStructType::fileName[0])>
-  constexpr std::wstring_view GetFileInformationStructFilename(
-      const FileInformationStructType& fileInformationStruct)
-  {
-    return std::wstring_view(
-        fileInformationStruct.fileName, (fileInformationStruct.fileNameLength / sizeof(wchar_t)));
-  }
-
-  /// Changes the stored filename within one of the many structures that uses a dangling filename
-  /// field. On output, the filename member is updated to represent the specified filename string,
-  /// but only up to whatever number of characters fit in the buffer containing the structure.
-  /// Regardless, the length field is updated to represent the number of characters needed to
-  /// represent the entire string.
-  /// @tparam FileInformationStructType Windows internal structure type that uses a wide-character
-  /// dangling filename field.
-  /// @param [in, out] fileInformationStruct Mutable reference to a structure with a
-  /// wide-character dangling filename field.
-  /// @param [in] bufferSizeBytes Total size of the buffer containing the file information
-  /// structure, in bytes.
-  /// @param [in] filename Filename to be set in the file information structure.
-  /// @return Number of characters written. If this is less than the number of characters in the
-  /// input filename string then the buffer was too small to hold the entire filename.
-  template <
-      typename FileInformationStructType,
-      typename = decltype(FileInformationStructType::fileNameLength),
-      typename = decltype(FileInformationStructType::fileName[0])>
-  inline size_t SetFileInformationStructFilename(
-      FileInformationStructType& fileInformationStruct,
-      size_t bufferSizeBytes,
-      std::wstring_view filename)
-  {
-    wchar_t* const filenameBuffer = fileInformationStruct.fileName;
-    const size_t filenameBufferCapacityChars =
-        (bufferSizeBytes - offsetof(FileInformationStructType, fileName)) / sizeof(wchar_t);
-
-    const size_t filenameNumberOfBytesNeeded = (filename.length() * sizeof(wchar_t));
-    const size_t filenameNumberOfCharsToWrite =
-        std::min(filenameBufferCapacityChars, filename.length());
-
-    std::wmemcpy(filenameBuffer, filename.data(), filenameNumberOfCharsToWrite);
-    fileInformationStruct.fileNameLength =
-        static_cast<decltype(fileInformationStruct.fileNameLength)>(filenameNumberOfBytesNeeded);
-
-    return filenameNumberOfCharsToWrite;
-  }
-
   namespace WindowsInternal
   {
     /// Wrapper around the internal `RtlIsNameInExpression` function, which has no associated
