@@ -15,7 +15,7 @@
 #include <string_view>
 #include <vector>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
 

@@ -16,7 +16,7 @@
 #include <optional>
 #include <string_view>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
 #include "DebugAssert.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemOperations.h"

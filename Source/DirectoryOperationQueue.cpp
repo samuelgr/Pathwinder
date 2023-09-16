@@ -18,7 +18,7 @@
 #include <optional>
 #include <unordered_map>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
 #include "BufferPool.h"
 #include "DebugAssert.h"
 #include "FileInformationStruct.h"
@@ -307,7 +307,7 @@ namespace Pathwinder
 
   void EnumerationQueue::Restart(std::wstring_view queryFilePattern)
   {
-    AdvanceQueueContentsInternal(QueryFlag::kRestartScan, queryFilePattern);
+    AdvanceQueueContentsInternal(SL_RESTART_SCAN, queryFilePattern);
     SkipNonMatchingItemsInternal();
   }
 

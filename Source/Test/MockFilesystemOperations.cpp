@@ -18,7 +18,7 @@
 #include <string_view>
 #include <unordered_map>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
 #include "FileInformationStruct.h"
 #include "Strings.h"
 #include "ValueOrError.h"
@@ -207,7 +207,7 @@ namespace PathwinderTest
       directoryEnumerationStateIter = createDirectoryEnumerationStateResult.first;
     }
 
-    if (queryFlags & Pathwinder::QueryFlag::kRestartScan)
+    if (queryFlags & SL_RESTART_SCAN)
     {
       directoryEnumerationStateIter->second.filePattern = MakeFilePatternString(filePattern);
       directoryEnumerationStateIter->second.nextItemIterator =
@@ -215,7 +215,7 @@ namespace PathwinderTest
     }
 
     const unsigned int maxElementsToWrite =
-        ((queryFlags & Pathwinder::QueryFlag::kReturnSingleEntry)
+        ((queryFlags & SL_RETURN_SINGLE_ENTRY)
              ? 1
              : std::numeric_limits<unsigned int>::max());
     unsigned int numElementsWritten = 0;

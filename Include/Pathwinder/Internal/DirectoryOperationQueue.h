@@ -14,7 +14,7 @@
 #include <memory>
 #include <optional>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
 #include "FileInformationStruct.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemRule.h"

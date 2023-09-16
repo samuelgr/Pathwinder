@@ -11,6 +11,8 @@
 
 #include "ApiWindows.h"
 
+#include "DebugAssert.h"
+
 namespace Pathwinder
 {
   void* GetInternalWindowsApiFunctionAddress(const char* const funcName)
@@ -34,4 +36,20 @@ namespace Pathwinder
 
     return nullptr;
   }
+
+  namespace WindowsInternal
+  {
+    BOOLEAN RtlIsNameInExpression(
+        PUNICODE_STRING Expression, PUNICODE_STRING Name, BOOLEAN IgnoreCase, PWCH UpcaseTable)
+    {
+      static decltype(&RtlIsNameInExpression) functionPtr =
+          reinterpret_cast<decltype(&RtlIsNameInExpression)>(
+              GetInternalWindowsApiFunctionAddress("RtlIsNameInExpression"));
+      DebugAssert(
+          nullptr != functionPtr,
+          "Failed to locate the address of the \"" __FUNCTIONW__ "\" function.");
+
+      return functionPtr(Expression, Name, IgnoreCase, UpcaseTable);
+    }
+  } // namespace WindowsInternal
 } // namespace Pathwinder

@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <functional>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
 #include "ArrayList.h"
 #include "FilesystemDirector.h"
 #include "OpenHandleStore.h"

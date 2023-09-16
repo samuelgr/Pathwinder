@@ -18,7 +18,7 @@
 
 #include <Hookshot/DynamicHook.h>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
 #include "DebugAssert.h"
 #include "FileInformationStruct.h"
 #include "FilesystemDirector.h"
@@ -164,8 +164,8 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(
     BOOLEAN RestartScan)
 {
   ULONG queryFlags = 0;
-  if (RestartScan != 0) queryFlags |= Pathwinder::QueryFlag::kRestartScan;
-  if (ReturnSingleEntry != 0) queryFlags |= Pathwinder::QueryFlag::kReturnSingleEntry;
+  if (RestartScan != 0) queryFlags |= SL_RESTART_SCAN;
+  if (ReturnSingleEntry != 0) queryFlags |= SL_RETURN_SINGLE_ENTRY;
 
   auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::EntryPointDirectoryEnumeration(
       GetFunctionName(),

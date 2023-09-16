@@ -19,7 +19,7 @@
 #include <string>
 #include <string_view>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
 #include "FileInformationStruct.h"
 
 namespace PathwinderTest

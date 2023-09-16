@@ -20,7 +20,6 @@
 #include <string_view>
 
 #include "ApiWindows.h"
-#include "ApiWindowsInternal.h"
 #include "DebugAssert.h"
 #include "Globals.h"
 #include "TemporaryBuffer.h"

@@ -14,10 +14,9 @@
 
 #include "FilesystemDirectorBuilder.h"
 
-#include <windows.h>
-
 #include <string_view>
 
+#include "ApiWindows.h"
 #include "Configuration.h"
 #include "FilesystemOperations.h"
 #include "MockFilesystemOperations.h"

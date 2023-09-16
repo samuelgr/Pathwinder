@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <string_view>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
 #include "ValueOrError.h"
 
 namespace Pathwinder

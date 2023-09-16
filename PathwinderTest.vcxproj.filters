@@ -81,9 +81,6 @@
     <ClCompile Include="Source\ApiWindows.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\ApiWindowsInternal.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Source\FileInformationStruct.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -168,9 +165,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\ApiBitSet.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Internal\ApiWindowsInternal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\MutexWrapper.h">

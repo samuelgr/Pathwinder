@@ -18,7 +18,7 @@
 #include <functional>
 #include <mutex>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
 #include "ArrayList.h"
 #include "FileInformationStruct.h"
 #include "FilesystemOperations.h"
@@ -718,17 +718,6 @@ namespace Pathwinder
 
     TemporaryString NtCreateOrOpenOptionsToString(ULONG createOrOpenOptions)
     {
-      // These flags are missing from available headers.
-#ifndef FILE_DISALLOW_EXCLUSIVE
-      constexpr ULONG FILE_DISALLOW_EXCLUSIVE = 0x00020000;
-#endif
-#ifndef FILE_SESSION_AWARE
-      constexpr ULONG FILE_SESSION_AWARE = 0x00040000;
-#endif
-#ifndef FILE_CONTAINS_EXTENDED_CREATE_INFORMATION
-      constexpr ULONG FILE_CONTAINS_EXTENDED_CREATE_INFORMATION = 0x10000000;
-#endif
-
       constexpr std::wstring_view kSeparator = L" | ";
       TemporaryString outputString = Strings::FormatString(L"0x%08x (", createOrOpenOptions);
 
@@ -850,7 +839,7 @@ namespace Pathwinder
           nullptr != enumerationState.queue,
           "Advancing directory enumeration state without an operation queue.");
 
-      if (queryFlags & Pathwinder::QueryFlag::kRestartScan)
+      if (queryFlags & SL_RESTART_SCAN)
       {
         enumerationState.queue->Restart(queryFilePattern);
         enumerationState.enumeratedFilenames.clear();
@@ -896,7 +885,7 @@ namespace Pathwinder
       }
 
       const unsigned int maxElementsToWrite =
-          ((queryFlags & Pathwinder::QueryFlag::kReturnSingleEntry)
+          ((queryFlags & SL_RETURN_SINGLE_ENTRY)
                ? 1
                : std::numeric_limits<unsigned int>::max());
       unsigned int numElementsWritten = 0;

@@ -17,7 +17,8 @@
 #include <optional>
 #include <string_view>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
+#include "FileInformationStruct.h"
 #include "Hooks.h"
 #include "Message.h"
 #include "Strings.h"

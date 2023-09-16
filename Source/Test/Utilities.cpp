@@ -10,10 +10,11 @@
  **************************************************************************************************/
 
 #include <sal.h>
-#include <windows.h>
 
 #include <cstdarg>
 #include <cstdio>
+
+#include "ApiWindows.h"
 
 namespace PathwinderTest
 {

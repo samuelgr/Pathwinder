@@ -17,7 +17,7 @@
 #include <cstring>
 #include <string_view>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
 #include "Configuration.h"
 
 namespace PathwinderTest

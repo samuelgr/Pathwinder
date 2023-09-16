@@ -15,7 +15,7 @@
 
 #include <Hookshot/DynamicHook.h>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
 #include "DebugAssert.h"
 
 // Creates a Hookshot dynamic hook and defines a protected dependency wrapper for it.

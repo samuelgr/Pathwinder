@@ -19,7 +19,7 @@
 #include <optional>
 #include <string_view>
 
-#include "ApiWindowsInternal.h"
+#include "ApiWindows.h"
 #include "TemporaryBuffer.h"
 
 namespace Pathwinder
