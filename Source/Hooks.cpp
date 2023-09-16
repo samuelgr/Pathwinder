@@ -247,90 +247,49 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(
     ULONG Length,
     FILE_INFORMATION_CLASS FileInformationClass)
 {
-  using namespace Pathwinder;
+  Pathwinder::SFileNameInformation* fileNameInformation = nullptr;
 
-  NTSTATUS systemCallResult =
-      Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
-  switch (systemCallResult)
-  {
-    case NtStatus::kBufferOverflow:
-      // Buffer overflows are allowed because the filename part will be overwritten and a true
-      // overflow condition detected at that time.
-      break;
-
-    default:
-      if (!(NT_SUCCESS(systemCallResult))) return systemCallResult;
-      break;
-  }
-
-  SFileNameInformation* fileNameInformation = nullptr;
+  // There are only two file information classes that result in the filename being identified. Any
+  // other file information class is uninteresting, and in those cases the query does not need to be
+  // intercepted.
   switch (FileInformationClass)
   {
-    case SFileNameInformation::kFileInformationClass:
-      fileNameInformation = reinterpret_cast<SFileNameInformation*>(FileInformation);
+    case Pathwinder::SFileNameInformation::kFileInformationClass:
+      fileNameInformation = reinterpret_cast<Pathwinder::SFileNameInformation*>(FileInformation);
       break;
 
-    case SFileAllInformation::kFileInformationClass:
+    case Pathwinder::SFileAllInformation::kFileInformationClass:
       fileNameInformation =
-          &(reinterpret_cast<SFileAllInformation*>(FileInformation)->nameInformation);
+          &(reinterpret_cast<Pathwinder::SFileAllInformation*>(FileInformation)->nameInformation);
       break;
 
     default:
-      return systemCallResult;
+      return Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
   }
 
-  // If the buffer is not big enough to hold any part of the filename then it is not necessary to
-  // try replacing it.
-  const size_t fileNameInformationBufferOffset =
-      reinterpret_cast<size_t>(fileNameInformation) - reinterpret_cast<size_t>(FileInformation);
-  if ((fileNameInformationBufferOffset + offsetof(SFileNameInformation, fileName)) >=
-      static_cast<size_t>(Length))
-    return systemCallResult;
+  const ULONG fileNameInformationBufferCapacity = Length -
+      static_cast<ULONG>(reinterpret_cast<size_t>(fileNameInformation) -
+                         reinterpret_cast<size_t>(FileInformation));
 
-  // The `NtQueryInformationFile` always returns full path and file name information beginning with
-  // a backslash character, omitting the drive letter.
-  std::wstring_view systemReturnedFileName =
-      FileInformationStructLayout::ReadFileNameByType(*fileNameInformation);
-  if (false == systemReturnedFileName.starts_with(L'\\')) return systemCallResult;
-
-  auto maybeHandleAssociatedPath = FilesystemExecutor::GetHandleAssociatedPath(FileHandle);
-  if (false == maybeHandleAssociatedPath.has_value()) return systemCallResult;
-
-  // A stored path has a Windows namespace prefix and a drive letter, both of which need to be
-  // removed to comply with the `NtQueryInformationFile` returned path documentation.
-  std::wstring_view replacementFileName = *maybeHandleAssociatedPath;
-  replacementFileName.remove_prefix(
-      Strings::PathGetWindowsNamespacePrefix(replacementFileName).length());
-  replacementFileName.remove_prefix(replacementFileName.find_first_of(L'\\'));
-  if (replacementFileName == systemReturnedFileName) return systemCallResult;
-
-  const unsigned int requestIdentifier = GetRequestIdentifier();
-
-  Message::OutputFormatted(
-      Message::ESeverity::Debug,
-      L"%s(%u): Invoked with handle %zu, the system returned path \"%.*s\", and it is being replaced with path \"%.*s\".",
+  return Pathwinder::FilesystemExecutor::EntryPointQueryNameByHandle(
       GetFunctionName(),
-      requestIdentifier,
-      reinterpret_cast<size_t>(FileHandle),
-      static_cast<int>(systemReturnedFileName.length()),
-      systemReturnedFileName.data(),
-      static_cast<int>(replacementFileName.length()),
-      replacementFileName.data());
-
-  FileInformationStructLayout::WriteFileNameByType(
-      *fileNameInformation,
-      (static_cast<unsigned int>(Length) -
-       static_cast<unsigned int>(fileNameInformationBufferOffset)),
-      replacementFileName);
-  if (FileInformationStructLayout::ReadFileNameByType(*fileNameInformation).length() <
-      replacementFileName.length())
-    return NtStatus::kBufferOverflow;
-
-  // If the original system call resulted in a buffer overflow, but the buffer was large enough to
-  // hold the replacement filename, then the application should be told that the operation
-  // succeeded. Any other return code should be passed back to the application without
-  // modification.
-  return ((NtStatus::kBufferOverflow == systemCallResult) ? NtStatus::kSuccess : systemCallResult);
+      GetRequestIdentifier(),
+      FileHandle,
+      fileNameInformation,
+      fileNameInformationBufferCapacity,
+      [IoStatusBlock, FileInformation, Length, FileInformationClass](HANDLE fileHandle) -> NTSTATUS
+      {
+        return Original(fileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
+      },
+      [](std::wstring_view replacementFileName) -> std::wstring_view
+      {
+        // The `NtQueryInformationFile` always returns full path and file name information beginning
+        // with a backslash character, omitting the drive letter.
+        replacementFileName.remove_prefix(
+            Pathwinder::Strings::PathGetWindowsNamespacePrefix(replacementFileName).length());
+        replacementFileName.remove_prefix(replacementFileName.find_first_of(L'\\'));
+        return replacementFileName;
+      });
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(

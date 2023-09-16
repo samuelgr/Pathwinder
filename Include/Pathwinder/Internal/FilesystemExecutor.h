@@ -253,6 +253,39 @@ namespace Pathwinder
         POBJECT_ATTRIBUTES objectAttributes,
         std::function<NTSTATUS(POBJECT_ATTRIBUTES)> underlyingSystemCallInvoker);
 
+    /// Common internal entry point for intercepting queries for file name information such that the
+    /// input identifies the file of interest by open file handle.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this
+    /// function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
+    /// the named function. Used only for logging.
+    /// @param [in] fileHandle Open handle associated with the file for which information is
+    /// requested.
+    /// @param [in] fileNameInformation Buffer that will receive file name information when the
+    /// underlying system call is invoked.
+    /// @param [in] fileNameInformationBufferCapacity Capacity of the buffer that holds the file
+    /// name information structure.
+    /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
+    /// operation, with the only variable parameter being object attributes. Any and all other
+    /// information is expected to be captured within the object itself, including other
+    /// application-specified parameters.
+    /// @param [in] fileNameTransform Optional transformation to apply to the filename used to
+    /// replace whatever the system returns from the underlying system call query. Defaults to no
+    /// transformation at all.
+    /// @return Result of the operation, which should be returned to the application.
+    NTSTATUS EntryPointQueryNameByHandle(
+        const wchar_t* functionName,
+        unsigned int functionRequestIdentifier,
+        HANDLE fileHandle,
+        SFileNameInformation* fileNameInformation,
+        ULONG fileNameInformationBufferCapacity,
+        std::function<NTSTATUS(HANDLE)> underlyingSystemCallInvoker,
+        std::function<std::wstring_view(std::wstring_view)> fileNameTransform =
+            [](std::wstring_view fileName) -> std::wstring_view
+        {
+          return fileName;
+        });
+
     /// Generates a string representation of the specified access mask. Useful for logging.
     /// @param [in] accessMask Access mask, typically received from an application when creating or
     /// opening a file.

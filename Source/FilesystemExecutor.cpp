@@ -516,7 +516,8 @@ namespace Pathwinder
         }
         SFileRenameInformation* const renameInformationToTry = operationToTry.Value();
 
-        lastAttemptedPath = FileInformationStructLayout::ReadFileNameByType(*renameInformationToTry);
+        lastAttemptedPath =
+            FileInformationStructLayout::ReadFileNameByType(*renameInformationToTry);
         systemCallResult = underlyingSystemCallInvoker(
             fileHandle,
             *renameInformationToTry,
@@ -618,6 +619,70 @@ namespace Pathwinder
       if (true == lastAttemptedPath.empty()) return underlyingSystemCallInvoker(objectAttributes);
 
       return systemCallResult;
+    }
+
+    NTSTATUS EntryPointQueryNameByHandle(
+        const wchar_t* functionName,
+        unsigned int functionRequestIdentifier,
+        HANDLE fileHandle,
+        SFileNameInformation* fileNameInformation,
+        ULONG fileNameInformationBufferCapacity,
+        std::function<NTSTATUS(HANDLE)> underlyingSystemCallInvoker,
+        std::function<std::wstring_view(std::wstring_view)> fileNameTransform)
+    {
+      NTSTATUS systemCallResult = underlyingSystemCallInvoker(fileHandle);
+      switch (systemCallResult)
+      {
+        case NtStatus::kBufferOverflow:
+          // Buffer overflows are allowed because the filename part will be overwritten and a true
+          // overflow condition detected at that time.
+          break;
+
+        default:
+          if (!(NT_SUCCESS(systemCallResult))) return systemCallResult;
+          break;
+      }
+
+      // If the buffer is not big enough to hold any part of the filename then it is not necessary
+      // to try replacing it.
+      if (offsetof(SFileNameInformation, fileName) >=
+          static_cast<size_t>(fileNameInformationBufferCapacity))
+        return systemCallResult;
+
+      // If the file handle is not stored, meaning it could not possibly be the result of a
+      // redirection, then it is not necessary to replace the filename.
+      std::optional<OpenHandleStore::SHandleDataView> maybeHandleData =
+          OpenHandleStoreInstance().GetDataForHandle(fileHandle);
+      if (false == maybeHandleData.has_value()) return systemCallResult;
+
+      std::wstring_view systemReturnedFileName =
+          FileInformationStructLayout::ReadFileNameByType(*fileNameInformation);
+      std::wstring_view replacementFileName = fileNameTransform(maybeHandleData->associatedPath);
+      if (replacementFileName == systemReturnedFileName) return systemCallResult;
+
+      Message::OutputFormatted(
+          Message::ESeverity::Debug,
+          L"%s(%u): Invoked with handle %zu, the system returned path \"%.*s\", and it is being replaced with path \"%.*s\".",
+          functionName,
+          functionRequestIdentifier,
+          reinterpret_cast<size_t>(fileHandle),
+          static_cast<int>(systemReturnedFileName.length()),
+          systemReturnedFileName.data(),
+          static_cast<int>(replacementFileName.length()),
+          replacementFileName.data());
+
+      FileInformationStructLayout::WriteFileNameByType(
+          *fileNameInformation, fileNameInformationBufferCapacity, replacementFileName);
+      if (FileInformationStructLayout::ReadFileNameByType(*fileNameInformation).length() <
+          replacementFileName.length())
+        return NtStatus::kBufferOverflow;
+
+      // If the original system call resulted in a buffer overflow, but the buffer was large enough
+      // to hold the replacement filename, then the application should be told that the operation
+      // succeeded. Any other return code should be passed back to the application without
+      // modification.
+      return (
+          (NtStatus::kBufferOverflow == systemCallResult) ? NtStatus::kSuccess : systemCallResult);
     }
 
     TemporaryString NtAccessMaskToString(ACCESS_MASK accessMask)
@@ -885,9 +950,7 @@ namespace Pathwinder
       }
 
       const unsigned int maxElementsToWrite =
-          ((queryFlags & SL_RETURN_SINGLE_ENTRY)
-               ? 1
-               : std::numeric_limits<unsigned int>::max());
+          ((queryFlags & SL_RETURN_SINGLE_ENTRY) ? 1 : std::numeric_limits<unsigned int>::max());
       unsigned int numElementsWritten = 0;
       unsigned int numBytesWritten = 0;
       void* lastBufferPosition = nullptr;
