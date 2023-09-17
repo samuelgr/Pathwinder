@@ -23,6 +23,7 @@
 #include "FileInformationStruct.h"
 #include "FilesystemOperations.h"
 #include "Globals.h"
+#include "Hooks.h"
 #include "Message.h"
 #include "MutexWrapper.h"
 #include "OpenHandleStore.h"

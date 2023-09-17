@@ -6,8 +6,8 @@
  * Copyright (c) 2022-2023
  ***********************************************************************************************//**
  * @file OpenHandleStore.h
- *   Declaration and implementation of a container for open filesystem handles along with state
- *   information and metadata associated with each one.
+ *   Declaration of a container for open filesystem handles along with state information and
+ *   metadata associated with each one.
  **************************************************************************************************/
 
 #pragma once
@@ -21,7 +21,6 @@
 #include "ApiWindows.h"
 #include "DirectoryOperationQueue.h"
 #include "FileInformationStruct.h"
-#include "Hooks.h"
 #include "MutexWrapper.h"
 #include "Strings.h"
 
@@ -108,59 +107,24 @@ namespace Pathwinder
     /// handle. This object takes over ownership of the provided directory enumeration queue.
     /// @param [in] fileInformationStructLayout Layout description for the file information
     /// structures that will be produced by the directory enumeration query.
-    inline void AssociateDirectoryEnumerationState(
+    void AssociateDirectoryEnumerationState(
         HANDLE handleToAssociate,
         std::unique_ptr<IDirectoryOperationQueue>&& directoryEnumerationQueue,
-        FileInformationStructLayout fileInformationStructLayout)
-    {
-      std::shared_lock lock(openHandlesMutex);
-
-      auto openHandleIter = openHandles.find(handleToAssociate);
-      DebugAssert(
-          openHandleIter != openHandles.end(),
-          "Attempting to associate a directory enumeration queue with a handle that is not in storage.");
-      if (openHandleIter == openHandles.end()) return;
-
-      DebugAssert(
-          false == openHandleIter->second.directoryEnumeration.has_value(),
-          "Attempting to re-associate a directory enumeration queue with a handle that already has one.");
-
-      openHandleIter->second.directoryEnumeration = SInProgressDirectoryEnumeration{
-          .queue = std::move(directoryEnumerationQueue),
-          .fileInformationStructLayout = fileInformationStructLayout};
-    }
+        FileInformationStructLayout fileInformationStructLayout);
 
     /// Queries the open handle store for the specified handle and retrieves a read-only view of
     /// the associated data, if the handle is found in the store.
     /// @param [in] handleToQuery Handle for which to query.
     /// @return Read-only view of the data associated with the handle, if the handle exists in
     /// the store.
-    inline std::optional<SHandleDataView> GetDataForHandle(HANDLE handleToQuery)
-    {
-      std::shared_lock lock(openHandlesMutex);
-
-      auto openHandleIter = openHandles.find(handleToQuery);
-      if (openHandleIter == openHandles.cend()) return std::nullopt;
-
-      return openHandleIter->second;
-    }
+    std::optional<SHandleDataView> GetDataForHandle(HANDLE handleToQuery);
 
     /// Inserts a new handle and corresponding metadata into the open handle store.
     /// @param [in] handleToInsert Handle to be inserted.
     /// @param [in] associatedPath Path to associate internally with the handle.
     /// @param [in] realOpenedPath Path that was actually opened when producing the handle.
-    inline void InsertHandle(
-        HANDLE handleToInsert, std::wstring&& associatedPath, std::wstring&& realOpenedPath)
-    {
-      std::unique_lock lock(openHandlesMutex);
-
-      const bool insertionWasSuccessful =
-          openHandles
-              .emplace(
-                  handleToInsert, SHandleData(std::move(associatedPath), std::move(realOpenedPath)))
-              .second;
-      DebugAssert(true == insertionWasSuccessful, "Failed to insert a handle into storage.");
-    }
+    void InsertHandle(
+        HANDLE handleToInsert, std::wstring&& associatedPath, std::wstring&& realOpenedPath);
 
     /// Inserts a new handle and corresponding path into the open handle store or, if the handle
     /// already exists, updates its stored data. Does not affect the directory enumeration
@@ -168,28 +132,10 @@ namespace Pathwinder
     /// @param [in] handleToInsert Handle to be inserted.
     /// @param [in] associatedPath Path to associate internally with the handle.
     /// @param [in] realOpenedPath Path that was actually opened when producing the handle.
-    inline void InsertOrUpdateHandle(
-        HANDLE handleToInsertOrUpdate, std::wstring&& associatedPath, std::wstring&& realOpenedPath)
-    {
-      std::unique_lock lock(openHandlesMutex);
-
-      auto existingHandleIter = openHandles.find(handleToInsertOrUpdate);
-      if (openHandles.end() == existingHandleIter)
-      {
-        const bool insertionWasSuccessful =
-            openHandles
-                .emplace(
-                    handleToInsertOrUpdate,
-                    SHandleData(std::move(associatedPath), std::move(realOpenedPath)))
-                .second;
-        DebugAssert(true == insertionWasSuccessful, "Failed to insert a handle into storage.");
-      }
-      else
-      {
-        existingHandleIter->second.associatedPath = std::move(associatedPath);
-        existingHandleIter->second.realOpenedPath = std::move(realOpenedPath);
-      }
-    }
+    void InsertOrUpdateHandle(
+        HANDLE handleToInsertOrUpdate,
+        std::wstring&& associatedPath,
+        std::wstring&& realOpenedPath);
 
     /// Attempts to remove an existing handle and corresponding path from the open handle store.
     /// @param [in] handleToRemove Handle to be removed.
@@ -197,20 +143,7 @@ namespace Pathwinder
     /// data for the handle that was removed, if not null. Only filled if this method returns
     /// `true`.
     /// @return `true` if the handle was found and removed, `false` otherwise.
-    inline bool RemoveHandle(HANDLE handleToRemove, SHandleData* handleData)
-    {
-      std::unique_lock lock(openHandlesMutex);
-
-      auto removalIter = openHandles.find(handleToRemove);
-      if (openHandles.end() == removalIter) return false;
-
-      if (nullptr == handleData)
-        openHandles.erase(removalIter);
-      else
-        *handleData = std::move(openHandles.extract(removalIter).mapped());
-
-      return true;
-    }
+    bool RemoveHandle(HANDLE handleToRemove, SHandleData* handleData);
 
     /// Attempts to close and subsequently remove an existing handle and corresponding path from
     /// the open handle store. Both handle closure and removal need to be done while the lock is
@@ -222,25 +155,7 @@ namespace Pathwinder
     /// data for the handle that was removed, if not null. Only filled if the underlying system
     /// call to close the handle succeeds.
     /// @return Result of the underlying system call to `NtClose` to close the handle.
-    inline NTSTATUS RemoveAndCloseHandle(HANDLE handleToRemove, SHandleData* handleData)
-    {
-      std::unique_lock lock(openHandlesMutex);
-
-      auto removalIter = openHandles.find(handleToRemove);
-      DebugAssert(
-          openHandles.end() != removalIter,
-          "Attempting to close and erase a handle that was not previously stored.");
-
-      NTSTATUS systemCallResult = Hooks::ProtectedDependency::NtClose::SafeInvoke(handleToRemove);
-      if (!(NT_SUCCESS(systemCallResult))) return systemCallResult;
-
-      if (nullptr == handleData)
-        openHandles.erase(removalIter);
-      else
-        *handleData = std::move(openHandles.extract(removalIter).mapped());
-
-      return systemCallResult;
-    }
+    NTSTATUS RemoveAndCloseHandle(HANDLE handleToRemove, SHandleData* handleData);
 
   private:
 

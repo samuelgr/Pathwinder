@@ -24,7 +24,8 @@ namespace Pathwinder
   {
     /// Closes a handle that was previously opened by calling filesystem operation functions.
     /// @param [in] handle Handle to be closed.
-    void CloseHandle(HANDLE handle);
+    /// @return Result of the underlying system call that closes the handle.
+    NTSTATUS CloseHandle(HANDLE handle);
 
     /// Attempts to create the specified directory if it does not already exist.
     /// If needed, also attempts to create all directories that are ancestors of the specified

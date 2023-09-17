@@ -101,13 +101,14 @@ namespace PathwinderTest
     }
   }
 
-  void MockFilesystemOperations::CloseHandle(HANDLE handle)
+  NTSTATUS MockFilesystemOperations::CloseHandle(HANDLE handle)
   {
     const auto directoryHandleIter = openDirectoryHandles.find(handle);
     if (openDirectoryHandles.cend() == directoryHandleIter)
       TEST_FAILED_BECAUSE(L"%s: Attempting to close a handle that is not open.", __FUNCTIONW__);
 
     openDirectoryHandles.erase(directoryHandleIter);
+    return Pathwinder::NtStatus::kSuccess;
   }
 
   intptr_t MockFilesystemOperations::CreateDirectoryHierarchy(
@@ -320,7 +321,7 @@ namespace Pathwinder
 
     // Invocations are forwarded to mock instance methods.
 
-    void CloseHandle(HANDLE handle)
+    NTSTATUS CloseHandle(HANDLE handle)
     {
       MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, CloseHandle, handle);
     }

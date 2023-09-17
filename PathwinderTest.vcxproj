@@ -122,6 +122,7 @@
     <ClCompile Include="Source\FilesystemDirector.cpp" />
     <ClCompile Include="Source\Globals.cpp" />
     <ClCompile Include="Source\Message.cpp" />
+    <ClCompile Include="Source\OpenHandleStore.cpp" />
     <ClCompile Include="Source\PathwinderConfigReader.cpp" />
     <ClCompile Include="Source\Resolver.cpp" />
     <ClCompile Include="Source\Strings.cpp" />

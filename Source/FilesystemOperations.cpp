@@ -163,9 +163,9 @@ namespace Pathwinder
       return absolutePath.substr(0, 3);
     }
 
-    void CloseHandle(HANDLE handle)
+    NTSTATUS CloseHandle(HANDLE handle)
     {
-      Hooks::ProtectedDependency::NtClose::SafeInvoke(handle);
+      return Hooks::ProtectedDependency::NtClose::SafeInvoke(handle);
     }
 
     intptr_t CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath)
