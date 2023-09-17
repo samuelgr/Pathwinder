@@ -40,7 +40,7 @@ static inline unsigned int GetRequestIdentifier(void)
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtClose::Hook(HANDLE Handle)
 {
-  return Pathwinder::FilesystemExecutor::EntryPointCloseHandle(
+  return Pathwinder::FilesystemExecutor::CloseHandle(
       GetFunctionName(),
       GetRequestIdentifier(),
       Handle,
@@ -63,7 +63,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(
     PVOID EaBuffer,
     ULONG EaLength)
 {
-  return Pathwinder::FilesystemExecutor::EntryPointNewFileHandle(
+  return Pathwinder::FilesystemExecutor::NewFileHandle(
       GetFunctionName(),
       GetRequestIdentifier(),
       FileHandle,
@@ -114,7 +114,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(
   const wchar_t* const functionName = GetFunctionName();
   const unsigned int requestIdentifier = GetRequestIdentifier();
 
-  return Pathwinder::FilesystemExecutor::EntryPointNewFileHandle(
+  return Pathwinder::FilesystemExecutor::NewFileHandle(
       functionName,
       requestIdentifier,
       FileHandle,
@@ -167,7 +167,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(
   if (RestartScan != 0) queryFlags |= SL_RESTART_SCAN;
   if (ReturnSingleEntry != 0) queryFlags |= SL_RETURN_SINGLE_ENTRY;
 
-  auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::EntryPointDirectoryEnumeration(
+  auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::DirectoryEnumeration(
       GetFunctionName(),
       GetRequestIdentifier(),
       FileHandle,
@@ -210,7 +210,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(
     ULONG QueryFlags,
     PUNICODE_STRING FileName)
 {
-  auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::EntryPointDirectoryEnumeration(
+  auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::DirectoryEnumeration(
       GetFunctionName(),
       GetRequestIdentifier(),
       FileHandle,
@@ -271,7 +271,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(
       static_cast<ULONG>(reinterpret_cast<size_t>(fileNameInformation) -
                          reinterpret_cast<size_t>(FileInformation));
 
-  return Pathwinder::FilesystemExecutor::EntryPointQueryNameByHandle(
+  return Pathwinder::FilesystemExecutor::QueryNameByHandle(
       GetFunctionName(),
       GetRequestIdentifier(),
       FileHandle,
@@ -281,14 +281,19 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(
       {
         return Original(fileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
       },
-      [](std::wstring_view replacementFileName) -> std::wstring_view
+      [](std::wstring_view systemReturnedFileName,
+         std::wstring_view proposedReplacementFileName) -> std::optional<std::wstring_view>
       {
-        // The `NtQueryInformationFile` always returns full path and file name information beginning
-        // with a backslash character, omitting the drive letter.
-        replacementFileName.remove_prefix(
-            Pathwinder::Strings::PathGetWindowsNamespacePrefix(replacementFileName).length());
-        replacementFileName.remove_prefix(replacementFileName.find_first_of(L'\\'));
-        return replacementFileName;
+        // When queried such that it returns a full path, the `NtQueryInformationFile` returns full
+        // path and file name information beginning with a backslash character, omitting the drive
+        // letter. Thus, if the system-returned string does not begin with a backslash, it is not
+        // a full path and is therefore uninteresting.
+        if (false == systemReturnedFileName.starts_with(L'\\')) return std::nullopt;
+        proposedReplacementFileName.remove_prefix(
+            Pathwinder::Strings::PathGetWindowsNamespacePrefix(proposedReplacementFileName)
+                .length());
+        proposedReplacementFileName.remove_prefix(proposedReplacementFileName.find_first_of(L'\\'));
+        return proposedReplacementFileName;
       });
 }
 
@@ -299,7 +304,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
     ULONG Length,
     FILE_INFORMATION_CLASS FileInformationClass)
 {
-  return Pathwinder::FilesystemExecutor::EntryPointQueryByObjectAttributes(
+  return Pathwinder::FilesystemExecutor::QueryByObjectAttributes(
       GetFunctionName(),
       GetRequestIdentifier(),
       Pathwinder::FileAccessMode::ReadOnly(),
@@ -322,7 +327,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
   if (Pathwinder::SFileRenameInformation::kFileInformationClass != FileInformationClass)
     return Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
 
-  return Pathwinder::FilesystemExecutor::EntryPointRenameByHandle(
+  return Pathwinder::FilesystemExecutor::RenameByHandle(
       GetFunctionName(),
       GetRequestIdentifier(),
       FileHandle,
@@ -345,7 +350,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
     POBJECT_ATTRIBUTES ObjectAttributes, PFILE_BASIC_INFO FileInformation)
 {
-  return Pathwinder::FilesystemExecutor::EntryPointQueryByObjectAttributes(
+  return Pathwinder::FilesystemExecutor::QueryByObjectAttributes(
       GetFunctionName(),
       GetRequestIdentifier(),
       Pathwinder::FileAccessMode::ReadOnly(),

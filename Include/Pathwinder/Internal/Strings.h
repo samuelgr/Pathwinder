@@ -176,6 +176,29 @@ namespace Pathwinder
     /// @return Absolute path with a prefix inserted in front of it.
     TemporaryString PathAddWindowsNamespacePrefix(std::wstring_view absolutePath);
 
+    /// Generates a string representation of the specified access mask.
+    /// @param [in] accessMask Access mask, typically received from an application when creating or
+    /// opening a file.
+    /// @return String representation of the access mask.
+    TemporaryString NtAccessMaskToString(ACCESS_MASK accessMask);
+
+    /// Generates a string representation of the specified create disposition value.
+    /// @param [in] createDisposition Creation disposition options, typically received from an
+    /// application when creating or opening a file.
+    /// @return String representation of the create disposition.
+    TemporaryString NtCreateDispositionToString(ULONG createDisposition);
+
+    /// Generates a string representation of the specified create/open options flags.
+    /// @param [in] createOrOpenOptions Create or open options flags.
+    /// @return String representation of the create or open options flags.
+    TemporaryString NtCreateOrOpenOptionsToString(ULONG createOrOpenOptions);
+
+    /// Generates a string representation of the specified share access flags.
+    /// @param [in] shareAccess Share access flags, typically received from an application when
+    /// creating or opening a file.
+    /// @return String representation of the share access flags.
+    TemporaryString NtShareAccessToString(ULONG shareAccess);
+
     /// Converts a standard string view to a Windows internal Unicode string view.
     /// @param [in] strView Standard string view to convert.
     /// @return Resulting Windows internal Unicode string view.
