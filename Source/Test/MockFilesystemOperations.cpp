@@ -216,9 +216,7 @@ namespace PathwinderTest
     }
 
     const unsigned int maxElementsToWrite =
-        ((queryFlags & SL_RETURN_SINGLE_ENTRY)
-             ? 1
-             : std::numeric_limits<unsigned int>::max());
+        ((queryFlags & SL_RETURN_SINGLE_ENTRY) ? 1 : std::numeric_limits<unsigned int>::max());
     unsigned int numElementsWritten = 0;
     unsigned int bufferBytePosition = 0;
     void* lastElementWritten = nullptr;
@@ -273,6 +271,11 @@ namespace PathwinderTest
 
     fileInformationStructLayout.ClearNextEntryOffset(lastElementWritten);
     return Pathwinder::NtStatus::kSuccess;
+  }
+
+  Pathwinder::ValueOrError<ULONG, NTSTATUS> MockFilesystemOperations::QueryFileHandleMode(HANDLE fileHandle)
+  {
+    TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
   }
 
   NTSTATUS MockFilesystemOperations::QuerySingleFileDirectoryInformation(
@@ -366,6 +369,11 @@ namespace Pathwinder
           enumerationBufferCapacityBytes,
           queryFlags,
           filePattern);
+    }
+
+    Pathwinder::ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle)
+    {
+      MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, QueryFileHandleMode, fileHandle);
     }
 
     NTSTATUS QuerySingleFileDirectoryInformation(

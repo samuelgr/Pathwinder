@@ -218,12 +218,15 @@ namespace Pathwinder
     }
 #endif
 
-#ifndef PATHWINDER_SKIP_CONFIG
     const SConfigurationData& GetConfigurationData(void)
     {
+#ifdef PATHWINDER_SKIP_CONFIG
+      static SConfigurationData fakeConfigData{};
+      return fakeConfigData;
+#else
       return MutableParsedConfigurationData();
-    }
 #endif
+    }
 
     HANDLE GetCurrentProcessHandle(void)
     {

@@ -74,11 +74,9 @@ namespace Pathwinder
       bool isDryRunMode;
     };
 
-#ifndef PATHWINDER_SKIP_CONFIG
     /// Retrieves the configuration data after being parsed from a configuration file.
     /// @return Read-only configuration object reference.
     const SConfigurationData& GetConfigurationData(void);
-#endif
 
     /// Retrieves a pseudohandle to the current process.
     /// @return Current process pseudohandle.

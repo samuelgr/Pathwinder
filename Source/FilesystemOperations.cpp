@@ -346,6 +346,23 @@ namespace Pathwinder
       return directoryEnumerationResult;
     }
 
+    ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle)
+    {
+      SFileModeInformation modeInformation{};
+      IO_STATUS_BLOCK unusedStatusBlock{};
+
+      NTSTATUS queryInformationResult =
+          Hooks::ProtectedDependency::NtQueryInformationFile::SafeInvoke(
+              fileHandle,
+              &unusedStatusBlock,
+              &modeInformation,
+              sizeof(modeInformation),
+              SFileModeInformation::kFileInformationClass);
+      if (!(NT_SUCCESS(queryInformationResult))) return queryInformationResult;
+
+      return modeInformation.mode;
+    }
+
     NTSTATUS QuerySingleFileDirectoryInformation(
         std::wstring_view absoluteDirectoryPath,
         std::wstring_view fileName,

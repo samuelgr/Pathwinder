@@ -23,7 +23,6 @@
 #include "FileInformationStruct.h"
 #include "FilesystemOperations.h"
 #include "Globals.h"
-#include "Hooks.h"
 #include "Message.h"
 #include "MutexWrapper.h"
 #include "OpenHandleStore.h"
@@ -672,18 +671,10 @@ namespace Pathwinder
     /// error.
     static EInputOutputMode GetInputOutputModeForHandle(HANDLE handle)
     {
-      SFileModeInformation modeInformation{};
-      IO_STATUS_BLOCK unusedStatusBlock{};
+      auto handleModeInformation = FilesystemOperations::QueryFileHandleMode(handle);
+      if (handleModeInformation.HasError()) return EInputOutputMode::Unknown;
 
-      if (!(NT_SUCCESS(Hooks::ProtectedDependency::NtQueryInformationFile::SafeInvoke(
-              handle,
-              &unusedStatusBlock,
-              &modeInformation,
-              sizeof(modeInformation),
-              SFileModeInformation::kFileInformationClass))))
-        return EInputOutputMode::Unknown;
-
-      switch (modeInformation.mode & (FILE_SYNCHRONOUS_IO_ALERT | FILE_SYNCHRONOUS_IO_NONALERT))
+      switch (handleModeInformation.Value() & (FILE_SYNCHRONOUS_IO_ALERT | FILE_SYNCHRONOUS_IO_NONALERT))
       {
         case 0:
           return EInputOutputMode::Asynchronous;

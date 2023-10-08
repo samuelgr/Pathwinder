@@ -122,6 +122,7 @@ namespace PathwinderTest
         unsigned int enumerationBufferCapacityBytes,
         ULONG queryFlags,
         std::wstring_view filePattern);
+    Pathwinder::ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle);
     NTSTATUS QuerySingleFileDirectoryInformation(
         std::wstring_view absoluteDirectoryPath,
         std::wstring_view fileName,

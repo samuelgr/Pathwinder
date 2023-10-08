@@ -118,6 +118,7 @@
     <ClCompile Include="Source\DirectoryOperationQueue.cpp" />
     <ClCompile Include="Source\FileInformationStruct.cpp" />
     <ClCompile Include="Source\FilesystemDirectorBuilder.cpp" />
+    <ClCompile Include="Source\FilesystemExecutor.cpp" />
     <ClCompile Include="Source\FilesystemRule.cpp" />
     <ClCompile Include="Source\FilesystemDirector.cpp" />
     <ClCompile Include="Source\Globals.cpp" />
@@ -152,6 +153,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\DirectoryOperationQueue.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FileInformationStruct.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirectorBuilder.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\FilesystemExecutor.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemInstruction.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemOperations.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemRule.h" />
