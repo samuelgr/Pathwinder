@@ -61,6 +61,8 @@ namespace Pathwinder
 
       /// In-progress directory enumeration state. Not owned by this structure.
       std::optional<SInProgressDirectoryEnumeration*> directoryEnumeration;
+
+      inline bool operator==(const SHandleDataView& other) const = default;
     };
 
     /// Data stored about an open handle.

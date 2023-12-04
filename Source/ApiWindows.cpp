@@ -47,7 +47,7 @@ namespace Pathwinder
               GetInternalWindowsApiFunctionAddress("RtlIsNameInExpression"));
       DebugAssert(
           nullptr != functionPtr,
-          "Failed to locate the address of the \"" __FUNCTIONW__ "\" function.");
+          "Failed to locate the address of the \"" __FUNCTION__ "\" function.");
 
       return functionPtr(Expression, Name, IgnoreCase, UpcaseTable);
     }
