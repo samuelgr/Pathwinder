@@ -33,7 +33,7 @@ namespace Pathwinder
       std::unique_ptr<IDirectoryOperationQueue>&& directoryEnumerationQueue,
       FileInformationStructLayout fileInformationStructLayout)
   {
-    std::shared_lock lock(openHandlesMutex);
+    std::unique_lock lock(openHandlesMutex);
 
     auto openHandleIter = openHandles.find(handleToAssociate);
     DebugAssert(

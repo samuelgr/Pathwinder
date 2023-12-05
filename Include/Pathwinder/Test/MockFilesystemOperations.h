@@ -89,7 +89,7 @@ namespace PathwinderTest
 
     MockFilesystemOperations(const MockFilesystemOperations& other) = delete;
 
-    MockFilesystemOperations(MockFilesystemOperations && other) = default;
+    MockFilesystemOperations(MockFilesystemOperations&& other) = default;
 
     /// Inserts a directory and all its parents into the fake filesystem.
     /// @param [in] absolutePath Absolute path of the directory to insert. Paths are

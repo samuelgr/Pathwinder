@@ -16,6 +16,7 @@
 #include <string>
 #include <string_view>
 
+#include "ApiWindows.h"
 #include "DirectoryOperationQueue.h"
 #include "FileInformationStruct.h"
 
@@ -32,8 +33,9 @@ namespace PathwinderTest
     using TFileNamesToEnumerate = std::set<std::wstring, std::less<>>;
 
     /// Queues created this way will not enumerate any files but can be used to test enumeration
-    /// status reporting.
-    MockDirectoryOperationQueue(NTSTATUS enumerationStatus);
+    /// status reporting. This can also be used as a default constructor for creating objects that
+    /// cannot enumerate anything but instead simply report failure.
+    MockDirectoryOperationQueue(NTSTATUS enumerationStatus = Pathwinder::NtStatus::kInternalError);
 
     MockDirectoryOperationQueue(
         Pathwinder::FileInformationStructLayout fileInformationStructLayout,

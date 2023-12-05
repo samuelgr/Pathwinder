@@ -26,7 +26,7 @@ namespace _DebugTestInternal
 
     inline Assertion(std::string&& failureMessage) : failureMessage(std::move(failureMessage)) {}
 
-    std::string_view GetFailureMessage(void)
+    std::string_view GetFailureMessage(void) const
     {
       return failureMessage;
     }
@@ -92,7 +92,7 @@ namespace _DebugTestInternal
   {                                                                                                \
     if (::_DebugTestInternal::ExpectedAssertionContext::ShouldThrowAssertionFailureAsException())  \
     {                                                                                              \
-      throw ::_DebugTestInternal::Assertion(msg);                                                  \
+      if (!(expr)) throw ::_DebugTestInternal::Assertion(msg);                                     \
     }                                                                                              \
     else                                                                                           \
     {                                                                                              \

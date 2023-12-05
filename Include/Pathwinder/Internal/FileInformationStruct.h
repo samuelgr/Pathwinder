@@ -149,7 +149,7 @@ namespace Pathwinder
           offsetOfFileName()
     {}
 
-    /// This constructor is intended for internal use and is not generally intended to be
+    /// This constructor is intended for internal use or tests and is not generally intended to be
     /// invoked externally.
     constexpr FileInformationStructLayout(
         FILE_INFORMATION_CLASS fileInformationClass,
