@@ -18,6 +18,7 @@
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"
 #include "FilesystemDirector.h"
+#include "OpenHandleStore.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
 #include "ValueOrError.h"
@@ -31,6 +32,8 @@ namespace Pathwinder
     /// function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
     /// the named function. Used only for logging.
+    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
+    /// file handles known to be open. Sets the context for this call.
     /// @param [in] handle Handle that the application has requested to close.
     /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
     /// operation, with the only variable parameter being the handle to close. Any and all other
@@ -39,18 +42,20 @@ namespace Pathwinder
     NTSTATUS CloseHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         HANDLE handle,
         std::function<NTSTATUS(HANDLE)> underlyingSystemCallInvoker);
 
     /// Common internal entry point for intercepting directory enumerations. Parameters correspond
     /// to the `NtQueryDirectoryFileEx` system call, with the exception of `functionName` and
-    /// `functionRequestIdentifier` which are the hook function name and request identifier for
-    /// logging purposes.
+    /// `functionRequestIdentifier`, which are the hook function name and request identifier for
+    /// logging purposes, and `openHandleStore`, which sets the context for this call.
     /// @return Result to be returned to the application on system call completion, or nothing at
     /// all if the request should be forwarded unmodified to the system.
     std::optional<NTSTATUS> DirectoryEnumeration(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         HANDLE fileHandle,
         HANDLE event,
         PIO_APC_ROUTINE apcRoutine,
@@ -68,6 +73,8 @@ namespace Pathwinder
     /// function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
     /// the named function. Used only for logging.
+    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
+    /// file handles known to be open. Sets the context for this call.
     /// @param [in] fileHandle Address that will receive the newly-created file handle, if this
     /// function is successful.
     /// @param [in] desiredAccess Desired file access types requested by the application.
@@ -84,6 +91,7 @@ namespace Pathwinder
     NTSTATUS NewFileHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         PHANDLE fileHandle,
         ACCESS_MASK desiredAccess,
         POBJECT_ATTRIBUTES objectAttributes,
@@ -98,6 +106,8 @@ namespace Pathwinder
     /// function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
     /// the named function. Used only for logging.
+    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
+    /// file handles known to be open. Sets the context for this call.
     /// @param [in] fileHandle Open handle associated with the file or directory being renamed.
     /// @param [in] renameInformation Windows structure describing the rename operation, as supplied
     /// by the application. Among other things, contains the desired new name.
@@ -112,6 +122,7 @@ namespace Pathwinder
     NTSTATUS RenameByHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         HANDLE fileHandle,
         SFileRenameInformation& renameInformation,
         ULONG renameInformationLength,
@@ -125,6 +136,8 @@ namespace Pathwinder
     /// function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
     /// the named function. Used only for logging.
+    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
+    /// file handles known to be open. Sets the context for this call.
     /// @param [in] fileAccessMode Type of accesses that the underlying system call is expected to
     /// perform on the file.
     /// @param [in] objectAttributes Object attributes received as input from the application.
@@ -136,6 +149,7 @@ namespace Pathwinder
     NTSTATUS QueryByObjectAttributes(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         FileAccessMode fileAccessMode,
         POBJECT_ATTRIBUTES objectAttributes,
         std::function<NTSTATUS(POBJECT_ATTRIBUTES)> underlyingSystemCallInvoker);
@@ -146,6 +160,8 @@ namespace Pathwinder
     /// function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
     /// the named function. Used only for logging.
+    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
+    /// file handles known to be open. Sets the context for this call.
     /// @param [in] fileHandle Open handle associated with the file for which information is
     /// requested.
     /// @param [in] fileNameInformation Buffer that will receive file name information when the
@@ -165,6 +181,7 @@ namespace Pathwinder
     NTSTATUS QueryNameByHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         HANDLE fileHandle,
         SFileNameInformation* fileNameInformation,
         ULONG fileNameInformationBufferCapacity,

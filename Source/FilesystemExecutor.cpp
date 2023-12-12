@@ -21,6 +21,7 @@
 #include "ApiWindows.h"
 #include "ArrayList.h"
 #include "FileInformationStruct.h"
+#include "FilesystemDirector.h"
 #include "FilesystemOperations.h"
 #include "Globals.h"
 #include "Message.h"
@@ -145,15 +146,6 @@ namespace Pathwinder
     /// @tparam FileObjectType Data structure type that identifies files to try.
     template <typename FileObjectType> using TFileOperationsList =
         ArrayList<ValueOrError<FileObjectType*, NTSTATUS>, 2>;
-
-    /// Retrieves a reference to the open handle store instance. It is maintained on the heap so it
-    /// is not destroyed automatically by the runtime on program exit.
-    /// @return Mutable reference to the open handle store instance.
-    static inline OpenHandleStore& OpenHandleStoreInstance(void)
-    {
-      static OpenHandleStore* const openHandleStore = new OpenHandleStore;
-      return *openHandleStore;
-    }
 
     /// Dumps to the log all relevant invocation parameters for a file operation that results in the
     /// creation of a new file handle. Parameters are a subset of those that would normally be
@@ -543,6 +535,8 @@ namespace Pathwinder
     /// function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
     /// the named function. Used only for logging.
+    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
+    /// file handles known to be open. Sets the context for this call.
     /// @param [in] rootDirectory Open handle for the root directory that contains the input
     /// filename. May be `nullptr`, in which case the input filename must be a full and absolute
     /// path. Supplied by an application that invokes a system call.
@@ -556,6 +550,7 @@ namespace Pathwinder
     static SFileOperationContext GetFileOperationRedirectionInformation(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         HANDLE rootDirectory,
         std::wstring_view inputFilename,
         FileAccessMode fileAccessMode,
@@ -564,7 +559,7 @@ namespace Pathwinder
       std::optional<TemporaryString> maybeRedirectedFilename = std::nullopt;
       std::optional<OpenHandleStore::SHandleDataView> maybeRootDirectoryHandleData =
           ((nullptr == rootDirectory) ? std::nullopt
-                                      : OpenHandleStoreInstance().GetDataForHandle(rootDirectory));
+                                      : openHandleStore.GetDataForHandle(rootDirectory));
 
       if (true == maybeRootDirectoryHandleData.has_value())
       {
@@ -674,7 +669,8 @@ namespace Pathwinder
       auto handleModeInformation = FilesystemOperations::QueryFileHandleMode(handle);
       if (handleModeInformation.HasError()) return EInputOutputMode::Unknown;
 
-      switch (handleModeInformation.Value() & (FILE_SYNCHRONOUS_IO_ALERT | FILE_SYNCHRONOUS_IO_NONALERT))
+      switch (handleModeInformation.Value() &
+              (FILE_SYNCHRONOUS_IO_ALERT | FILE_SYNCHRONOUS_IO_NONALERT))
       {
         case 0:
           return EInputOutputMode::Asynchronous;
@@ -889,6 +885,8 @@ namespace Pathwinder
     /// function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
     /// the named function. Used only for logging.
+    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
+    /// file handles known to be open. Sets the context for this call.
     /// @param [in] newlyOpenedHandle Handle to add to the open handles store.
     /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
     /// @param [in] successfulPath Path that was used successfully to create the file handle.
@@ -896,6 +894,7 @@ namespace Pathwinder
     static void SelectFilenameAndStoreNewlyOpenedHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         HANDLE newlyOpenedHandle,
         const FileOperationInstruction& instruction,
         std::wstring_view successfulPath,
@@ -935,7 +934,7 @@ namespace Pathwinder
         successfulPath = Strings::RemoveTrailing(successfulPath, L'\\');
         selectedPath = Strings::RemoveTrailing(selectedPath, L'\\');
 
-        OpenHandleStoreInstance().InsertHandle(
+        openHandleStore.InsertHandle(
             newlyOpenedHandle, std::wstring(selectedPath), std::wstring(successfulPath));
         Message::OutputFormatted(
             Message::ESeverity::Debug,
@@ -956,6 +955,8 @@ namespace Pathwinder
     /// function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
     /// the named function. Used only for logging.
+    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
+    /// file handles known to be open. Sets the context for this call.
     /// @param [in] handleToUpdate Handle to update in the open handles store, if it is present.
     /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
     /// @param [in] successfulPath Path that was used successfully to create the file handle.
@@ -963,6 +964,7 @@ namespace Pathwinder
     static void SelectFilenameAndUpdateOpenHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         HANDLE handleToUpdate,
         const FileOperationInstruction& instruction,
         std::wstring_view successfulPath,
@@ -975,7 +977,7 @@ namespace Pathwinder
         case EAssociateNameWithHandle::None:
         {
           OpenHandleStore::SHandleData erasedHandleData;
-          if (true == OpenHandleStoreInstance().RemoveHandle(handleToUpdate, &erasedHandleData))
+          if (true == openHandleStore.RemoveHandle(handleToUpdate, &erasedHandleData))
             Message::OutputFormatted(
                 Message::ESeverity::Debug,
                 L"%s(%u): Handle %zu associated with path \"%s\" was erased from storage.",
@@ -1013,7 +1015,7 @@ namespace Pathwinder
         successfulPath = Strings::RemoveTrailing(successfulPath, L'\\');
         selectedPath = Strings::RemoveTrailing(selectedPath, L'\\');
 
-        OpenHandleStoreInstance().InsertOrUpdateHandle(
+        openHandleStore.InsertOrUpdateHandle(
             handleToUpdate, std::wstring(selectedPath), std::wstring(successfulPath));
         Message::OutputFormatted(
             Message::ESeverity::Debug,
@@ -1031,16 +1033,16 @@ namespace Pathwinder
     NTSTATUS CloseHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         HANDLE handle,
         std::function<NTSTATUS(HANDLE)> underlyingSystemCallInvoker)
     {
       std::optional<OpenHandleStore::SHandleDataView> maybeClosedHandleData =
-          OpenHandleStoreInstance().GetDataForHandle(handle);
+          openHandleStore.GetDataForHandle(handle);
       if (false == maybeClosedHandleData.has_value()) return underlyingSystemCallInvoker(handle);
 
       OpenHandleStore::SHandleData closedHandleData;
-      NTSTATUS closeHandleResult =
-          OpenHandleStoreInstance().RemoveAndCloseHandle(handle, &closedHandleData);
+      NTSTATUS closeHandleResult = openHandleStore.RemoveAndCloseHandle(handle, &closedHandleData);
 
       if (NT_SUCCESS(closeHandleResult))
         Message::OutputFormatted(
@@ -1057,6 +1059,7 @@ namespace Pathwinder
     std::optional<NTSTATUS> DirectoryEnumeration(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         HANDLE fileHandle,
         HANDLE event,
         PIO_APC_ROUTINE apcRoutine,
@@ -1073,7 +1076,7 @@ namespace Pathwinder
       if (false == maybeFileInformationStructLayout.has_value()) return std::nullopt;
 
       std::optional<OpenHandleStore::SHandleDataView> maybeHandleData =
-          OpenHandleStoreInstance().GetDataForHandle(fileHandle);
+          openHandleStore.GetDataForHandle(fileHandle);
       if (false == maybeHandleData.has_value()) return std::nullopt;
 
       switch (GetInputOutputModeForHandle(fileHandle))
@@ -1150,7 +1153,7 @@ namespace Pathwinder
           // This will mark the directory enumeration object as present but no-op. Future
           // invocations will therefore not attempt to query for a directory enumeration instruction
           // and will just be forwarded to the system.
-          OpenHandleStoreInstance().AssociateDirectoryEnumerationState(
+          openHandleStore.AssociateDirectoryEnumerationState(
               fileHandle, nullptr, *maybeFileInformationStructLayout);
 
           return std::nullopt;
@@ -1163,14 +1166,14 @@ namespace Pathwinder
                 queryFilePattern,
                 maybeHandleData->associatedPath,
                 maybeHandleData->realOpenedPath);
-        OpenHandleStoreInstance().AssociateDirectoryEnumerationState(
+        openHandleStore.AssociateDirectoryEnumerationState(
             fileHandle,
             std::move(directoryOperationQueueUniquePtr),
             *maybeFileInformationStructLayout);
         newDirectoryEnumerationCreated = true;
       }
 
-      maybeHandleData = OpenHandleStoreInstance().GetDataForHandle(fileHandle);
+      maybeHandleData = openHandleStore.GetDataForHandle(fileHandle);
       DebugAssert(
           (true == maybeHandleData->directoryEnumeration.has_value()),
           "Failed to locate an in-progress directory enumearation stat data structure which should already exist.");
@@ -1196,6 +1199,7 @@ namespace Pathwinder
     NTSTATUS NewFileHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         PHANDLE fileHandle,
         ACCESS_MASK desiredAccess,
         POBJECT_ATTRIBUTES objectAttributes,
@@ -1216,6 +1220,7 @@ namespace Pathwinder
       const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(
           functionName,
           functionRequestIdentifier,
+          openHandleStore,
           objectAttributes->RootDirectory,
           Strings::NtConvertUnicodeStringToStringView(*(objectAttributes->ObjectName)),
           FileAccessModeFromNtParameter(desiredAccess),
@@ -1340,6 +1345,7 @@ namespace Pathwinder
         SelectFilenameAndStoreNewlyOpenedHandle(
             functionName,
             functionRequestIdentifier,
+            openHandleStore,
             newlyOpenedHandle,
             redirectionInstruction,
             lastAttemptedPath,
@@ -1352,6 +1358,7 @@ namespace Pathwinder
     NTSTATUS RenameByHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         HANDLE fileHandle,
         SFileRenameInformation& renameInformation,
         ULONG renameInformationLength,
@@ -1363,6 +1370,7 @@ namespace Pathwinder
       const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(
           functionName,
           functionRequestIdentifier,
+          openHandleStore,
           renameInformation.rootDirectory,
           unredirectedPath,
           FileAccessMode::Delete(),
@@ -1437,6 +1445,7 @@ namespace Pathwinder
         SelectFilenameAndUpdateOpenHandle(
             functionName,
             functionRequestIdentifier,
+            openHandleStore,
             fileHandle,
             redirectionInstruction,
             lastAttemptedPath,
@@ -1448,6 +1457,7 @@ namespace Pathwinder
     NTSTATUS QueryByObjectAttributes(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         FileAccessMode fileAccessMode,
         POBJECT_ATTRIBUTES objectAttributes,
         std::function<NTSTATUS(POBJECT_ATTRIBUTES)> underlyingSystemCallInvoker)
@@ -1455,6 +1465,7 @@ namespace Pathwinder
       const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(
           functionName,
           functionRequestIdentifier,
+          openHandleStore,
           objectAttributes->RootDirectory,
           Strings::NtConvertUnicodeStringToStringView(*(objectAttributes->ObjectName)),
           fileAccessMode,
@@ -1520,6 +1531,7 @@ namespace Pathwinder
     NTSTATUS QueryNameByHandle(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
         HANDLE fileHandle,
         SFileNameInformation* fileNameInformation,
         ULONG fileNameInformationBufferCapacity,
@@ -1549,7 +1561,7 @@ namespace Pathwinder
       // If the file handle is not stored, meaning it could not possibly be the result of a
       // redirection, then it is not necessary to replace the filename.
       std::optional<OpenHandleStore::SHandleDataView> maybeHandleData =
-          OpenHandleStoreInstance().GetDataForHandle(fileHandle);
+          openHandleStore.GetDataForHandle(fileHandle);
       if (false == maybeHandleData.has_value()) return systemCallResult;
 
       std::wstring_view systemReturnedFileName =

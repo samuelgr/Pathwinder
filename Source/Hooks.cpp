@@ -27,6 +27,7 @@
 #include "FilesystemOperations.h"
 #include "Globals.h"
 #include "Message.h"
+#include "OpenHandleStore.h"
 #include "Strings.h"
 
 /// Retrieves an identifier for a particular invocation of a hook function.
@@ -38,11 +39,21 @@ static inline unsigned int GetRequestIdentifier(void)
   return nextRequestIdentifier.fetch_add(1, std::memory_order::relaxed);
 }
 
+/// Retrieves a reference to the open handle store instance. It is maintained on the heap so it
+/// is not destroyed automatically by the runtime on program exit.
+/// @return Mutable reference to the open handle store instance.
+static inline Pathwinder::OpenHandleStore& OpenHandleStoreInstance(void)
+{
+  static Pathwinder::OpenHandleStore* const openHandleStore = new Pathwinder::OpenHandleStore;
+  return *openHandleStore;
+}
+
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtClose::Hook(HANDLE Handle)
 {
   return Pathwinder::FilesystemExecutor::CloseHandle(
       GetFunctionName(),
       GetRequestIdentifier(),
+      OpenHandleStoreInstance(),
       Handle,
       [](HANDLE handle) -> NTSTATUS
       {
@@ -66,6 +77,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(
   return Pathwinder::FilesystemExecutor::NewFileHandle(
       GetFunctionName(),
       GetRequestIdentifier(),
+      OpenHandleStoreInstance(),
       FileHandle,
       DesiredAccess,
       ObjectAttributes,
@@ -117,6 +129,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(
   return Pathwinder::FilesystemExecutor::NewFileHandle(
       functionName,
       requestIdentifier,
+      OpenHandleStoreInstance(),
       FileHandle,
       DesiredAccess,
       ObjectAttributes,
@@ -170,6 +183,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(
   auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::DirectoryEnumeration(
       GetFunctionName(),
       GetRequestIdentifier(),
+      OpenHandleStoreInstance(),
       FileHandle,
       Event,
       ApcRoutine,
@@ -213,6 +227,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(
   auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::DirectoryEnumeration(
       GetFunctionName(),
       GetRequestIdentifier(),
+      OpenHandleStoreInstance(),
       FileHandle,
       Event,
       ApcRoutine,
@@ -274,6 +289,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(
   return Pathwinder::FilesystemExecutor::QueryNameByHandle(
       GetFunctionName(),
       GetRequestIdentifier(),
+      OpenHandleStoreInstance(),
       FileHandle,
       fileNameInformation,
       fileNameInformationBufferCapacity,
@@ -307,6 +323,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
   return Pathwinder::FilesystemExecutor::QueryByObjectAttributes(
       GetFunctionName(),
       GetRequestIdentifier(),
+      OpenHandleStoreInstance(),
       Pathwinder::FileAccessMode::ReadOnly(),
       ObjectAttributes,
       [IoStatusBlock, FileInformation, Length, FileInformationClass](
@@ -330,6 +347,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
   return Pathwinder::FilesystemExecutor::RenameByHandle(
       GetFunctionName(),
       GetRequestIdentifier(),
+      OpenHandleStoreInstance(),
       FileHandle,
       *reinterpret_cast<Pathwinder::SFileRenameInformation*>(FileInformation),
       Length,
@@ -353,6 +371,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
   return Pathwinder::FilesystemExecutor::QueryByObjectAttributes(
       GetFunctionName(),
       GetRequestIdentifier(),
+      OpenHandleStoreInstance(),
       Pathwinder::FileAccessMode::ReadOnly(),
       ObjectAttributes,
       [FileInformation](POBJECT_ATTRIBUTES ObjectAttributes) -> NTSTATUS
