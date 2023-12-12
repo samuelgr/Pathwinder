@@ -47,6 +47,14 @@ namespace PathwinderTest
         nextHandleValue(1000)
   {}
 
+  std::optional<std::wstring_view> MockFilesystemOperations::GetDirectoryPathFromHandle(
+      HANDLE handle)
+  {
+    const auto directoryHandleIter = openDirectoryHandles.find(handle);
+    if (openDirectoryHandles.cend() == directoryHandleIter) return std::nullopt;
+    return directoryHandleIter->second;
+  }
+
   void MockFilesystemOperations::AddFilesystemEntityInternal(
       std::wstring_view absolutePath, EFilesystemEntityType type, unsigned int sizeInBytes)
   {
@@ -273,7 +281,8 @@ namespace PathwinderTest
     return Pathwinder::NtStatus::kSuccess;
   }
 
-  Pathwinder::ValueOrError<ULONG, NTSTATUS> MockFilesystemOperations::QueryFileHandleMode(HANDLE fileHandle)
+  Pathwinder::ValueOrError<ULONG, NTSTATUS> MockFilesystemOperations::QueryFileHandleMode(
+      HANDLE fileHandle)
   {
     TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
   }

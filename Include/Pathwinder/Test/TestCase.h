@@ -94,6 +94,13 @@ namespace PathwinderTest
 
     inline TestCase(void) : ITestCase(kName) {}
 
+    /// Obtains the name of this test case, which was passed into the `TEST_CASE` macro.
+    /// @return Test case name. Guaranteed to be null-terminated.
+    inline std::wstring_view TestCaseName(void) const
+    {
+      return std::wstring_view(kName);
+    }
+
     // ITestCase
     bool CanRun(void) const override;
     void Run(void) const override;

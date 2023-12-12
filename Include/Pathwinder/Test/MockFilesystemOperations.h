@@ -14,6 +14,7 @@
 #include "TestCase.h"
 
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -89,7 +90,7 @@ namespace PathwinderTest
 
     MockFilesystemOperations(const MockFilesystemOperations& other) = delete;
 
-    MockFilesystemOperations(MockFilesystemOperations&& other) = default;
+    MockFilesystemOperations(MockFilesystemOperations && other) = default;
 
     /// Inserts a directory and all its parents into the fake filesystem.
     /// @param [in] absolutePath Absolute path of the directory to insert. Paths are
@@ -107,6 +108,12 @@ namespace PathwinderTest
     {
       AddFilesystemEntityInternal(absolutePath, EFilesystemEntityType::File, fileSizeInBytes);
     }
+
+    /// Retrieves the name of the directory associated with the specified directory handle that is
+    /// already open for enumeration.
+    /// @param handle Handle to query for the associated directory full path.
+    /// @return Full path of the directory, if it is open for enumeration.
+    std::optional<std::wstring_view> GetDirectoryPathFromHandle(HANDLE handle);
 
     // FilesystemOperations
     NTSTATUS CloseHandle(HANDLE handle);
