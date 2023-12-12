@@ -17,6 +17,7 @@
 #include <set>
 #include <string_view>
 
+#include "DebugAssert.h"
 #include "Utilities.h"
 
 namespace PathwinderTest
@@ -59,39 +60,53 @@ namespace PathwinderTest
 
     Print(L"\n================================================================================");
 
-    for (auto testCaseIterator = testCases.begin(); testCaseIterator != testCases.end();
-         ++testCaseIterator)
+    do
     {
-      const auto& name = testCaseIterator->first;
-      const ITestCase* const testCase = testCaseIterator->second;
+      ScopedExpectDebugAssertion();
 
-      if (false == name.starts_with(prefixToMatch)) continue;
-
-      if (testCase->CanRun())
+      for (auto testCaseIterator = testCases.begin(); testCaseIterator != testCases.end();
+           ++testCaseIterator)
       {
-        PrintFormatted(L"\n[ %-9s ] %s", L"RUN", name.data());
+        const auto& name = testCaseIterator->first;
+        const ITestCase* const testCase = testCaseIterator->second;
 
-        bool testCasePassed = false;
-        try
+        if (false == name.starts_with(prefixToMatch)) continue;
+
+        if (testCase->CanRun())
         {
-          numExecutedTests += 1;
+          PrintFormatted(L"\n[ %-9s ] %s", L"RUN", name.data());
 
-          testCase->Run();
-          testCasePassed = true;
+          bool testCasePassed = false;
+          try
+          {
+            numExecutedTests += 1;
+
+            testCase->Run();
+            testCasePassed = true;
+          }
+          catch (const DebugAssertionException& assertion)
+          {
+            std::wstring_view assertionMessage = assertion.GetFailureMessage();
+            PrintFormatted(
+                L"Uncaught debug assertion failure!\n%.*s",
+                static_cast<int>(assertionMessage.length()),
+                assertionMessage.data());
+          }
+          catch (const TestFailedException&)
+          {}
+
+          if (true != testCasePassed) failingTests.insert(name.data());
+
+          PrintFormatted(L"[ %9s ] %s", (true == testCasePassed ? L"PASS" : L"FAIL"), name.data());
         }
-        catch (TestFailedException)
-        {}
-
-        if (true != testCasePassed) failingTests.insert(name.data());
-
-        PrintFormatted(L"[ %9s ] %s", (true == testCasePassed ? L"PASS" : L"FAIL"), name.data());
-      }
-      else
-      {
-        PrintFormatted(L"[  %-8s ] %s", L"SKIPPED", name.data());
-        numSkippedTests += 1;
+        else
+        {
+          PrintFormatted(L"[  %-8s ] %s", L"SKIPPED", name.data());
+          numSkippedTests += 1;
+        }
       }
     }
+    while (false);
 
     Print(L"\n================================================================================");
 

@@ -67,7 +67,6 @@ namespace PathwinderTest
     // assertion.
     try
     {
-      ScopedExpectDebugAssertion();
       handleStore.InsertHandle(
           kHandle,
           std::wstring(kHandleAssociatedPathDuplicate),
@@ -75,7 +74,7 @@ namespace PathwinderTest
     }
     catch (const DebugAssertionException& assertion)
     {
-      TEST_ASSERT(assertion.GetFailureMessage().contains("insert a handle"));
+      TEST_ASSERT(assertion.GetFailureMessage().contains(L"insert a handle"));
     }
 
     constexpr OpenHandleStore::SHandleDataView expectedHandleData = {
@@ -249,12 +248,11 @@ namespace PathwinderTest
     // trigger a debug assertion.
     try
     {
-      ScopedExpectDebugAssertion();
       handleStore.RemoveAndCloseHandle(kHandle, nullptr);
     }
     catch (const DebugAssertionException& assertion)
     {
-      TEST_ASSERT(assertion.GetFailureMessage().contains("close and erase a handle"));
+      TEST_ASSERT(assertion.GetFailureMessage().contains(L"close and erase a handle"));
     }
   }
 
@@ -332,13 +330,12 @@ namespace PathwinderTest
     // serious error that could potentially trigger a debug assertion.
     try
     {
-      ScopedExpectDebugAssertion();
       handleStore.AssociateDirectoryEnumerationState(
           kHandle, nullptr, FileInformationStructLayout());
     }
     catch (const DebugAssertionException& assertion)
     {
-      TEST_ASSERT(assertion.GetFailureMessage().contains("handle that already has one"));
+      TEST_ASSERT(assertion.GetFailureMessage().contains(L"handle that already has one"));
     }
 
     OpenHandleStore::SHandleDataView actualHandleData = *handleStore.GetDataForHandle(kHandle);
@@ -372,13 +369,12 @@ namespace PathwinderTest
     // a serious error that could potentially trigger a debug assertion.
     try
     {
-      ScopedExpectDebugAssertion();
       handleStore.AssociateDirectoryEnumerationState(
           kHandle, nullptr, FileInformationStructLayout());
     }
     catch (const DebugAssertionException& assertion)
     {
-      TEST_ASSERT(assertion.GetFailureMessage().contains("handle that is not in storage"));
+      TEST_ASSERT(assertion.GetFailureMessage().contains(L"handle that is not in storage"));
     }
   }
 } // namespace PathwinderTest

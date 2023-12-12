@@ -24,16 +24,16 @@ namespace _DebugTestInternal
   {
   public:
 
-    inline Assertion(std::string&& failureMessage) : failureMessage(std::move(failureMessage)) {}
+    inline Assertion(std::wstring&& failureMessage) : failureMessage(std::move(failureMessage)) {}
 
-    std::string_view GetFailureMessage(void) const
+    std::wstring_view GetFailureMessage(void) const
     {
       return failureMessage;
     }
 
   private:
 
-    std::string failureMessage;
+    std::wstring failureMessage;
   };
 
   /// Context manager for expecting debug assertions. When an object of this type is in scope
@@ -85,6 +85,9 @@ namespace _DebugTestInternal
   };
 } // namespace _DebugTestInternal
 
+/// Type alias intended for use when attempting to catch debug assertions thrown as exceptions.
+using DebugAssertionException = _DebugTestInternal::Assertion;
+
 /// Wrapper around debug assertion functionality. Provides an interface like `static_assert` which
 /// takes an expression and a compile-time constant narrow-character string literal.
 #define DebugAssert(expr, msg)                                                                     \
@@ -92,7 +95,9 @@ namespace _DebugTestInternal
   {                                                                                                \
     if (::_DebugTestInternal::ExpectedAssertionContext::ShouldThrowAssertionFailureAsException())  \
     {                                                                                              \
-      if (!(expr)) throw ::_DebugTestInternal::Assertion(msg);                                     \
+      if (!(expr))                                                                                 \
+        throw ::DebugAssertionException(                                                           \
+            __FILEW__ L"(" _CRT_WIDE(_CRT_STRINGIZE(__LINE__)) L"): " _CRT_WIDE(msg));             \
     }                                                                                              \
     else                                                                                           \
     {                                                                                              \
@@ -100,9 +105,6 @@ namespace _DebugTestInternal
     }                                                                                              \
   }                                                                                                \
   while (0)
-
-/// Type alias intended for use when attempting to catch debug assertions thrown as exceptions.
-using DebugAssertionException = _DebugTestInternal::Assertion;
 
 /// Begins a context in which a debug assertion may be expected. As long as this is in scope, debug
 /// assertions will be thrown as `DebugAssertionException` objects instead of sent to the debugger
