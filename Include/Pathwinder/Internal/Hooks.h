@@ -17,6 +17,7 @@
 
 #include "ApiWindows.h"
 #include "DebugAssert.h"
+#include "FilesystemDirector.h"
 
 // Creates a Hookshot dynamic hook and defines a protected dependency wrapper for it.
 #define PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(funcname, typespec)                          \
@@ -115,6 +116,12 @@ namespace Pathwinder
 {
   namespace Hooks
   {
+    /// Sets the filesystem director object instance that will be used to implement filesystem
+    /// redirection when hook functions are invoked. Typically this is created during Pathwinder
+    /// initialization using a filesystem director builder.
+    /// @param [in] filesystemDirector Filesystem director object instance to use.
+    void SetFilesystemDirectorInstance(FilesystemDirector&& filesystemDirector);
+
     // Pathwinder requires these hooks to be set in order to function correctly and may invoke
     // their original versions. These functions are documented parts of Windows, though they may
     // be internal or part of the driver development kit (WDK).

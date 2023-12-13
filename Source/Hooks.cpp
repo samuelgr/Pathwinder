@@ -39,6 +39,16 @@ static inline unsigned int GetRequestIdentifier(void)
   return nextRequestIdentifier.fetch_add(1, std::memory_order::relaxed);
 }
 
+/// Retrieves a reference to the filesystem director object instance. It is maintained on the heap
+/// so it is not destroyed automatically by the runtime on program exit.
+/// @return Mutable reference to the filesystem director object instance.
+static inline Pathwinder::FilesystemDirector& FilesystemDirectorInstance(void)
+{
+  static Pathwinder::FilesystemDirector* const filesystemDirector =
+      new Pathwinder::FilesystemDirector;
+  return *filesystemDirector;
+}
+
 /// Retrieves a reference to the open handle store instance. It is maintained on the heap so it
 /// is not destroyed automatically by the runtime on program exit.
 /// @return Mutable reference to the open handle store instance.
@@ -46,6 +56,32 @@ static inline Pathwinder::OpenHandleStore& OpenHandleStoreInstance(void)
 {
   static Pathwinder::OpenHandleStore* const openHandleStore = new Pathwinder::OpenHandleStore;
   return *openHandleStore;
+}
+
+/// Instruction source function for obtaining directory enumeration instructions using the singleton
+/// filesystem director object instance.
+static Pathwinder::DirectoryEnumerationInstruction InstructionSourceForDirectoryEnumeration(
+    std::wstring_view associatedPath, std::wstring_view realOpenedPath)
+{
+  return FilesystemDirectorInstance().GetInstructionForDirectoryEnumeration(
+      associatedPath, realOpenedPath);
+}
+
+/// Instruction source function for obtaining file operation instructions using the singleton
+/// filesystem director object instance.
+static Pathwinder::FileOperationInstruction InstructionSourceForFileOperation(
+    std::wstring_view absoluteFilePath,
+    Pathwinder::FileAccessMode fileAccessMode,
+    Pathwinder::CreateDisposition createDisposition)
+{
+  return FilesystemDirectorInstance().GetInstructionForFileOperation(
+      absoluteFilePath, fileAccessMode, createDisposition);
+}
+
+void Pathwinder::Hooks::SetFilesystemDirectorInstance(
+    Pathwinder::FilesystemDirector&& filesystemDirector)
+{
+  FilesystemDirectorInstance() = std::move(filesystemDirector);
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtClose::Hook(HANDLE Handle)
@@ -84,6 +120,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(
       ShareAccess,
       CreateDisposition,
       CreateOptions,
+      InstructionSourceForFileOperation,
       [DesiredAccess,
        IoStatusBlock,
        AllocationSize,
@@ -136,6 +173,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(
       ShareAccess,
       FILE_OPEN,
       OpenOptions,
+      InstructionSourceForFileOperation,
       [functionName, requestIdentifier, DesiredAccess, IoStatusBlock, ShareAccess, OpenOptions](
           PHANDLE fileHandle,
           POBJECT_ATTRIBUTES objectAttributes,
@@ -193,7 +231,8 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(
       Length,
       FileInformationClass,
       queryFlags,
-      FileName);
+      FileName,
+      InstructionSourceForDirectoryEnumeration);
 
   if (false == maybeHookFunctionResult.has_value())
     return Original(
@@ -237,7 +276,8 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(
       Length,
       FileInformationClass,
       QueryFlags,
-      FileName);
+      FileName,
+      InstructionSourceForDirectoryEnumeration);
 
   if (false == maybeHookFunctionResult.has_value())
     return Original(
@@ -326,6 +366,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
       OpenHandleStoreInstance(),
       Pathwinder::FileAccessMode::ReadOnly(),
       ObjectAttributes,
+      InstructionSourceForFileOperation,
       [IoStatusBlock, FileInformation, Length, FileInformationClass](
           POBJECT_ATTRIBUTES ObjectAttributes) -> NTSTATUS
       {
@@ -351,6 +392,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtSetInformationFile::Hook(
       FileHandle,
       *reinterpret_cast<Pathwinder::SFileRenameInformation*>(FileInformation),
       Length,
+      InstructionSourceForFileOperation,
       [IoStatusBlock, FileInformationClass](
           HANDLE fileHandle,
           Pathwinder::SFileRenameInformation& renameInformation,
@@ -374,6 +416,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
       OpenHandleStoreInstance(),
       Pathwinder::FileAccessMode::ReadOnly(),
       ObjectAttributes,
+      InstructionSourceForFileOperation,
       [FileInformation](POBJECT_ATTRIBUTES ObjectAttributes) -> NTSTATUS
       {
         return Original(ObjectAttributes, FileInformation);

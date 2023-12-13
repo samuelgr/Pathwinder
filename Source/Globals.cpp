@@ -12,8 +12,12 @@
 
 #include "Globals.h"
 
-#include "FilesystemDirector.h"
-#include "FilesystemDirectorBuilder.h"
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <string_view>
+
 #include "GitVersionInfo.h"
 #include "Message.h"
 #include "Resolver.h"
@@ -21,14 +25,11 @@
 
 #ifndef PATHWINDER_SKIP_CONFIG
 #include "Configuration.h"
+#include "FilesystemDirector.h"
+#include "FilesystemDirectorBuilder.h"
+#include "Hooks.h"
 #include "PathwinderConfigReader.h"
 #endif
-
-#include <cstdint>
-#include <memory>
-#include <mutex>
-#include <string>
-#include <string_view>
 
 namespace Pathwinder
 {
@@ -82,10 +83,10 @@ namespace Pathwinder
 #ifndef PATHWINDER_SKIP_CONFIG
     /// Reads all filesystem rules from a configuration file and attempts to create all the
     /// required filesystem rule objects and build them into a filesystem director object.
-    /// Afterwards, on success, the global singleton filesystem director object is initialized
-    /// with the newly-built filesystem director object. This function uses move semantics, so
-    /// all sections in the configuration data object that define filesystem rules are extracted
-    /// out of it. This has the effect of using the filesystem rules defined in the
+    /// Afterwards, on success, the singleton filesystem director object used for hook functions is
+    /// initialized with the newly-built filesystem director object. This function uses move
+    /// semantics, so all sections in the configuration data object that define filesystem rules are
+    /// extracted out of it. This has the effect of using the filesystem rules defined in the
     /// configuration file to govern the behavior of file operations globally.
     /// @param [in] configData Read-only reference to a configuration data object.
     static void BuildFilesystemRules(Configuration::ConfigurationData& configData)
@@ -97,7 +98,7 @@ namespace Pathwinder
 
       if (true == maybeFilesystemDirector.has_value())
       {
-        FilesystemDirector::Singleton() = std::move(*maybeFilesystemDirector);
+        Hooks::SetFilesystemDirectorInstance(std::move(*maybeFilesystemDirector));
       }
       else
       {

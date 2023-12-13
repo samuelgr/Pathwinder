@@ -18,6 +18,7 @@
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"
 #include "FilesystemDirector.h"
+#include "FilesystemInstruction.h"
 #include "OpenHandleStore.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
@@ -47,11 +48,18 @@ namespace Pathwinder
         std::function<NTSTATUS(HANDLE)> underlyingSystemCallInvoker);
 
     /// Common internal entry point for intercepting directory enumerations. Parameters correspond
-    /// to the `NtQueryDirectoryFileEx` system call, with the exception of `functionName` and
-    /// `functionRequestIdentifier`, which are the hook function name and request identifier for
-    /// logging purposes, and `openHandleStore`, which sets the context for this call.
-    /// @return Result to be returned to the application on system call completion, or nothing at
-    /// all if the request should be forwarded unmodified to the system.
+    /// to the `NtQueryDirectoryFileEx` system call, with a few exceptions that are explicitly
+    /// documented.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this
+    /// function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
+    /// the named function. Used only for logging.
+    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
+    /// file handles known to be open. Sets the context for this call.
+    /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a file operation
+    /// instruction, given a source path, file access mode, and create disposition.
+    /// @return Result of the intercepted operation, if the operation should be intercepted, or
+    /// nothing at all to indicate that the operation should be forwarded to the system.
     std::optional<NTSTATUS> DirectoryEnumeration(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
@@ -65,7 +73,9 @@ namespace Pathwinder
         ULONG length,
         FILE_INFORMATION_CLASS fileInformationClass,
         ULONG queryFlags,
-        PUNICODE_STRING fileName);
+        PUNICODE_STRING fileName,
+        std::function<DirectoryEnumerationInstruction(std::wstring_view, std::wstring_view)>
+            instructionSourceFunc);
 
     /// Common internal entry point for intercepting attempts to create or open files, resulting in
     /// the creation of a new file handle.
@@ -84,6 +94,8 @@ namespace Pathwinder
     /// @param [in] createDisposition Create disposition received from the application. Identifies
     /// whether a new file should be created, existing file should be opened, and so on.
     /// @param [in] createOptions File creation or opening options received from the application.
+    /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a file operation
+    /// instruction, given a source path, file access mode, and create disposition.
     /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
     /// operation, with the variable parameters being destination file handle address, object
     /// attributes of the file to attempt, and a create disposition.
@@ -98,6 +110,8 @@ namespace Pathwinder
         ULONG shareAccess,
         ULONG createDisposition,
         ULONG createOptions,
+        std::function<FileOperationInstruction(
+            std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc,
         std::function<NTSTATUS(PHANDLE, POBJECT_ATTRIBUTES, ULONG)> underlyingSystemCallInvoker);
 
     /// Common internal entry point for intercepting attempts to rename a file or directory that has
@@ -113,6 +127,10 @@ namespace Pathwinder
     /// by the application. Among other things, contains the desired new name.
     /// @param [in] renameInformationLength Size of the rename information structure, in bytes, as
     /// supplied by the application.
+    /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a file operation
+    /// instruction, given a source path, file access mode, and create disposition.
+    /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a file operation
+    /// instruction, given a source path, file access mode, and create disposition.
     /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
     /// operation, with the only variable parameters being open file handle, rename information
     /// structure, and rename information structure length in bytes. Any and all other information
@@ -126,6 +144,8 @@ namespace Pathwinder
         HANDLE fileHandle,
         SFileRenameInformation& renameInformation,
         ULONG renameInformationLength,
+        std::function<FileOperationInstruction(
+            std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc,
         std::function<NTSTATUS(HANDLE, SFileRenameInformation&, ULONG)>
             underlyingSystemCallInvoker);
 
@@ -141,6 +161,8 @@ namespace Pathwinder
     /// @param [in] fileAccessMode Type of accesses that the underlying system call is expected to
     /// perform on the file.
     /// @param [in] objectAttributes Object attributes received as input from the application.
+    /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a file operation
+    /// instruction, given a source path, file access mode, and create disposition.
     /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
     /// operation, with the only variable parameter being object attributes. Any and all other
     /// information is expected to be captured within the object itself, including other
@@ -152,6 +174,8 @@ namespace Pathwinder
         OpenHandleStore& openHandleStore,
         FileAccessMode fileAccessMode,
         POBJECT_ATTRIBUTES objectAttributes,
+        std::function<FileOperationInstruction(
+            std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc,
         std::function<NTSTATUS(POBJECT_ATTRIBUTES)> underlyingSystemCallInvoker);
 
     /// Common internal entry point for intercepting queries for file name information such that the

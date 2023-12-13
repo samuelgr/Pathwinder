@@ -43,12 +43,6 @@ namespace Pathwinder
     return false;
   }
 
-  FilesystemDirector& FilesystemDirector::Singleton(void)
-  {
-    static FilesystemDirector* const singleton = new FilesystemDirector;
-    return *singleton;
-  }
-
   const FilesystemRule* FilesystemDirector::SelectRuleForPath(std::wstring_view absolutePath) const
   {
     // It is possible that multiple rules all have a prefix that matches the directory part of

@@ -201,12 +201,6 @@ namespace Pathwinder
 
     FilesystemDirector& operator=(FilesystemDirector&& other) = default;
 
-    /// Returns a mutable reference to a singleton instance of this class.
-    /// Not useful for tests, which instead create their own local instances of filesystem
-    /// director objects.
-    /// @return Mutable reference to a globally-shared filesystem director object.
-    static FilesystemDirector& Singleton(void);
-
     /// Retrieves and returns the number of filesystem rules held by this object.
     /// @return Number of filesystem rules.
     inline unsigned int CountOfRules(void) const

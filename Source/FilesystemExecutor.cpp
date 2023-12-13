@@ -21,7 +21,6 @@
 #include "ApiWindows.h"
 #include "ArrayList.h"
 #include "FileInformationStruct.h"
-#include "FilesystemDirector.h"
 #include "FilesystemOperations.h"
 #include "Globals.h"
 #include "Message.h"
@@ -545,6 +544,8 @@ namespace Pathwinder
     /// @param [in] fileAccessMode Type of access or accesses to be performed on the file.
     /// @param [in] createDisposition Create disposition for the requsted file operation, which
     /// specifies whether a new file should be created, an existing file opened, or either.
+    /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a file operation
+    /// instruction, given a source path, file access mode, and create disposition.
     /// @return Context that contains all of the information needed to submit the file operation to
     /// the underlying system call.
     static SFileOperationContext GetFileOperationRedirectionInformation(
@@ -554,7 +555,9 @@ namespace Pathwinder
         HANDLE rootDirectory,
         std::wstring_view inputFilename,
         FileAccessMode fileAccessMode,
-        CreateDisposition createDisposition)
+        CreateDisposition createDisposition,
+        std::function<FileOperationInstruction(
+            std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc)
     {
       std::optional<TemporaryString> maybeRedirectedFilename = std::nullopt;
       std::optional<OpenHandleStore::SHandleDataView> maybeRootDirectoryHandleData =
@@ -573,8 +576,7 @@ namespace Pathwinder
         inputFullFilename << rootDirectoryHandlePath << L'\\' << inputFilename;
 
         FileOperationInstruction redirectionInstruction =
-            Pathwinder::FilesystemDirector::Singleton().GetInstructionForFileOperation(
-                inputFullFilename, fileAccessMode, createDisposition);
+            instructionSourceFunc(inputFullFilename, fileAccessMode, createDisposition);
         if (true == redirectionInstruction.HasRedirectedFilename())
           Message::OutputFormatted(
               Message::ESeverity::Debug,
@@ -610,8 +612,7 @@ namespace Pathwinder
         // root directory. It is sufficient to send the object name directly for redirection.
 
         FileOperationInstruction redirectionInstruction =
-            Pathwinder::FilesystemDirector::Singleton().GetInstructionForFileOperation(
-                inputFilename, fileAccessMode, createDisposition);
+            instructionSourceFunc(inputFilename, fileAccessMode, createDisposition);
 
         if (true == redirectionInstruction.HasRedirectedFilename())
         {
@@ -1069,7 +1070,9 @@ namespace Pathwinder
         ULONG length,
         FILE_INFORMATION_CLASS fileInformationClass,
         ULONG queryFlags,
-        PUNICODE_STRING fileName)
+        PUNICODE_STRING fileName,
+        std::function<DirectoryEnumerationInstruction(std::wstring_view, std::wstring_view)>
+            instructionSourceFunc)
     {
       std::optional<FileInformationStructLayout> maybeFileInformationStructLayout =
           FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass);
@@ -1145,8 +1148,7 @@ namespace Pathwinder
         // is being requested for the first time.
 
         DirectoryEnumerationInstruction directoryEnumerationInstruction =
-            FilesystemDirector::Singleton().GetInstructionForDirectoryEnumeration(
-                maybeHandleData->associatedPath, maybeHandleData->realOpenedPath);
+            instructionSourceFunc(maybeHandleData->associatedPath, maybeHandleData->realOpenedPath);
 
         if (true == Globals::GetConfigurationData().isDryRunMode)
         {
@@ -1206,6 +1208,8 @@ namespace Pathwinder
         ULONG shareAccess,
         ULONG createDisposition,
         ULONG createOptions,
+        std::function<FileOperationInstruction(
+            std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc,
         std::function<NTSTATUS(PHANDLE, POBJECT_ATTRIBUTES, ULONG)> underlyingSystemCallInvoker)
     {
       DumpNewFileHandleParameters(
@@ -1224,7 +1228,8 @@ namespace Pathwinder
           objectAttributes->RootDirectory,
           Strings::NtConvertUnicodeStringToStringView(*(objectAttributes->ObjectName)),
           FileAccessModeFromNtParameter(desiredAccess),
-          CreateDispositionFromNtParameter(createDisposition));
+          CreateDispositionFromNtParameter(createDisposition),
+          instructionSourceFunc);
       const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
       if (true == Globals::GetConfigurationData().isDryRunMode ||
@@ -1362,6 +1367,8 @@ namespace Pathwinder
         HANDLE fileHandle,
         SFileRenameInformation& renameInformation,
         ULONG renameInformationLength,
+        std::function<FileOperationInstruction(
+            std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc,
         std::function<NTSTATUS(HANDLE, SFileRenameInformation&, ULONG)> underlyingSystemCallInvoker)
     {
       std::wstring_view unredirectedPath =
@@ -1374,7 +1381,8 @@ namespace Pathwinder
           renameInformation.rootDirectory,
           unredirectedPath,
           FileAccessMode::Delete(),
-          CreateDisposition::CreateNewFile());
+          CreateDisposition::CreateNewFile(),
+          instructionSourceFunc);
       const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
       if (true == Globals::GetConfigurationData().isDryRunMode ||
@@ -1460,6 +1468,8 @@ namespace Pathwinder
         OpenHandleStore& openHandleStore,
         FileAccessMode fileAccessMode,
         POBJECT_ATTRIBUTES objectAttributes,
+        std::function<FileOperationInstruction(
+            std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc,
         std::function<NTSTATUS(POBJECT_ATTRIBUTES)> underlyingSystemCallInvoker)
     {
       const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(
@@ -1469,7 +1479,8 @@ namespace Pathwinder
           objectAttributes->RootDirectory,
           Strings::NtConvertUnicodeStringToStringView(*(objectAttributes->ObjectName)),
           fileAccessMode,
-          CreateDisposition::OpenExistingFile());
+          CreateDisposition::OpenExistingFile(),
+          instructionSourceFunc);
       const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
       if (true == Globals::GetConfigurationData().isDryRunMode ||
