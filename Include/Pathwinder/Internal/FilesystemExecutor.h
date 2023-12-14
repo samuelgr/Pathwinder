@@ -28,6 +28,18 @@ namespace Pathwinder
 {
   namespace FilesystemExecutor
   {
+    // Many of the functions in this subsystem interact directly with an open handle store and
+    // indirectly with a filesystem director. The former is expected to hold the internal state of
+    // Pathwinder's filesystem redirection (including all open file handles that it needs to track),
+    // and the latter is what applies filesystem rules to determine how to perform redirections.
+    // The filesystem executor functions query and update open handle state at various points in
+    // their implementations, which is why an open handle store must be passed as a mutable
+    // reference. Conversely, obtaining a filesystem instruction is a stateless operation but one
+    // that can be invoked with varying parameters by the various filesystem executor functions,
+    // which is why it is a function object. Both design choices greatly facilitate testing by
+    // allowing the open handle store state to be set up as part of a test case and a pre-determined
+    // filesystem instruction to be returned by a function object, under the control of a test case.
+
     /// Common internal entry point for intercepting attempts to close an existing file handle.
     /// @param [in] functionName Name of the API function whose hook function is invoking this
     /// function. Used only for logging.
@@ -98,7 +110,9 @@ namespace Pathwinder
     /// instruction, given a source path, file access mode, and create disposition.
     /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
     /// operation, with the variable parameters being destination file handle address, object
-    /// attributes of the file to attempt, and a create disposition.
+    /// attributes of the file to attempt, and a create disposition. Other parameters known to the
+    /// caller are expected to be embedded into the function object, even those that are passed to
+    /// this function.
     /// @return Result of the operation, which should be returned to the application.
     NTSTATUS NewFileHandle(
         const wchar_t* functionName,

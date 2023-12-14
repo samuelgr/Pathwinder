@@ -25,6 +25,8 @@
 
 namespace PathwinderTest
 {
+  using namespace ::Pathwinder;
+
   /// Creates a file pattern string object from a given file pattern string view.
   /// @param [in] filePattern File pattern for which a string object is needed.
   /// @return File pattern string object.
@@ -116,13 +118,16 @@ namespace PathwinderTest
       TEST_FAILED_BECAUSE(L"%s: Attempting to close a handle that is not open.", __FUNCTIONW__);
 
     openDirectoryHandles.erase(directoryHandleIter);
-    return Pathwinder::NtStatus::kSuccess;
+    return NtStatus::kSuccess;
   }
 
   intptr_t MockFilesystemOperations::CreateDirectoryHierarchy(
       std::wstring_view absoluteDirectoryPath)
   {
-    TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
+    const std::wstring_view absoluteDirectoryPathTrimmed =
+        Strings::RemoveTrailing(absoluteDirectoryPath, L'\\');
+    AddFilesystemEntityInternal(absoluteDirectoryPathTrimmed, EFilesystemEntityType::Directory, 0);
+    return NtStatus::kSuccess;
   }
 
   bool MockFilesystemOperations::Exists(std::wstring_view absolutePath)
@@ -144,12 +149,11 @@ namespace PathwinderTest
     return filesystemContents.contains(absolutePath);
   }
 
-  Pathwinder::ValueOrError<HANDLE, NTSTATUS> MockFilesystemOperations::OpenDirectoryForEnumeration(
+  ValueOrError<HANDLE, NTSTATUS> MockFilesystemOperations::OpenDirectoryForEnumeration(
       std::wstring_view absoluteDirectoryPath)
   {
     const auto directoryIter = filesystemContents.find(absoluteDirectoryPath);
-    if (filesystemContents.cend() == directoryIter)
-      return Pathwinder::NtStatus::kObjectNameNotFound;
+    if (filesystemContents.cend() == directoryIter) return NtStatus::kObjectNameNotFound;
 
     const HANDLE handleValue = reinterpret_cast<HANDLE>(nextHandleValue++);
     const bool insertWasSuccessful =
@@ -172,8 +176,7 @@ namespace PathwinderTest
       std::wstring_view filePattern)
   {
     const auto maybeFileInformationStructLayout =
-        Pathwinder::FileInformationStructLayout::LayoutForFileInformationClass(
-            fileInformationClass);
+        FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass);
     if (false == maybeFileInformationStructLayout.has_value())
       TEST_FAILED_BECAUSE(
           L"%s: Attempting to enumerate a directory using unsupported file information class %zu.",
@@ -240,8 +243,7 @@ namespace PathwinderTest
          ++nextItemIterator)
     {
       std::wstring_view currentFileName = nextItemIterator->first;
-      if (false ==
-          Pathwinder::Strings::FileNameMatchesPattern(currentFileName, enumerationFilePattern))
+      if (false == Strings::FileNameMatchesPattern(currentFileName, enumerationFilePattern))
         continue;
 
       void* const currentBuffer =
@@ -257,7 +259,7 @@ namespace PathwinderTest
         // Buffer overflow would occur if another element were written.
         // If no structures were written, then this is an error condition, and a
         // corresponding code needs to be returned.
-        if (0 == numElementsWritten) return Pathwinder::NtStatus::kBufferTooSmall;
+        if (0 == numElementsWritten) return NtStatus::kBufferTooSmall;
 
         break;
       }
@@ -275,14 +277,13 @@ namespace PathwinderTest
 
     // If at the end of the enumeration loop there were no files enumerated then the reason is
     // that no files were found to be enumerated.
-    if (0 == numElementsWritten) return Pathwinder::NtStatus::kNoMoreFiles;
+    if (0 == numElementsWritten) return NtStatus::kNoMoreFiles;
 
     fileInformationStructLayout.ClearNextEntryOffset(lastElementWritten);
-    return Pathwinder::NtStatus::kSuccess;
+    return NtStatus::kSuccess;
   }
 
-  Pathwinder::ValueOrError<ULONG, NTSTATUS> MockFilesystemOperations::QueryFileHandleMode(
-      HANDLE fileHandle)
+  ValueOrError<ULONG, NTSTATUS> MockFilesystemOperations::QueryFileHandleMode(HANDLE fileHandle)
   {
     TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
   }
@@ -295,8 +296,7 @@ namespace PathwinderTest
       unsigned int enumerationBufferCapacityBytes)
   {
     const auto maybeFileInformationStructLayout =
-        Pathwinder::FileInformationStructLayout::LayoutForFileInformationClass(
-            fileInformationClass);
+        FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass);
     if (false == maybeFileInformationStructLayout.has_value())
       TEST_FAILED_BECAUSE(
           L"%s: Attempting to query for single-file directory information using unsupported file information class %zu.",
@@ -305,12 +305,11 @@ namespace PathwinderTest
     const auto& fileInformationStructLayout = *maybeFileInformationStructLayout;
 
     const auto directoryContentsIter = filesystemContents.find(absoluteDirectoryPath);
-    if (filesystemContents.cend() == directoryContentsIter)
-      return Pathwinder::NtStatus::kObjectNameNotFound;
+    if (filesystemContents.cend() == directoryContentsIter) return NtStatus::kObjectNameNotFound;
     const auto& directoryContents = directoryContentsIter->second;
 
     if (directoryContents.cend() == directoryContents.find(fileName))
-      return Pathwinder::NtStatus::kObjectNameNotFound;
+      return NtStatus::kObjectNameNotFound;
 
     // For testing purposes, it is sufficient to fill the entire file information structure
     // space with a fake value and then overwrite the relevant fields.
@@ -319,9 +318,9 @@ namespace PathwinderTest
     std::memset(enumerationBuffer, 0, bytesNeeded);
     fileInformationStructLayout.WriteFileName(enumerationBuffer, fileName, bytesNeeded);
 
-    if (bytesNeeded > enumerationBufferCapacityBytes) return Pathwinder::NtStatus::kBufferTooSmall;
+    if (bytesNeeded > enumerationBufferCapacityBytes) return NtStatus::kBufferTooSmall;
 
-    return Pathwinder::NtStatus::kSuccess;
+    return NtStatus::kSuccess;
   }
 } // namespace PathwinderTest
 
@@ -354,7 +353,7 @@ namespace Pathwinder
       MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, IsDirectory, absolutePath);
     }
 
-    Pathwinder::ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
+    ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
         std::wstring_view absoluteDirectoryPath)
     {
       MOCK_FREE_FUNCTION_BODY(
@@ -380,7 +379,7 @@ namespace Pathwinder
           filePattern);
     }
 
-    Pathwinder::ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle)
+    ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle)
     {
       MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, QueryFileHandleMode, fileHandle);
     }

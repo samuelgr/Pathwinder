@@ -114,6 +114,11 @@ namespace Pathwinder
         std::unique_ptr<IDirectoryOperationQueue>&& directoryEnumerationQueue,
         FileInformationStructLayout fileInformationStructLayout);
 
+    /// Determines if the open handle store contains any handles at all.
+    /// @return `true` if the open handle store has no handles, `false` if it has at least one
+    /// handle.
+    bool Empty(void);
+
     /// Queries the open handle store for the specified handle and retrieves a read-only view of
     /// the associated data, if the handle is found in the store.
     /// @param [in] handleToQuery Handle for which to query.

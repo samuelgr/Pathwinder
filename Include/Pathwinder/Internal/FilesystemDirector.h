@@ -52,6 +52,8 @@ namespace Pathwinder
           canOpenExistingFile;
     }
 
+    constexpr bool operator==(const CreateDisposition&) const = default;
+
     /// Creates an object of this class type that encodes only allowing creation of a new file.
     /// @return Initialized object of this class.
     static constexpr CreateDisposition CreateNewFile(void)
@@ -127,11 +129,20 @@ namespace Pathwinder
       accessModeBits[static_cast<size_t>(EFileAccessMode::Delete)] = canDelete;
     }
 
+    constexpr bool operator==(const FileAccessMode&) const = default;
+
     /// Creates an object of this class that encodes only allowing read access to a file.
     /// @return Initialized object of this class.
     static constexpr FileAccessMode ReadOnly(void)
     {
       return FileAccessMode(true, false, false);
+    }
+
+    /// Creates an object of this class that encodes only allowing write access to a file.
+    /// @return Initialized object of this class.
+    static constexpr FileAccessMode WriteOnly(void)
+    {
+      return FileAccessMode(false, true, false);
     }
 
     /// Creates an object of this class that encodes allowing read and write access to a file.

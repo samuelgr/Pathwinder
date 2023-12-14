@@ -79,7 +79,7 @@ namespace Pathwinder
     /// already. The mode is itself a bitmask that identifies the effective options that determine
     /// how the I/O system behaves with respect to the file.
     /// https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_mode_information
-    /// @param fileHandle File handle for which mode information is desired.
+    /// @param [in] fileHandle File handle for which mode information is desired.
     /// @return Mode information for the file handle, or a Windows error code on failure.
     ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle);
 

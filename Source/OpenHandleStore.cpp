@@ -50,6 +50,12 @@ namespace Pathwinder
         .fileInformationStructLayout = fileInformationStructLayout};
   }
 
+  bool OpenHandleStore::Empty(void)
+  {
+    std::shared_lock lock(openHandlesMutex);
+    return openHandles.empty();
+  }
+
   std::optional<OpenHandleStore::SHandleDataView> OpenHandleStore::GetDataForHandle(
       HANDLE handleToQuery)
   {

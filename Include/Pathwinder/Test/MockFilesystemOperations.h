@@ -111,7 +111,7 @@ namespace PathwinderTest
 
     /// Retrieves the name of the directory associated with the specified directory handle that is
     /// already open for enumeration.
-    /// @param handle Handle to query for the associated directory full path.
+    /// @param [in] handle Handle to query for the associated directory full path.
     /// @return Full path of the directory, if it is open for enumeration.
     std::optional<std::wstring_view> GetDirectoryPathFromHandle(HANDLE handle);
 
