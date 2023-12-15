@@ -114,7 +114,8 @@ namespace Pathwinder
         std::unique_ptr<IDirectoryOperationQueue>&& directoryEnumerationQueue,
         FileInformationStructLayout fileInformationStructLayout);
 
-    /// Determines if the open handle store contains any handles at all.
+    /// Determines if the open handle store contains any handles at all. Primarily useful for
+    /// testing.
     /// @return `true` if the open handle store has no handles, `false` if it has at least one
     /// handle.
     bool Empty(void);
@@ -163,6 +164,11 @@ namespace Pathwinder
     /// call to close the handle succeeds.
     /// @return Result of the underlying system call to `NtClose` to close the handle.
     NTSTATUS RemoveAndCloseHandle(HANDLE handleToRemove, SHandleData* handleData);
+
+    /// Retrieves the number of handles stored in the open handle store. Primarily useful for
+    /// testing
+    /// @return Number of handles in the data structure.
+    unsigned int Size(void);
 
   private:
 

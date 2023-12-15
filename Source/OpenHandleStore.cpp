@@ -137,4 +137,10 @@ namespace Pathwinder
 
     return systemCallResult;
   }
+
+  unsigned int OpenHandleStore::Size(void)
+  {
+    std::shared_lock lock(openHandlesMutex);
+    return static_cast<unsigned int>(openHandles.size());
+  }
 } // namespace Pathwinder

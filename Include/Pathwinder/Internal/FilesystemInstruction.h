@@ -493,7 +493,8 @@ namespace Pathwinder
     }
 
     /// Creates a filesystem operation redirection instruction that indicates the request should
-    /// not be redirected but should be intercepted for additional processing
+    /// not be redirected but should be intercepted for additional processing, either via
+    /// pre-operation, handle association, or both.
     /// @param [in] filenameHandleAssociation How to associate a filename with a potentially
     /// newly-created filesystem handle.
     /// @param [in] extraPreOperations Any extra pre-operations to be performed before the file
