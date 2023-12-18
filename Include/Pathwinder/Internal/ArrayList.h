@@ -151,6 +151,18 @@ namespace Pathwinder
       return kCapacityBytes;
     }
 
+    /// Retrieves a read-only reference to the last element in this container.
+    constexpr const T& Back(void) const
+    {
+      return operator[](Size() - 1);
+    }
+
+    /// Retrieves a mutable reference to the last element in this container.
+    constexpr T& Back(void)
+    {
+      return operator[](Size() - 1);
+    }
+
     /// Removes all elements from this container, destroying each in sequence.
     inline void Clear(void)
     {
@@ -194,6 +206,18 @@ namespace Pathwinder
     inline bool Empty(void) const
     {
       return (0 == Size());
+    }
+
+    /// Retrieves a read-only reference to the first element in this container.
+    constexpr const T& Front(void) const
+    {
+      return operator[](0);
+    }
+
+    /// Retrieves a mutable reference to the first element in this container.
+    constexpr T& Front(void)
+    {
+      return operator[](0);
     }
 
     /// Removes the last element from this container and destroys it.

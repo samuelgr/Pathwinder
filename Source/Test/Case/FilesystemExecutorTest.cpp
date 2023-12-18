@@ -19,6 +19,7 @@
 #include <unordered_map>
 
 #include "ApiWindows.h"
+#include "ArrayList.h"
 #include "FilesystemDirector.h"
 #include "FilesystemInstruction.h"
 #include "MockFilesystemOperations.h"
@@ -613,12 +614,550 @@ namespace PathwinderTest
     }
   }
 
-  // Verifies that requests for new file handles are passed through to the system without
-  // modification, and not added to cache, if the filesystem instruction says to intercept with a
-  // pre-operation but not add any file handle association. No root directory handle is specified,
-  // as this test is just designed to exercise pre-operation execution. The forms of instructions
-  // exercised by this test are not generally produced by filesystem director objects.
-  TEST_CASE(FilesystemExecutor_NewFileHandle_InterceptWithoutRedirection_PreOperationOnly)
+  // Verifies that create disposition preferences contained in filesystem instructions are
+  // implemented correctly. The test case itself sends in a variety of different create dispositions
+  // from the application and encodes several different create disposition preferences in the
+  // instruction, then verifies that the actual new file handle creation requests the right sequence
+  // of create dispositions. Since only a single filename exists to be tried (the unredirected
+  // filename) each create disposition should be tried exactly once.
+  TEST_CASE(FilesystemExecutor_NewFileHandle_CreateDispositionPreference_UnredirectedOnly)
+  {
+    // Holds a single create disposition or forced error code and used to represent what the
+    // filesystem executor is expected to do in one particular instance.
+    using TCreateDispositionOrForcedError = ValueOrError<ULONG, NTSTATUS>;
+
+    // Holds multiple create dispositions, or forced error codes, in the expected order that they
+    // should be tried. If a create disposition is present then it is expected as the parameter,
+    // otherwise it is expected as the return code from the filesystem executor function.
+    using TExpectedCreateDispositionsOrForcedErrors = ArrayList<TCreateDispositionOrForcedError, 2>;
+
+    constexpr std::wstring_view kAbsolutePath = L"C:\\TestDirectory\\TestFile.txt";
+
+    const struct
+    {
+      ECreateDispositionPreference createDispositionPreferenceTestInput;
+      ULONG ntParamCreateDispositionFromApplication;
+      TExpectedCreateDispositionsOrForcedErrors expectedOrderedNtParamCreateDisposition;
+    } createDispositionTestRecords[] = {
+        //
+        // NoPreference
+        //
+        // Create disposition parameters should be passed through to the system exactly as is.
+        // Pathwinder does not impose any requirements or preferences in this situation.
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::NoPreference,
+         .ntParamCreateDispositionFromApplication = FILE_OPEN_IF,
+         .expectedOrderedNtParamCreateDisposition = {TCreateDispositionOrForcedError::MakeValue(
+             FILE_OPEN_IF)}},
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::NoPreference,
+         .ntParamCreateDispositionFromApplication = FILE_SUPERSEDE,
+         .expectedOrderedNtParamCreateDisposition = {TCreateDispositionOrForcedError::MakeValue(
+             FILE_SUPERSEDE)}},
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::NoPreference,
+         .ntParamCreateDispositionFromApplication = FILE_OPEN,
+         .expectedOrderedNtParamCreateDisposition = {TCreateDispositionOrForcedError::MakeValue(
+             FILE_OPEN)}},
+        //
+        // PreferCreateNewFile
+        //
+        // Multiple attempts should be made, and some of the NT paramters should accordingly be
+        // modified so that new file creation is attempted first before opening an existing file. If
+        // the application already explicitly requires that a new file be created or an existing
+        // file be opened, then there is no modification needed.
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
+         .ntParamCreateDispositionFromApplication = FILE_CREATE,
+         .expectedOrderedNtParamCreateDisposition = {TCreateDispositionOrForcedError::MakeValue(
+             FILE_CREATE)}},
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
+         .ntParamCreateDispositionFromApplication = FILE_OPEN,
+         .expectedOrderedNtParamCreateDisposition = {TCreateDispositionOrForcedError::MakeValue(
+             FILE_OPEN)}},
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
+         .ntParamCreateDispositionFromApplication = FILE_OPEN_IF,
+         .expectedOrderedNtParamCreateDisposition =
+             {TCreateDispositionOrForcedError::MakeValue(FILE_CREATE),
+              TCreateDispositionOrForcedError::MakeValue(FILE_OPEN)}},
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
+         .ntParamCreateDispositionFromApplication = FILE_OVERWRITE_IF,
+         .expectedOrderedNtParamCreateDisposition =
+             {TCreateDispositionOrForcedError::MakeValue(FILE_CREATE),
+              TCreateDispositionOrForcedError::MakeValue(FILE_OVERWRITE)}},
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
+         .ntParamCreateDispositionFromApplication = FILE_SUPERSEDE,
+         .expectedOrderedNtParamCreateDisposition =
+             {TCreateDispositionOrForcedError::MakeValue(FILE_CREATE),
+              TCreateDispositionOrForcedError::MakeValue(FILE_SUPERSEDE)}},
+        //
+        // PreferOpenExistingFile
+        //
+        // Multiple attempts should be made, and some of the NT paramters should accordingly be
+        // modified so that an existing file is opened before creating a new file. If the
+        // application already explicitly requires that a new file be created or an existing file be
+        // opened, then there is no modification needed.
+        {.createDispositionPreferenceTestInput =
+             ECreateDispositionPreference::PreferOpenExistingFile,
+         .ntParamCreateDispositionFromApplication = FILE_CREATE,
+         .expectedOrderedNtParamCreateDisposition = {TCreateDispositionOrForcedError::MakeValue(
+             FILE_CREATE)}},
+        {.createDispositionPreferenceTestInput =
+             ECreateDispositionPreference::PreferOpenExistingFile,
+         .ntParamCreateDispositionFromApplication = FILE_OPEN,
+         .expectedOrderedNtParamCreateDisposition = {TCreateDispositionOrForcedError::MakeValue(
+             FILE_OPEN)}},
+        {.createDispositionPreferenceTestInput =
+             ECreateDispositionPreference::PreferOpenExistingFile,
+         .ntParamCreateDispositionFromApplication = FILE_OPEN_IF,
+         .expectedOrderedNtParamCreateDisposition =
+             {TCreateDispositionOrForcedError::MakeValue(FILE_OPEN),
+              TCreateDispositionOrForcedError::MakeValue(FILE_CREATE)}},
+        {.createDispositionPreferenceTestInput =
+             ECreateDispositionPreference::PreferOpenExistingFile,
+         .ntParamCreateDispositionFromApplication = FILE_OVERWRITE_IF,
+         .expectedOrderedNtParamCreateDisposition =
+             {TCreateDispositionOrForcedError::MakeValue(FILE_OVERWRITE),
+              TCreateDispositionOrForcedError::MakeValue(FILE_CREATE)}},
+        {.createDispositionPreferenceTestInput =
+             ECreateDispositionPreference::PreferOpenExistingFile,
+         .ntParamCreateDispositionFromApplication = FILE_SUPERSEDE,
+         .expectedOrderedNtParamCreateDisposition = {
+             TCreateDispositionOrForcedError::MakeValue(FILE_SUPERSEDE)}}};
+
+    UNICODE_STRING unicodeStringAbsolutePath =
+        Strings::NtConvertStringViewToUnicodeString(kAbsolutePath);
+    OBJECT_ATTRIBUTES objectAttributesAbsolutePath =
+        CreateObjectAttributes(unicodeStringAbsolutePath);
+
+    for (const auto& createDispositionTestRecord : createDispositionTestRecords)
+    {
+      HANDLE unusedHandleValue = NULL;
+
+      MockFilesystemOperations mockFilesystem;
+      OpenHandleStore openHandleStore;
+
+      const FileOperationInstruction testInputFileOperationInstruction(
+          std::nullopt,
+          ETryFiles::UnredirectedOnly,
+          createDispositionTestRecord.createDispositionPreferenceTestInput,
+          EAssociateNameWithHandle::None,
+          {},
+          L"");
+
+      unsigned int underlyingSystemCallNumInvocations = 0;
+
+      NTSTATUS actualReturnCode = FilesystemExecutor::NewFileHandle(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          &unusedHandleValue,
+          0,
+          &objectAttributesAbsolutePath,
+          0,
+          createDispositionTestRecord.ntParamCreateDispositionFromApplication,
+          0,
+          [&testInputFileOperationInstruction](
+              std::wstring_view actualAbsolutePath,
+              FileAccessMode,
+              CreateDisposition) -> FileOperationInstruction
+          {
+            return testInputFileOperationInstruction;
+          },
+          [&createDispositionTestRecord, &underlyingSystemCallNumInvocations](
+              PHANDLE, POBJECT_ATTRIBUTES, ULONG actualNtParamCreateDisposition) -> NTSTATUS
+          {
+            if (underlyingSystemCallNumInvocations >=
+                createDispositionTestRecord.expectedOrderedNtParamCreateDisposition.Size())
+              TEST_FAILED_BECAUSE(
+                  L"Too many invocations of the underlying system call for application-supplied create disposition 0x%08x and create disposition preference %u.",
+                  static_cast<unsigned int>(
+                      createDispositionTestRecord.ntParamCreateDispositionFromApplication),
+                  static_cast<unsigned int>(
+                      createDispositionTestRecord.createDispositionPreferenceTestInput));
+
+            if (true ==
+                createDispositionTestRecord
+                    .expectedOrderedNtParamCreateDisposition[underlyingSystemCallNumInvocations]
+                    .HasError())
+              TEST_FAILED_BECAUSE(
+                  "Incorrect invocation of underlying system call when NTSTATUS 0x%08x was expected for application-supplied create disposition 0x%08x and create disposition preference %u.",
+                  static_cast<unsigned int>(createDispositionTestRecord
+                                                .expectedOrderedNtParamCreateDisposition
+                                                    [underlyingSystemCallNumInvocations]
+                                                .Error()),
+                  static_cast<unsigned int>(
+                      createDispositionTestRecord.ntParamCreateDispositionFromApplication),
+                  static_cast<unsigned int>(
+                      createDispositionTestRecord.createDispositionPreferenceTestInput));
+
+            ULONG expectedNtParamCreateDisposition =
+                createDispositionTestRecord
+                    .expectedOrderedNtParamCreateDisposition[underlyingSystemCallNumInvocations]
+                    .Value();
+            TEST_ASSERT(actualNtParamCreateDisposition == expectedNtParamCreateDisposition);
+
+            underlyingSystemCallNumInvocations += 1;
+
+            // A failure return code, indicating that the path was not found, is required to cause
+            // the next preferred create disposition to be tried. Any other failure code is
+            // correctly interpreted to indicate some other I/O error, which would just cause the
+            // entire operation to fail with that as the result.
+            return NtStatus::kObjectPathNotFound;
+          });
+
+      if (createDispositionTestRecord.expectedOrderedNtParamCreateDisposition.Back().HasValue())
+      {
+        TEST_ASSERT(
+            underlyingSystemCallNumInvocations ==
+            createDispositionTestRecord.expectedOrderedNtParamCreateDisposition.Size());
+      }
+      else
+      {
+        TEST_ASSERT(
+            underlyingSystemCallNumInvocations ==
+            createDispositionTestRecord.expectedOrderedNtParamCreateDisposition.Size() - 1);
+
+        NTSTATUS expectedReturnCode =
+            createDispositionTestRecord.expectedOrderedNtParamCreateDisposition.Back().Error();
+        TEST_ASSERT(actualReturnCode == expectedReturnCode);
+      }
+    }
+  }
+
+  // Verifies that create disposition preferences contained in filesystem instructions are
+  // implemented correctly. The test case itself sends in a variety of different create dispositions
+  // from the application and encodes several different create disposition preferences in the
+  // instruction, then verifies that the actual new file handle creation requests the right sequence
+  // of create dispositions. This test emulates "overlay mode" by supplying a redirected file and
+  // requesting that the redirected file be tried first. Where it makes a difference to create
+  // disposition and file name order, the test inputs also specify which of the unredirected and
+  // redirected paths exist in the mock filesystem.
+  TEST_CASE(FilesystemExecutor_NewFileHandle_CreateDispositionPreference_RedirectedFirst)
+  {
+    // Represents an expected combination of parameters to the underlying system call, combining a
+    // create disposition with an absolute path.
+    struct SCreateDispositionAndPath
+    {
+      ULONG ntParamCreateDisposition;
+      std::wstring_view absolutePath;
+    };
+
+    // Holds a single parameter pair or forced error code and used to represent what the
+    // filesystem executor is expected to do in one particular instance.
+    using TParametersOrForcedError = ValueOrError<SCreateDispositionAndPath, NTSTATUS>;
+
+    // Holds multiple parameter pairs, or forced error codes, in the expected order that they
+    // should be tried. If a parameter pair is present then it is expected as the parameters to the
+    // underlying system call, otherwise it is expected as the return code from the filesystem
+    // executor function.
+    using TExpectedParametersOrForcedErrors = ArrayList<TParametersOrForcedError, 4>;
+
+    constexpr std::wstring_view kAbsolutePath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kRedirectedPath = L"C:\\RedirectedDirectory\\TestFile.txt";
+
+    const struct
+    {
+      ECreateDispositionPreference createDispositionPreferenceTestInput;
+      ULONG ntParamCreateDispositionFromApplication;
+      TExpectedParametersOrForcedErrors expectedOrderedParameters;
+      bool unredirectedPathExists;
+      bool redirectedPathExists;
+    } createDispositionTestRecords[] = {
+        //
+        // NoPreference
+        //
+        // Create disposition parameters should be passed through to the system exactly as is.
+        // Pathwinder does not impose any requirements or preferences in this situation.
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::NoPreference,
+         .ntParamCreateDispositionFromApplication = FILE_OPEN_IF,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OPEN_IF, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OPEN_IF, .absolutePath = kAbsolutePath})}},
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::NoPreference,
+         .ntParamCreateDispositionFromApplication = FILE_SUPERSEDE,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath})}},
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::NoPreference,
+         .ntParamCreateDispositionFromApplication = FILE_OPEN,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kAbsolutePath})}},
+        //
+        // PreferCreateNewFile
+        //
+        // Multiple attempts should be made, and some of the NT paramters should accordingly be
+        // modified so that new file creation is attempted first before opening an existing file. If
+        // the application already explicitly requires that a new file be created or an existing
+        // file be opened, then there is no modification needed.
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
+         .ntParamCreateDispositionFromApplication = FILE_CREATE,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath})}},
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
+         .ntParamCreateDispositionFromApplication = FILE_OPEN,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kAbsolutePath})}},
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
+         .ntParamCreateDispositionFromApplication = FILE_OPEN_IF,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kAbsolutePath})}},
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
+         .ntParamCreateDispositionFromApplication = FILE_OVERWRITE_IF,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OVERWRITE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OVERWRITE, .absolutePath = kAbsolutePath})}},
+        {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
+         .ntParamCreateDispositionFromApplication = FILE_SUPERSEDE,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath})}},
+        //
+        // PreferOpenExistingFile
+        //
+        // Multiple attempts should be made, and some of the NT paramters should accordingly be
+        // modified so that an existing file is opened before creating a new file. If the
+        // application already explicitly requires that a new file be created or an existing file be
+        // opened, then there is no modification needed.
+        {.createDispositionPreferenceTestInput =
+             ECreateDispositionPreference::PreferOpenExistingFile,
+         .ntParamCreateDispositionFromApplication = FILE_CREATE,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath})}},
+        {.createDispositionPreferenceTestInput =
+             ECreateDispositionPreference::PreferOpenExistingFile,
+         .ntParamCreateDispositionFromApplication = FILE_OPEN,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kAbsolutePath})}},
+        {.createDispositionPreferenceTestInput =
+             ECreateDispositionPreference::PreferOpenExistingFile,
+         .ntParamCreateDispositionFromApplication = FILE_OPEN_IF,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kAbsolutePath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath})}},
+        {.createDispositionPreferenceTestInput =
+             ECreateDispositionPreference::PreferOpenExistingFile,
+         .ntParamCreateDispositionFromApplication = FILE_OVERWRITE_IF,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OVERWRITE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_OVERWRITE, .absolutePath = kAbsolutePath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath})}},
+        {.createDispositionPreferenceTestInput =
+             ECreateDispositionPreference::PreferOpenExistingFile,
+         .ntParamCreateDispositionFromApplication = FILE_SUPERSEDE,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath})},
+         .unredirectedPathExists = false,
+         .redirectedPathExists = false},
+        {.createDispositionPreferenceTestInput =
+             ECreateDispositionPreference::PreferOpenExistingFile,
+         .ntParamCreateDispositionFromApplication = FILE_SUPERSEDE,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath})},
+         .unredirectedPathExists = false,
+         .redirectedPathExists = true},
+        {.createDispositionPreferenceTestInput =
+             ECreateDispositionPreference::PreferOpenExistingFile,
+         .ntParamCreateDispositionFromApplication = FILE_SUPERSEDE,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath})},
+         .unredirectedPathExists = true,
+         .redirectedPathExists = false},
+        {.createDispositionPreferenceTestInput =
+             ECreateDispositionPreference::PreferOpenExistingFile,
+         .ntParamCreateDispositionFromApplication = FILE_SUPERSEDE,
+         .expectedOrderedParameters =
+             {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
+              TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath})},
+         .unredirectedPathExists = true,
+         .redirectedPathExists = true},
+    };
+
+    UNICODE_STRING unicodeStringAbsolutePath =
+        Strings::NtConvertStringViewToUnicodeString(kAbsolutePath);
+    OBJECT_ATTRIBUTES objectAttributesAbsolutePath =
+        CreateObjectAttributes(unicodeStringAbsolutePath);
+
+    for (const auto& createDispositionTestRecord : createDispositionTestRecords)
+    {
+      HANDLE unusedHandleValue = NULL;
+
+      MockFilesystemOperations mockFilesystem;
+      if (createDispositionTestRecord.unredirectedPathExists) mockFilesystem.AddFile(kAbsolutePath);
+      if (createDispositionTestRecord.redirectedPathExists) mockFilesystem.AddFile(kRedirectedPath);
+
+      OpenHandleStore openHandleStore;
+
+      const FileOperationInstruction testInputFileOperationInstruction(
+          kRedirectedPath,
+          ETryFiles::RedirectedFirst,
+          createDispositionTestRecord.createDispositionPreferenceTestInput,
+          EAssociateNameWithHandle::None,
+          {},
+          L"");
+
+      unsigned int underlyingSystemCallNumInvocations = 0;
+
+      NTSTATUS actualReturnCode = FilesystemExecutor::NewFileHandle(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          &unusedHandleValue,
+          0,
+          &objectAttributesAbsolutePath,
+          0,
+          createDispositionTestRecord.ntParamCreateDispositionFromApplication,
+          0,
+          [&testInputFileOperationInstruction](
+              std::wstring_view actualAbsolutePath,
+              FileAccessMode,
+              CreateDisposition) -> FileOperationInstruction
+          {
+            return testInputFileOperationInstruction;
+          },
+          [&createDispositionTestRecord, &underlyingSystemCallNumInvocations](
+              PHANDLE,
+              POBJECT_ATTRIBUTES objectAttributes,
+              ULONG actualNtParamCreateDisposition) -> NTSTATUS
+          {
+            if (underlyingSystemCallNumInvocations >=
+                createDispositionTestRecord.expectedOrderedParameters.Size())
+              TEST_FAILED_BECAUSE(
+                  L"Too many invocations of the underlying system call for application-supplied create disposition 0x%08x and create disposition preference %u.",
+                  static_cast<unsigned int>(
+                      createDispositionTestRecord.ntParamCreateDispositionFromApplication),
+                  static_cast<unsigned int>(
+                      createDispositionTestRecord.createDispositionPreferenceTestInput));
+
+            if (true ==
+                createDispositionTestRecord
+                    .expectedOrderedParameters[underlyingSystemCallNumInvocations]
+                    .HasError())
+              TEST_FAILED_BECAUSE(
+                  "Incorrect invocation of underlying system call when NTSTATUS 0x%08x was expected for application-supplied create disposition 0x%08x and create disposition preference %u.",
+                  static_cast<unsigned int>(
+                      createDispositionTestRecord
+                          .expectedOrderedParameters[underlyingSystemCallNumInvocations]
+                          .Error()),
+                  static_cast<unsigned int>(
+                      createDispositionTestRecord.ntParamCreateDispositionFromApplication),
+                  static_cast<unsigned int>(
+                      createDispositionTestRecord.createDispositionPreferenceTestInput));
+
+            ULONG expectedNtParamCreateDisposition =
+                createDispositionTestRecord
+                    .expectedOrderedParameters[underlyingSystemCallNumInvocations]
+                    .Value()
+                    .ntParamCreateDisposition;
+            TEST_ASSERT(actualNtParamCreateDisposition == expectedNtParamCreateDisposition);
+
+            std::wstring_view expectedPathToTry =
+                createDispositionTestRecord
+                    .expectedOrderedParameters[underlyingSystemCallNumInvocations]
+                    .Value()
+                    .absolutePath;
+            std::wstring_view actualPathToTry =
+                Strings::NtConvertUnicodeStringToStringView(*objectAttributes->ObjectName);
+            TEST_ASSERT(actualPathToTry == expectedPathToTry);
+
+            underlyingSystemCallNumInvocations += 1;
+
+            // A failure return code, indicating that the path was not found, is required to cause
+            // the next preferred create disposition to be tried. Any other failure code is
+            // correctly interpreted to indicate some other I/O error, which would just cause the
+            // entire operation to fail with that as the result.
+            return NtStatus::kObjectPathNotFound;
+          });
+
+      if (createDispositionTestRecord.expectedOrderedParameters.Back().HasValue())
+      {
+        TEST_ASSERT(
+            underlyingSystemCallNumInvocations ==
+            createDispositionTestRecord.expectedOrderedParameters.Size());
+      }
+      else
+      {
+        TEST_ASSERT(
+            underlyingSystemCallNumInvocations ==
+            createDispositionTestRecord.expectedOrderedParameters.Size() - 1);
+
+        NTSTATUS expectedReturnCode =
+            createDispositionTestRecord.expectedOrderedParameters.Back().Error();
+        TEST_ASSERT(actualReturnCode == expectedReturnCode);
+      }
+    }
+  }
+
+  // Verifies that a pre-operation request contained in a filesystem operation instruction is
+  // executed correctly. The file operation instruction only contains a pre-operation and nothing
+  // else, and this test case exercises an operation to ensure a path hierarchy exists. The forms
+  // of instructions exercised by this test are not generally produced by filesystem director
+  // objects but are intended specifically to exercise pre-operation functionality.
+  TEST_CASE(FilesystemExecutor_NewFileHandle_PreOperation_EnsurePathHierarchyExists)
   {
     constexpr std::wstring_view kAbsolutePath = L"C:\\TestDirectory\\TestFile.txt";
     constexpr std::wstring_view kExtraPreOperationHierarchyToCreate =
@@ -626,7 +1165,7 @@ namespace PathwinderTest
 
     // This test case only exercises pre-operations, so no association should be created and hence
     // nothing should be added to the open handle store. The important parts here are the extra
-    // pre-operation to ensure a directory hierarchy exists and the operand to that pre-operation.
+    // pre-operation itself and the operand to that pre-operation.
     const FileOperationInstruction fileOperationInstructionsToTry[] = {
         FileOperationInstruction::InterceptWithoutRedirection(
             EAssociateNameWithHandle::None,

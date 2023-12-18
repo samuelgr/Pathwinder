@@ -768,6 +768,13 @@ namespace Pathwinder
               break;
 
             case FILE_SUPERSEDE:
+              // It may seem unnecessary to add two `FILE_SUPERSEDE` entries, one conditional and
+              // one unconditional, but this is important for how files and create dispositions are
+              // ordered. For each create disposition, each file to try is tried in sequence before
+              // moving to the next create disposition. Therefore, this ordering ensures that
+              // whichever file already exists is superseded before allowing non-existent files to
+              // be opened for supersede. That is how the preference for opening an existing file is
+              // implemented.
               createDispositionsList.PushBack(SCreateDispositionToTry{
                   .condition = SCreateDispositionToTry::ECondition::FileMustExist,
                   .ntParamCreateDisposition = FILE_SUPERSEDE});
@@ -1245,7 +1252,7 @@ namespace Pathwinder
           redirectedObjectNameAndAttributes, operationContext.instruction, *objectAttributes);
 
       HANDLE newlyOpenedHandle = nullptr;
-      NTSTATUS systemCallResult = NtStatus::kInternalError;
+      NTSTATUS systemCallResult = NtStatus::kObjectPathNotFound;
 
       std::wstring_view unredirectedPath =
           ((true == operationContext.composedInputPath.has_value())
