@@ -614,6 +614,100 @@ namespace PathwinderTest
     }
   }
 
+  // Verifies that any file attempt preference is honored if it is contained in a file operation
+  // instruction. The instructions used in this test case all contain an unredirected and a
+  // redirected path, and they supply various enumerators indicating the order in which the files
+  // should be tried.
+  TEST_CASE(FilesystemExecutor_NewFileHandle_SimpleAndOverlayRedirect_TryFileOrder)
+  {
+    constexpr std::wstring_view kAbsolutePath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kRedirectedPath = L"C:\\RedirectedDirectory\\TestFile.txt";
+
+    // Holds paths in the order that they are expected to be tried in invocations of the underlying
+    // system call.
+    using TExpectedPaths = ArrayList<std::wstring_view, 2>;
+
+    const struct
+    {
+      ETryFiles tryFilesTestInput;
+      TExpectedPaths expectedOrderedPaths;
+    } tryFilesTestRecords[] = {
+        {.tryFilesTestInput = ETryFiles::UnredirectedOnly, .expectedOrderedPaths = {kAbsolutePath}},
+        {.tryFilesTestInput = ETryFiles::UnredirectedFirst,
+         .expectedOrderedPaths = {kAbsolutePath, kRedirectedPath}},
+        {.tryFilesTestInput = ETryFiles::RedirectedOnly, .expectedOrderedPaths = {kRedirectedPath}},
+        {.tryFilesTestInput = ETryFiles::RedirectedFirst,
+         .expectedOrderedPaths = {kRedirectedPath, kAbsolutePath}},
+    };
+
+    UNICODE_STRING unicodeStringAbsolutePath =
+        Strings::NtConvertStringViewToUnicodeString(kAbsolutePath);
+    OBJECT_ATTRIBUTES objectAttributesAbsolutePath =
+        CreateObjectAttributes(unicodeStringAbsolutePath);
+
+    for (const auto& tryFilesTestRecord : tryFilesTestRecords)
+    {
+      HANDLE unusedHandleValue = NULL;
+
+      MockFilesystemOperations mockFilesystem;
+      OpenHandleStore openHandleStore;
+
+      const FileOperationInstruction testInputFileOperationInstruction(
+          kRedirectedPath,
+          tryFilesTestRecord.tryFilesTestInput,
+          ECreateDispositionPreference::NoPreference,
+          EAssociateNameWithHandle::None,
+          {},
+          L"");
+
+      unsigned int underlyingSystemCallNumInvocations = 0;
+
+      NTSTATUS actualReturnCode = FilesystemExecutor::NewFileHandle(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          &unusedHandleValue,
+          0,
+          &objectAttributesAbsolutePath,
+          0,
+          0,
+          0,
+          [&testInputFileOperationInstruction](
+              std::wstring_view actualAbsolutePath,
+              FileAccessMode,
+              CreateDisposition) -> FileOperationInstruction
+          {
+            return testInputFileOperationInstruction;
+          },
+          [&tryFilesTestRecord, &underlyingSystemCallNumInvocations](
+              PHANDLE, POBJECT_ATTRIBUTES objectAttributes, ULONG) -> NTSTATUS
+          {
+            if (underlyingSystemCallNumInvocations >=
+                tryFilesTestRecord.expectedOrderedPaths.Size())
+              TEST_FAILED_BECAUSE(
+                  L"Too many invocations of the underlying system call for try files order enumerator %u.",
+                  static_cast<unsigned int>(tryFilesTestRecord.tryFilesTestInput));
+
+            std::wstring_view expectedPathToTry =
+                tryFilesTestRecord.expectedOrderedPaths[underlyingSystemCallNumInvocations];
+            std::wstring_view actualPathToTry =
+                Strings::NtConvertUnicodeStringToStringView(*objectAttributes->ObjectName);
+            TEST_ASSERT(actualPathToTry == expectedPathToTry);
+
+            underlyingSystemCallNumInvocations += 1;
+
+            // A failure return code, indicating that the path was not found, is required to cause
+            // the next preferred create disposition to be tried. Any other failure code is
+            // correctly interpreted to indicate some other I/O error, which would just cause the
+            // entire operation to fail with that as the result.
+            return NtStatus::kObjectPathNotFound;
+          });
+
+      TEST_ASSERT(
+          underlyingSystemCallNumInvocations == tryFilesTestRecord.expectedOrderedPaths.Size());
+    }
+  }
+
   // Verifies that create disposition preferences contained in filesystem instructions are
   // implemented correctly. The test case itself sends in a variety of different create dispositions
   // from the application and encodes several different create disposition preferences in the
@@ -1193,6 +1287,9 @@ namespace PathwinderTest
       OpenHandleStore openHandleStore;
 
       bool instructionSourceWasInvoked = false;
+
+      // Pre-operation should not have been executed yet because the filesystem executor function
+      // was not yet invoked.
       TEST_ASSERT(false == mockFilesystem.IsDirectory(kExtraPreOperationHierarchyToCreate));
 
       constexpr NTSTATUS expectedReturnCode = 0x0000000c;
@@ -1217,9 +1314,13 @@ namespace PathwinderTest
             instructionSourceWasInvoked = true;
             return fileOperationInstructionToTry;
           },
-          [expectedHandleValue, expectedReturnCode, &objectAttributesAbsolutePath](
+          [expectedHandleValue, expectedReturnCode, &mockFilesystem, &objectAttributesAbsolutePath](
               PHANDLE handle, POBJECT_ATTRIBUTES objectAttributes, ULONG) -> NTSTATUS
           {
+            // Checking here for the completion of the pre-operation ensures that it was done prior
+            // to the underlying system call being invoked.
+            TEST_ASSERT(true == mockFilesystem.IsDirectory(kExtraPreOperationHierarchyToCreate));
+
             const OBJECT_ATTRIBUTES& expectedObjectAttributes = objectAttributesAbsolutePath;
             const OBJECT_ATTRIBUTES& actualObjectAttributes = *objectAttributes;
             TEST_ASSERT(EqualObjectAttributes(actualObjectAttributes, expectedObjectAttributes));
@@ -1230,7 +1331,6 @@ namespace PathwinderTest
 
       TEST_ASSERT(true == instructionSourceWasInvoked);
       TEST_ASSERT(true == openHandleStore.Empty());
-      TEST_ASSERT(true == mockFilesystem.IsDirectory(kExtraPreOperationHierarchyToCreate));
       TEST_ASSERT(actualReturnCode == expectedReturnCode);
       TEST_ASSERT(actualHandleValue == expectedHandleValue);
     }
