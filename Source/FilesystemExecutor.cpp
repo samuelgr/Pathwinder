@@ -1413,7 +1413,7 @@ namespace Pathwinder
       SFileRenameInformation& redirectedFileRenameInformation =
           redirectedFileRenameInformationAndFilename.GetFileRenameInformation();
 
-      NTSTATUS systemCallResult = NtStatus::kInternalError;
+      NTSTATUS systemCallResult = NtStatus::kObjectPathNotFound;
       std::wstring_view lastAttemptedPath;
 
       for (const auto& operationToTry : SelectFileOperationsToTry(
@@ -1504,7 +1504,7 @@ namespace Pathwinder
 
       std::wstring_view lastAttemptedPath;
 
-      NTSTATUS systemCallResult = NtStatus::kInternalError;
+      NTSTATUS systemCallResult = NtStatus::kObjectPathNotFound;
 
       for (const auto& operationToTry : SelectFileOperationsToTry(
                functionName,
