@@ -496,7 +496,8 @@ namespace Pathwinder
     /// not be redirected but should be intercepted for additional processing, either via
     /// pre-operation, handle association, or both.
     /// @param [in] filenameHandleAssociation How to associate a filename with a potentially
-    /// newly-created filesystem handle.
+    /// newly-created filesystem handle. Optional, defaults to whichever path was successfully
+    /// opened (which necessarily must be the unredirected path).
     /// @param [in] extraPreOperations Any extra pre-operations to be performed before the file
     /// operation is attempted. Optional, defaults to none.
     /// @param [in] extraPreOperationOperand Additional operand for any extra pre-operations.
@@ -504,7 +505,8 @@ namespace Pathwinder
     /// @return File operation redirection instruction encoded to indicate some additional
     /// processing needed but without redirection.
     static inline FileOperationInstruction InterceptWithoutRedirection(
-        EAssociateNameWithHandle filenameHandleAssociation,
+        EAssociateNameWithHandle filenameHandleAssociation =
+            EAssociateNameWithHandle::WhicheverWasSuccessful,
         BitSetEnum<EExtraPreOperation>&& extraPreOperations = {},
         std::wstring_view extraPreOperationOperand = std::wstring_view())
     {

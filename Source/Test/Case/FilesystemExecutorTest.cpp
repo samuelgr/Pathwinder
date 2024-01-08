@@ -147,6 +147,134 @@ namespace PathwinderTest
     TEST_ASSERT(false == mockFilesystem.GetDirectoryPathFromHandle(directoryHandle).has_value());
   }
 
+  // Verifies that whatever handle value is written by the underlying system call instruction is
+  // made visible to the caller via its pointer parameter.
+  TEST_CASE(FilesystemExecutor_NewFileHandle_WriteNewHandleValue)
+  {
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kRedirectedPath = L"C:\\RedirectedDirectory\\TestFile.txt";
+
+    UNICODE_STRING unicodeStringUnredirectedPath =
+        Strings::NtConvertStringViewToUnicodeString(kUnredirectedPath);
+    OBJECT_ATTRIBUTES objectAttributesUnredirectedPath =
+        CreateObjectAttributes(unicodeStringUnredirectedPath);
+
+    const FileOperationInstruction fileOperationInstructionsToTry[] = {
+        FileOperationInstruction::NoRedirectionOrInterception(),
+        FileOperationInstruction::InterceptWithoutRedirection(),
+        FileOperationInstruction::SimpleRedirectTo(kRedirectedPath),
+        FileOperationInstruction::OverlayRedirectTo(kRedirectedPath),
+    };
+
+    const HANDLE handleValuesToTry[] = {
+        reinterpret_cast<HANDLE>(0),
+        reinterpret_cast<HANDLE>(103),
+        reinterpret_cast<HANDLE>(204),
+        reinterpret_cast<HANDLE>(3050),
+        reinterpret_cast<HANDLE>(40600),
+    };
+
+    for (const auto& fileOperationInstructionToTry : fileOperationInstructionsToTry)
+    {
+      for (HANDLE handleValueToTry : handleValuesToTry)
+      {
+        const HANDLE expectedHandleValue = handleValueToTry;
+        HANDLE actualHandleValue = NULL;
+
+        OpenHandleStore openHandleStore;
+
+        FilesystemExecutor::NewFileHandle(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            &actualHandleValue,
+            0,
+            &objectAttributesUnredirectedPath,
+            0,
+            0,
+            0,
+            [&fileOperationInstructionToTry](
+                std::wstring_view, FileAccessMode, CreateDisposition) -> FileOperationInstruction
+            {
+              return fileOperationInstructionToTry;
+            },
+            [handleValueToTry](PHANDLE handle, POBJECT_ATTRIBUTES, ULONG) -> NTSTATUS
+            {
+              *handle = handleValueToTry;
+              return NtStatus::kSuccess;
+            });
+
+        TEST_ASSERT(actualHandleValue == expectedHandleValue);
+      }
+    }
+  }
+
+  // Verifies that the underlying system call return code is propagated to the caller as the result
+  // of the executor operation.
+  TEST_CASE(FilesystemExecutor_NewFileHandle_PropagateReturnCode)
+  {
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kRedirectedPath = L"C:\\RedirectedDirectory\\TestFile.txt";
+
+    UNICODE_STRING unicodeStringUnredirectedPath =
+        Strings::NtConvertStringViewToUnicodeString(kUnredirectedPath);
+    OBJECT_ATTRIBUTES objectAttributesUnredirectedPath =
+        CreateObjectAttributes(unicodeStringUnredirectedPath);
+
+    const FileOperationInstruction fileOperationInstructionsToTry[] = {
+        FileOperationInstruction::NoRedirectionOrInterception(),
+        FileOperationInstruction::InterceptWithoutRedirection(),
+        FileOperationInstruction::SimpleRedirectTo(kRedirectedPath),
+        FileOperationInstruction::OverlayRedirectTo(kRedirectedPath),
+    };
+
+    const NTSTATUS returnCodesToTry[] = {
+        NtStatus::kSuccess,
+        NtStatus::kBufferOverflow,
+        NtStatus::kInvalidInfoClass,
+        NtStatus::kInvalidParameter,
+        NtStatus::kNoSuchFile,
+        NtStatus::kObjectNameInvalid,
+        NtStatus::kObjectNameNotFound,
+        NtStatus::kObjectPathInvalid,
+        NtStatus::kObjectPathNotFound,
+        NtStatus::kInternalError,
+    };
+
+    for (const auto& fileOperationInstructionToTry : fileOperationInstructionsToTry)
+    {
+      for (NTSTATUS returnCodeToTry : returnCodesToTry)
+      {
+        HANDLE unusedHandleValue = NULL;
+
+        OpenHandleStore openHandleStore;
+
+        const NTSTATUS expectedReturnCode = returnCodeToTry;
+        const NTSTATUS actualReturnCode = FilesystemExecutor::NewFileHandle(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            &unusedHandleValue,
+            0,
+            &objectAttributesUnredirectedPath,
+            0,
+            0,
+            0,
+            [&fileOperationInstructionToTry](
+                std::wstring_view, FileAccessMode, CreateDisposition) -> FileOperationInstruction
+            {
+              return fileOperationInstructionToTry;
+            },
+            [expectedReturnCode](PHANDLE, POBJECT_ATTRIBUTES, ULONG) -> NTSTATUS
+            {
+              return expectedReturnCode;
+            });
+
+        TEST_ASSERT(actualReturnCode == expectedReturnCode);
+      }
+    }
+  }
+
   // Verifies that requesting an instruction for creating a new file handle maps correctly from the
   // application-requested create disposition to an internal object representation of the same.
   TEST_CASE(FilesystemExecutor_NewFileHandle_CreateDispositionMapping)
@@ -251,366 +379,76 @@ namespace PathwinderTest
     }
   }
 
-  // Verifies that requests for new file handles are passed through to the system without
-  // modification or interception if the filesystem instruction says not to redirect or intercept.
-  // This test case exercises the nominal situation in which no root directory handle is specified.
-  // Various valid forms of file operation instructions are exercised, even those that are not
-  // actually ever produced by a filesystem director.
-  TEST_CASE(FilesystemExecutor_NewFileHandle_NoRedirectionOrInterception_Nominal)
+  // Verifies that the filesystem executor correctly composes a complete path when requesting a file
+  // operation instruction. If no root directory is specified then the requested path is the same as
+  // the input path. If the root directory is specified by handle and the handle is cached in the
+  // open handle store then the requested path is the root directory path concatenated with the
+  // input path. Note that an uncached (but present) root directory is handled by a different test
+  // case entirely, as this situation should result in passthrough behavior.
+  TEST_CASE(FilesystemExecutor_NewFileHandle_InstructionSourcePathComposition)
   {
-    constexpr std::wstring_view kAbsolutePath = L"C:\\TestDirectory\\TestFile.txt";
-
-    // The fundamental parts of a "no-redirect-or-intercept" instruction is that only the
-    // unredirected file is tried and that no association is created between the name and the
-    // handle. No pre-operations are allowed, so the operand should be ignored.
-    const FileOperationInstruction fileOperationInstructionsToTry[] = {
-        FileOperationInstruction::NoRedirectionOrInterception(),
-        FileOperationInstruction(
-            L"C:\\Redirected\\Filename\\IsPresent\\ButShouldBeIgnored.txt",
-            ETryFiles::UnredirectedOnly,
-            ECreateDispositionPreference::NoPreference,
-            EAssociateNameWithHandle::None,
-            {},
-            L"ExtraPreOperationOperandShouldBeIgnored")};
-
-    UNICODE_STRING unicodeStringAbsolutePath =
-        Strings::NtConvertStringViewToUnicodeString(kAbsolutePath);
-    OBJECT_ATTRIBUTES objectAttributesAbsolutePath =
-        CreateObjectAttributes(unicodeStringAbsolutePath);
-
-    for (const auto& fileOperationInstructionToTry : fileOperationInstructionsToTry)
-    {
-      const HANDLE expectedHandleValue = reinterpret_cast<HANDLE>(2);
-      HANDLE actualHandleValue = NULL;
-
-      MockFilesystemOperations mockFilesystem;
-      OpenHandleStore openHandleStore;
-
-      bool instructionSourceWasInvoked = false;
-
-      constexpr NTSTATUS expectedReturnCode = 0x00000004;
-      NTSTATUS actualReturnCode = FilesystemExecutor::NewFileHandle(
-          TestCaseName().data(),
-          kFunctionRequestIdentifier,
-          openHandleStore,
-          &actualHandleValue,
-          0,
-          &objectAttributesAbsolutePath,
-          0,
-          0,
-          0,
-          [kAbsolutePath, &fileOperationInstructionToTry, &instructionSourceWasInvoked](
-              std::wstring_view actualAbsolutePath,
-              FileAccessMode,
-              CreateDisposition) -> FileOperationInstruction
-          {
-            std::wstring_view expectedAbsolutePath = kAbsolutePath;
-            TEST_ASSERT(actualAbsolutePath == expectedAbsolutePath);
-
-            instructionSourceWasInvoked = true;
-            return fileOperationInstructionToTry;
-          },
-          [expectedHandleValue, expectedReturnCode, &objectAttributesAbsolutePath](
-              PHANDLE handle, POBJECT_ATTRIBUTES objectAttributes, ULONG) -> NTSTATUS
-          {
-            const OBJECT_ATTRIBUTES& expectedObjectAttributes = objectAttributesAbsolutePath;
-            const OBJECT_ATTRIBUTES& actualObjectAttributes = *objectAttributes;
-            TEST_ASSERT(EqualObjectAttributes(actualObjectAttributes, expectedObjectAttributes));
-
-            *handle = expectedHandleValue;
-            return expectedReturnCode;
-          });
-
-      TEST_ASSERT(true == instructionSourceWasInvoked);
-      TEST_ASSERT(true == openHandleStore.Empty());
-      TEST_ASSERT(actualReturnCode == expectedReturnCode);
-      TEST_ASSERT(actualHandleValue == expectedHandleValue);
-    }
-  } // namespace PathwinderTest
-
-  // Verifies that requests for new file handles are passed through to the system without
-  // modification or interception if the filesystem instruction says not to redirect or intercept.
-  // This test case exercises the situation in which a root directory handle is specified and
-  // present in the open handle store cache. The root directory was previously intercepted by
-  // another file operation, so the executor should request an instruction using the full, combined,
-  // absolute path. Since the result is "no redirection" the request should then be forwarded
-  // unmodified to the system. Various valid forms of file operation instructions are exercised,
-  // even those that are not actually ever produced by a filesystem director.
-  TEST_CASE(FilesystemExecutor_NewFileHandle_NoRedirectionOrInterception_CachedRootDirectory)
-  {
-    constexpr std::wstring_view kAbsolutePath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
     constexpr std::wstring_view kDirectoryName =
-        kAbsolutePath.substr(0, kAbsolutePath.find_last_of(L'\\'));
+        kUnredirectedPath.substr(0, kUnredirectedPath.find_last_of(L'\\'));
     constexpr std::wstring_view kFileName =
-        kAbsolutePath.substr(1 + kAbsolutePath.find_last_of(L'\\'));
+        kUnredirectedPath.substr(1 + kUnredirectedPath.find_last_of(L'\\'));
 
-    // The fundamental parts of a "no-redirect-or-intercept" instruction is that only the
-    // unredirected file is tried and that no association is created between the name and the
-    // handle. No pre-operations are allowed, so the operand should be ignored.
-    const FileOperationInstruction fileOperationInstructionsToTry[] = {
-        FileOperationInstruction::NoRedirectionOrInterception(),
-        FileOperationInstruction(
-            L"C:\\Redirected\\Filename\\IsPresent\\ButShouldBeIgnored.txt",
-            ETryFiles::UnredirectedOnly,
-            ECreateDispositionPreference::NoPreference,
-            EAssociateNameWithHandle::None,
-            {},
-            L"ExtraPreOperationOperandShouldBeIgnored")};
+    const HANDLE kRootDirectoryHandleValueTestInput = reinterpret_cast<HANDLE>(2049);
 
-    MockFilesystemOperations mockFilesystem;
-    mockFilesystem.AddFile(kAbsolutePath);
-
-    auto maybeDirectoryHandle = mockFilesystem.OpenDirectoryForEnumeration(kDirectoryName);
-    TEST_ASSERT(true == maybeDirectoryHandle.HasValue());
-
-    const HANDLE rootDirectoryHandle = maybeDirectoryHandle.Value();
-    TEST_ASSERT(kDirectoryName == mockFilesystem.GetDirectoryPathFromHandle(rootDirectoryHandle));
-
-    UNICODE_STRING unicodeStringRelativePath =
-        Strings::NtConvertStringViewToUnicodeString(kFileName);
-    OBJECT_ATTRIBUTES objectAttributesRelativePath =
-        CreateObjectAttributes(unicodeStringRelativePath, rootDirectoryHandle);
-
-    for (const auto& fileOperationInstructionToTry : fileOperationInstructionsToTry)
+    const struct
     {
-      const HANDLE expectedHandleValue = reinterpret_cast<HANDLE>(2);
-      HANDLE actualHandleValue = NULL;
+      std::optional<std::wstring_view> rootDirectoryName;
+      std::wstring_view fileName;
+    } instructionSourcePathCompositionTestRecords[] = {
+        {.rootDirectoryName = std::nullopt, .fileName = kUnredirectedPath},
+        {.rootDirectoryName = kDirectoryName, .fileName = kFileName},
+    };
+
+    for (const auto& instructionSourcePathCompositionTestRecord :
+         instructionSourcePathCompositionTestRecords)
+    {
+      UNICODE_STRING unicodeStringFileName = Strings::NtConvertStringViewToUnicodeString(
+          instructionSourcePathCompositionTestRecord.fileName);
 
       OpenHandleStore openHandleStore;
-      openHandleStore.InsertHandle(
-          rootDirectoryHandle, std::wstring(kDirectoryName), std::wstring(kDirectoryName));
 
-      bool instructionSourceWasInvoked = false;
+      HANDLE rootDirectoryHandle = NULL;
 
-      constexpr NTSTATUS expectedReturnCode = 0x00000006;
-      NTSTATUS actualReturnCode = FilesystemExecutor::NewFileHandle(
+      if (instructionSourcePathCompositionTestRecord.rootDirectoryName.has_value())
+      {
+        rootDirectoryHandle = kRootDirectoryHandleValueTestInput;
+        openHandleStore.InsertHandle(
+            rootDirectoryHandle,
+            std::wstring(*instructionSourcePathCompositionTestRecord.rootDirectoryName),
+            std::wstring(*instructionSourcePathCompositionTestRecord.rootDirectoryName));
+      }
+
+      OBJECT_ATTRIBUTES objectAttributes =
+          CreateObjectAttributes(unicodeStringFileName, rootDirectoryHandle);
+
+      FilesystemExecutor::NewFileHandle(
           TestCaseName().data(),
           kFunctionRequestIdentifier,
           openHandleStore,
-          &actualHandleValue,
+          nullptr,
           0,
-          &objectAttributesRelativePath,
+          &objectAttributes,
           0,
           0,
           0,
-          [kAbsolutePath, &instructionSourceWasInvoked](
-              std::wstring_view actualAbsolutePath,
+          [kUnredirectedPath](
+              std::wstring_view actualRequestedPath,
               FileAccessMode,
               CreateDisposition) -> FileOperationInstruction
           {
-            std::wstring_view expectedAbsolutePath = kAbsolutePath;
-            TEST_ASSERT(actualAbsolutePath == expectedAbsolutePath);
-
-            instructionSourceWasInvoked = true;
+            std::wstring_view expectedRequestedPath = kUnredirectedPath;
+            TEST_ASSERT(actualRequestedPath == expectedRequestedPath);
             return FileOperationInstruction::NoRedirectionOrInterception();
           },
-          [expectedHandleValue, expectedReturnCode, &objectAttributesRelativePath](
-              PHANDLE handle, POBJECT_ATTRIBUTES objectAttributes, ULONG) -> NTSTATUS
+          [](PHANDLE, POBJECT_ATTRIBUTES, ULONG) -> NTSTATUS
           {
-            const OBJECT_ATTRIBUTES& expectedObjectAttributes = objectAttributesRelativePath;
-            const OBJECT_ATTRIBUTES& actualObjectAttributes = *objectAttributes;
-            TEST_ASSERT(EqualObjectAttributes(actualObjectAttributes, expectedObjectAttributes));
-
-            *handle = expectedHandleValue;
-            return expectedReturnCode;
+            return NtStatus::kSuccess;
           });
-
-      TEST_ASSERT(true == instructionSourceWasInvoked);
-      TEST_ASSERT(false == openHandleStore.Empty());
-      TEST_ASSERT(actualReturnCode == expectedReturnCode);
-      TEST_ASSERT(actualHandleValue == expectedHandleValue);
-    }
-  }
-
-  // Verifies that requests for new file handles are passed through to the system without
-  // modification, but that the new handle is added to cache, if the filesystem instruction says to
-  // intercept without redirection. This test case exercises the nominal situation in which no root
-  // directory handle is specified and no pre-operations are requested. Various valid forms of file
-  // operation instructions are exercised, even those that are not actually ever produced by a
-  // filesystem director.
-  TEST_CASE(FilesystemExecutor_NewFileHandle_InterceptWithoutRedirection_Nominal)
-  {
-    constexpr std::wstring_view kAbsolutePath = L"C:\\TestDirectory\\TestFile.txt";
-
-    // The fundamental parts of a "intercept-without-redirection" instruction is that only the
-    // unredirected file is tried and that an association is created between the unredirected
-    // filename and the new file handle. When pre-operations are not requested the operand should be
-    // ignored.
-    const FileOperationInstruction fileOperationInstructionsToTry[] = {
-        FileOperationInstruction::InterceptWithoutRedirection(
-            EAssociateNameWithHandle::Unredirected),
-        FileOperationInstruction(
-            L"C:\\Redirected\\Filename\\IsPresent\\ButShouldBeIgnored.txt",
-            ETryFiles::UnredirectedOnly,
-            ECreateDispositionPreference::NoPreference,
-            EAssociateNameWithHandle::Unredirected,
-            {},
-            L"ExtraPreOperationOperandShouldBeIgnored")};
-
-    UNICODE_STRING unicodeStringAbsolutePath =
-        Strings::NtConvertStringViewToUnicodeString(kAbsolutePath);
-    OBJECT_ATTRIBUTES objectAttributesAbsolutePath =
-        CreateObjectAttributes(unicodeStringAbsolutePath);
-
-    for (const auto& fileOperationInstructionToTry : fileOperationInstructionsToTry)
-    {
-      const HANDLE expectedHandleValue = reinterpret_cast<HANDLE>(3);
-      HANDLE actualHandleValue = NULL;
-
-      MockFilesystemOperations mockFilesystem;
-      OpenHandleStore openHandleStore;
-
-      bool instructionSourceWasInvoked = false;
-
-      constexpr NTSTATUS expectedReturnCode = 0x0000000a;
-      NTSTATUS actualReturnCode = FilesystemExecutor::NewFileHandle(
-          TestCaseName().data(),
-          kFunctionRequestIdentifier,
-          openHandleStore,
-          &actualHandleValue,
-          0,
-          &objectAttributesAbsolutePath,
-          0,
-          0,
-          0,
-          [kAbsolutePath, &fileOperationInstructionToTry, &instructionSourceWasInvoked](
-              std::wstring_view actualAbsolutePath,
-              FileAccessMode,
-              CreateDisposition) -> FileOperationInstruction
-          {
-            std::wstring_view expectedAbsolutePath = kAbsolutePath;
-            TEST_ASSERT(actualAbsolutePath == expectedAbsolutePath);
-
-            instructionSourceWasInvoked = true;
-            return fileOperationInstructionToTry;
-          },
-          [expectedHandleValue, expectedReturnCode, &objectAttributesAbsolutePath](
-              PHANDLE handle, POBJECT_ATTRIBUTES objectAttributes, ULONG) -> NTSTATUS
-          {
-            const OBJECT_ATTRIBUTES& expectedObjectAttributes = objectAttributesAbsolutePath;
-            const OBJECT_ATTRIBUTES& actualObjectAttributes = *objectAttributes;
-            TEST_ASSERT(EqualObjectAttributes(actualObjectAttributes, expectedObjectAttributes));
-
-            *handle = expectedHandleValue;
-            return expectedReturnCode;
-          });
-
-      constexpr std::optional<OpenHandleStore::SHandleDataView> expectedHandleData =
-          OpenHandleStore::SHandleDataView{
-              .associatedPath = kAbsolutePath, .realOpenedPath = kAbsolutePath};
-
-      std::optional<OpenHandleStore::SHandleDataView> actualHandleData =
-          openHandleStore.GetDataForHandle(expectedHandleValue);
-
-      TEST_ASSERT(1 == openHandleStore.Size());
-      TEST_ASSERT(actualHandleData == expectedHandleData);
-
-      TEST_ASSERT(true == instructionSourceWasInvoked);
-      TEST_ASSERT(actualReturnCode == expectedReturnCode);
-      TEST_ASSERT(actualHandleValue == expectedHandleValue);
-    }
-  }
-
-  // Verifies that requests for new file handles are passed through to the system without
-  // modification, but that the new handle is added to cache, if the filesystem instruction says to
-  // intercept without redirection. This test case exercises the situation in which a root
-  // directory handle is specified, which already exists in the open handle store, and no
-  // pre-operations are requested. Various valid forms of file operation instructions are exercised,
-  // even those that are not actually ever produced by a filesystem director.
-  TEST_CASE(FilesystemExecutor_NewFileHandle_InterceptWithoutRedirection_CachedRootDirectory)
-  {
-    constexpr std::wstring_view kAbsolutePath = L"C:\\TestDirectory\\TestFile.txt";
-    constexpr std::wstring_view kDirectoryName =
-        kAbsolutePath.substr(0, kAbsolutePath.find_last_of(L'\\'));
-    constexpr std::wstring_view kFileName =
-        kAbsolutePath.substr(1 + kAbsolutePath.find_last_of(L'\\'));
-
-    // The fundamental parts of a "intercept-without-redirection" instruction is that only the
-    // unredirected file is tried and that an association is created between the unredirected
-    // filename and the new file handle. When pre-operations are not requested the operand should be
-    // ignored.
-    const FileOperationInstruction fileOperationInstructionsToTry[] = {
-        FileOperationInstruction::InterceptWithoutRedirection(
-            EAssociateNameWithHandle::Unredirected),
-        FileOperationInstruction(
-            L"C:\\Redirected\\Filename\\IsPresent\\ButShouldBeIgnored.txt",
-            ETryFiles::UnredirectedOnly,
-            ECreateDispositionPreference::NoPreference,
-            EAssociateNameWithHandle::Unredirected,
-            {},
-            L"ExtraPreOperationOperandShouldBeIgnored")};
-
-    MockFilesystemOperations mockFilesystem;
-    mockFilesystem.AddFile(kAbsolutePath);
-
-    auto maybeDirectoryHandle = mockFilesystem.OpenDirectoryForEnumeration(kDirectoryName);
-    TEST_ASSERT(true == maybeDirectoryHandle.HasValue());
-
-    const HANDLE rootDirectoryHandle = maybeDirectoryHandle.Value();
-    TEST_ASSERT(kDirectoryName == mockFilesystem.GetDirectoryPathFromHandle(rootDirectoryHandle));
-
-    UNICODE_STRING unicodeStringRelativePath =
-        Strings::NtConvertStringViewToUnicodeString(kFileName);
-    OBJECT_ATTRIBUTES objectAttributesRelativePath =
-        CreateObjectAttributes(unicodeStringRelativePath, rootDirectoryHandle);
-
-    for (const auto& fileOperationInstructionToTry : fileOperationInstructionsToTry)
-    {
-      const HANDLE expectedHandleValue = reinterpret_cast<HANDLE>(3);
-      HANDLE actualHandleValue = NULL;
-
-      OpenHandleStore openHandleStore;
-      openHandleStore.InsertHandle(
-          rootDirectoryHandle, std::wstring(kDirectoryName), std::wstring(kDirectoryName));
-
-      bool instructionSourceWasInvoked = false;
-
-      constexpr NTSTATUS expectedReturnCode = 0x0000000a;
-      NTSTATUS actualReturnCode = FilesystemExecutor::NewFileHandle(
-          TestCaseName().data(),
-          kFunctionRequestIdentifier,
-          openHandleStore,
-          &actualHandleValue,
-          0,
-          &objectAttributesRelativePath,
-          0,
-          0,
-          0,
-          [kAbsolutePath, &fileOperationInstructionToTry, &instructionSourceWasInvoked](
-              std::wstring_view actualAbsolutePath,
-              FileAccessMode,
-              CreateDisposition) -> FileOperationInstruction
-          {
-            std::wstring_view expectedAbsolutePath = kAbsolutePath;
-            TEST_ASSERT(actualAbsolutePath == expectedAbsolutePath);
-
-            instructionSourceWasInvoked = true;
-            return fileOperationInstructionToTry;
-          },
-          [expectedHandleValue, expectedReturnCode, &objectAttributesRelativePath](
-              PHANDLE handle, POBJECT_ATTRIBUTES objectAttributes, ULONG) -> NTSTATUS
-          {
-            const OBJECT_ATTRIBUTES& expectedObjectAttributes = objectAttributesRelativePath;
-            const OBJECT_ATTRIBUTES& actualObjectAttributes = *objectAttributes;
-            TEST_ASSERT(EqualObjectAttributes(actualObjectAttributes, expectedObjectAttributes));
-
-            *handle = expectedHandleValue;
-            return expectedReturnCode;
-          });
-
-      constexpr std::optional<OpenHandleStore::SHandleDataView> expectedHandleData =
-          OpenHandleStore::SHandleDataView{
-              .associatedPath = kAbsolutePath, .realOpenedPath = kAbsolutePath};
-
-      std::optional<OpenHandleStore::SHandleDataView> actualHandleData =
-          openHandleStore.GetDataForHandle(expectedHandleValue);
-
-      TEST_ASSERT(2 == openHandleStore.Size());
-      TEST_ASSERT(actualHandleData == expectedHandleData);
-
-      TEST_ASSERT(true == instructionSourceWasInvoked);
-      TEST_ASSERT(actualReturnCode == expectedReturnCode);
-      TEST_ASSERT(actualHandleValue == expectedHandleValue);
     }
   }
 
@@ -618,9 +456,9 @@ namespace PathwinderTest
   // instruction. The instructions used in this test case all contain an unredirected and a
   // redirected path, and they supply various enumerators indicating the order in which the files
   // should be tried.
-  TEST_CASE(FilesystemExecutor_NewFileHandle_SimpleAndOverlayRedirect_TryFileOrder)
+  TEST_CASE(FilesystemExecutor_NewFileHandle_TryFilesOrder)
   {
-    constexpr std::wstring_view kAbsolutePath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
     constexpr std::wstring_view kRedirectedPath = L"C:\\RedirectedDirectory\\TestFile.txt";
 
     // Holds paths in the order that they are expected to be tried in invocations of the underlying
@@ -632,18 +470,19 @@ namespace PathwinderTest
       ETryFiles tryFilesTestInput;
       TExpectedPaths expectedOrderedPaths;
     } tryFilesTestRecords[] = {
-        {.tryFilesTestInput = ETryFiles::UnredirectedOnly, .expectedOrderedPaths = {kAbsolutePath}},
+        {.tryFilesTestInput = ETryFiles::UnredirectedOnly,
+         .expectedOrderedPaths = {kUnredirectedPath}},
         {.tryFilesTestInput = ETryFiles::UnredirectedFirst,
-         .expectedOrderedPaths = {kAbsolutePath, kRedirectedPath}},
+         .expectedOrderedPaths = {kUnredirectedPath, kRedirectedPath}},
         {.tryFilesTestInput = ETryFiles::RedirectedOnly, .expectedOrderedPaths = {kRedirectedPath}},
         {.tryFilesTestInput = ETryFiles::RedirectedFirst,
-         .expectedOrderedPaths = {kRedirectedPath, kAbsolutePath}},
+         .expectedOrderedPaths = {kRedirectedPath, kUnredirectedPath}},
     };
 
-    UNICODE_STRING unicodeStringAbsolutePath =
-        Strings::NtConvertStringViewToUnicodeString(kAbsolutePath);
-    OBJECT_ATTRIBUTES objectAttributesAbsolutePath =
-        CreateObjectAttributes(unicodeStringAbsolutePath);
+    UNICODE_STRING unicodeStringUnredirectedPath =
+        Strings::NtConvertStringViewToUnicodeString(kUnredirectedPath);
+    OBJECT_ATTRIBUTES objectAttributesUnredirectedPath =
+        CreateObjectAttributes(unicodeStringUnredirectedPath);
 
     for (const auto& tryFilesTestRecord : tryFilesTestRecords)
     {
@@ -662,18 +501,18 @@ namespace PathwinderTest
 
       unsigned int underlyingSystemCallNumInvocations = 0;
 
-      NTSTATUS actualReturnCode = FilesystemExecutor::NewFileHandle(
+      FilesystemExecutor::NewFileHandle(
           TestCaseName().data(),
           kFunctionRequestIdentifier,
           openHandleStore,
           &unusedHandleValue,
           0,
-          &objectAttributesAbsolutePath,
+          &objectAttributesUnredirectedPath,
           0,
           0,
           0,
           [&testInputFileOperationInstruction](
-              std::wstring_view actualAbsolutePath,
+              std::wstring_view actualUnredirectedPath,
               FileAccessMode,
               CreateDisposition) -> FileOperationInstruction
           {
@@ -708,6 +547,214 @@ namespace PathwinderTest
     }
   }
 
+  // Verifies that the correct name is associated with a newly-created file handle, based on
+  // whatever name association is specified in the file operation instruction. Various orderings of
+  // files to try are also needed here because sometimes the associated name depends on the order in
+  // which files are tried.
+  TEST_CASE(FilesystemExecutor_NewFileHandle_AssociateNameWithHandle)
+  {
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kRedirectedPath = L"C:\\RedirectedDirectory\\TestFile.txt";
+
+    UNICODE_STRING unicodeStringUnredirectedPath =
+        Strings::NtConvertStringViewToUnicodeString(kUnredirectedPath);
+    OBJECT_ATTRIBUTES objectAttributesUnredirectedPath =
+        CreateObjectAttributes(unicodeStringUnredirectedPath);
+
+    constexpr std::optional<std::wstring_view> kNoPathShouldSucceed =
+        L"Z:\\TotallyInvalidPath\\ThatShouldNotMatchAny\\Inputs.txt";
+    constexpr std::optional<std::wstring_view> kAnyPathShouldSucceed = std::nullopt;
+    constexpr std::optional<std::wstring_view> kNoPathShouldBeStored = std::nullopt;
+
+    const struct
+    {
+      EAssociateNameWithHandle associateNameWithHandleTestInput;
+      ETryFiles tryFilesTestInput;
+      std::optional<std::wstring_view> pathThatShouldSucceed;
+      std::optional<std::wstring_view> expectedAssociatedPath;
+      std::optional<std::wstring_view> expectedRealOpenedPath;
+    } nameAssociationTestRecords[] = {
+        //
+        // None
+        //
+        // Regardless of which files are tried and which ultimately succeeds, no name association
+        // should happen.
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::None,
+         .tryFilesTestInput = ETryFiles::UnredirectedOnly,
+         .pathThatShouldSucceed = kUnredirectedPath,
+         .expectedAssociatedPath = kNoPathShouldBeStored,
+         .expectedRealOpenedPath = kNoPathShouldBeStored},
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::None,
+         .tryFilesTestInput = ETryFiles::RedirectedFirst,
+         .pathThatShouldSucceed = kUnredirectedPath,
+         .expectedAssociatedPath = kNoPathShouldBeStored,
+         .expectedRealOpenedPath = kNoPathShouldBeStored},
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::None,
+         .tryFilesTestInput = ETryFiles::UnredirectedFirst,
+         .pathThatShouldSucceed = kNoPathShouldSucceed,
+         .expectedAssociatedPath = kNoPathShouldBeStored,
+         .expectedRealOpenedPath = kNoPathShouldBeStored},
+        //
+        // WhicheverWasSuccessful
+        //
+        // If the file operation is successful (signalled in the test record via the
+        // `pathThatShouldSucceed` field) then whichever path succeeded is expected to be associated
+        // with the newly-opened file handle.
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::WhicheverWasSuccessful,
+         .tryFilesTestInput = ETryFiles::UnredirectedOnly,
+         .pathThatShouldSucceed = kNoPathShouldSucceed,
+         .expectedAssociatedPath = kNoPathShouldBeStored,
+         .expectedRealOpenedPath = kNoPathShouldBeStored},
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::WhicheverWasSuccessful,
+         .tryFilesTestInput = ETryFiles::UnredirectedOnly,
+         .pathThatShouldSucceed = kAnyPathShouldSucceed,
+         .expectedAssociatedPath = kUnredirectedPath,
+         .expectedRealOpenedPath = kUnredirectedPath},
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::WhicheverWasSuccessful,
+         .tryFilesTestInput = ETryFiles::RedirectedFirst,
+         .pathThatShouldSucceed = kAnyPathShouldSucceed,
+         .expectedAssociatedPath = kRedirectedPath,
+         .expectedRealOpenedPath = kRedirectedPath},
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::WhicheverWasSuccessful,
+         .tryFilesTestInput = ETryFiles::UnredirectedFirst,
+         .pathThatShouldSucceed = kAnyPathShouldSucceed,
+         .expectedAssociatedPath = kUnredirectedPath,
+         .expectedRealOpenedPath = kUnredirectedPath},
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::WhicheverWasSuccessful,
+         .tryFilesTestInput = ETryFiles::UnredirectedFirst,
+         .pathThatShouldSucceed = kRedirectedPath,
+         .expectedAssociatedPath = kRedirectedPath,
+         .expectedRealOpenedPath = kRedirectedPath},
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::WhicheverWasSuccessful,
+         .tryFilesTestInput = ETryFiles::RedirectedFirst,
+         .pathThatShouldSucceed = kUnredirectedPath,
+         .expectedAssociatedPath = kUnredirectedPath,
+         .expectedRealOpenedPath = kUnredirectedPath},
+        //
+        // Unredirected
+        //
+        // If the file operation is successful (signalled in the test record via the
+        // `pathThatShouldSucceed` field) then the unredirected path should be associated with the
+        // newly-opened file handle. However, on failure, there should be no association. The first
+        // test record in this section is the failure case, and all others are success cases.
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::Unredirected,
+         .tryFilesTestInput = ETryFiles::UnredirectedOnly,
+         .pathThatShouldSucceed = kNoPathShouldSucceed,
+         .expectedAssociatedPath = kNoPathShouldBeStored,
+         .expectedRealOpenedPath = kNoPathShouldBeStored},
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::Unredirected,
+         .tryFilesTestInput = ETryFiles::UnredirectedOnly,
+         .pathThatShouldSucceed = kAnyPathShouldSucceed,
+         .expectedAssociatedPath = kUnredirectedPath,
+         .expectedRealOpenedPath = kUnredirectedPath},
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::Unredirected,
+         .tryFilesTestInput = ETryFiles::RedirectedFirst,
+         .pathThatShouldSucceed = kAnyPathShouldSucceed,
+         .expectedAssociatedPath = kUnredirectedPath,
+         .expectedRealOpenedPath = kRedirectedPath},
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::Unredirected,
+         .tryFilesTestInput = ETryFiles::UnredirectedFirst,
+         .pathThatShouldSucceed = kRedirectedPath,
+         .expectedAssociatedPath = kUnredirectedPath,
+         .expectedRealOpenedPath = kRedirectedPath},
+        //
+        // Redirected
+        //
+        // If the file operation is successful (signalled in the test record via the
+        // `pathThatShouldSucceed` field) then the redirected path should be associated with the
+        // newly-opened file handle. However, on failure, there should be no association. The first
+        // test record in this section is the failure case, and all others are success cases.
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::Redirected,
+         .tryFilesTestInput = ETryFiles::UnredirectedOnly,
+         .pathThatShouldSucceed = kNoPathShouldSucceed,
+         .expectedAssociatedPath = kNoPathShouldBeStored,
+         .expectedRealOpenedPath = kNoPathShouldBeStored},
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::Redirected,
+         .tryFilesTestInput = ETryFiles::UnredirectedOnly,
+         .pathThatShouldSucceed = kAnyPathShouldSucceed,
+         .expectedAssociatedPath = kRedirectedPath,
+         .expectedRealOpenedPath = kUnredirectedPath},
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::Redirected,
+         .tryFilesTestInput = ETryFiles::UnredirectedFirst,
+         .pathThatShouldSucceed = kAnyPathShouldSucceed,
+         .expectedAssociatedPath = kRedirectedPath,
+         .expectedRealOpenedPath = kUnredirectedPath},
+        {.associateNameWithHandleTestInput = EAssociateNameWithHandle::Redirected,
+         .tryFilesTestInput = ETryFiles::RedirectedFirst,
+         .pathThatShouldSucceed = kUnredirectedPath,
+         .expectedAssociatedPath = kRedirectedPath,
+         .expectedRealOpenedPath = kUnredirectedPath},
+    };
+
+    for (const auto& nameAssociationTestRecord : nameAssociationTestRecords)
+    {
+      const FileOperationInstruction fileOperationInstructionTestInput(
+          kRedirectedPath,
+          nameAssociationTestRecord.tryFilesTestInput,
+          ECreateDispositionPreference::NoPreference,
+          nameAssociationTestRecord.associateNameWithHandleTestInput,
+          {},
+          L"");
+
+      OpenHandleStore openHandleStore;
+
+      HANDLE handleValue = NULL;
+      NTSTATUS newFileHandleResult = FilesystemExecutor::NewFileHandle(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          &handleValue,
+          0,
+          &objectAttributesUnredirectedPath,
+          0,
+          0,
+          0,
+          [&fileOperationInstructionTestInput](
+              std::wstring_view, FileAccessMode, CreateDisposition) -> FileOperationInstruction
+          {
+            return fileOperationInstructionTestInput;
+          },
+          [&nameAssociationTestRecord, kAnyPathShouldSucceed](
+              PHANDLE handle, POBJECT_ATTRIBUTES objectAttributes, ULONG) -> NTSTATUS
+          {
+            if ((nameAssociationTestRecord.pathThatShouldSucceed == kAnyPathShouldSucceed) ||
+                (nameAssociationTestRecord.pathThatShouldSucceed ==
+                 Strings::NtConvertUnicodeStringToStringView(*objectAttributes->ObjectName)))
+            {
+              *handle = reinterpret_cast<HANDLE>(1084);
+              return NtStatus::kSuccess;
+            }
+
+            // A failure return code, indicating that the path was not found, is required to cause
+            // the next preferred create disposition to be tried. Any other failure code is
+            // correctly interpreted to indicate some other I/O error, which would just cause the
+            // entire operation to fail with that as the result.
+            return NtStatus::kObjectPathNotFound;
+          });
+
+      if (nameAssociationTestRecord.expectedAssociatedPath == kNoPathShouldBeStored)
+      {
+        TEST_ASSERT(true == openHandleStore.Empty());
+      }
+      else
+      {
+        auto maybeHandleData = openHandleStore.GetDataForHandle(handleValue);
+        TEST_ASSERT(true == maybeHandleData.has_value());
+
+        std::wstring_view expectedAssociatedPath =
+            *nameAssociationTestRecord.expectedAssociatedPath;
+        std::wstring_view actualAssociatedPath = maybeHandleData->associatedPath;
+
+        std::wstring_view expectedRealOpenedPath =
+            *nameAssociationTestRecord.expectedRealOpenedPath;
+        std::wstring_view actualRealOpenedPath = maybeHandleData->realOpenedPath;
+
+        TEST_ASSERT(actualAssociatedPath == expectedAssociatedPath);
+        TEST_ASSERT(actualRealOpenedPath == expectedRealOpenedPath);
+      }
+    }
+  }
+
   // Verifies that create disposition preferences contained in filesystem instructions are
   // implemented correctly. The test case itself sends in a variety of different create dispositions
   // from the application and encodes several different create disposition preferences in the
@@ -725,7 +772,7 @@ namespace PathwinderTest
     // otherwise it is expected as the return code from the filesystem executor function.
     using TExpectedCreateDispositionsOrForcedErrors = ArrayList<TCreateDispositionOrForcedError, 2>;
 
-    constexpr std::wstring_view kAbsolutePath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
 
     const struct
     {
@@ -815,10 +862,10 @@ namespace PathwinderTest
          .expectedOrderedNtParamCreateDisposition = {
              TCreateDispositionOrForcedError::MakeValue(FILE_SUPERSEDE)}}};
 
-    UNICODE_STRING unicodeStringAbsolutePath =
-        Strings::NtConvertStringViewToUnicodeString(kAbsolutePath);
-    OBJECT_ATTRIBUTES objectAttributesAbsolutePath =
-        CreateObjectAttributes(unicodeStringAbsolutePath);
+    UNICODE_STRING unicodeStringUnredirectedPath =
+        Strings::NtConvertStringViewToUnicodeString(kUnredirectedPath);
+    OBJECT_ATTRIBUTES objectAttributesUnredirectedPath =
+        CreateObjectAttributes(unicodeStringUnredirectedPath);
 
     for (const auto& createDispositionTestRecord : createDispositionTestRecords)
     {
@@ -843,12 +890,12 @@ namespace PathwinderTest
           openHandleStore,
           &unusedHandleValue,
           0,
-          &objectAttributesAbsolutePath,
+          &objectAttributesUnredirectedPath,
           0,
           createDispositionTestRecord.ntParamCreateDispositionFromApplication,
           0,
           [&testInputFileOperationInstruction](
-              std::wstring_view actualAbsolutePath,
+              std::wstring_view actualUnredirectedPath,
               FileAccessMode,
               CreateDisposition) -> FileOperationInstruction
           {
@@ -943,7 +990,7 @@ namespace PathwinderTest
     // executor function.
     using TExpectedParametersOrForcedErrors = ArrayList<TParametersOrForcedError, 4>;
 
-    constexpr std::wstring_view kAbsolutePath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
     constexpr std::wstring_view kRedirectedPath = L"C:\\RedirectedDirectory\\TestFile.txt";
 
     const struct
@@ -965,21 +1012,21 @@ namespace PathwinderTest
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_OPEN_IF, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_OPEN_IF, .absolutePath = kAbsolutePath})}},
+                  .ntParamCreateDisposition = FILE_OPEN_IF, .absolutePath = kUnredirectedPath})}},
         {.createDispositionPreferenceTestInput = ECreateDispositionPreference::NoPreference,
          .ntParamCreateDispositionFromApplication = FILE_SUPERSEDE,
          .expectedOrderedParameters =
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath})}},
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kUnredirectedPath})}},
         {.createDispositionPreferenceTestInput = ECreateDispositionPreference::NoPreference,
          .ntParamCreateDispositionFromApplication = FILE_OPEN,
          .expectedOrderedParameters =
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kAbsolutePath})}},
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kUnredirectedPath})}},
         //
         // PreferCreateNewFile
         //
@@ -993,47 +1040,47 @@ namespace PathwinderTest
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath})}},
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kUnredirectedPath})}},
         {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
          .ntParamCreateDispositionFromApplication = FILE_OPEN,
          .expectedOrderedParameters =
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kAbsolutePath})}},
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kUnredirectedPath})}},
         {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
          .ntParamCreateDispositionFromApplication = FILE_OPEN_IF,
          .expectedOrderedParameters =
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath}),
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kUnredirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kAbsolutePath})}},
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kUnredirectedPath})}},
         {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
          .ntParamCreateDispositionFromApplication = FILE_OVERWRITE_IF,
          .expectedOrderedParameters =
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath}),
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kUnredirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_OVERWRITE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_OVERWRITE, .absolutePath = kAbsolutePath})}},
+                  .ntParamCreateDisposition = FILE_OVERWRITE, .absolutePath = kUnredirectedPath})}},
         {.createDispositionPreferenceTestInput = ECreateDispositionPreference::PreferCreateNewFile,
          .ntParamCreateDispositionFromApplication = FILE_SUPERSEDE,
          .expectedOrderedParameters =
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath}),
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kUnredirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath})}},
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kUnredirectedPath})}},
         //
         // PreferOpenExistingFile
         //
@@ -1048,7 +1095,7 @@ namespace PathwinderTest
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath})}},
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kUnredirectedPath})}},
         {.createDispositionPreferenceTestInput =
              ECreateDispositionPreference::PreferOpenExistingFile,
          .ntParamCreateDispositionFromApplication = FILE_OPEN,
@@ -1056,7 +1103,7 @@ namespace PathwinderTest
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kAbsolutePath})}},
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kUnredirectedPath})}},
         {.createDispositionPreferenceTestInput =
              ECreateDispositionPreference::PreferOpenExistingFile,
          .ntParamCreateDispositionFromApplication = FILE_OPEN_IF,
@@ -1064,11 +1111,11 @@ namespace PathwinderTest
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kAbsolutePath}),
+                  .ntParamCreateDisposition = FILE_OPEN, .absolutePath = kUnredirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath})}},
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kUnredirectedPath})}},
         {.createDispositionPreferenceTestInput =
              ECreateDispositionPreference::PreferOpenExistingFile,
          .ntParamCreateDispositionFromApplication = FILE_OVERWRITE_IF,
@@ -1076,11 +1123,11 @@ namespace PathwinderTest
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_OVERWRITE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_OVERWRITE, .absolutePath = kAbsolutePath}),
+                  .ntParamCreateDisposition = FILE_OVERWRITE, .absolutePath = kUnredirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kAbsolutePath})}},
+                  .ntParamCreateDisposition = FILE_CREATE, .absolutePath = kUnredirectedPath})}},
         {.createDispositionPreferenceTestInput =
              ECreateDispositionPreference::PreferOpenExistingFile,
          .ntParamCreateDispositionFromApplication = FILE_SUPERSEDE,
@@ -1088,7 +1135,7 @@ namespace PathwinderTest
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath})},
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kUnredirectedPath})},
          .unredirectedPathExists = false,
          .redirectedPathExists = false},
         {.createDispositionPreferenceTestInput =
@@ -1100,7 +1147,7 @@ namespace PathwinderTest
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath})},
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kUnredirectedPath})},
          .unredirectedPathExists = false,
          .redirectedPathExists = true},
         {.createDispositionPreferenceTestInput =
@@ -1108,11 +1155,11 @@ namespace PathwinderTest
          .ntParamCreateDispositionFromApplication = FILE_SUPERSEDE,
          .expectedOrderedParameters =
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath}),
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kUnredirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath})},
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kUnredirectedPath})},
          .unredirectedPathExists = true,
          .redirectedPathExists = false},
         {.createDispositionPreferenceTestInput =
@@ -1122,26 +1169,27 @@ namespace PathwinderTest
              {TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath}),
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kUnredirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
                   .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kRedirectedPath}),
               TParametersOrForcedError::MakeValue(SCreateDispositionAndPath{
-                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kAbsolutePath})},
+                  .ntParamCreateDisposition = FILE_SUPERSEDE, .absolutePath = kUnredirectedPath})},
          .unredirectedPathExists = true,
          .redirectedPathExists = true},
     };
 
-    UNICODE_STRING unicodeStringAbsolutePath =
-        Strings::NtConvertStringViewToUnicodeString(kAbsolutePath);
-    OBJECT_ATTRIBUTES objectAttributesAbsolutePath =
-        CreateObjectAttributes(unicodeStringAbsolutePath);
+    UNICODE_STRING unicodeStringUnredirectedPath =
+        Strings::NtConvertStringViewToUnicodeString(kUnredirectedPath);
+    OBJECT_ATTRIBUTES objectAttributesUnredirectedPath =
+        CreateObjectAttributes(unicodeStringUnredirectedPath);
 
     for (const auto& createDispositionTestRecord : createDispositionTestRecords)
     {
       HANDLE unusedHandleValue = NULL;
 
       MockFilesystemOperations mockFilesystem;
-      if (createDispositionTestRecord.unredirectedPathExists) mockFilesystem.AddFile(kAbsolutePath);
+      if (createDispositionTestRecord.unredirectedPathExists)
+        mockFilesystem.AddFile(kUnredirectedPath);
       if (createDispositionTestRecord.redirectedPathExists) mockFilesystem.AddFile(kRedirectedPath);
 
       OpenHandleStore openHandleStore;
@@ -1162,12 +1210,12 @@ namespace PathwinderTest
           openHandleStore,
           &unusedHandleValue,
           0,
-          &objectAttributesAbsolutePath,
+          &objectAttributesUnredirectedPath,
           0,
           createDispositionTestRecord.ntParamCreateDispositionFromApplication,
           0,
           [&testInputFileOperationInstruction](
-              std::wstring_view actualAbsolutePath,
+              std::wstring_view actualUnredirectedPath,
               FileAccessMode,
               CreateDisposition) -> FileOperationInstruction
           {
@@ -1253,7 +1301,7 @@ namespace PathwinderTest
   // objects but are intended specifically to exercise pre-operation functionality.
   TEST_CASE(FilesystemExecutor_NewFileHandle_PreOperation_EnsurePathHierarchyExists)
   {
-    constexpr std::wstring_view kAbsolutePath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
     constexpr std::wstring_view kExtraPreOperationHierarchyToCreate =
         L"C:\\ExtraPreOperation\\Directory\\Hierarchy\\To\\Create";
 
@@ -1273,15 +1321,14 @@ namespace PathwinderTest
             {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
             kExtraPreOperationHierarchyToCreate)};
 
-    UNICODE_STRING unicodeStringAbsolutePath =
-        Strings::NtConvertStringViewToUnicodeString(kAbsolutePath);
-    OBJECT_ATTRIBUTES objectAttributesAbsolutePath =
-        CreateObjectAttributes(unicodeStringAbsolutePath);
+    UNICODE_STRING unicodeStringUnredirectedPath =
+        Strings::NtConvertStringViewToUnicodeString(kUnredirectedPath);
+    OBJECT_ATTRIBUTES objectAttributesUnredirectedPath =
+        CreateObjectAttributes(unicodeStringUnredirectedPath);
 
     for (const auto& fileOperationInstructionToTry : fileOperationInstructionsToTry)
     {
-      const HANDLE expectedHandleValue = reinterpret_cast<HANDLE>(11);
-      HANDLE actualHandleValue = NULL;
+      HANDLE unusedHandleValue = NULL;
 
       MockFilesystemOperations mockFilesystem;
       OpenHandleStore openHandleStore;
@@ -1297,42 +1344,40 @@ namespace PathwinderTest
           TestCaseName().data(),
           kFunctionRequestIdentifier,
           openHandleStore,
-          &actualHandleValue,
+          &unusedHandleValue,
           0,
-          &objectAttributesAbsolutePath,
+          &objectAttributesUnredirectedPath,
           0,
           0,
           0,
-          [kAbsolutePath, &fileOperationInstructionToTry, &instructionSourceWasInvoked](
-              std::wstring_view actualAbsolutePath,
+          [kUnredirectedPath, &fileOperationInstructionToTry, &instructionSourceWasInvoked](
+              std::wstring_view actualUnredirectedPath,
               FileAccessMode,
               CreateDisposition) -> FileOperationInstruction
           {
-            std::wstring_view expectedAbsolutePath = kAbsolutePath;
-            TEST_ASSERT(actualAbsolutePath == expectedAbsolutePath);
+            std::wstring_view expectedUnredirectedPath = kUnredirectedPath;
+            TEST_ASSERT(actualUnredirectedPath == expectedUnredirectedPath);
 
             instructionSourceWasInvoked = true;
             return fileOperationInstructionToTry;
           },
-          [expectedHandleValue, expectedReturnCode, &mockFilesystem, &objectAttributesAbsolutePath](
-              PHANDLE handle, POBJECT_ATTRIBUTES objectAttributes, ULONG) -> NTSTATUS
+          [expectedReturnCode, &mockFilesystem, &objectAttributesUnredirectedPath](
+              PHANDLE, POBJECT_ATTRIBUTES objectAttributes, ULONG) -> NTSTATUS
           {
             // Checking here for the completion of the pre-operation ensures that it was done prior
             // to the underlying system call being invoked.
             TEST_ASSERT(true == mockFilesystem.IsDirectory(kExtraPreOperationHierarchyToCreate));
 
-            const OBJECT_ATTRIBUTES& expectedObjectAttributes = objectAttributesAbsolutePath;
+            const OBJECT_ATTRIBUTES& expectedObjectAttributes = objectAttributesUnredirectedPath;
             const OBJECT_ATTRIBUTES& actualObjectAttributes = *objectAttributes;
             TEST_ASSERT(EqualObjectAttributes(actualObjectAttributes, expectedObjectAttributes));
 
-            *handle = expectedHandleValue;
             return expectedReturnCode;
           });
 
       TEST_ASSERT(true == instructionSourceWasInvoked);
       TEST_ASSERT(true == openHandleStore.Empty());
       TEST_ASSERT(actualReturnCode == expectedReturnCode);
-      TEST_ASSERT(actualHandleValue == expectedHandleValue);
     }
   }
 
@@ -1343,21 +1388,20 @@ namespace PathwinderTest
   // redirection instruction. Request should be passed through unmodified to the system. Various
   // valid forms of file operation instructions are exercised, even those that are not actually
   // ever produced by a filesystem director.
-  TEST_CASE(FilesystemExecutor_NewFileHandle_WithoutInstruction_UncachedRootDirectory)
+  TEST_CASE(FilesystemExecutor_NewFileHandle_PassthroughWithoutInstruction_UncachedRootDirectory)
   {
-    constexpr std::wstring_view kAbsolutePath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
     constexpr std::wstring_view kDirectoryName =
-        kAbsolutePath.substr(0, kAbsolutePath.find_last_of(L'\\'));
+        kUnredirectedPath.substr(0, kUnredirectedPath.find_last_of(L'\\'));
     constexpr std::wstring_view kFileName =
-        kAbsolutePath.substr(1 + kAbsolutePath.find_last_of(L'\\'));
+        kUnredirectedPath.substr(1 + kUnredirectedPath.find_last_of(L'\\'));
 
     UNICODE_STRING unicodeStringRelativePath =
         Strings::NtConvertStringViewToUnicodeString(kFileName);
     OBJECT_ATTRIBUTES objectAttributesRelativePath =
         CreateObjectAttributes(unicodeStringRelativePath, reinterpret_cast<HANDLE>(99));
 
-    const HANDLE expectedHandleValue = reinterpret_cast<HANDLE>(2);
-    HANDLE actualHandleValue = NULL;
+    HANDLE unusedHandleValue = NULL;
 
     MockFilesystemOperations mockFilesystem;
     OpenHandleStore openHandleStore;
@@ -1367,31 +1411,31 @@ namespace PathwinderTest
         TestCaseName().data(),
         kFunctionRequestIdentifier,
         openHandleStore,
-        &actualHandleValue,
+        &unusedHandleValue,
         0,
         &objectAttributesRelativePath,
         0,
         0,
         0,
-        [kAbsolutePath](std::wstring_view actualAbsolutePath, FileAccessMode, CreateDisposition)
-            -> FileOperationInstruction
+        [kUnredirectedPath](
+            std::wstring_view actualUnredirectedPath,
+            FileAccessMode,
+            CreateDisposition) -> FileOperationInstruction
         {
           TEST_FAILED_BECAUSE(
               "Instruction source should not be invoked if the root directory handle is present but uncached.");
         },
-        [expectedHandleValue, expectedReturnCode, &objectAttributesRelativePath](
-            PHANDLE handle, POBJECT_ATTRIBUTES objectAttributes, ULONG) -> NTSTATUS
+        [expectedReturnCode, &objectAttributesRelativePath](
+            PHANDLE, POBJECT_ATTRIBUTES objectAttributes, ULONG) -> NTSTATUS
         {
           const OBJECT_ATTRIBUTES& expectedObjectAttributes = objectAttributesRelativePath;
           const OBJECT_ATTRIBUTES& actualObjectAttributes = *objectAttributes;
           TEST_ASSERT(EqualObjectAttributes(actualObjectAttributes, expectedObjectAttributes));
 
-          *handle = expectedHandleValue;
           return expectedReturnCode;
         });
 
     TEST_ASSERT(actualReturnCode == expectedReturnCode);
-    TEST_ASSERT(actualHandleValue == expectedHandleValue);
     TEST_ASSERT(true == openHandleStore.Empty());
   }
 } // namespace PathwinderTest
