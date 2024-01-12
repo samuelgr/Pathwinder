@@ -52,37 +52,6 @@ namespace Pathwinder
       Count
     };
 
-    /// Holds file rename information, including the variably-sized filename, in a bytewise buffer
-    /// and exposes it in a type-safe way. This object is used for representation only, not for any
-    /// functionality surrounding actually creating a byte-wise buffer representation of a file
-    /// rename information structure.
-    class FileRenameInformationAndFilename
-    {
-    private:
-
-      /// Byte-wise buffer, which will hold the file rename information data structure.
-      TemporaryVector<uint8_t> bytewiseBuffer;
-
-    public:
-
-      inline FileRenameInformationAndFilename(TemporaryVector<uint8_t>&& bytewiseBuffer)
-          : bytewiseBuffer(std::move(bytewiseBuffer))
-      {}
-
-      /// Convenience method for retrieving a properly-typed file rename information structure.
-      inline SFileRenameInformation& GetFileRenameInformation(void)
-      {
-        return *(reinterpret_cast<SFileRenameInformation*>(bytewiseBuffer.Data()));
-      }
-
-      /// Convenience method for retrieving the size, in bytes, of the stored file rename
-      /// information structure including filename.
-      inline unsigned int GetFileRenameInformationSizeBytes(void)
-      {
-        return bytewiseBuffer.Size();
-      }
-    };
-
     /// Contains all of the information associated with a file operation.
     struct SFileOperationContext
     {
@@ -379,35 +348,6 @@ namespace Pathwinder
       }
 
       return enumerationStatus;
-    }
-
-    /// Copies the contents of the supplied file rename information structure but replaces the
-    /// filename. This has the effect of changing the new name of the specified file after the
-    /// rename operation completes.
-    /// @param [in] inputFileRenameInformation Original file rename information structurewhose
-    /// contents are to be copied.
-    /// @param [in] replacementFilename Replacement filename.
-    /// @return Buffer containing a new file rename information structure with the filename
-    /// replaced.
-    static FileRenameInformationAndFilename CopyFileRenameInformationAndReplaceFilename(
-        const SFileRenameInformation& inputFileRenameInformation,
-        std::wstring_view replacementFilename)
-    {
-      TemporaryVector<uint8_t> newFileRenameInformation;
-
-      SFileRenameInformation outputFileRenameInformation = inputFileRenameInformation;
-      outputFileRenameInformation.fileNameLength =
-          (static_cast<ULONG>(replacementFilename.length()) * sizeof(wchar_t));
-
-      for (size_t i = 0; i < offsetof(SFileRenameInformation, fileName); ++i)
-        newFileRenameInformation.PushBack(
-            (reinterpret_cast<const uint8_t*>(&outputFileRenameInformation))[i]);
-
-      for (size_t i = 0; i < (replacementFilename.length() * sizeof(wchar_t)); ++i)
-        newFileRenameInformation.PushBack(
-            (reinterpret_cast<const uint8_t*>(replacementFilename.data()))[i]);
-
-      return FileRenameInformationAndFilename(std::move(newFileRenameInformation));
     }
 
     /// Converts a `CreateDisposition` parameter, which system calls use to identify filesystem
@@ -1407,11 +1347,11 @@ namespace Pathwinder
       if (false == redirectionInstruction.HasRedirectedFilename())
         return underlyingSystemCallInvoker(fileHandle, renameInformation, renameInformationLength);
 
-      FileRenameInformationAndFilename redirectedFileRenameInformationAndFilename =
-          CopyFileRenameInformationAndReplaceFilename(
+      BytewiseDanglingFilenameStruct<SFileRenameInformation>
+          redirectedFileRenameInformationAndFilename(
               renameInformation, redirectionInstruction.GetRedirectedFilename());
       SFileRenameInformation& redirectedFileRenameInformation =
-          redirectedFileRenameInformationAndFilename.GetFileRenameInformation();
+          redirectedFileRenameInformationAndFilename.GetFileInformationStruct();
 
       NTSTATUS systemCallResult = NtStatus::kObjectPathNotFound;
       std::wstring_view lastAttemptedPath;

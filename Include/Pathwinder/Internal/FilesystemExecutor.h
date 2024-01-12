@@ -22,7 +22,6 @@
 #include "OpenHandleStore.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
-#include "ValueOrError.h"
 
 namespace Pathwinder
 {

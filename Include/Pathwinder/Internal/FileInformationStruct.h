@@ -23,6 +23,7 @@
 #include "ApiWindows.h"
 #include "BufferPool.h"
 #include "DebugAssert.h"
+#include "TemporaryBuffer.h"
 
 namespace Pathwinder
 {
@@ -123,6 +124,95 @@ namespace Pathwinder
 
     /// Pointer to the buffer space.
     uint8_t* buffer;
+  };
+
+  /// Holds a single file information structure, including the variably-sized filename, in a
+  /// bytewise buffer and exposes it in a type-safe way.
+  /// @tparam FileInformationStructType Windows internal structure type that uses a wide-character
+  /// dangling filename field.
+  template <typename FileInformationStructType>
+    requires IsFileInformationStruct<FileInformationStructType> &&
+      HasDanglingFilenameField<FileInformationStructType>
+  class BytewiseDanglingFilenameStruct
+  {
+  public:
+
+    /// Zero-initializes the contained file information structure.
+    inline BytewiseDanglingFilenameStruct(void) : bytewiseBuffer()
+    {
+      for (size_t i = 0; i < sizeof(FileInformationStructType); ++i)
+        bytewiseBuffer.PushBack(0);
+    }
+
+    /// Copies the contents of the specified file information structure into the contained file
+    /// information structure.
+    inline BytewiseDanglingFilenameStruct(const FileInformationStructType& fileInformationStruct)
+        : bytewiseBuffer()
+    {
+      for (size_t i = 0; i < offsetof(FileInformationStructType, fileName); ++i)
+        bytewiseBuffer.PushBack((reinterpret_cast<const uint8_t*>(&fileInformationStruct))[i]);
+
+      for (size_t i = 0; i < fileInformationStruct.fileNameLength; ++i)
+        bytewiseBuffer.PushBack(
+            (reinterpret_cast<const uint8_t*>(fileInformationStruct.fileName))[i]);
+    }
+
+    /// Copies the contents of the specified file information structure into the contained file
+    /// information structure while simultaneously replacing the dangling filename with the
+    /// specified replacement filename.
+    inline BytewiseDanglingFilenameStruct(
+        const FileInformationStructType& fileInformationStruct,
+        std::wstring_view replacementFilename)
+        : bytewiseBuffer()
+    {
+      for (size_t i = 0; i < offsetof(FileInformationStructType, fileName); ++i)
+        bytewiseBuffer.PushBack((reinterpret_cast<const uint8_t*>(&fileInformationStruct))[i]);
+
+      for (size_t i = 0; i < replacementFilename.length() * sizeof(wchar_t); ++i)
+        bytewiseBuffer.PushBack((reinterpret_cast<const uint8_t*>(replacementFilename.data()))[i]);
+
+      GetFileInformationStruct().fileNameLength =
+          static_cast<ULONG>(replacementFilename.length() * sizeof(wchar_t));
+    }
+
+    bool operator==(const BytewiseDanglingFilenameStruct& other) const = default;
+
+    bool operator==(const FileInformationStructType& other) const
+    {
+      return (0 == std::memcmp(&other, bytewiseBuffer.Data(), bytewiseBuffer.Size()));
+    }
+
+    /// Retrieves the dangling filename field from the contained file information structure.
+    inline std::wstring_view GetDanglingFilename(void) const
+    {
+      return std::wstring_view(
+          GetFileInformationStruct().fileName,
+          GetFileInformationStruct().fileNameLength / sizeof(wchar_t));
+    }
+
+    /// Retrieves a properly-typed read-only reference to the contained file information structure.
+    inline const FileInformationStructType& GetFileInformationStruct(void) const
+    {
+      return *(reinterpret_cast<const FileInformationStructType*>(bytewiseBuffer.Data()));
+    }
+
+    /// Retrieves a properly-typed mutable reference to the contained file information structure.
+    inline FileInformationStructType& GetFileInformationStruct(void)
+    {
+      return *(reinterpret_cast<FileInformationStructType*>(bytewiseBuffer.Data()));
+    }
+
+    /// Retrieves the total size, in bytes,f of the contained file information structure, including
+    /// the trailing filename field.
+    inline unsigned int GetFileInformationStructSizeBytes(void) const
+    {
+      return bytewiseBuffer.Size();
+    }
+
+  private:
+
+    /// Byte-wise buffer, which will hold the file information structure and trailing filename.
+    TemporaryVector<uint8_t> bytewiseBuffer;
   };
 
   /// Describes the layout of a file information structure for a given file information class.

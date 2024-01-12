@@ -50,6 +50,100 @@ namespace PathwinderTest
     return (reinterpret_cast<const wchar_t*>(fileInformationStruct))[lastWideCharacterIndex];
   }
 
+  // Verifies correct default-initialization of bytewise-represented file information structures
+  // with dangling filename fields.
+  TEST_CASE(BytewiseDanglingFilenameStruct_DefaultInitialization)
+  {
+    TEST_ASSERT(
+        BytewiseDanglingFilenameStruct<SFileNameInformation>()
+            .GetFileInformationStructSizeBytes() == sizeof(SFileNameInformation));
+    TEST_ASSERT(
+        BytewiseDanglingFilenameStruct<SFileRenameInformation>()
+            .GetFileInformationStructSizeBytes() == sizeof(SFileRenameInformation));
+    TEST_ASSERT(
+        BytewiseDanglingFilenameStruct<SFileNamesInformation>()
+            .GetFileInformationStructSizeBytes() == sizeof(SFileNamesInformation));
+    TEST_ASSERT(
+        BytewiseDanglingFilenameStruct<SFileIdBothDirectoryInformation>()
+            .GetFileInformationStructSizeBytes() == sizeof(SFileIdBothDirectoryInformation));
+    TEST_ASSERT(
+        BytewiseDanglingFilenameStruct<SFileIdFullDirectoryInformation>()
+            .GetFileInformationStructSizeBytes() == sizeof(SFileIdFullDirectoryInformation));
+    TEST_ASSERT(
+        BytewiseDanglingFilenameStruct<SFileIdGlobalTxDirectoryInformation>()
+            .GetFileInformationStructSizeBytes() == sizeof(SFileIdGlobalTxDirectoryInformation));
+    TEST_ASSERT(
+        BytewiseDanglingFilenameStruct<SFileIdExtdDirectoryInformation>()
+            .GetFileInformationStructSizeBytes() == sizeof(SFileIdExtdDirectoryInformation));
+    TEST_ASSERT(
+        BytewiseDanglingFilenameStruct<SFileIdExtdBothDirectoryInformation>()
+            .GetFileInformationStructSizeBytes() == sizeof(SFileIdExtdBothDirectoryInformation));
+    TEST_ASSERT(
+        BytewiseDanglingFilenameStruct<SFileLinkInformation>()
+            .GetFileInformationStructSizeBytes() == sizeof(SFileLinkInformation));
+  }
+
+  // Verifies that copy-initialization for file information structures with dangling filenames
+  // functions correctly.
+  TEST_CASE(BytewiseDanglingFilenameStruct_CopyInitialization)
+  {
+    constexpr std::wstring_view kTestFilename = L"C:\\Test\\Path\\And\\Filename.txt";
+
+    uint8_t bufferFileNamesInformation[256] = {};
+    SFileNamesInformation& fileNamesInformation =
+        *reinterpret_cast<SFileNamesInformation*>(bufferFileNamesInformation);
+
+    fileNamesInformation = {
+        .nextEntryOffset = 1111,
+        .fileIndex = 2222,
+        .fileNameLength = static_cast<ULONG>(kTestFilename.length() * sizeof(wchar_t))};
+    wcsncpy_s(
+        fileNamesInformation.fileName,
+        1 + kTestFilename.length(),
+        kTestFilename.data(),
+        1 + kTestFilename.length());
+
+    const BytewiseDanglingFilenameStruct<SFileNamesInformation> bytewiseCopiedFileNamesInformation(
+        fileNamesInformation);
+
+    TEST_ASSERT(bytewiseCopiedFileNamesInformation == fileNamesInformation);
+    TEST_ASSERT(kTestFilename == bytewiseCopiedFileNamesInformation.GetDanglingFilename());
+  }
+
+  // Verifies that copy-initialization with filename replacement for file information structures
+  // with dangling filenames functions correctly.
+  TEST_CASE(BytewiseDanglingFilenameStruct_CopyInitializationWithFilenameReplacement)
+  {
+    constexpr std::wstring_view kInitialFilename = L"C:\\Initial\\Filename.txt";
+    constexpr std::wstring_view kReplacementFilename = L"D:\\Replacement\\NewFilename.txt";
+
+    uint8_t bufferFileNamesInformation[256] = {};
+    SFileNamesInformation& fileNamesInformation =
+        *reinterpret_cast<SFileNamesInformation*>(bufferFileNamesInformation);
+
+    fileNamesInformation = {
+        .nextEntryOffset = 1111,
+        .fileIndex = 2222,
+        .fileNameLength = static_cast<ULONG>(kInitialFilename.length() * sizeof(wchar_t))};
+    wcsncpy_s(
+        fileNamesInformation.fileName,
+        1 + kInitialFilename.length(),
+        kInitialFilename.data(),
+        1 + kInitialFilename.length());
+
+    const BytewiseDanglingFilenameStruct<SFileNamesInformation> bytewiseCopiedFileNamesInformation(
+        fileNamesInformation, kReplacementFilename);
+    const SFileNamesInformation& copiedFileNamesInformation =
+        bytewiseCopiedFileNamesInformation.GetFileInformationStruct();
+
+    TEST_ASSERT(copiedFileNamesInformation.nextEntryOffset == fileNamesInformation.nextEntryOffset);
+    TEST_ASSERT(copiedFileNamesInformation.fileIndex == fileNamesInformation.fileIndex);
+    TEST_ASSERT(
+        copiedFileNamesInformation.fileNameLength ==
+        kReplacementFilename.length() * sizeof(wchar_t));
+    TEST_ASSERT(kReplacementFilename == bytewiseCopiedFileNamesInformation.GetDanglingFilename());
+  }
+
   // Verifies that all the supported information classes produce valid layout objects.
   TEST_CASE(FileInformationStructLayout_LayoutForFileInformationClass)
   {
