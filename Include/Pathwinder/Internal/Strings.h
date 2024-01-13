@@ -212,6 +212,20 @@ namespace Pathwinder
       return std::wstring_view(unicodeStr.Buffer, (unicodeStr.Length / sizeof(wchar_t)));
     }
 
+    /// Determines if the specified absolute path begins with a drive letter. A valid drive letter
+    /// prefix consists of a letter, a colon, and a backslash.
+    /// @param [in] absolutePath Absolute path to check, with or without any Windows namespace
+    /// prefixes.
+    /// @return `true` if the path begins with a drive letter, `false` otherwise.
+    bool PathBeginsWithDriveLetter(std::wstring_view absolutePath);
+
+    /// Trims the specified path at the last backslash to obtain the parent directory.
+    /// @param [in] path Path to check, absolute or relative, and with or without any Windows
+    /// namespace prefixes.
+    /// @return View of the specified path that consists of its parent directory, without a trailing
+    /// backslash, or an empty view if the path is already a filesystem root and no parent exists.
+    std::wstring_view PathGetParentDirectory(std::wstring_view path);
+
     /// Returns a view of the Windows namespace prefix from the supplied absolute path, if it is
     /// present.
     /// @param [in] absolutePath Absolute path to check for a prefix.

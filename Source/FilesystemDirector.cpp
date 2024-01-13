@@ -27,22 +27,6 @@
 
 namespace Pathwinder
 {
-  /// Determines if the specified absolute path begins with a drive letter.
-  /// @param [in] absolutePathWithoutWindowsPrefix Absolute path to check, without any Windows
-  /// namespace prefixes.
-  /// @return `true` if the path begins with a drive letter, `false` otherwise.
-  static inline bool PathBeginsWithDriveLetter(std::wstring_view absolutePathWithoutWindowsPrefix)
-  {
-    if (absolutePathWithoutWindowsPrefix.length() < 3) return false;
-
-    if ((0 != std::iswalpha(absolutePathWithoutWindowsPrefix[0])) &&
-        (L':' == absolutePathWithoutWindowsPrefix[1]) &&
-        (L'\\' == absolutePathWithoutWindowsPrefix[2]))
-      return true;
-
-    return false;
-  }
-
   const FilesystemRule* FilesystemDirector::SelectRuleForPath(std::wstring_view absolutePath) const
   {
     // It is possible that multiple rules all have a prefix that matches the directory part of
@@ -339,7 +323,7 @@ namespace Pathwinder
     const std::wstring_view absoluteFilePathTrimmedForQuery =
         Strings::RemoveTrailing(absoluteFilePath.substr(windowsNamespacePrefix.length()), L'\\');
 
-    if (false == PathBeginsWithDriveLetter(absoluteFilePathTrimmedForQuery))
+    if (false == Strings::PathBeginsWithDriveLetter(absoluteFilePathTrimmedForQuery))
     {
       Message::OutputFormatted(
           Message::ESeverity::SuperDebug,

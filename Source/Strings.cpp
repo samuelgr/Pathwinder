@@ -676,6 +676,39 @@ namespace Pathwinder
       return prependedPath;
     }
 
+    bool PathBeginsWithDriveLetter(std::wstring_view absolutePath)
+    {
+      std::wstring_view absolutePathWithoutWindowsPrefix =
+          absolutePath.substr(PathGetWindowsNamespacePrefix(absolutePath).length());
+
+      if (absolutePathWithoutWindowsPrefix.length() < 3) return false;
+
+      if ((0 != std::iswalpha(absolutePathWithoutWindowsPrefix[0])) &&
+          (L':' == absolutePathWithoutWindowsPrefix[1]) &&
+          (L'\\' == absolutePathWithoutWindowsPrefix[2]))
+        return true;
+
+      return false;
+    }
+
+    std::wstring_view PathGetParentDirectory(std::wstring_view path)
+    {
+      std::wstring_view pathTrimmed = path.substr(PathGetWindowsNamespacePrefix(path).length());
+
+      size_t numTrailingBackslashes = 0;
+      while (pathTrimmed.ends_with(L'\\'))
+      {
+        pathTrimmed.remove_suffix(1);
+        numTrailingBackslashes += 1;
+      }
+
+      const size_t lastBackslashPos = pathTrimmed.find_last_of(L"\\");
+      if (std::wstring_view::npos == lastBackslashPos) return std::wstring_view();
+
+      path.remove_suffix(pathTrimmed.length() - lastBackslashPos + numTrailingBackslashes);
+      return path;
+    }
+
     std::wstring_view PathGetWindowsNamespacePrefix(std::wstring_view absolutePath)
     {
       static constexpr std::wstring_view kKnownWindowsNamespacePrefixes[] = {

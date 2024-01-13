@@ -391,4 +391,97 @@ namespace PathwinderTest
     for (const auto nonMatchingInput : kNonMatchingInputs)
       TEST_ASSERT(false == Strings::StartsWithCaseInsensitive(kTestString, nonMatchingInput));
   }
+
+  // Verifies that drive letters at the beginnings of paths are correctly identified.
+  TEST_CASE(Strings_PathBeginsWithDriveLetter)
+  {
+    constexpr struct
+    {
+      std::wstring_view inputPath;
+      bool expectedBeginsWithDriveLetter;
+    } driveLetterTestRecords[] = {
+        {.inputPath = L"C:\\TestPath\\TestFile.txt", .expectedBeginsWithDriveLetter = true},
+        {.inputPath = L"C:\\TestPath\\TestSubdir\\", .expectedBeginsWithDriveLetter = true},
+        {.inputPath = L"\\??\\C:\\TestPath\\TestFile.txt", .expectedBeginsWithDriveLetter = true},
+        {.inputPath = L"\\??\\C:\\TestPath\\TestSubdir\\", .expectedBeginsWithDriveLetter = true},
+        {.inputPath = L"C:\\", .expectedBeginsWithDriveLetter = true},
+        {.inputPath = L"C:", .expectedBeginsWithDriveLetter = false},
+        {.inputPath = L"\\??\\C:\\", .expectedBeginsWithDriveLetter = true},
+        {.inputPath = L"\\??\\C:", .expectedBeginsWithDriveLetter = false},
+        {.inputPath = L"", .expectedBeginsWithDriveLetter = false},
+        {.inputPath = L"\\??\\", .expectedBeginsWithDriveLetter = false},
+        {.inputPath = L"Subdir1\\Subdir2\\File.txt", .expectedBeginsWithDriveLetter = false},
+        {.inputPath = L"Subdir1\\Subdir2\\Subdir3\\", .expectedBeginsWithDriveLetter = false},
+    };
+
+    for (const auto& driveLetterTestRecord : driveLetterTestRecords)
+    {
+      const bool actualBeginsWithDriveLetter =
+          Strings::PathBeginsWithDriveLetter(driveLetterTestRecord.inputPath);
+      TEST_ASSERT(
+          actualBeginsWithDriveLetter == driveLetterTestRecord.expectedBeginsWithDriveLetter);
+    }
+  }
+
+  // Verifies that parent directory paths can be correctly obtained from child paths.
+  TEST_CASE(Strings_PathGetParentDirectory)
+  {
+    constexpr struct
+    {
+      std::wstring_view inputPath;
+      std::wstring_view expectedParentDirectory;
+    } parentDirectoryTestRecords[] = {
+        {.inputPath = L"C:\\TestPath\\TestFile.txt", .expectedParentDirectory = L"C:\\TestPath"},
+        {.inputPath = L"C:\\TestPath\\TestSubdir\\", .expectedParentDirectory = L"C:\\TestPath"},
+        {.inputPath = L"\\??\\C:\\TestPath\\TestFile.txt",
+         .expectedParentDirectory = L"\\??\\C:\\TestPath"},
+        {.inputPath = L"\\??\\C:\\TestPath\\TestSubdir\\",
+         .expectedParentDirectory = L"\\??\\C:\\TestPath"},
+        {.inputPath = L"C:\\", .expectedParentDirectory = L""},
+        {.inputPath = L"C:", .expectedParentDirectory = L""},
+        {.inputPath = L"\\??\\C:\\", .expectedParentDirectory = L""},
+        {.inputPath = L"\\??\\C:", .expectedParentDirectory = L""},
+        {.inputPath = L"", .expectedParentDirectory = L""},
+        {.inputPath = L"\\??\\", .expectedParentDirectory = L""},
+        {.inputPath = L"Subdir1\\Subdir2\\File.txt",
+         .expectedParentDirectory = L"Subdir1\\Subdir2"},
+        {.inputPath = L"Subdir1\\Subdir2\\Subdir3\\",
+         .expectedParentDirectory = L"Subdir1\\Subdir2"},
+    };
+
+    for (const auto& parentDirectoryTestRecord : parentDirectoryTestRecords)
+    {
+      const std::wstring_view actualParentDirectory =
+          Strings::PathGetParentDirectory(parentDirectoryTestRecord.inputPath);
+      TEST_ASSERT(actualParentDirectory == parentDirectoryTestRecord.expectedParentDirectory);
+    }
+  }
+
+  // Verifies that Windows namespace prefixes can be obtained from various absolute paths.
+  TEST_CASE(Strings_PathGetWindowsNamespacePrefix)
+  {
+    constexpr struct
+    {
+      std::wstring_view inputPath;
+      std::wstring_view expectedPrefix;
+    } prefixTestRecords[] = {
+        {.inputPath = L"C:\\TestPath\\TestFile.txt", .expectedPrefix = L""},
+        {.inputPath = L"C:\\TestPath\\TestSubdir\\", .expectedPrefix = L""},
+        {.inputPath = L"\\??\\C:\\TestPath\\TestFile.txt", .expectedPrefix = L"\\??\\"},
+        {.inputPath = L"\\??\\C:\\TestPath\\TestSubdir\\", .expectedPrefix = L"\\??\\"},
+        {.inputPath = L"C:\\", .expectedPrefix = L""},
+        {.inputPath = L"C:", .expectedPrefix = L""},
+        {.inputPath = L"\\??\\C:\\", .expectedPrefix = L"\\??\\"},
+        {.inputPath = L"\\??\\C:", .expectedPrefix = L"\\??\\"},
+        {.inputPath = L"", .expectedPrefix = L""},
+        {.inputPath = L"\\??\\", .expectedPrefix = L"\\??\\"},
+    };
+
+    for (const auto& prefixTestRecord : prefixTestRecords)
+    {
+      const std::wstring_view actualPrefix =
+          Strings::PathGetWindowsNamespacePrefix(prefixTestRecord.inputPath);
+      TEST_ASSERT(actualPrefix == prefixTestRecord.expectedPrefix);
+    }
+  }
 } // namespace PathwinderTest
