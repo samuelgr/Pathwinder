@@ -1332,69 +1332,68 @@ namespace Pathwinder
           instructionSourceFunc);
       const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
-      if (true == Globals::GetConfigurationData().isDryRunMode ||
-          (FileOperationInstruction::NoRedirectionOrInterception() == redirectionInstruction))
+      if (true == Globals::GetConfigurationData().isDryRunMode)
         return underlyingSystemCallInvoker(fileHandle, renameInformation, renameInformationLength);
 
       NTSTATUS preOperationResult = ExecuteExtraPreOperations(
           functionName, functionRequestIdentifier, operationContext.instruction);
       if (!(NT_SUCCESS(preOperationResult))) return preOperationResult;
 
-      // Due to how the file rename information structure is laid out, including an embedded
-      // filename buffer of variable size, there is overhead to generating a new one. Without a
-      // redirected filename present it is better to bail early than to generate a new one
-      // unconditionally.
-      if (false == redirectionInstruction.HasRedirectedFilename())
-        return underlyingSystemCallInvoker(fileHandle, renameInformation, renameInformationLength);
-
-      BytewiseDanglingFilenameStruct<SFileRenameInformation>
-          redirectedFileRenameInformationAndFilename(
-              renameInformation, redirectionInstruction.GetRedirectedFilename());
-      SFileRenameInformation& redirectedFileRenameInformation =
-          redirectedFileRenameInformationAndFilename.GetFileInformationStruct();
-
       NTSTATUS systemCallResult = NtStatus::kObjectPathNotFound;
       std::wstring_view lastAttemptedPath;
 
-      for (const auto& operationToTry : SelectFileOperationsToTry(
-               functionName,
-               functionRequestIdentifier,
-               redirectionInstruction,
-               renameInformation,
-               redirectedFileRenameInformation))
+      // Due to how the file rename information structure is laid out, including an embedded
+      // filename buffer of variable size, there is overhead to generating a new one. Without a
+      // redirected filename present it is better to skip that process altogether.
+      if (true == redirectionInstruction.HasRedirectedFilename())
       {
-        if (true == operationToTry.HasError())
+        BytewiseDanglingFilenameStruct<SFileRenameInformation>
+            redirectedFileRenameInformationAndFilename(
+                renameInformation, redirectionInstruction.GetRedirectedFilename());
+        SFileRenameInformation& redirectedFileRenameInformation =
+            redirectedFileRenameInformationAndFilename.GetFileInformationStruct();
+
+        for (const auto& operationToTry : SelectFileOperationsToTry(
+                 functionName,
+                 functionRequestIdentifier,
+                 redirectionInstruction,
+                 renameInformation,
+                 redirectedFileRenameInformation))
         {
+          if (true == operationToTry.HasError())
+          {
+            Message::OutputFormatted(
+                Message::ESeverity::SuperDebug,
+                L"%s(%u): NTSTATUS = 0x%08x (forced result).",
+                functionName,
+                functionRequestIdentifier,
+                static_cast<unsigned int>(operationToTry.Error()));
+            return operationToTry.Error();
+          }
+          SFileRenameInformation* const renameInformationToTry = operationToTry.Value();
+
+          lastAttemptedPath =
+              FileInformationStructLayout::ReadFileNameByType(*renameInformationToTry);
+          systemCallResult = underlyingSystemCallInvoker(
+              fileHandle,
+              *renameInformationToTry,
+              FileInformationStructLayout::SizeOfStructByType(*renameInformationToTry));
           Message::OutputFormatted(
               Message::ESeverity::SuperDebug,
-              L"%s(%u): NTSTATUS = 0x%08x (forced result).",
+              L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".",
               functionName,
               functionRequestIdentifier,
-              static_cast<unsigned int>(operationToTry.Error()));
-          return operationToTry.Error();
+              systemCallResult,
+              static_cast<int>(lastAttemptedPath.length()),
+              lastAttemptedPath.data());
+
+          if (false == ShouldTryNextFilename(systemCallResult)) break;
         }
-        SFileRenameInformation* const renameInformationToTry = operationToTry.Value();
-
-        lastAttemptedPath =
-            FileInformationStructLayout::ReadFileNameByType(*renameInformationToTry);
-        systemCallResult = underlyingSystemCallInvoker(
-            fileHandle,
-            *renameInformationToTry,
-            FileInformationStructLayout::SizeOfStructByType(*renameInformationToTry));
-        Message::OutputFormatted(
-            Message::ESeverity::SuperDebug,
-            L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".",
-            functionName,
-            functionRequestIdentifier,
-            systemCallResult,
-            static_cast<int>(lastAttemptedPath.length()),
-            lastAttemptedPath.data());
-
-        if (false == ShouldTryNextFilename(systemCallResult)) break;
       }
 
       if (true == lastAttemptedPath.empty())
-        return underlyingSystemCallInvoker(fileHandle, renameInformation, renameInformationLength);
+        systemCallResult =
+            underlyingSystemCallInvoker(fileHandle, renameInformation, renameInformationLength);
 
       if (NT_SUCCESS(systemCallResult))
         SelectFilenameAndUpdateOpenHandle(

@@ -1489,19 +1489,14 @@ namespace PathwinderTest
   }
 
   // Verifies that the filesystem executor correctly composes a complete path when requesting a file
-  // operation instruction as part of renaming an existing open file. If no root directory is
-  // specified then the requested path is the same as the input path. If the root directory is
-  // specified by handle and the handle is cached in the open handle store then the requested path
-  // is the root directory path concatenated with the input path. Note that an uncached (but
-  // present) root directory is handled by a different test case entirely, as this situation should
-  // result in passthrough behavior.
-  //
-  // TODO: Root directory not specified and file path is relative. This means that the file stays in
-  // its current directory and probably needs to be handled in a special way during file rename. In
-  // this case probably we need to retrieve the directory path and compose a full path when
-  // obtaining an instruction, and for testing, a mock filesystem would need to know where the file
-  // is located that is being renamed.
-  TEST_CASE(FilesystemExecutor_RenameByHandle_InstructionSourcePathComposition)
+  // operation instruction as part of renaming an existing open file. This test case only exercises
+  // the basic forms of input for path composition, as follows. If no root directory is specified
+  // then the requested path is the same as the input path. If the root directory is specified by
+  // handle and the handle is cached in the open handle store then the requested path is the root
+  // directory path concatenated with the input path. Note that an uncached (but present) root
+  // directory is handled by a different test case entirely, as this situation should result in
+  // passthrough behavior.
+  TEST_CASE(FilesystemExecutor_RenameByHandle_InstructionSourcePathComposition_Nominal)
   {
     constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
     constexpr std::wstring_view kDirectoryName =
@@ -1562,6 +1557,60 @@ namespace PathwinderTest
             return NtStatus::kSuccess;
           });
     }
+  }
+
+  // Verifies special rename behavior whereby a root directory handle is not specified and the new
+  // file name is a relative path, meaning that the file name changes but the directory does not. In
+  // this test case, the file being renamed is cached in the open handle store, so when requesting
+  // an instruction the path should be composed based on the original associated path in cache.
+  TEST_CASE(FilesystemExecutor_RenameByHandle_InstructionSourcePathComposition_CachedRelativeMove)
+  {
+    constexpr std::wstring_view kDirectoryName = L"C:\\TestDirectory";
+    constexpr std::wstring_view kInitialFilename = L"Initial.txt";
+    constexpr std::wstring_view kRenamedFilename = L"Subdir\\Renamed.txt";
+    constexpr std::wstring_view kInitialPath = L"C:\\TestDirectory\\Initial.txt";
+    constexpr std::wstring_view kRenamedPath = L"C:\\TestDirectory\\Subdir\\Renamed.txt";
+
+    const HANDLE kFileBeingRenamedHandleTestInput = reinterpret_cast<HANDLE>(23);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        kFileBeingRenamedHandleTestInput,
+        std::wstring(kInitialPath),
+        L"C:\\SomeOther\\RealOpenedPath\\Initial.txt");
+
+    BytewiseDanglingFilenameStruct<SFileRenameInformation> fileRenameInformationUnredirectedPath(
+        SFileRenameInformation{}, kRenamedFilename);
+
+    FilesystemExecutor::RenameByHandle(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        kFileBeingRenamedHandleTestInput,
+        fileRenameInformationUnredirectedPath.GetFileInformationStruct(),
+        fileRenameInformationUnredirectedPath.GetFileInformationStructSizeBytes(),
+        [kRenamedPath](std::wstring_view actualRequestedPath, FileAccessMode, CreateDisposition)
+            -> FileOperationInstruction
+        {
+          std::wstring_view expectedRequestedPath = kRenamedPath;
+          TEST_ASSERT(actualRequestedPath == expectedRequestedPath);
+          return FileOperationInstruction::NoRedirectionOrInterception();
+        },
+        [](HANDLE, SFileRenameInformation&, ULONG) -> NTSTATUS
+        {
+          return NtStatus::kSuccess;
+        });
+  }
+
+  // Verifies special rename behavior whereby a root directory handle is not specified and the new
+  // file name is a relative path, meaning that the file name changes but the directory does not. In
+  // this test case, the file being renamed is not cached in the open handle store, so when
+  // requesting an instruction the path should be composed based on the actual path of the open file
+  // handle. This requires that the system be queried for the full path associated with the file
+  // handle.
+  TEST_CASE(FilesystemExecutor_RenameByHandle_InstructionSourcePathComposition_UncachedRelativeMove)
+  {
+    // TODO
   }
 
   // Verifies that any file attempt preference is honored if it is contained in a file operation
@@ -1956,5 +2005,41 @@ namespace PathwinderTest
       TEST_ASSERT(true == instructionSourceWasInvoked);
       TEST_ASSERT(true == openHandleStore.Empty());
     }
+  }
+
+  // Verifies that a previously-interesting file that is renamed to a path that is not interesting
+  // is erased from the open handle store. This is very similar to the try files order test case,
+  // except this is a special case whereby the instruction contains no redirected filename
+  // whatsoever.
+  TEST_CASE(FilesystemExecutor_RenameByHandle_PreviouslyInterestingFileErased)
+  {
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
+
+    const HANDLE existingFileHandle = reinterpret_cast<HANDLE>(3386);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        existingFileHandle, std::wstring(kUnredirectedPath), std::wstring(kUnredirectedPath));
+
+    BytewiseDanglingFilenameStruct<SFileRenameInformation> fileRenameInformationUnredirectedPath(
+        SFileRenameInformation{}, kUnredirectedPath);
+
+    FilesystemExecutor::RenameByHandle(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        existingFileHandle,
+        fileRenameInformationUnredirectedPath.GetFileInformationStruct(),
+        fileRenameInformationUnredirectedPath.GetFileInformationStructSizeBytes(),
+        [](std::wstring_view, FileAccessMode, CreateDisposition) -> FileOperationInstruction
+        {
+          return FileOperationInstruction::NoRedirectionOrInterception();
+        },
+        [](HANDLE, SFileRenameInformation&, ULONG) -> NTSTATUS
+        {
+          return NtStatus::kSuccess;
+        });
+
+    TEST_ASSERT(true == openHandleStore.Empty());
   }
 } // namespace PathwinderTest
