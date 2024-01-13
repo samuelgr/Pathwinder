@@ -157,6 +157,16 @@ namespace Pathwinder
             (reinterpret_cast<const uint8_t*>(fileInformationStruct.fileName))[i]);
     }
 
+    inline BytewiseDanglingFilenameStruct(BytewiseDanglingFilenameStruct&& other)
+        : bytewiseBuffer(std::move(other.bytewiseBuffer))
+    {}
+
+    inline BytewiseDanglingFilenameStruct& operator=(BytewiseDanglingFilenameStruct&& other)
+    {
+      bytewiseBuffer = std::move(other.bytewiseBuffer);
+      return *this;
+    }
+
     /// Copies the contents of the specified file information structure into the contained file
     /// information structure while simultaneously replacing the dangling filename with the
     /// specified replacement filename.
@@ -183,6 +193,7 @@ namespace Pathwinder
     }
 
     /// Retrieves the dangling filename field from the contained file information structure.
+    /// @return View of the dangling filename field.
     inline std::wstring_view GetDanglingFilename(void) const
     {
       return std::wstring_view(
@@ -191,22 +202,33 @@ namespace Pathwinder
     }
 
     /// Retrieves a properly-typed read-only reference to the contained file information structure.
+    /// @return Read-only reference to the contained file information structure.
     inline const FileInformationStructType& GetFileInformationStruct(void) const
     {
       return *(reinterpret_cast<const FileInformationStructType*>(bytewiseBuffer.Data()));
     }
 
     /// Retrieves a properly-typed mutable reference to the contained file information structure.
+    /// @return Mutable reference to the contained file information structure.
     inline FileInformationStructType& GetFileInformationStruct(void)
     {
       return *(reinterpret_cast<FileInformationStructType*>(bytewiseBuffer.Data()));
     }
 
-    /// Retrieves the total size, in bytes,f of the contained file information structure, including
-    /// the trailing filename field.
+    /// Retrieves the total size, in bytes, of of the contained file information structure,
+    /// including the trailing filename field.
+    /// @return Total size of the contained file information structure, in bytes.
     inline unsigned int GetFileInformationStructSizeBytes(void) const
     {
       return bytewiseBuffer.Size();
+    }
+
+    /// Replaces the dangling filename in the contained file information structure.
+    /// @param [in] replacementFilename New filename to be set in the contained file information
+    /// structure.
+    inline void SetDanglingFilename(std::wstring_view replacementFilename)
+    {
+      *this = BytewiseDanglingFilenameStruct(GetFileInformationStruct(), replacementFilename);
     }
 
   private:

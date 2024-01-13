@@ -144,6 +144,36 @@ namespace PathwinderTest
     TEST_ASSERT(kReplacementFilename == bytewiseCopiedFileNamesInformation.GetDanglingFilename());
   }
 
+  // Verifies that replacement of the dangling filename field works correctly and does not touch
+  // other unrelated fields.
+  TEST_CASE(BytewiseDanglingFilenameStruct_SetDanglingFilename)
+  {
+    constexpr std::wstring_view kInitialFilename = L"C:\\Initial\\Filename.txt";
+    constexpr std::wstring_view kReplacementFilename = L"D:\\Replacement\\Longer\\NewFilename.txt";
+    constexpr size_t expectedLengthDifference =
+        sizeof(wchar_t) * (kReplacementFilename.length() - kInitialFilename.length());
+
+    constexpr SFileNamesInformation kFileNamesInformationOtherFields{
+        .nextEntryOffset = 1234, .fileIndex = 5678};
+
+    BytewiseDanglingFilenameStruct<SFileNamesInformation> bytewiseFileNamesInformation(
+        kFileNamesInformationOtherFields, kInitialFilename);
+    const size_t bytewiseFileNamesInformationInitialSize =
+        bytewiseFileNamesInformation.GetFileInformationStructSizeBytes();
+
+    TEST_ASSERT(bytewiseFileNamesInformation.GetDanglingFilename() == kInitialFilename);
+
+    bytewiseFileNamesInformation.SetDanglingFilename(kReplacementFilename);
+    const size_t bytewiseFileNamesInformationFinalSize =
+        bytewiseFileNamesInformation.GetFileInformationStructSizeBytes();
+
+    TEST_ASSERT(bytewiseFileNamesInformation.GetDanglingFilename() == kReplacementFilename);
+
+    const size_t actualLengthDifference =
+        bytewiseFileNamesInformationFinalSize - bytewiseFileNamesInformationInitialSize;
+    TEST_ASSERT(actualLengthDifference == expectedLengthDifference);
+  }
+
   // Verifies that all the supported information classes produce valid layout objects.
   TEST_CASE(FileInformationStructLayout_LayoutForFileInformationClass)
   {
