@@ -1604,10 +1604,10 @@ namespace PathwinderTest
 
   // Verifies special rename behavior whereby a root directory handle is not specified and the new
   // file name is a relative path, meaning that the file name changes but the directory does not. In
-  // this test case, the file being renamed is not cached in the open handle store, so when
-  // requesting an instruction the path should be composed based on the actual path of the open file
-  // handle. This requires that the system be queried for the full path associated with the file
-  // handle.
+  // this test case, the file being renamed is not cached in the open handle store, meaning it was
+  // previously uninteresting to Pathwinder. When requesting an instruction, the path should be
+  // composed based on the actual path of the open file handle. This requires that the system be
+  // queried for the full path associated with the file handle.
   TEST_CASE(FilesystemExecutor_RenameByHandle_InstructionSourcePathComposition_UncachedRelativeMove)
   {
     // TODO
