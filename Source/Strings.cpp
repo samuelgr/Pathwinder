@@ -34,6 +34,10 @@ namespace Pathwinder
     /// File extension for a log file.
     static constexpr std::wstring_view kStrLogFileExtension = L".log";
 
+    /// Length of a drive letter prefix, in characters. A drive letter prefix consists of a single
+    /// letter, a colon, and a backslash, for a total of three characters.
+    static constexpr size_t kPathDriveLetterPrefixLengthChars = 3;
+
     /// Converts a single character to lowercase.
     /// Default implementation does nothing useful.
     /// @tparam CharType Character type.
@@ -681,7 +685,8 @@ namespace Pathwinder
       std::wstring_view absolutePathWithoutWindowsPrefix =
           absolutePath.substr(PathGetWindowsNamespacePrefix(absolutePath).length());
 
-      if (absolutePathWithoutWindowsPrefix.length() < 3) return false;
+      if (absolutePathWithoutWindowsPrefix.length() < kPathDriveLetterPrefixLengthChars)
+        return false;
 
       if ((0 != std::iswalpha(absolutePathWithoutWindowsPrefix[0])) &&
           (L':' == absolutePathWithoutWindowsPrefix[1]) &&
@@ -721,6 +726,13 @@ namespace Pathwinder
       }
 
       return std::wstring_view();
+    }
+
+    bool PathIsVolumeRoot(std::wstring_view absolutePath)
+    {
+      return PathBeginsWithDriveLetter(absolutePath) &&
+          ((kPathDriveLetterPrefixLengthChars +
+            PathGetWindowsNamespacePrefix(absolutePath).length()) == absolutePath.length());
     }
 
     template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(

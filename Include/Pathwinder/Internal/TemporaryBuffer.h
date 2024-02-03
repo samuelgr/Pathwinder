@@ -301,6 +301,15 @@ namespace Pathwinder
       return size;
     }
 
+    /// Changes this object's knowledge of its own size. This is generally an unsafe operation but
+    /// is intended to be used after the underlying buffer is manipulated directly by functions that
+    /// write to it directly.
+    /// @param [in] newsize New size to use.
+    inline void UnsafeSetSize(unsigned int newsize)
+    {
+      size = newsize;
+    }
+
   protected:
 
     /// Number of elements held by this container.
@@ -540,15 +549,6 @@ namespace Pathwinder
     {
       while (AsStringView().ends_with(trailingChar))
         RemoveSuffix(1);
-    }
-
-    /// Changes this object's knowledge of its own size.
-    /// This is generally an unsafe operation but is intended to be used after the underlying
-    /// buffer is manipulated by functions that operate on C strings.
-    /// @param [in] newsize New size to use.
-    inline void UnsafeSetSize(unsigned int newsize)
-    {
-      size = newsize;
     }
 
     // These methods are unsafe in the context of null-terminated string manipulation.

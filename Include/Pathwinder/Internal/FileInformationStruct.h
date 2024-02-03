@@ -192,6 +192,29 @@ namespace Pathwinder
       return (0 == std::memcmp(&other, bytewiseBuffer.Data(), bytewiseBuffer.Size()));
     }
 
+    /// Retrieves the capacity of the underlying bytewise buffer, in bytes. This value can be sent
+    /// into functions that write directly to the buffer and need to know how much space is
+    /// available.
+    /// @return Capacity of the underlying bytewise buffer, in bytes.
+    inline unsigned int CapacityBytes(void) const
+    {
+      return bytewiseBuffer.CapacityBytes();
+    }
+
+    /// Retrieves a pointer to the buffer itself, constant version.
+    /// @return Pointer to the buffer.
+    inline const uint8_t* Data(void) const
+    {
+      return bytewiseBuffer.Data();
+    }
+
+    /// Retrieves a pointer to the buffer itself, mutable version.
+    /// @return Pointer to the buffer.
+    inline uint8_t* Data(void)
+    {
+      return bytewiseBuffer.Data();
+    }
+
     /// Retrieves the dangling filename field from the contained file information structure.
     /// @return View of the dangling filename field.
     inline std::wstring_view GetDanglingFilename(void) const
@@ -229,6 +252,15 @@ namespace Pathwinder
     inline void SetDanglingFilename(std::wstring_view replacementFilename)
     {
       *this = BytewiseDanglingFilenameStruct(GetFileInformationStruct(), replacementFilename);
+    }
+
+    /// Updates this object's knowledge of the underlying size, in bytes, of the contained file
+    /// information structure. This is generally an unsafe operation but is useful for reporting a
+    /// size change after invoking a function that writes to the buffer directly.
+    /// @param [in] sizeInBytes New size in bytes.
+    inline void UnsafeSetStructSizeBytes(unsigned int sizeInBytes)
+    {
+      bytewiseBuffer.UnsafeSetSize(sizeInBytes);
     }
 
   private:

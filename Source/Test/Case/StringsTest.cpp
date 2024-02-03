@@ -484,4 +484,35 @@ namespace PathwinderTest
       TEST_ASSERT(actualPrefix == prefixTestRecord.expectedPrefix);
     }
   }
+
+  // Verifies that volume root paths are correctly identified as such.
+  TEST_CASE(Strings_PathIsVolumeRoot)
+  {
+    constexpr struct
+    {
+      std::wstring_view inputPath;
+      bool expectedIsVolumeRoot;
+    } volumeRootTestRecords[] = {
+        {.inputPath = L"C:\\TestPath\\TestFile.txt", .expectedIsVolumeRoot = false},
+        {.inputPath = L"C:\\TestPath\\TestSubdir\\", .expectedIsVolumeRoot = false},
+        {.inputPath = L"\\??\\C:\\TestPath\\TestFile.txt", .expectedIsVolumeRoot = false},
+        {.inputPath = L"\\??\\C:\\TestPath\\TestSubdir\\", .expectedIsVolumeRoot = false},
+        {.inputPath = L"C:\\", .expectedIsVolumeRoot = true},
+        {.inputPath = L"C:", .expectedIsVolumeRoot = false},
+        {.inputPath = L"\\??\\C:\\", .expectedIsVolumeRoot = true},
+        {.inputPath = L"\\??\\C:", .expectedIsVolumeRoot = false},
+        {.inputPath = L"", .expectedIsVolumeRoot = false},
+        {.inputPath = L"\\??\\", .expectedIsVolumeRoot = false},
+        {.inputPath = L"Subdir1\\Subdir2\\File.txt", .expectedIsVolumeRoot = false},
+        {.inputPath = L"Subdir1\\Subdir2\\Subdir3\\", .expectedIsVolumeRoot = false},
+    };
+
+    for (const auto& volumeRootTestRecord : volumeRootTestRecords)
+    {
+      const bool actualIsVolumeRoot =
+          Strings::PathIsVolumeRoot(volumeRootTestRecord.inputPath);
+      TEST_ASSERT(
+          actualIsVolumeRoot == volumeRootTestRecord.expectedIsVolumeRoot);
+    }
+  }
 } // namespace PathwinderTest

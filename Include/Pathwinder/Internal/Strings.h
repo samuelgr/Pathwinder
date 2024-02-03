@@ -242,6 +242,12 @@ namespace Pathwinder
       return (0 != PathGetWindowsNamespacePrefix(absolutePath).length());
     }
 
+    /// Determines if the provided path is a volume root, meaning that it identifies a volume (in a
+    /// way that Pathwinder recognizes) but does not contain any other path information.
+    /// @param absolutePath Absolute path to check.
+    /// @return Whether or not the supplied absolute path is a volume root path.
+    bool PathIsVolumeRoot(std::wstring_view absolutePath);
+
     /// Removes the all occurrences of specified leading character from the input string view
     /// and returns the result.
     /// @tparam CharType Type of character in each string, either narrow or wide.
