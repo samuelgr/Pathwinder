@@ -525,6 +525,20 @@ namespace Pathwinder
         return Iterator(*this, Iterator::kTokenizeStateEnd);
       }
 
+      /// Instantiates a tokenizer object configured to tokenize a special type of list of strings
+      /// used throughout Windows APIs. These lists place multiple strings into a single buffer and
+      /// delimit them using a single null character, with the end of the list being identified by
+      /// multiple consecutive null characters.
+      static constexpr Tokenizer NullDelimitedList(
+          std::basic_string_view<CharType> stringToTokenize)
+      {
+        static constexpr CharType kNullDelimiter = static_cast<CharType>(0);
+
+        return Tokenizer(
+            RemoveTrailing(stringToTokenize, kNullDelimiter),
+            std::wstring_view(&kNullDelimiter, 1));
+      }
+
     private:
 
       /// String to be tokenized.
@@ -541,5 +555,13 @@ namespace Pathwinder
       /// Number of delimiters.
       const unsigned int numDelimiters;
     };
+
+    /// Special-purpose tokenization class for certain lists of strings used throughout Windows
+    /// APIs. These lists place multiple wide-character strings into a single buffer and delimits
+    /// them using a single null character, with the end of the list being identified by two
+    /// consecutive null characters. Intended to be constructed directly within a range-based loop
+    /// to provide simple iteration over all the individual list items in a null-delimited list of
+    /// strings.
+
   } // namespace Strings
 } // namespace Pathwinder

@@ -155,6 +155,30 @@ namespace PathwinderTest
     TEST_ASSERT(false == maybeNextPiece.has_value());
   }
 
+  TEST_CASE(Strings_Tokenize_NullDelimitedList)
+  {
+    constexpr wchar_t kInputStringCharacters[] = L"Item1\0Item2\0Item3\0Item4\0Item5\0\0\0\0";
+
+    const std::wstring_view kInputString =
+        std::wstring_view(kInputStringCharacters, _countof(kInputStringCharacters));
+
+    constexpr std::wstring_view expectedTokens[] = {
+        L"Item1", L"Item2", L"Item3", L"Item4", L"Item5"};
+    constexpr int expectedNumTokens = _countof(expectedTokens);
+
+    int actualNumTokens = 0;
+
+    for (std::wstring_view actualToken :
+         Strings::Tokenizer<wchar_t>::NullDelimitedList(kInputString))
+    {
+      TEST_ASSERT(actualNumTokens < expectedNumTokens);
+      TEST_ASSERT(actualToken == expectedTokens[actualNumTokens]);
+      actualNumTokens += 1;
+    }
+
+    TEST_ASSERT(actualNumTokens == expectedNumTokens);
+  }
+
   // The following sequence of tests, which together comprise the Split suite, exercise the
   // SplitString functions.
 
@@ -509,10 +533,8 @@ namespace PathwinderTest
 
     for (const auto& volumeRootTestRecord : volumeRootTestRecords)
     {
-      const bool actualIsVolumeRoot =
-          Strings::PathIsVolumeRoot(volumeRootTestRecord.inputPath);
-      TEST_ASSERT(
-          actualIsVolumeRoot == volumeRootTestRecord.expectedIsVolumeRoot);
+      const bool actualIsVolumeRoot = Strings::PathIsVolumeRoot(volumeRootTestRecord.inputPath);
+      TEST_ASSERT(actualIsVolumeRoot == volumeRootTestRecord.expectedIsVolumeRoot);
     }
   }
 } // namespace PathwinderTest
