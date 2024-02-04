@@ -155,6 +155,9 @@ namespace PathwinderTest
     TEST_ASSERT(false == maybeNextPiece.has_value());
   }
 
+  // Null-delimited list of strings, of the type used throughout various Windows APIs. The list is
+  // terminated with multiple (at least two) consecutive null characters, but the exact number
+  // should not impact the result of the test.
   TEST_CASE(Strings_Tokenize_NullDelimitedList)
   {
     constexpr wchar_t kInputStringCharacters[] = L"Item1\0Item2\0Item3\0Item4\0Item5\0\0\0\0";
