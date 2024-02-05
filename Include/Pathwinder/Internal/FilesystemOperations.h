@@ -16,6 +16,7 @@
 #include <string_view>
 
 #include "ApiWindows.h"
+#include "TemporaryBuffer.h"
 #include "ValueOrError.h"
 
 namespace Pathwinder
@@ -74,6 +75,11 @@ namespace Pathwinder
         unsigned int enumerationBufferCapacityBytes,
         ULONG queryFlags = 0,
         std::wstring_view filePattern = std::wstring_view());
+
+    /// Obtains the full absolute path for the specified file handle.
+    /// @param [in] fileHandle File handle for which the full absolute path is desired.
+    /// @return Absolute path for the file handle, or a Windows error code on failure.
+    ValueOrError<TemporaryString, NTSTATUS> QueryAbsolutePathByHandle(HANDLE fileHandle);
 
     /// Obtains mode information for the specified file handle. The file handle must be open
     /// already. The mode is itself a bitmask that identifies the effective options that determine

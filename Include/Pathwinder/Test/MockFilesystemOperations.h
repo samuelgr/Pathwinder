@@ -23,6 +23,7 @@
 #include "FilesystemOperations.h"
 #include "MockFreeFunctionContext.h"
 #include "Strings.h"
+#include "TemporaryBuffer.h"
 #include "ValueOrError.h"
 
 namespace PathwinderTest
@@ -129,6 +130,8 @@ namespace PathwinderTest
         unsigned int enumerationBufferCapacityBytes,
         ULONG queryFlags,
         std::wstring_view filePattern);
+    Pathwinder::ValueOrError<Pathwinder::TemporaryString, NTSTATUS> QueryAbsolutePathByHandle(
+        HANDLE fileHandle);
     Pathwinder::ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle);
     NTSTATUS QuerySingleFileDirectoryInformation(
         std::wstring_view absoluteDirectoryPath,

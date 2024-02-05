@@ -12,12 +12,14 @@
 
 #include "FilesystemOperations.h"
 
+#include <bitset>
 #include <cwctype>
 #include <limits>
 #include <optional>
 #include <string_view>
 
 #include "ApiWindows.h"
+#include "DebugAssert.h"
 #include "FileInformationStruct.h"
 #include "Hooks.h"
 #include "Message.h"
@@ -128,6 +130,54 @@ namespace Pathwinder
       if (!(NT_SUCCESS(queryResult))) return INVALID_FILE_ATTRIBUTES;
 
       return absolutePathObjectInfo.fileAttributes;
+    }
+
+    /// Retrieves the character used to represent the logical drive at index n. This is a simple
+    /// computation that begins with 0 being A, 1 being B, 2 being C, and so on all the way up to 25
+    /// being Z. No error-checking is performed.
+    /// @param [in] n Index of the desired drive letter.
+    /// @return Letter of the drive at the specified index.
+    static inline wchar_t GetNthLogicalDriveLetter(unsigned int n)
+    {
+      wchar_t logicalDriveLetter = L'A' + static_cast<wchar_t>(n);
+      DebugAssert(std::iswalpha(logicalDriveLetter), "Invalid drive letter.");
+
+      return logicalDriveLetter;
+    }
+
+    /// Retrieves the logical drive letter of the volume on which a file is stored, identified by
+    /// open handle.
+    /// @param [in] handle Open handle for which the associated drive letter is desired.
+    /// @return Letter of the drive on which the associated file is stored, or a null character if
+    /// this could not be determined.
+    static wchar_t GetLogicalDriveLetterForHandle(HANDLE handle)
+    {
+      wchar_t rootPathBuf[] = L"?:\\";
+
+      DWORD serialNumberByHandle = 0;
+      const DWORD volumeInformationByHandleResult = GetVolumeInformationByHandleW(
+          handle, nullptr, 0, &serialNumberByHandle, nullptr, nullptr, nullptr, 0);
+      if (0 == volumeInformationByHandleResult) return L'\0';
+
+      const std::bitset<26> logicalDrivesMask(GetLogicalDrives());
+      for (unsigned int logicalDriveIndex = 0; logicalDriveIndex < logicalDrivesMask.size();
+           ++logicalDriveIndex)
+      {
+        if (logicalDrivesMask[logicalDriveIndex])
+        {
+          const wchar_t logicalDriveLetter = GetNthLogicalDriveLetter(logicalDriveIndex);
+          rootPathBuf[0] = logicalDriveLetter;
+
+          DWORD serialNumberByPath = 0;
+          const DWORD volumeInformationByPathResult = GetVolumeInformationW(
+              rootPathBuf, nullptr, 0, &serialNumberByPath, nullptr, nullptr, nullptr, 0);
+          if (0 == volumeInformationByPathResult) continue;
+
+          if (serialNumberByPath == serialNumberByHandle) return logicalDriveLetter;
+        }
+      }
+
+      return L'\0';
     }
 
     /// Determines if the specified absolute path begins with a drive letter, which consists of
@@ -344,6 +394,35 @@ namespace Pathwinder
         return NtStatus::kBufferTooSmall;
 
       return directoryEnumerationResult;
+    }
+
+    ValueOrError<TemporaryString, NTSTATUS> QueryAbsolutePathByHandle(HANDLE fileHandle)
+    {
+      wchar_t driveLetterPrefix[] = {GetLogicalDriveLetterForHandle(fileHandle), L':', L'\0'};
+      if (L'\0' == driveLetterPrefix[0]) return NtStatus::kObjectNameNotFound;
+
+      TemporaryString absolutePath;
+      const DWORD absolutePathResult =
+          GetFinalPathNameByHandle(fileHandle, absolutePath.Data(), absolutePath.Capacity(), 0);
+
+      BytewiseDanglingFilenameStruct<SFileNameInformation> absolutePathNameInformation{};
+
+      IO_STATUS_BLOCK statusBlock{};
+
+      NTSTATUS queryFileNameResult = Hooks::ProtectedDependency::NtQueryInformationFile::SafeInvoke(
+          fileHandle,
+          &statusBlock,
+          absolutePathNameInformation.Data(),
+          absolutePathNameInformation.CapacityBytes(),
+          SFileNameInformation::kFileInformationClass);
+      if (!(NT_SUCCESS(queryFileNameResult))) return queryFileNameResult;
+      if (false == absolutePathNameInformation.GetDanglingFilename().starts_with(L'\\'))
+        return NtStatus::kObjectNameNotFound;
+
+      TemporaryString absolutePath;
+      absolutePath << driveLetterPrefix << absolutePathNameInformation.GetDanglingFilename();
+
+      return absolutePath;
     }
 
     ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle)

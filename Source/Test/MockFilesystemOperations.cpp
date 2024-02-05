@@ -283,6 +283,12 @@ namespace PathwinderTest
     return NtStatus::kSuccess;
   }
 
+  ValueOrError<TemporaryString, NTSTATUS> MockFilesystemOperations::QueryAbsolutePathByHandle(
+      HANDLE fileHandle)
+  {
+    TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
+  }
+
   ValueOrError<ULONG, NTSTATUS> MockFilesystemOperations::QueryFileHandleMode(HANDLE fileHandle)
   {
     TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
@@ -377,6 +383,11 @@ namespace Pathwinder
           enumerationBufferCapacityBytes,
           queryFlags,
           filePattern);
+    }
+
+    ValueOrError<TemporaryString, NTSTATUS> QueryAbsolutePathByHandle(HANDLE fileHandle)
+    {
+      MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, QueryAbsolutePathByHandle, fileHandle);
     }
 
     ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle)
