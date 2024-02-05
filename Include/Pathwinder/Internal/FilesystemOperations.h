@@ -76,7 +76,8 @@ namespace Pathwinder
         ULONG queryFlags = 0,
         std::wstring_view filePattern = std::wstring_view());
 
-    /// Obtains the full absolute path for the specified file handle.
+    /// Obtains the full absolute path for the specified file handle, without a Windows namespace
+    /// prefix.
     /// @param [in] fileHandle File handle for which the full absolute path is desired.
     /// @return Absolute path for the file handle, or a Windows error code on failure.
     ValueOrError<TemporaryString, NTSTATUS> QueryAbsolutePathByHandle(HANDLE fileHandle);
