@@ -401,10 +401,6 @@ namespace Pathwinder
       wchar_t driveLetterPrefix[] = {GetLogicalDriveLetterForHandle(fileHandle), L':', L'\0'};
       if (L'\0' == driveLetterPrefix[0]) return NtStatus::kObjectNameNotFound;
 
-      TemporaryString absolutePath;
-      const DWORD absolutePathResult =
-          GetFinalPathNameByHandle(fileHandle, absolutePath.Data(), absolutePath.Capacity(), 0);
-
       BytewiseDanglingFilenameStruct<SFileNameInformation> absolutePathNameInformation{};
 
       IO_STATUS_BLOCK statusBlock{};
