@@ -191,11 +191,7 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     mockFilesystem.AddDirectory(kHandleDirectoryPath);
 
-    const auto openDirectoryResult =
-        mockFilesystem.OpenDirectoryForEnumeration(kHandleDirectoryPath);
-    TEST_ASSERT(true == openDirectoryResult.HasValue());
-
-    const HANDLE kHandle = openDirectoryResult.Value();
+    const HANDLE kHandle = mockFilesystem.Open(kHandleDirectoryPath);
 
     OpenHandleStore handleStore;
     handleStore.InsertHandle(
@@ -222,11 +218,7 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     mockFilesystem.AddDirectory(kHandleDirectoryPath);
 
-    const auto openDirectoryResult =
-        mockFilesystem.OpenDirectoryForEnumeration(kHandleDirectoryPath);
-    TEST_ASSERT(true == openDirectoryResult.HasValue());
-
-    const HANDLE kHandle = openDirectoryResult.Value();
+    const HANDLE kHandle = mockFilesystem.Open(kHandleDirectoryPath);
 
     OpenHandleStore handleStore;
     handleStore.InsertHandle(
