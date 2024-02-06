@@ -110,11 +110,17 @@ namespace PathwinderTest
       AddFilesystemEntityInternal(absolutePath, EFilesystemEntityType::File, fileSizeInBytes);
     }
 
-    /// Retrieves the name of the directory associated with the specified directory handle that is
-    /// already open for enumeration.
+    /// Retrieves the name of the filesystem entity associated with the specified handle that is
+    /// already open.
     /// @param [in] handle Handle to query for the associated directory full path.
     /// @return Full path of the directory, if it is open for enumeration.
-    std::optional<std::wstring_view> GetDirectoryPathFromHandle(HANDLE handle);
+    std::optional<std::wstring_view> GetPathFromHandle(HANDLE handle);
+
+    /// Generates a handle and marks a file or directory in the fake filesystem as being open.
+    /// @param [in] absolutePath Absolute path of the file or directory to open, which must already
+    /// exist in the fake filesystem. Paths are case-insensitive.
+    /// @return Handle to the newly-opened file or directory.
+    HANDLE Open(std::wstring_view absolutePath);
 
     // FilesystemOperations
     NTSTATUS CloseHandle(HANDLE handle);
@@ -151,14 +157,20 @@ namespace PathwinderTest
     void AddFilesystemEntityInternal(
         std::wstring_view absolutePath, EFilesystemEntityType type, unsigned int sizeInBytes);
 
-    /// Contents of the mock filesystem.
-    /// Top-level map key is an absolute directory name and value is a set of directory
-    /// contents.
+    /// Attempts to generates a handle and marks a file or directory in the fake filesystem as being
+    /// open. This method will fail if the requested filesystem entity does not exist in the fake
+    /// filesystem.
+    /// @param [in] absolutePath Absolute path of the file or directory to open. Paths are
+    /// case-insensitive.
+    /// @return Handle to the newly-opened file or directory, or `nullptr` if it does not exist.
+    HANDLE OpenFilesystemEntityInternal(std::wstring_view absolutePath);
+
+    /// Contents of the mock filesystem. Top-level map key is an absolute directory name and value
+    /// is a set of directory contents.
     TFilesystemContents filesystemContents;
 
-    /// Open file handles for directories.
-    /// Maps from handle to directory full path.
-    std::unordered_map<HANDLE, std::wstring_view> openDirectoryHandles;
+    /// Open filesystem handles for files and directories. Maps from handle to directory full path.
+    std::unordered_map<HANDLE, std::wstring> openFilesystemHandles;
 
     /// In-progress directory enumerations.
     /// Maps from handle to directory enumeration state.

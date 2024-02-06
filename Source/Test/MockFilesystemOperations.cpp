@@ -44,17 +44,30 @@ namespace PathwinderTest
 
   MockFilesystemOperations::MockFilesystemOperations(void)
       : filesystemContents(),
-        openDirectoryHandles(),
+        openFilesystemHandles(),
         inProgressDirectoryEnumerations(),
         nextHandleValue(1000)
   {}
 
-  std::optional<std::wstring_view> MockFilesystemOperations::GetDirectoryPathFromHandle(
-      HANDLE handle)
+  std::optional<std::wstring_view> MockFilesystemOperations::GetPathFromHandle(HANDLE handle)
   {
-    const auto directoryHandleIter = openDirectoryHandles.find(handle);
-    if (openDirectoryHandles.cend() == directoryHandleIter) return std::nullopt;
+    const auto directoryHandleIter = openFilesystemHandles.find(handle);
+    if (openFilesystemHandles.cend() == directoryHandleIter) return std::nullopt;
     return directoryHandleIter->second;
+  }
+
+  HANDLE MockFilesystemOperations::Open(std::wstring_view absolutePath)
+  {
+    HANDLE openResult = OpenFilesystemEntityInternal(absolutePath);
+
+    if (nullptr == openResult)
+      TEST_FAILED_BECAUSE(
+          L"%s: Attempting to open absolute path \"%.*s\" which does not exist in the fake filesystem.",
+          __FUNCTIONW__,
+          static_cast<int>(absolutePath.length()),
+          absolutePath.data());
+
+    return openResult;
   }
 
   void MockFilesystemOperations::AddFilesystemEntityInternal(
@@ -111,13 +124,29 @@ namespace PathwinderTest
     }
   }
 
+  HANDLE MockFilesystemOperations::OpenFilesystemEntityInternal(std::wstring_view absolutePath)
+  {
+    if (false == Exists(absolutePath)) return nullptr;
+
+    const HANDLE handleValue = reinterpret_cast<HANDLE>(nextHandleValue++);
+    const bool insertWasSuccessful =
+        openFilesystemHandles.emplace(handleValue, std::wstring(absolutePath)).second;
+
+    if (false == insertWasSuccessful)
+      TEST_FAILED_BECAUSE(
+          "%s: Internal implementation error due to failure to insert a handle value that is expected to be unique.",
+          __FUNCTIONW__);
+
+    return handleValue;
+  }
+
   NTSTATUS MockFilesystemOperations::CloseHandle(HANDLE handle)
   {
-    const auto directoryHandleIter = openDirectoryHandles.find(handle);
-    if (openDirectoryHandles.cend() == directoryHandleIter)
+    const auto directoryHandleIter = openFilesystemHandles.find(handle);
+    if (openFilesystemHandles.cend() == directoryHandleIter)
       TEST_FAILED_BECAUSE(L"%s: Attempting to close a handle that is not open.", __FUNCTIONW__);
 
-    openDirectoryHandles.erase(directoryHandleIter);
+    openFilesystemHandles.erase(directoryHandleIter);
     return NtStatus::kSuccess;
   }
 
@@ -152,19 +181,9 @@ namespace PathwinderTest
   ValueOrError<HANDLE, NTSTATUS> MockFilesystemOperations::OpenDirectoryForEnumeration(
       std::wstring_view absoluteDirectoryPath)
   {
-    const auto directoryIter = filesystemContents.find(absoluteDirectoryPath);
-    if (filesystemContents.cend() == directoryIter) return NtStatus::kObjectNameNotFound;
-
-    const HANDLE handleValue = reinterpret_cast<HANDLE>(nextHandleValue++);
-    const bool insertWasSuccessful =
-        openDirectoryHandles.emplace(handleValue, std::wstring_view(directoryIter->first)).second;
-
-    if (false == insertWasSuccessful)
-      TEST_FAILED_BECAUSE(
-          "%s: Internal implementation error due to failure to insert a handle value that is expected to be unique.",
-          __FUNCTIONW__);
-
-    return handleValue;
+    HANDLE openResult = OpenFilesystemEntityInternal(absoluteDirectoryPath);
+    if (nullptr == openResult) return NtStatus::kObjectNameNotFound;
+    return openResult;
   }
 
   NTSTATUS MockFilesystemOperations::PartialEnumerateDirectoryContents(
@@ -187,8 +206,8 @@ namespace PathwinderTest
     auto directoryEnumerationStateIter = inProgressDirectoryEnumerations.find(directoryHandle);
     if (inProgressDirectoryEnumerations.cend() == directoryEnumerationStateIter)
     {
-      const auto directoryHandleIter = openDirectoryHandles.find(directoryHandle);
-      if (openDirectoryHandles.cend() == directoryHandleIter)
+      const auto directoryHandleIter = openFilesystemHandles.find(directoryHandle);
+      if (openFilesystemHandles.cend() == directoryHandleIter)
         TEST_FAILED_BECAUSE(
             L"%s: Attempting to enumerate a directory using invalid directory handle %zu.",
             __FUNCTIONW__,
@@ -286,7 +305,15 @@ namespace PathwinderTest
   ValueOrError<TemporaryString, NTSTATUS> MockFilesystemOperations::QueryAbsolutePathByHandle(
       HANDLE fileHandle)
   {
-    TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
+    auto maybeAbsolutePath = GetPathFromHandle(fileHandle);
+
+    if (false == maybeAbsolutePath.has_value())
+      TEST_FAILED_BECAUSE(
+          L"%s: Invoked with invalid handle %zu.",
+          __FUNCTIONW__,
+          reinterpret_cast<size_t>(fileHandle));
+
+    return TemporaryString(*maybeAbsolutePath);
   }
 
   ValueOrError<ULONG, NTSTATUS> MockFilesystemOperations::QueryFileHandleMode(HANDLE fileHandle)

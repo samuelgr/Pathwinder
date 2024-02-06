@@ -84,7 +84,7 @@ namespace PathwinderTest
     TEST_ASSERT(true == maybeDirectoryHandle.HasValue());
 
     const HANDLE directoryHandle = maybeDirectoryHandle.Value();
-    TEST_ASSERT(kDirectoryName == mockFilesystem.GetDirectoryPathFromHandle(directoryHandle));
+    TEST_ASSERT(kDirectoryName == mockFilesystem.GetPathFromHandle(directoryHandle));
 
     OpenHandleStore openHandleStore;
     openHandleStore.InsertHandle(
@@ -104,7 +104,7 @@ namespace PathwinderTest
 
     TEST_ASSERT(NtStatus::kSuccess == executorResult);
     TEST_ASSERT(false == openHandleStore.GetDataForHandle(directoryHandle).has_value());
-    TEST_ASSERT(false == mockFilesystem.GetDirectoryPathFromHandle(directoryHandle).has_value());
+    TEST_ASSERT(false == mockFilesystem.GetPathFromHandle(directoryHandle).has_value());
   }
 
   // Verifies file handle closure in the passthrough situation whereby a file handle is open with
@@ -121,7 +121,7 @@ namespace PathwinderTest
     TEST_ASSERT(true == maybeDirectoryHandle.HasValue());
 
     const HANDLE directoryHandle = maybeDirectoryHandle.Value();
-    TEST_ASSERT(kDirectoryName == mockFilesystem.GetDirectoryPathFromHandle(directoryHandle));
+    TEST_ASSERT(kDirectoryName == mockFilesystem.GetPathFromHandle(directoryHandle));
 
     OpenHandleStore openHandleStore;
     TEST_ASSERT(false == openHandleStore.GetDataForHandle(directoryHandle).has_value());
@@ -144,7 +144,7 @@ namespace PathwinderTest
     TEST_ASSERT(1 == numUnderlyingSystemCalls);
     TEST_ASSERT(actualExecutorResult == expectedExecutorResult);
     TEST_ASSERT(false == openHandleStore.GetDataForHandle(directoryHandle).has_value());
-    TEST_ASSERT(false == mockFilesystem.GetDirectoryPathFromHandle(directoryHandle).has_value());
+    TEST_ASSERT(false == mockFilesystem.GetPathFromHandle(directoryHandle).has_value());
   }
 
   // Verifies that whatever new handle value is written by the underlying system call is made
@@ -1614,10 +1614,11 @@ namespace PathwinderTest
     constexpr std::wstring_view kInitialPath = L"C:\\TestDirectory\\Initial.txt";
     constexpr std::wstring_view kRenamedPath = L"C:\\TestDirectory\\Subdir\\Renamed.txt";
 
-    const HANDLE kFileBeingRenamedHandleTestInput = reinterpret_cast<HANDLE>(23);
-
     MockFilesystemOperations mockFilesystem;
-    
+    mockFilesystem.AddFile(kInitialPath);
+
+    const HANDLE initialPathHandle = mockFilesystem.Open(kInitialPath);
+
     OpenHandleStore openHandleStore;
 
     BytewiseDanglingFilenameStruct<SFileRenameInformation> fileRenameInformationUnredirectedPath(
@@ -1627,7 +1628,7 @@ namespace PathwinderTest
         TestCaseName().data(),
         kFunctionRequestIdentifier,
         openHandleStore,
-        kFileBeingRenamedHandleTestInput,
+        initialPathHandle,
         fileRenameInformationUnredirectedPath.GetFileInformationStruct(),
         fileRenameInformationUnredirectedPath.GetFileInformationStructSizeBytes(),
         [kRenamedPath](std::wstring_view actualRequestedPath, FileAccessMode, CreateDisposition)
