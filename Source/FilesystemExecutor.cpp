@@ -477,14 +477,8 @@ namespace Pathwinder
     /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
     /// file handles known to be open. Sets the context for this call.
     /// @param [in] rootDirectory Open handle for the root directory that contains the input
-    /// filename. May be `nullptr`, in which case the directory must be identified by open source
-    /// file or as a complete path in the input filename. Supplied by an application that invokes a
-    /// system call.
-    /// @param [in] openSourceFileInDesiredDirectory Open handle for a file that acts as the source
-    /// of the file operation being attempted. Typically used for file rename operations and
-    /// identifies the original file. May be `nullptr`, in which case the directory must be
-    /// identified by root directory or as a complete path in the input filename. Supplied by an
-    /// application that invokes a system call.
+    /// filename. May be `nullptr`, in which case the input filename must be a full and absolute
+    /// path. Supplied by an application that invokes a system call.
     /// @param [in] inputFilename Filename received from the application that invoked the system
     /// call. Must be a full and absolute path if the root directory handle is not provided.
     /// @param [in] fileAccessMode Type of access or accesses to be performed on the file.
@@ -499,7 +493,6 @@ namespace Pathwinder
         unsigned int functionRequestIdentifier,
         OpenHandleStore& openHandleStore,
         HANDLE rootDirectory,
-        HANDLE openSourceFileInDesiredDirectory,
         std::wstring_view inputFilename,
         FileAccessMode fileAccessMode,
         CreateDisposition createDisposition,
@@ -524,9 +517,7 @@ namespace Pathwinder
 
         FileOperationInstruction redirectionInstruction =
             instructionSourceFunc(inputFullFilename, fileAccessMode, createDisposition);
-
         if (true == redirectionInstruction.HasRedirectedFilename())
-        {
           Message::OutputFormatted(
               Message::ESeverity::Debug,
               L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined and redirected to \"%.*s\".",
@@ -539,9 +530,7 @@ namespace Pathwinder
               inputFilename.data(),
               static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()),
               redirectionInstruction.GetRedirectedFilename().data());
-        }
         else
-        {
           Message::OutputFormatted(
               Message::ESeverity::SuperDebug,
               L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined but not redirected.",
@@ -552,7 +541,6 @@ namespace Pathwinder
               reinterpret_cast<size_t>(rootDirectory),
               static_cast<int>(inputFilename.length()),
               inputFilename.data());
-        }
 
         return {
             .instruction = std::move(redirectionInstruction),
@@ -560,55 +548,11 @@ namespace Pathwinder
       }
       else if (nullptr == rootDirectory)
       {
+        // Input object attributes structure does not specify an open directory handle as the
+        // root directory. It is sufficient to send the object name directly for redirection.
+
         FileOperationInstruction redirectionInstruction =
-            FileOperationInstruction::NoRedirectionOrInterception();
-
-        if (nullptr != openSourceFileInDesiredDirectory)
-        {
-          // Input object attributes structure does not specify an open directory handle as the root
-          // directory, but an open file handle is provided to act as the directory source. A full
-          // path needs to be composed, which consists of the directory part of the open file handle
-          // and the input filename.
-
-          TemporaryString inputFullFilename;
-
-          std::optional<OpenHandleStore::SHandleDataView> maybeDirectorySourceHandleData =
-              openHandleStore.GetDataForHandle(openSourceFileInDesiredDirectory);
-
-          if (maybeDirectorySourceHandleData.has_value())
-          {
-            // Directory source file is cached in the open handle store, meaning it was the subject
-            // of a Pathwinder operation in the past. From the application's perspective the
-            // associated path is what is being renamed, so this is the path from which the
-            // directory part should be obtained.
-
-            inputFullFilename << Strings::PathGetParentDirectory(
-                                     maybeDirectorySourceHandleData->associatedPath)
-                              << L'\\' << inputFilename;
-          }
-          else
-          {
-            // Directory source file is not cached in the open handle store. It was uninteresting to
-            // Pathwinder in the past, but the directory part of its path is needed now and
-            // therefore must be queried from the system directly.
-
-            // TODO
-
-            inputFullFilename << inputFilename;
-          }
-
-          redirectionInstruction =
-              instructionSourceFunc(inputFullFilename, fileAccessMode, createDisposition);
-        }
-        else
-        {
-          // Input object attributes structure does not specify an open directory handle as the
-          // root directory, and no open file handle is provided to act as the directory source. It
-          // is sufficient to send the object name directly for redirection.
-
-          redirectionInstruction =
-              instructionSourceFunc(inputFilename, fileAccessMode, createDisposition);
-        }
+            instructionSourceFunc(inputFilename, fileAccessMode, createDisposition);
 
         if (true == redirectionInstruction.HasRedirectedFilename())
         {
@@ -1229,7 +1173,6 @@ namespace Pathwinder
           functionRequestIdentifier,
           openHandleStore,
           objectAttributes->RootDirectory,
-          nullptr,
           Strings::NtConvertUnicodeStringToStringView(*(objectAttributes->ObjectName)),
           FileAccessModeFromNtParameter(desiredAccess),
           CreateDispositionFromNtParameter(createDisposition),
@@ -1378,12 +1321,60 @@ namespace Pathwinder
       std::wstring_view unredirectedPath =
           FileInformationStructLayout::ReadFileNameByType(renameInformation);
 
+      // A relative target path without a root directory handle means that the desired new absolute
+      // path (after the rename) is relative to the directory in which the file is currently
+      // located. Since the file is identified only by its handle, Pathwinder needs to figure out
+      // the path of its containing directory so that redirection rules can be applied correctly.
+      std::optional<TemporaryString> maybeComposedUnredirectedPath = std::nullopt;
+      if ((nullptr == renameInformation.rootDirectory) &&
+          (false == Strings::PathBeginsWithDriveLetter(unredirectedPath)))
+      {
+        // The file handle that identifies the file being rename may be cached in the open handle
+        // store, meaning it was the subject of a Pathwinder operation in the past.
+        // If so, the directory can be obtained using the handle's associated path.
+        // If not, the system must be queried directly for the full path, from which the directory
+        // can be obtained.
+
+        std::optional<OpenHandleStore::SHandleDataView> maybeDirectorySourceHandleData =
+            openHandleStore.GetDataForHandle(fileHandle);
+
+        if (true == maybeDirectorySourceHandleData.has_value())
+        {
+          maybeComposedUnredirectedPath = TemporaryString();
+          (*maybeComposedUnredirectedPath)
+              << Strings::PathGetParentDirectory(maybeDirectorySourceHandleData->associatedPath)
+              << L'\\' << unredirectedPath;
+          unredirectedPath = maybeComposedUnredirectedPath->AsStringView();
+        }
+        else
+        {
+          auto maybeAbsolutePath = FilesystemOperations::QueryAbsolutePathByHandle(fileHandle);
+
+          if (true == maybeAbsolutePath.HasValue())
+          {
+            maybeComposedUnredirectedPath = TemporaryString();
+            (*maybeComposedUnredirectedPath)
+                << Strings::PathGetParentDirectory(maybeAbsolutePath.Value().AsStringView())
+                << L'\\' << unredirectedPath;
+            unredirectedPath = maybeComposedUnredirectedPath->AsStringView();
+          }
+        }
+
+        Message::OutputFormatted(
+            Message::ESeverity::Debug,
+            L"%s(%u): Rename by relative move for file handle %zu resolved to path \"%.*s\".",
+            functionName,
+            functionRequestIdentifier,
+            reinterpret_cast<size_t>(fileHandle),
+            static_cast<int>(unredirectedPath.length()),
+            unredirectedPath.data());
+      }
+
       const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(
           functionName,
           functionRequestIdentifier,
           openHandleStore,
           renameInformation.rootDirectory,
-          fileHandle,
           unredirectedPath,
           FileAccessMode::Delete(),
           CreateDisposition::CreateNewFile(),
@@ -1481,7 +1472,6 @@ namespace Pathwinder
           functionRequestIdentifier,
           openHandleStore,
           objectAttributes->RootDirectory,
-          nullptr,
           Strings::NtConvertUnicodeStringToStringView(*(objectAttributes->ObjectName)),
           fileAccessMode,
           CreateDisposition::OpenExistingFile(),

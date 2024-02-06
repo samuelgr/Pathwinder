@@ -1604,13 +1604,43 @@ namespace PathwinderTest
 
   // Verifies special rename behavior whereby a root directory handle is not specified and the new
   // file name is a relative path, meaning that the file name changes but the directory does not. In
-  // this test case, the file being renamed is not cached in the open handle store, meaning it was
-  // previously uninteresting to Pathwinder. When requesting an instruction, the path should be
-  // composed based on the actual path of the open file handle. This requires that the system be
-  // queried for the full path associated with the file handle.
+  // this test case, the file being renamed is not cached in the open handle store, so when
+  // requesting an instruction the system itself will need to be consulted for the directory.
   TEST_CASE(FilesystemExecutor_RenameByHandle_InstructionSourcePathComposition_UncachedRelativeMove)
   {
-    // TODO
+    constexpr std::wstring_view kDirectoryName = L"C:\\TestDirectory";
+    constexpr std::wstring_view kInitialFilename = L"Initial.txt";
+    constexpr std::wstring_view kRenamedFilename = L"Subdir\\Renamed.txt";
+    constexpr std::wstring_view kInitialPath = L"C:\\TestDirectory\\Initial.txt";
+    constexpr std::wstring_view kRenamedPath = L"C:\\TestDirectory\\Subdir\\Renamed.txt";
+
+    const HANDLE kFileBeingRenamedHandleTestInput = reinterpret_cast<HANDLE>(23);
+
+    MockFilesystemOperations mockFilesystem;
+    
+    OpenHandleStore openHandleStore;
+
+    BytewiseDanglingFilenameStruct<SFileRenameInformation> fileRenameInformationUnredirectedPath(
+        SFileRenameInformation{}, kRenamedFilename);
+
+    FilesystemExecutor::RenameByHandle(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        kFileBeingRenamedHandleTestInput,
+        fileRenameInformationUnredirectedPath.GetFileInformationStruct(),
+        fileRenameInformationUnredirectedPath.GetFileInformationStructSizeBytes(),
+        [kRenamedPath](std::wstring_view actualRequestedPath, FileAccessMode, CreateDisposition)
+            -> FileOperationInstruction
+        {
+          std::wstring_view expectedRequestedPath = kRenamedPath;
+          TEST_ASSERT(actualRequestedPath == expectedRequestedPath);
+          return FileOperationInstruction::NoRedirectionOrInterception();
+        },
+        [](HANDLE, SFileRenameInformation&, ULONG) -> NTSTATUS
+        {
+          return NtStatus::kSuccess;
+        });
   }
 
   // Verifies that any file attempt preference is honored if it is contained in a file operation
