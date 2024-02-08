@@ -302,14 +302,22 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(
     ULONG Length,
     FILE_INFORMATION_CLASS FileInformationClass)
 {
+  // This enumerator does not have an associated structure but additionally uses
+  // `FILE_NAME_INFORMATION` (internally `SFileNameInformation`) to request file name information.
+  // For more information in this enumerator, see
+  // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntqueryinformationfile.
+  constexpr FILE_INFORMATION_CLASS kFileInformationClassNormalizedName =
+      static_cast<FILE_INFORMATION_CLASS>(48);
+
   Pathwinder::SFileNameInformation* fileNameInformation = nullptr;
 
-  // There are only two file information classes that result in the filename being identified. Any
+  // There are only three file information classes that result in the filename being identified. Any
   // other file information class is uninteresting, and in those cases the query does not need to be
   // intercepted.
   switch (FileInformationClass)
   {
     case Pathwinder::SFileNameInformation::kFileInformationClass:
+    case kFileInformationClassNormalizedName:
       fileNameInformation = reinterpret_cast<Pathwinder::SFileNameInformation*>(FileInformation);
       break;
 
@@ -364,7 +372,6 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
       GetFunctionName(),
       GetRequestIdentifier(),
       OpenHandleStoreInstance(),
-      Pathwinder::FileAccessMode::ReadOnly(),
       ObjectAttributes,
       InstructionSourceForFileOperation,
       [IoStatusBlock, FileInformation, Length, FileInformationClass](
@@ -414,7 +421,6 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
       GetFunctionName(),
       GetRequestIdentifier(),
       OpenHandleStoreInstance(),
-      Pathwinder::FileAccessMode::ReadOnly(),
       ObjectAttributes,
       InstructionSourceForFileOperation,
       [FileInformation](POBJECT_ATTRIBUTES ObjectAttributes) -> NTSTATUS
