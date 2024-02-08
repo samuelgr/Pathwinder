@@ -171,8 +171,6 @@ namespace Pathwinder
     /// the named function. Used only for logging.
     /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
     /// file handles known to be open. Sets the context for this call.
-    /// @param [in] fileAccessMode Type of accesses that the underlying system call is expected to
-    /// perform on the file.
     /// @param [in] objectAttributes Object attributes received as input from the application.
     /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a file operation
     /// instruction, given a source path, file access mode, and create disposition.
@@ -185,7 +183,6 @@ namespace Pathwinder
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
         OpenHandleStore& openHandleStore,
-        FileAccessMode fileAccessMode,
         POBJECT_ATTRIBUTES objectAttributes,
         std::function<FileOperationInstruction(
             std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc,

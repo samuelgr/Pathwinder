@@ -1461,7 +1461,6 @@ namespace Pathwinder
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
         OpenHandleStore& openHandleStore,
-        FileAccessMode fileAccessMode,
         POBJECT_ATTRIBUTES objectAttributes,
         std::function<FileOperationInstruction(
             std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc,
@@ -1473,7 +1472,7 @@ namespace Pathwinder
           openHandleStore,
           objectAttributes->RootDirectory,
           Strings::NtConvertUnicodeStringToStringView(*(objectAttributes->ObjectName)),
-          fileAccessMode,
+          FileAccessMode::ReadOnly(),
           CreateDisposition::OpenExistingFile(),
           instructionSourceFunc);
       const FileOperationInstruction& redirectionInstruction = operationContext.instruction;

@@ -1351,8 +1351,7 @@ namespace PathwinderTest
             instructionSourceWasInvoked = true;
             return fileOperationInstructionToTry;
           },
-          [&mockFilesystem, &objectAttributesUnredirectedPath](
-              PHANDLE, POBJECT_ATTRIBUTES objectAttributes, ULONG) -> NTSTATUS
+          [&mockFilesystem](PHANDLE, POBJECT_ATTRIBUTES, ULONG) -> NTSTATUS
           {
             // Checking here for the completion of the pre-operation ensures that it was done prior
             // to the underlying system call being invoked.
@@ -2018,8 +2017,7 @@ namespace PathwinderTest
             instructionSourceWasInvoked = true;
             return fileOperationInstructionToTry;
           },
-          [&mockFilesystem, &fileRenameInformationUnredirectedPath](
-              HANDLE, SFileRenameInformation&, ULONG) -> NTSTATUS
+          [&mockFilesystem](HANDLE, SFileRenameInformation&, ULONG) -> NTSTATUS
           {
             // Checking here for the completion of the pre-operation ensures that it was done prior
             // to the underlying system call being invoked.
@@ -2066,5 +2064,426 @@ namespace PathwinderTest
         });
 
     TEST_ASSERT(true == openHandleStore.Empty());
+  }
+
+  // Verifies that the underlying system call return code is propagated to the caller as the result
+  // of the executor operation when file information is queried by object attributes.
+  TEST_CASE(FilesystemExecutor_QueryByObjectAttributes_PropagateReturnCode)
+  {
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kRedirectedPath = L"C:\\RedirectedDirectory\\TestFile.txt";
+
+    UNICODE_STRING unicodeStringUnredirectedPath =
+        Strings::NtConvertStringViewToUnicodeString(kUnredirectedPath);
+    OBJECT_ATTRIBUTES objectAttributesUnredirectedPath =
+        CreateObjectAttributes(unicodeStringUnredirectedPath);
+
+    const FileOperationInstruction fileOperationInstructionsToTry[] = {
+        FileOperationInstruction::NoRedirectionOrInterception(),
+        FileOperationInstruction::InterceptWithoutRedirection(),
+        FileOperationInstruction::SimpleRedirectTo(kRedirectedPath),
+        FileOperationInstruction::OverlayRedirectTo(kRedirectedPath),
+    };
+
+    const NTSTATUS returnCodesToTry[] = {
+        NtStatus::kSuccess,
+        NtStatus::kBufferOverflow,
+        NtStatus::kInvalidInfoClass,
+        NtStatus::kInvalidParameter,
+        NtStatus::kNoSuchFile,
+        NtStatus::kObjectNameInvalid,
+        NtStatus::kObjectNameNotFound,
+        NtStatus::kObjectPathInvalid,
+        NtStatus::kObjectPathNotFound,
+        NtStatus::kInternalError,
+    };
+
+    for (const auto& fileOperationInstructionToTry : fileOperationInstructionsToTry)
+    {
+      for (NTSTATUS returnCodeToTry : returnCodesToTry)
+      {
+        HANDLE unusedHandleValue = NULL;
+
+        OpenHandleStore openHandleStore;
+
+        const NTSTATUS expectedReturnCode = returnCodeToTry;
+        const NTSTATUS actualReturnCode = FilesystemExecutor::QueryByObjectAttributes(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            &objectAttributesUnredirectedPath,
+            [&fileOperationInstructionToTry](
+                std::wstring_view, FileAccessMode, CreateDisposition) -> FileOperationInstruction
+            {
+              return fileOperationInstructionToTry;
+            },
+            [expectedReturnCode](POBJECT_ATTRIBUTES) -> NTSTATUS
+            {
+              return expectedReturnCode;
+            });
+
+        TEST_ASSERT(actualReturnCode == expectedReturnCode);
+      }
+    }
+  }
+
+  // Verifies that the filesystem executor correctly composes a complete path when requesting a file
+  // operation instruction as part of querying for file information by object attributes. If no root
+  // directory is specified then the requested path is the same as the input path. If the root
+  // directory is specified by handle and the handle is cached in the open handle store then the
+  // requested path is the root directory path concatenated with the input path. Note that an
+  // uncached (but present) root directory is handled by a different test case entirely, as this
+  // situation should result in passthrough behavior.
+  TEST_CASE(FilesystemExecutor_QueryByObjectAttributes_InstructionSourcePathComposition)
+  {
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kDirectoryName =
+        kUnredirectedPath.substr(0, kUnredirectedPath.find_last_of(L'\\'));
+    constexpr std::wstring_view kFileName =
+        kUnredirectedPath.substr(1 + kUnredirectedPath.find_last_of(L'\\'));
+
+    const HANDLE kRootDirectoryHandleValueTestInput = reinterpret_cast<HANDLE>(2049);
+
+    const struct
+    {
+      std::optional<std::wstring_view> rootDirectoryName;
+      std::wstring_view fileName;
+    } instructionSourcePathCompositionTestRecords[] = {
+        {.rootDirectoryName = std::nullopt, .fileName = kUnredirectedPath},
+        {.rootDirectoryName = kDirectoryName, .fileName = kFileName},
+    };
+
+    for (const auto& instructionSourcePathCompositionTestRecord :
+         instructionSourcePathCompositionTestRecords)
+    {
+      UNICODE_STRING unicodeStringFileName = Strings::NtConvertStringViewToUnicodeString(
+          instructionSourcePathCompositionTestRecord.fileName);
+
+      OpenHandleStore openHandleStore;
+
+      HANDLE rootDirectoryHandle = NULL;
+
+      if (instructionSourcePathCompositionTestRecord.rootDirectoryName.has_value())
+      {
+        rootDirectoryHandle = kRootDirectoryHandleValueTestInput;
+        openHandleStore.InsertHandle(
+            rootDirectoryHandle,
+            std::wstring(*instructionSourcePathCompositionTestRecord.rootDirectoryName),
+            std::wstring(*instructionSourcePathCompositionTestRecord.rootDirectoryName));
+      }
+
+      OBJECT_ATTRIBUTES objectAttributes =
+          CreateObjectAttributes(unicodeStringFileName, rootDirectoryHandle);
+
+      FilesystemExecutor::QueryByObjectAttributes(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          &objectAttributes,
+          [kUnredirectedPath](
+              std::wstring_view actualRequestedPath,
+              FileAccessMode,
+              CreateDisposition) -> FileOperationInstruction
+          {
+            std::wstring_view expectedRequestedPath = kUnredirectedPath;
+            TEST_ASSERT(actualRequestedPath == expectedRequestedPath);
+            return FileOperationInstruction::NoRedirectionOrInterception();
+          },
+          [](POBJECT_ATTRIBUTES) -> NTSTATUS
+          {
+            return NtStatus::kSuccess;
+          });
+    }
+  }
+
+  // Verifies that any file attempt preference is honored if it is contained in a file operation
+  // instruction when file information is being queried by object attributes. The instructions used
+  // in this test case all contain an unredirected and a redirected path, and they supply various
+  // enumerators indicating the order in which the files should be tried.
+  TEST_CASE(FilesystemExecutor_QueryByObjectAttributes_TryFilesOrder)
+  {
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kRedirectedPath = L"C:\\RedirectedDirectory\\TestFile.txt";
+
+    // Holds paths in the order that they are expected to be tried in invocations of the underlying
+    // system call.
+    using TExpectedPaths = ArrayList<std::wstring_view, 2>;
+
+    const struct
+    {
+      ETryFiles tryFilesTestInput;
+      TExpectedPaths expectedOrderedPaths;
+    } tryFilesTestRecords[] = {
+        {.tryFilesTestInput = ETryFiles::UnredirectedOnly,
+         .expectedOrderedPaths = {kUnredirectedPath}},
+        {.tryFilesTestInput = ETryFiles::UnredirectedFirst,
+         .expectedOrderedPaths = {kUnredirectedPath, kRedirectedPath}},
+        {.tryFilesTestInput = ETryFiles::RedirectedOnly, .expectedOrderedPaths = {kRedirectedPath}},
+        {.tryFilesTestInput = ETryFiles::RedirectedFirst,
+         .expectedOrderedPaths = {kRedirectedPath, kUnredirectedPath}},
+    };
+
+    UNICODE_STRING unicodeStringUnredirectedPath =
+        Strings::NtConvertStringViewToUnicodeString(kUnredirectedPath);
+    OBJECT_ATTRIBUTES objectAttributesUnredirectedPath =
+        CreateObjectAttributes(unicodeStringUnredirectedPath);
+
+    for (const auto& tryFilesTestRecord : tryFilesTestRecords)
+    {
+      HANDLE unusedHandleValue = NULL;
+
+      MockFilesystemOperations mockFilesystem;
+      OpenHandleStore openHandleStore;
+
+      const FileOperationInstruction testInputFileOperationInstruction(
+          kRedirectedPath,
+          tryFilesTestRecord.tryFilesTestInput,
+          ECreateDispositionPreference::NoPreference,
+          EAssociateNameWithHandle::None,
+          {},
+          L"");
+
+      unsigned int underlyingSystemCallNumInvocations = 0;
+
+      FilesystemExecutor::QueryByObjectAttributes(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          &objectAttributesUnredirectedPath,
+          [&testInputFileOperationInstruction](
+              std::wstring_view actualUnredirectedPath,
+              FileAccessMode,
+              CreateDisposition) -> FileOperationInstruction
+          {
+            return testInputFileOperationInstruction;
+          },
+          [&tryFilesTestRecord, &underlyingSystemCallNumInvocations](
+              POBJECT_ATTRIBUTES objectAttributes) -> NTSTATUS
+          {
+            if (underlyingSystemCallNumInvocations >=
+                tryFilesTestRecord.expectedOrderedPaths.Size())
+              TEST_FAILED_BECAUSE(
+                  L"Too many invocations of the underlying system call for try files order enumerator %u.",
+                  static_cast<unsigned int>(tryFilesTestRecord.tryFilesTestInput));
+
+            std::wstring_view expectedPathToTry =
+                tryFilesTestRecord.expectedOrderedPaths[underlyingSystemCallNumInvocations];
+            std::wstring_view actualPathToTry =
+                Strings::NtConvertUnicodeStringToStringView(*objectAttributes->ObjectName);
+            TEST_ASSERT(actualPathToTry == expectedPathToTry);
+
+            underlyingSystemCallNumInvocations += 1;
+
+            // A failure return code, indicating that the path was not found, is required to cause
+            // the next preferred create disposition to be tried. Any other failure code is
+            // correctly interpreted to indicate some other I/O error, which would just cause the
+            // entire operation to fail with that as the result.
+            return NtStatus::kObjectPathNotFound;
+          });
+
+      TEST_ASSERT(
+          underlyingSystemCallNumInvocations == tryFilesTestRecord.expectedOrderedPaths.Size());
+    }
+  }
+
+  // Verifies that a pre-operation request contained in a filesystem operation instruction is
+  // executed correctly when querying for file information by object attributes. The file operation
+  // instruction only contains a pre-operation and nothing else, and this test case exercises an
+  // operation to ensure a path hierarchy exists. The forms of instructions exercised by this test
+  // are not generally produced by filesystem director objects but are intended specifically to
+  // exercise pre-operation functionality.
+  TEST_CASE(FilesystemExecutor_QueryByObjectAttributes_PreOperation_EnsurePathHierarchyExists)
+  {
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kExtraPreOperationHierarchyToCreate =
+        L"C:\\ExtraPreOperation\\Directory\\Hierarchy\\To\\Create";
+
+    // This test case only exercises pre-operations, so no association should be created and hence
+    // nothing should be added to the open handle store. The important parts here are the extra
+    // pre-operation itself and the operand to that pre-operation.
+    const FileOperationInstruction fileOperationInstructionsToTry[] = {
+        FileOperationInstruction::InterceptWithoutRedirection(
+            EAssociateNameWithHandle::None,
+            {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
+            kExtraPreOperationHierarchyToCreate),
+        FileOperationInstruction(
+            L"C:\\Redirected\\Filename\\IsPresent\\ButShouldBeIgnored.txt",
+            ETryFiles::UnredirectedOnly,
+            ECreateDispositionPreference::NoPreference,
+            EAssociateNameWithHandle::None,
+            {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
+            kExtraPreOperationHierarchyToCreate)};
+
+    UNICODE_STRING unicodeStringUnredirectedPath =
+        Strings::NtConvertStringViewToUnicodeString(kUnredirectedPath);
+    OBJECT_ATTRIBUTES objectAttributesUnredirectedPath =
+        CreateObjectAttributes(unicodeStringUnredirectedPath);
+
+    for (const auto& fileOperationInstructionToTry : fileOperationInstructionsToTry)
+    {
+      HANDLE unusedHandleValue = NULL;
+
+      MockFilesystemOperations mockFilesystem;
+      OpenHandleStore openHandleStore;
+
+      bool instructionSourceWasInvoked = false;
+
+      // Pre-operation should not have been executed yet because the filesystem executor function
+      // was not yet invoked.
+      TEST_ASSERT(false == mockFilesystem.IsDirectory(kExtraPreOperationHierarchyToCreate));
+
+      FilesystemExecutor::QueryByObjectAttributes(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          &objectAttributesUnredirectedPath,
+          [kUnredirectedPath, &fileOperationInstructionToTry, &instructionSourceWasInvoked](
+              std::wstring_view, FileAccessMode, CreateDisposition) -> FileOperationInstruction
+          {
+            instructionSourceWasInvoked = true;
+            return fileOperationInstructionToTry;
+          },
+          [&mockFilesystem](POBJECT_ATTRIBUTES) -> NTSTATUS
+          {
+            // Checking here for the completion of the pre-operation ensures that it was done prior
+            // to the underlying system call being invoked.
+            TEST_ASSERT(true == mockFilesystem.IsDirectory(kExtraPreOperationHierarchyToCreate));
+            return NtStatus::kSuccess;
+          });
+
+      TEST_ASSERT(true == instructionSourceWasInvoked);
+      TEST_ASSERT(true == openHandleStore.Empty());
+    }
+  }
+
+  // Verifies that queries for file information by object attributes are passed through to the
+  // system without modification or interception if the root directory handle is specified but not
+  // cached. In this situation, the root directory would have been declared "uninteresting" by the
+  // filesystem director, so the executor should just assume it is still uninteresting and not even
+  // ask for a redirection instruction. Request should be passed through unmodified to the system.
+  // Various valid forms of file operation instructions are exercised, even those that are not
+  // actually ever produced by a filesystem director.
+  TEST_CASE(
+      FilesystemExecutor_QueryByObjectAttributes_PassthroughWithoutInstruction_UncachedRootDirectory)
+  {
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kDirectoryName =
+        kUnredirectedPath.substr(0, kUnredirectedPath.find_last_of(L'\\'));
+    constexpr std::wstring_view kFileName =
+        kUnredirectedPath.substr(1 + kUnredirectedPath.find_last_of(L'\\'));
+
+    UNICODE_STRING unicodeStringRelativePath =
+        Strings::NtConvertStringViewToUnicodeString(kFileName);
+    OBJECT_ATTRIBUTES objectAttributesRelativePath =
+        CreateObjectAttributes(unicodeStringRelativePath, reinterpret_cast<HANDLE>(99));
+
+    HANDLE unusedHandleValue = NULL;
+
+    MockFilesystemOperations mockFilesystem;
+    OpenHandleStore openHandleStore;
+
+    FilesystemExecutor::QueryByObjectAttributes(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        &objectAttributesRelativePath,
+        [kUnredirectedPath](
+            std::wstring_view actualUnredirectedPath,
+            FileAccessMode,
+            CreateDisposition) -> FileOperationInstruction
+        {
+          TEST_FAILED_BECAUSE(
+              "Instruction source should not be invoked if the root directory handle is present but uncached.");
+        },
+        [&objectAttributesRelativePath](POBJECT_ATTRIBUTES objectAttributes) -> NTSTATUS
+        {
+          const OBJECT_ATTRIBUTES& expectedObjectAttributes = objectAttributesRelativePath;
+          const OBJECT_ATTRIBUTES& actualObjectAttributes = *objectAttributes;
+          TEST_ASSERT(EqualObjectAttributes(actualObjectAttributes, expectedObjectAttributes));
+
+          return NtStatus::kSuccess;
+        });
+
+    TEST_ASSERT(true == openHandleStore.Empty());
+  }
+
+  // Verifies that the underlying system call return code is propagated to the caller as the result
+  // of the executor operation when a file name is queried using its handle.
+  TEST_CASE(FilesystemExecutor_QueryNameByHandle_PropagateReturnCode)
+  {
+    constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
+    constexpr std::wstring_view kRedirectedPath = L"C:\\RedirectedDirectory\\TestFile.txt";
+
+    BytewiseDanglingFilenameStruct<SFileNameInformation> inputFileRenameInformation;
+
+    const FileOperationInstruction fileOperationInstructionsToTry[] = {
+        FileOperationInstruction::NoRedirectionOrInterception(),
+        FileOperationInstruction::InterceptWithoutRedirection(),
+        FileOperationInstruction::SimpleRedirectTo(kRedirectedPath),
+        FileOperationInstruction::OverlayRedirectTo(kRedirectedPath),
+    };
+
+    const NTSTATUS returnCodesToTry[] = {
+        NtStatus::kSuccess,
+        NtStatus::kBufferOverflow,
+        NtStatus::kInvalidInfoClass,
+        NtStatus::kInvalidParameter,
+        NtStatus::kNoSuchFile,
+        NtStatus::kObjectNameInvalid,
+        NtStatus::kObjectNameNotFound,
+        NtStatus::kObjectPathInvalid,
+        NtStatus::kObjectPathNotFound,
+        NtStatus::kInternalError,
+    };
+
+    for (const auto& fileOperationInstructionToTry : fileOperationInstructionsToTry)
+    {
+      for (NTSTATUS returnCodeToTry : returnCodesToTry)
+      {
+        HANDLE unusedHandleValue = NULL;
+
+        OpenHandleStore openHandleStore;
+
+        const NTSTATUS expectedReturnCode = returnCodeToTry;
+        const NTSTATUS actualReturnCode = FilesystemExecutor::QueryNameByHandle(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            unusedHandleValue,
+            &inputFileRenameInformation.GetFileInformationStruct(),
+            inputFileRenameInformation.GetFileInformationStructSizeBytes(),
+            [expectedReturnCode](HANDLE) -> NTSTATUS
+            {
+              return expectedReturnCode;
+            });
+
+        TEST_ASSERT(actualReturnCode == expectedReturnCode);
+      }
+    }
+  }
+
+  // Verifies that a filename request by handle is passed through to the system without modification
+  // if the handle is not cached in the open handle store. This situation indicates that the open
+  // handle could not have been the result of a redirection.
+  TEST_CASE(FilesystemExecutor_QueryNameByHandle_UncachedHandlePathNotReplaced)
+  {
+    // TBD
+  }
+
+  // Verifies that a filename request by handle is replaced with the associated path if the handle
+  // is cached in the open handle store. This situation indicates that the open handle might be the
+  // result of a redirection and that Pathwinder knows the path that should be supplied to the
+  // application.
+  TEST_CASE(FilesystemExecutor_QueryNameByHandle_CachedHandleNameReplaced)
+  {
+    // TBD
+  }
+
+  // Verifies that a filename request by handle is replaced with the associated path if the handle
+  // is cached in the open handle store and, further, that the optional filename transformation
+  // function is invoked if it is supplied.
+  TEST_CASE(FilesystemExecutor_QueryNameByHandle_CachedHandleNameReplacedAndTransformed)
+  {
+    // TBD
   }
 } // namespace PathwinderTest
