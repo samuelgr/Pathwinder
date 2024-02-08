@@ -87,6 +87,9 @@ namespace Pathwinder
     /// class for the specified object.
     inline constexpr NTSTATUS kInvalidInfoClass = 0xC0000003;
 
+    /// `STATUS_INVALID_HANDLE`: An invalid HANDLE was specified.
+    inline constexpr NTSTATUS kInvalidHandle = 0xC0000008;
+
     /// `STATUS_INVALID_PARAMETER`: An invalid parameter was passed to a service or function.
     inline constexpr NTSTATUS kInvalidParameter = 0xC000000D;
 

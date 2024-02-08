@@ -234,13 +234,18 @@ namespace PathwinderTest
   {
     const HANDLE kHandle = reinterpret_cast<HANDLE>(0x12345678);
 
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.SetConfigAllowCloseInvalidHandle(true);
+
     OpenHandleStore handleStore;
 
     // Attempting to close a handle that is not open is a serious error that could potentially
-    // trigger a debug assertion.
+    // trigger a debug assertion. If it does not, then at very least the return code should indicate
+    // failure.
     try
     {
-      handleStore.RemoveAndCloseHandle(kHandle, nullptr);
+      NTSTATUS closeInvalidHandleResult = handleStore.RemoveAndCloseHandle(kHandle, nullptr);
+      TEST_ASSERT(!NT_SUCCESS(closeInvalidHandleResult));
     }
     catch (const DebugAssertionException& assertion)
     {
@@ -319,7 +324,9 @@ namespace PathwinderTest
         kHandle, std::move(testDirectoryOperationQueue), kTestFileInformationStructLayout);
 
     // Attempting to associate a directory enumeration with a handle that already has one is a
-    // serious error that could potentially trigger a debug assertion.
+    // serious error that could potentially trigger a debug assertion. If it does not, then the
+    // execution will continue, but what happens to the associated enumeration queue and file
+    // information structure layout is not defined.
     try
     {
       handleStore.AssociateDirectoryEnumerationState(
@@ -338,14 +345,6 @@ namespace PathwinderTest
 
     const std::wstring_view actualRealOpenedPath = actualHandleData.realOpenedPath;
     TEST_ASSERT(actualRealOpenedPath == expectedRealOpenedPath);
-
-    const IDirectoryOperationQueue* const actualDirectoryOperationQueue =
-        (*actualHandleData.directoryEnumeration)->queue.get();
-    TEST_ASSERT(actualDirectoryOperationQueue == expectedDirectoryOperationQueue);
-
-    const FileInformationStructLayout actualFileInformationStructLayout =
-        (*actualHandleData.directoryEnumeration)->fileInformationStructLayout;
-    TEST_ASSERT(actualFileInformationStructLayout == expectedFileInformationStructLayout);
   }
 
   // Verifies that a directory enumeration state cannot be associated with a handle that was not

@@ -43,7 +43,8 @@ namespace PathwinderTest
   }
 
   MockFilesystemOperations::MockFilesystemOperations(void)
-      : filesystemContents(),
+      : configAllowCloseInvalidHandle(),
+        filesystemContents(),
         openFilesystemHandles(),
         inProgressDirectoryEnumerations(),
         nextHandleValue(1000)
@@ -144,7 +145,12 @@ namespace PathwinderTest
   {
     const auto directoryHandleIter = openFilesystemHandles.find(handle);
     if (openFilesystemHandles.cend() == directoryHandleIter)
-      TEST_FAILED_BECAUSE(L"%s: Attempting to close a handle that is not open.", __FUNCTIONW__);
+    {
+      if (true == configAllowCloseInvalidHandle)
+        return NtStatus::kInvalidHandle;
+      else
+        TEST_FAILED_BECAUSE(L"%s: Attempting to close a handle that is not open.", __FUNCTIONW__);
+    }
 
     openFilesystemHandles.erase(directoryHandleIter);
     return NtStatus::kSuccess;

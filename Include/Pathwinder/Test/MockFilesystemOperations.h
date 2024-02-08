@@ -122,6 +122,14 @@ namespace PathwinderTest
     /// @return Handle to the newly-opened file or directory.
     HANDLE Open(std::wstring_view absolutePath);
 
+    /// Configures this object to allow or disallow closing invalid handles. If allowed, attempting
+    /// to do so causes a normal status code to be returned, otherwise it triggers a test failure.
+    /// @param [in] newConfigAllowCloseInvalidHandle New value for this configuration setting.
+    inline void SetConfigAllowCloseInvalidHandle(bool newConfigAllowCloseInvalidHandle)
+    {
+      configAllowCloseInvalidHandle = newConfigAllowCloseInvalidHandle;
+    }
+
     // FilesystemOperations
     NTSTATUS CloseHandle(HANDLE handle);
     intptr_t CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath);
@@ -164,6 +172,11 @@ namespace PathwinderTest
     /// case-insensitive.
     /// @return Handle to the newly-opened file or directory, or `nullptr` if it does not exist.
     HANDLE OpenFilesystemEntityInternal(std::wstring_view absolutePath);
+
+    /// Configuration setting that determines whether or not it is considered a test failure to
+    /// attempt to close an invalid (for example, not-previously-opened) handle. If so, doing so
+    /// triggers a test failure, otherwise it triggers a normal status code being returned.
+    bool configAllowCloseInvalidHandle;
 
     /// Contents of the mock filesystem. Top-level map key is an absolute directory name and value
     /// is a set of directory contents.
