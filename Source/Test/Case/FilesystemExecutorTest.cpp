@@ -35,6 +35,38 @@ namespace PathwinderTest
   /// invoked for testing.
   static unsigned int kFunctionRequestIdentifier = 0;
 
+  /// Copies a string to the dangling filename field of a file name information structure. Intended
+  /// to be used to implement tests that query for file name information. Updates the length field
+  /// and additionally honors buffer size constraints.
+  /// @param [in] stringToCopy String to be written to the file name information structure.
+  /// @param [out] fileNameInformation File name information structure to be filled.
+  /// @param [in] fileNameInformationBufferCapacity Buffer capacity, in bytes, of the file name
+  /// information structure, including its dangling filename field.
+  static NTSTATUS CopyStringToFileNameInformation(
+      std::wstring_view stringToCopy,
+      SFileNameInformation* fileNameInformation,
+      size_t fileNameInformationBufferCapacity)
+  {
+    const size_t characterSpaceAvailable = (static_cast<size_t>(fileNameInformationBufferCapacity) -
+                                            offsetof(SFileNameInformation, fileName)) /
+        sizeof(wchar_t);
+
+    const size_t characterSpaceRequired = stringToCopy.length();
+
+    std::wmemcpy(
+        fileNameInformation->fileName,
+        stringToCopy.data(),
+        std::min(characterSpaceRequired, characterSpaceAvailable));
+
+    fileNameInformation->fileNameLength =
+        static_cast<ULONG>(characterSpaceRequired * sizeof(wchar_t));
+
+    if (characterSpaceRequired <= characterSpaceAvailable)
+      return NtStatus::kSuccess;
+    else
+      return NtStatus::kBufferOverflow;
+  }
+
   /// Creates and returns an object attributes structure for the specified filename and optional
   /// root directory handle.
   /// @param [in] fileName System Unicode string representation of the filename to initialize inside
@@ -2414,15 +2446,6 @@ namespace PathwinderTest
     constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
     constexpr std::wstring_view kRedirectedPath = L"C:\\RedirectedDirectory\\TestFile.txt";
 
-    BytewiseDanglingFilenameStruct<SFileNameInformation> inputFileRenameInformation;
-
-    const FileOperationInstruction fileOperationInstructionsToTry[] = {
-        FileOperationInstruction::NoRedirectionOrInterception(),
-        FileOperationInstruction::InterceptWithoutRedirection(),
-        FileOperationInstruction::SimpleRedirectTo(kRedirectedPath),
-        FileOperationInstruction::OverlayRedirectTo(kRedirectedPath),
-    };
-
     const NTSTATUS returnCodesToTry[] = {
         NtStatus::kSuccess,
         NtStatus::kBufferOverflow,
@@ -2436,29 +2459,27 @@ namespace PathwinderTest
         NtStatus::kInternalError,
     };
 
-    for (const auto& fileOperationInstructionToTry : fileOperationInstructionsToTry)
+    for (NTSTATUS returnCodeToTry : returnCodesToTry)
     {
-      for (NTSTATUS returnCodeToTry : returnCodesToTry)
-      {
-        HANDLE unusedHandleValue = NULL;
+      HANDLE unusedHandleValue = NULL;
+      BytewiseDanglingFilenameStruct<SFileNameInformation> unusedFileNameInformation;
 
-        OpenHandleStore openHandleStore;
+      OpenHandleStore openHandleStore;
 
-        const NTSTATUS expectedReturnCode = returnCodeToTry;
-        const NTSTATUS actualReturnCode = FilesystemExecutor::QueryNameByHandle(
-            TestCaseName().data(),
-            kFunctionRequestIdentifier,
-            openHandleStore,
-            unusedHandleValue,
-            &inputFileRenameInformation.GetFileInformationStruct(),
-            inputFileRenameInformation.GetFileInformationStructSizeBytes(),
-            [expectedReturnCode](HANDLE) -> NTSTATUS
-            {
-              return expectedReturnCode;
-            });
+      const NTSTATUS expectedReturnCode = returnCodeToTry;
+      const NTSTATUS actualReturnCode = FilesystemExecutor::QueryNameByHandle(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          unusedHandleValue,
+          &unusedFileNameInformation.GetFileInformationStruct(),
+          unusedFileNameInformation.GetFileInformationStructSizeBytes(),
+          [expectedReturnCode](HANDLE, SFileNameInformation*, ULONG) -> NTSTATUS
+          {
+            return expectedReturnCode;
+          });
 
-        TEST_ASSERT(actualReturnCode == expectedReturnCode);
-      }
+      TEST_ASSERT(actualReturnCode == expectedReturnCode);
     }
   }
 
@@ -2467,7 +2488,35 @@ namespace PathwinderTest
   // handle could not have been the result of a redirection.
   TEST_CASE(FilesystemExecutor_QueryNameByHandle_UncachedHandlePathNotReplaced)
   {
-    // TBD
+    constexpr std::wstring_view kSystemReturnedPath = L"C:\\A\\File.txt";
+
+    HANDLE unusedHandleValue = NULL;
+
+    uint8_t fileNameInformationBuffer[32] = {};
+    SFileNameInformation& fileNameInformation =
+        *reinterpret_cast<SFileNameInformation*>(fileNameInformationBuffer);
+
+    OpenHandleStore openHandleStore;
+
+    FilesystemExecutor::QueryNameByHandle(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        unusedHandleValue,
+        &fileNameInformation,
+        sizeof(fileNameInformationBuffer),
+        [](HANDLE,
+           SFileNameInformation* fileNameInformation,
+           ULONG fileNameInformationBufferCapacity) -> NTSTATUS
+        {
+          return CopyStringToFileNameInformation(
+              kSystemReturnedPath, fileNameInformation, fileNameInformationBufferCapacity);
+        });
+
+    const std::wstring_view expectedQueryResultPath = kSystemReturnedPath;
+    const std::wstring_view actualQueryResultPath = std::wstring_view(
+        fileNameInformation.fileName, fileNameInformation.fileNameLength / sizeof(wchar_t));
+    TEST_ASSERT(actualQueryResultPath == expectedQueryResultPath);
   }
 
   // Verifies that a filename request by handle is replaced with the associated path if the handle
@@ -2476,7 +2525,41 @@ namespace PathwinderTest
   // application.
   TEST_CASE(FilesystemExecutor_QueryNameByHandle_CachedHandleNameReplaced)
   {
-    // TBD
+    constexpr std::wstring_view kSystemReturnedPath = L"C:\\A\\File.txt";
+    constexpr std::wstring_view kCachedAssociatedPath = L"D:\\E\\File.txt";
+
+    HANDLE handleValue = reinterpret_cast<HANDLE>(3033345);
+
+    uint8_t fileNameInformationBuffer[32] = {};
+    SFileNameInformation& fileNameInformation =
+        *reinterpret_cast<SFileNameInformation*>(fileNameInformationBuffer);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        handleValue, std::wstring(kCachedAssociatedPath), std::wstring(kSystemReturnedPath));
+
+    const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
+    const NTSTATUS actualReturnCode = FilesystemExecutor::QueryNameByHandle(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        handleValue,
+        &fileNameInformation,
+        sizeof(fileNameInformationBuffer),
+        [](HANDLE,
+           SFileNameInformation* fileNameInformation,
+           ULONG fileNameInformationBufferCapacity) -> NTSTATUS
+        {
+          return CopyStringToFileNameInformation(
+              kSystemReturnedPath, fileNameInformation, fileNameInformationBufferCapacity);
+        });
+
+    TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+    const std::wstring_view expectedQueryResultPath = kCachedAssociatedPath;
+    const std::wstring_view actualQueryResultPath = std::wstring_view(
+        fileNameInformation.fileName, fileNameInformation.fileNameLength / sizeof(wchar_t));
+    TEST_ASSERT(actualQueryResultPath == expectedQueryResultPath);
   }
 
   // Verifies that a filename request by handle is replaced with the associated path if the handle
@@ -2484,6 +2567,219 @@ namespace PathwinderTest
   // function is invoked if it is supplied.
   TEST_CASE(FilesystemExecutor_QueryNameByHandle_CachedHandleNameReplacedAndTransformed)
   {
-    // TBD
+    constexpr std::wstring_view kSystemReturnedPath = L"C:\\A\\File.txt";
+    constexpr std::wstring_view kCachedAssociatedPath = L"D:\\E\\File.txt";
+    constexpr std::wstring_view kOutputTransformedPath = L"Z:\\T\\File.txt";
+
+    HANDLE handleValue = reinterpret_cast<HANDLE>(3033345);
+
+    uint8_t fileNameInformationBuffer[32] = {};
+    SFileNameInformation& fileNameInformation =
+        *reinterpret_cast<SFileNameInformation*>(fileNameInformationBuffer);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        handleValue, std::wstring(kCachedAssociatedPath), std::wstring(kSystemReturnedPath));
+
+    const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
+    const NTSTATUS actualReturnCode = FilesystemExecutor::QueryNameByHandle(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        handleValue,
+        &fileNameInformation,
+        sizeof(fileNameInformationBuffer),
+        [](HANDLE,
+           SFileNameInformation* fileNameInformation,
+           ULONG fileNameInformationBufferCapacity) -> NTSTATUS
+        {
+          return CopyStringToFileNameInformation(
+              kSystemReturnedPath, fileNameInformation, fileNameInformationBufferCapacity);
+        },
+        [](std::wstring_view, std::wstring_view) -> std::optional<std::wstring_view>
+        {
+          return kOutputTransformedPath;
+        });
+
+    TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+    const std::wstring_view expectedQueryResultPath = kOutputTransformedPath;
+    const std::wstring_view actualQueryResultPath = std::wstring_view(
+        fileNameInformation.fileName, fileNameInformation.fileNameLength / sizeof(wchar_t));
+    TEST_ASSERT(actualQueryResultPath == expectedQueryResultPath);
+  }
+
+  // Verifies that a filename request by handle is replaced with the associated path if the handle
+  // is cached in the open handle store and, further, that the optional filename transformation
+  // function is invoked if it is supplied. In this case the transformation function vetoes the path
+  // replacement, so the system-returned path is expected.
+  TEST_CASE(FilesystemExecutor_QueryNameByHandle_CachedHandleNameReplacementVetoedByFilterFunction)
+  {
+    constexpr std::wstring_view kSystemReturnedPath = L"C:\\A\\File.txt";
+    constexpr std::wstring_view kCachedAssociatedPath = L"D:\\E\\File.txt";
+
+    HANDLE handleValue = reinterpret_cast<HANDLE>(3033345);
+
+    uint8_t fileNameInformationBuffer[32] = {};
+    SFileNameInformation& fileNameInformation =
+        *reinterpret_cast<SFileNameInformation*>(fileNameInformationBuffer);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        handleValue, std::wstring(kCachedAssociatedPath), std::wstring(kSystemReturnedPath));
+
+    const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
+    const NTSTATUS actualReturnCode = FilesystemExecutor::QueryNameByHandle(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        handleValue,
+        &fileNameInformation,
+        sizeof(fileNameInformationBuffer),
+        [](HANDLE,
+           SFileNameInformation* fileNameInformation,
+           ULONG fileNameInformationBufferCapacity) -> NTSTATUS
+        {
+          return CopyStringToFileNameInformation(
+              kSystemReturnedPath, fileNameInformation, fileNameInformationBufferCapacity);
+        },
+        [](std::wstring_view, std::wstring_view) -> std::optional<std::wstring_view>
+        {
+          return std::nullopt;
+        });
+
+    TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+    const std::wstring_view expectedQueryResultPath = kSystemReturnedPath;
+    const std::wstring_view actualQueryResultPath = std::wstring_view(
+        fileNameInformation.fileName, fileNameInformation.fileNameLength / sizeof(wchar_t));
+    TEST_ASSERT(actualQueryResultPath == expectedQueryResultPath);
+  }
+
+  // Verifies that a filename request by handle is replaced with the associated path if the handle
+  // is cached in the open handle store. However, in this case the buffer was too small for the
+  // system-returned filename but large enough for the replacement filename. This should succeed
+  // transparently because the replacement filename fits, and that is all that matters to the
+  // calling application.
+  TEST_CASE(FilesystemExecutor_QueryNameByHandle_BufferTooSmallForSystemButFitsReplacement)
+  {
+    constexpr std::wstring_view kSystemReturnedPath =
+        L"C:\\AVeryLong\\LongFilePath\\ThatDefinitelyWontFit\\File.txt";
+    constexpr std::wstring_view kCachedAssociatedPath = L"D:\\E\\File.txt";
+
+    HANDLE handleValue = reinterpret_cast<HANDLE>(3033345);
+
+    uint8_t fileNameInformationBuffer[32] = {};
+    SFileNameInformation& fileNameInformation =
+        *reinterpret_cast<SFileNameInformation*>(fileNameInformationBuffer);
+
+    static_assert(
+        (kSystemReturnedPath.length() * sizeof(wchar_t)) > sizeof(fileNameInformationBuffer),
+        "Path is not long enough to exceed the supplied buffer space.");
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        handleValue, std::wstring(kCachedAssociatedPath), std::wstring(kSystemReturnedPath));
+
+    const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
+    const NTSTATUS actualReturnCode = FilesystemExecutor::QueryNameByHandle(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        handleValue,
+        &fileNameInformation,
+        sizeof(fileNameInformationBuffer),
+        [](HANDLE,
+           SFileNameInformation* fileNameInformation,
+           ULONG fileNameInformationBufferCapacity) -> NTSTATUS
+        {
+          return CopyStringToFileNameInformation(
+              kSystemReturnedPath, fileNameInformation, fileNameInformationBufferCapacity);
+        });
+
+    TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+    const std::wstring_view expectedQueryResultPath = kCachedAssociatedPath;
+    const std::wstring_view actualQueryResultPath = std::wstring_view(
+        fileNameInformation.fileName, fileNameInformation.fileNameLength / sizeof(wchar_t));
+    TEST_ASSERT(actualQueryResultPath == expectedQueryResultPath);
+  }
+
+  // Verifies that a filename request by handle is replaced with the associated path if the handle
+  // is cached in the open handle store. However, in this case the buffer was large enough for the
+  // system-returned filename but not large enough for the replacement filename. The filesystem
+  // executor is expected to write as many characters as will fit and set the filename length field
+  // to indicate how much space is needed.
+  TEST_CASE(FilesystemExecutor_QueryNameByHandle_BufferFitsSystemButTooSmallForReplacement)
+  {
+    constexpr std::wstring_view kSystemReturnedPath = L"C:\\A\\File.txt";
+    constexpr std::wstring_view kCachedAssociatedPath =
+        L"D:\\E\\SomeVeryLong\\LongPathThat\\CannotFitIn\\TheBufferProvided\\File.txt";
+
+    HANDLE handleValue = reinterpret_cast<HANDLE>(3033345);
+
+    uint8_t fileNameInformationBuffer[40] = {};
+    SFileNameInformation& fileNameInformation =
+        *reinterpret_cast<SFileNameInformation*>(fileNameInformationBuffer);
+
+    // The buffer can hold 40 bytes, but only 32 are allowed to be used. The remaining should not be
+    // touched and should stay equal to the value of the guard byte.
+    constexpr uint8_t kGuardBufferByte = 0xfe;
+    constexpr size_t fileNameInformationBufferAllowedBytes = 32;
+    std::memset(fileNameInformationBuffer, kGuardBufferByte, sizeof(fileNameInformationBuffer));
+
+    static_assert(
+        (kCachedAssociatedPath.length() * sizeof(wchar_t)) > fileNameInformationBufferAllowedBytes,
+        "Path is not long enough to exceed the supplied buffer space.");
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        handleValue, std::wstring(kCachedAssociatedPath), std::wstring(kSystemReturnedPath));
+
+    const NTSTATUS expectedReturnCode = NtStatus::kBufferOverflow;
+    const NTSTATUS actualReturnCode = FilesystemExecutor::QueryNameByHandle(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        handleValue,
+        &fileNameInformation,
+        fileNameInformationBufferAllowedBytes,
+        [](HANDLE,
+           SFileNameInformation* fileNameInformation,
+           ULONG fileNameInformationBufferCapacity) -> NTSTATUS
+        {
+          return CopyStringToFileNameInformation(
+              kSystemReturnedPath, fileNameInformation, fileNameInformationBufferCapacity);
+        });
+
+    TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+    // Since the buffer capacity is too small, the required amount of buffer space is expected to be
+    // placed into the file name length field.
+    const size_t expectedFileNameLength = kCachedAssociatedPath.length() * sizeof(wchar_t);
+    const size_t actualFileNameLength = static_cast<size_t>(fileNameInformation.fileNameLength);
+    TEST_ASSERT(actualFileNameLength == expectedFileNameLength);
+
+    const size_t writtenFileNamePortionLengthBytes =
+        (fileNameInformationBufferAllowedBytes - offsetof(SFileNameInformation, fileName));
+    const size_t writtenFileNamePortionLengthChars =
+        writtenFileNamePortionLengthBytes / sizeof(wchar_t);
+
+    // Only a portion of the correct file name should have been written, whatever will fit into the
+    // buffer.
+    const std::wstring_view expectedWrittenFileNamePortion =
+        std::wstring_view(kCachedAssociatedPath.data(), writtenFileNamePortionLengthChars);
+    const std::wstring_view actualWrittenFileNamePortion =
+        std::wstring_view(fileNameInformation.fileName, writtenFileNamePortionLengthChars);
+    TEST_ASSERT(actualWrittenFileNamePortion == expectedWrittenFileNamePortion);
+
+    // This loop verifies that no bytes past the end of the buffer's allowed region have been
+    // modified.
+    for (size_t guardByteIdx = fileNameInformationBufferAllowedBytes;
+         guardByteIdx < sizeof(fileNameInformationBuffer);
+         ++guardByteIdx)
+    {
+      TEST_ASSERT(kGuardBufferByte == fileNameInformationBuffer[guardByteIdx]);
+    }
   }
 } // namespace PathwinderTest

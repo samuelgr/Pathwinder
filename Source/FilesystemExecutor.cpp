@@ -1540,11 +1540,12 @@ namespace Pathwinder
         HANDLE fileHandle,
         SFileNameInformation* fileNameInformation,
         ULONG fileNameInformationBufferCapacity,
-        std::function<NTSTATUS(HANDLE)> underlyingSystemCallInvoker,
+        std::function<NTSTATUS(HANDLE, SFileNameInformation*, ULONG)> underlyingSystemCallInvoker,
         std::function<std::optional<std::wstring_view>(std::wstring_view, std::wstring_view)>
             replacementFileNameFilterAndTransform)
     {
-      NTSTATUS systemCallResult = underlyingSystemCallInvoker(fileHandle);
+      NTSTATUS systemCallResult = underlyingSystemCallInvoker(
+          fileHandle, fileNameInformation, fileNameInformationBufferCapacity);
       switch (systemCallResult)
       {
         case NtStatus::kBufferOverflow:
@@ -1563,18 +1564,33 @@ namespace Pathwinder
           static_cast<size_t>(fileNameInformationBufferCapacity))
         return systemCallResult;
 
+      const std::wstring_view systemReturnedFileName =
+          FileInformationStructLayout::ReadFileNameByType(*fileNameInformation);
+
       // If the file handle is not stored, meaning it could not possibly be the result of a
       // redirection, then it is not necessary to replace the filename.
       std::optional<OpenHandleStore::SHandleDataView> maybeHandleData =
           openHandleStore.GetDataForHandle(fileHandle);
-      if (false == maybeHandleData.has_value()) return systemCallResult;
+      if (false == maybeHandleData.has_value())
+      {
+        Message::OutputFormatted(
+            Message::ESeverity::SuperDebug,
+            L"%s(%u): Invoked with handle %zu, the system returned path \"%.*s\", and is it not being replaced.",
+            functionName,
+            functionRequestIdentifier,
+            reinterpret_cast<size_t>(fileHandle),
+            static_cast<int>(systemReturnedFileName.length()),
+            systemReturnedFileName.data());
 
-      std::wstring_view systemReturnedFileName =
-          FileInformationStructLayout::ReadFileNameByType(*fileNameInformation);
+        return systemCallResult;
+      }
+
+      // The filter function is given an opportunity to veto the replacement or alter the result.
+      // There is nothing further to do if it vetos the replacement or returns the same as the
+      // system-returned path.
       std::optional<std::wstring_view> maybeReplacementFileName =
           replacementFileNameFilterAndTransform(
               systemReturnedFileName, maybeHandleData->associatedPath);
-
       if ((false == maybeReplacementFileName.has_value()) ||
           (*maybeReplacementFileName == systemReturnedFileName))
       {
@@ -1603,9 +1619,18 @@ namespace Pathwinder
 
       FileInformationStructLayout::WriteFileNameByType(
           *fileNameInformation, fileNameInformationBufferCapacity, *maybeReplacementFileName);
-      if (FileInformationStructLayout::ReadFileNameByType(*fileNameInformation).length() <
-          maybeReplacementFileName->length())
+
+      const size_t requiredBufferSpaceBytes = maybeReplacementFileName->length() * sizeof(wchar_t);
+      const size_t actualBufferSpaceBytes = fileNameInformation->fileNameLength;
+
+      // If the actual number of bytes written is not enough to contain the entire replacement
+      // filename then the file name length field should indicate the required buffer space, in
+      // bytes, and the return code should indicate a buffer overflow condition.
+      if (actualBufferSpaceBytes < requiredBufferSpaceBytes)
+      {
+        fileNameInformation->fileNameLength = static_cast<ULONG>(requiredBufferSpaceBytes);
         return NtStatus::kBufferOverflow;
+      }
 
       // If the original system call resulted in a buffer overflow, but the buffer was large enough
       // to hold the replacement filename, then the application should be told that the operation

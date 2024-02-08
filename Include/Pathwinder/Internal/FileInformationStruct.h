@@ -362,8 +362,7 @@ namespace Pathwinder
     /// Changes the stored filename within one of the many structures that uses a dangling filename
     /// field. On output, the filename member is updated to represent the specified filename string,
     /// but only up to whatever number of characters fit in the buffer containing the structure.
-    /// Regardless, the length field is updated to represent the number of characters needed to
-    /// represent the entire string.
+    /// The length field is updated to represent the number of characters actually written.
     /// @tparam FileInformationStructType Windows internal structure type that uses a wide-character
     /// dangling filename field.
     /// @param [in, out] fileInformationStruct Mutable reference to a structure with a

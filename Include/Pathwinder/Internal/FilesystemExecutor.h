@@ -203,9 +203,9 @@ namespace Pathwinder
     /// @param [in] fileNameInformationBufferCapacity Capacity of the buffer that holds the file
     /// name information structure.
     /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
-    /// operation, with the only variable parameter being object attributes. Any and all other
-    /// information is expected to be captured within the object itself, including other
-    /// application-specified parameters.
+    /// operation, with parameters for the open file handle and information about the structure to
+    /// fill. Any and all other information is expected to be captured within the object itself,
+    /// including other application-specified parameters.
     /// @param [in] replacementFileNameFilterAndTransform Optional transformation to apply to the
     /// filename used to replace whatever the system returns from the underlying system call query.
     /// If this function returns nothing, then the underlying system call is invoked and not
@@ -219,7 +219,7 @@ namespace Pathwinder
         HANDLE fileHandle,
         SFileNameInformation* fileNameInformation,
         ULONG fileNameInformationBufferCapacity,
-        std::function<NTSTATUS(HANDLE)> underlyingSystemCallInvoker,
+        std::function<NTSTATUS(HANDLE, SFileNameInformation*, ULONG)> underlyingSystemCallInvoker,
         std::function<std::optional<std::wstring_view>(
             std::wstring_view, std::wstring_view)> replacementFileNameFilterAndTransform =
             [](std::wstring_view systemReturnedFileName,

@@ -341,9 +341,11 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(
       FileHandle,
       fileNameInformation,
       fileNameInformationBufferCapacity,
-      [IoStatusBlock, FileInformation, Length, FileInformationClass](HANDLE fileHandle) -> NTSTATUS
+      [IoStatusBlock, Length, FileInformationClass](
+          HANDLE fileHandle, Pathwinder::SFileNameInformation* fileNameInformation) -> NTSTATUS
       {
-        return Original(fileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
+        return Original(
+            fileHandle, IoStatusBlock, fileNameInformation, Length, FileInformationClass);
       },
       [](std::wstring_view systemReturnedFileName,
          std::wstring_view proposedReplacementFileName) -> std::optional<std::wstring_view>
