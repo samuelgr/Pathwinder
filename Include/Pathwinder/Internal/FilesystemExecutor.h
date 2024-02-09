@@ -67,8 +67,8 @@ namespace Pathwinder
     /// the named function. Used only for logging.
     /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
     /// file handles known to be open. Sets the context for this call.
-    /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a file operation
-    /// instruction, given a source path, file access mode, and create disposition.
+    /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a directory
+    /// enumeration instruction, given a source path, file access mode, and create disposition.
     /// @return Result of the intercepted operation, if the operation should be intercepted, or
     /// nothing at all to indicate that the operation should be forwarded to the system.
     std::optional<NTSTATUS> DirectoryEnumeration(
@@ -85,7 +85,8 @@ namespace Pathwinder
         FILE_INFORMATION_CLASS fileInformationClass,
         ULONG queryFlags,
         PUNICODE_STRING fileName,
-        std::function<DirectoryEnumerationInstruction(std::wstring_view, std::wstring_view)>
+        std::function<DirectoryEnumerationInstruction(
+            std::wstring_view associatedPath, std::wstring_view realOpenedPath)>
             instructionSourceFunc);
 
     /// Common internal entry point for intercepting attempts to create or open files, resulting in
@@ -124,7 +125,9 @@ namespace Pathwinder
         ULONG createDisposition,
         ULONG createOptions,
         std::function<FileOperationInstruction(
-            std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc,
+            std::wstring_view absolutePath,
+            FileAccessMode fileAccessMode,
+            CreateDisposition createDisposition)> instructionSourceFunc,
         std::function<NTSTATUS(PHANDLE, POBJECT_ATTRIBUTES, ULONG)> underlyingSystemCallInvoker);
 
     /// Common internal entry point for intercepting attempts to rename a file or directory that has
@@ -141,9 +144,7 @@ namespace Pathwinder
     /// @param [in] renameInformationLength Size of the rename information structure, in bytes, as
     /// supplied by the application.
     /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a file operation
-    /// instruction, given a source path, file access mode, and create disposition.
-    /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a file operation
-    /// instruction, given a source path, file access mode, and create disposition.
+    /// instruction, given a target path for the rename, file access mode, and create disposition.
     /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
     /// operation, with the only variable parameters being open file handle, rename information
     /// structure, and rename information structure length in bytes. Any and all other information
@@ -158,7 +159,9 @@ namespace Pathwinder
         SFileRenameInformation& renameInformation,
         ULONG renameInformationLength,
         std::function<FileOperationInstruction(
-            std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc,
+            std::wstring_view absoluteRenameTargetPath,
+            FileAccessMode fileAccessMode,
+            CreateDisposition createDisposition)> instructionSourceFunc,
         std::function<NTSTATUS(HANDLE, SFileRenameInformation&, ULONG)>
             underlyingSystemCallInvoker);
 
@@ -173,7 +176,7 @@ namespace Pathwinder
     /// file handles known to be open. Sets the context for this call.
     /// @param [in] objectAttributes Object attributes received as input from the application.
     /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a file operation
-    /// instruction, given a source path, file access mode, and create disposition.
+    /// instruction, given an absolute path, file access mode, and create disposition.
     /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
     /// operation, with the only variable parameter being object attributes. Any and all other
     /// information is expected to be captured within the object itself, including other
@@ -185,7 +188,9 @@ namespace Pathwinder
         OpenHandleStore& openHandleStore,
         POBJECT_ATTRIBUTES objectAttributes,
         std::function<FileOperationInstruction(
-            std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc,
+            std::wstring_view absolutePath,
+            FileAccessMode fileAccessMode,
+            CreateDisposition createDisposition)> instructionSourceFunc,
         std::function<NTSTATUS(POBJECT_ATTRIBUTES)> underlyingSystemCallInvoker);
 
     /// Common internal entry point for intercepting queries for file name information such that the
