@@ -1120,9 +1120,12 @@ namespace Pathwinder
             std::move(directoryOperationQueueUniquePtr),
             *maybeFileInformationStructLayout);
         newDirectoryEnumerationCreated = true;
+
+        // Re-obtain the handle data so that it contains a pointer to the newly-created directory
+        // enumeration state object.
+        maybeHandleData = openHandleStore.GetDataForHandle(fileHandle);
       }
 
-      maybeHandleData = openHandleStore.GetDataForHandle(fileHandle);
       DebugAssert(
           (true == maybeHandleData->directoryEnumeration.has_value()),
           "Failed to locate an in-progress directory enumearation stat data structure which should already exist.");
