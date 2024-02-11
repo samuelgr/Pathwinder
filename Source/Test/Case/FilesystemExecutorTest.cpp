@@ -112,7 +112,7 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     mockFilesystem.AddDirectory(kDirectoryName);
 
-    const HANDLE directoryHandle = mockFilesystem.Open(kDirectoryName);
+    const HANDLE directoryHandle = mockFilesystem.Open(kDirectoryName, MockFilesystemOperations::EOpenHandleMode::Asynchronous);
     TEST_ASSERT(kDirectoryName == mockFilesystem.GetPathFromHandle(directoryHandle));
 
     OpenHandleStore openHandleStore;

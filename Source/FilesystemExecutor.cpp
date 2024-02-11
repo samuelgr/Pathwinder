@@ -115,6 +115,53 @@ namespace Pathwinder
     template <typename FileObjectType> using TFileOperationsList =
         ArrayList<ValueOrError<FileObjectType*, NTSTATUS>, 2>;
 
+    /// Converts a `CreateDisposition` parameter, which system calls use to identify filesystem
+    /// behavior regarding creating new files or opening existing files, into an appropriate
+    /// internal create disposition object.
+    /// @param [in] ntCreateDisposition `CreateDisposition` parameter received from the application.
+    /// @return Corresponding create disposition object.
+    static CreateDisposition CreateDispositionFromNtParameter(ULONG ntCreateDisposition)
+    {
+      switch (ntCreateDisposition)
+      {
+        case FILE_CREATE:
+          return CreateDisposition::CreateNewFile();
+
+        case FILE_SUPERSEDE:
+        case FILE_OPEN_IF:
+        case FILE_OVERWRITE_IF:
+          return CreateDisposition::CreateNewOrOpenExistingFile();
+
+        case FILE_OPEN:
+        case FILE_OVERWRITE:
+          return CreateDisposition::OpenExistingFile();
+
+        default:
+          return CreateDisposition::OpenExistingFile();
+      }
+    }
+
+    /// Converts a `DesiredAccess` parameter, which system calls use to identify the type of access
+    /// requested to a file, into an appropriate internal file access mode object.
+    /// @param [in] ntDesiredAccess `DesiredAccess` parameter received from the application.
+    /// @return Corresponding file access mode object.
+    static FileAccessMode FileAccessModeFromNtParameter(ACCESS_MASK ntDesiredAccess)
+    {
+      constexpr ACCESS_MASK kReadAccessMask =
+          (GENERIC_READ | FILE_READ_DATA | FILE_READ_ATTRIBUTES | FILE_READ_EA | READ_CONTROL |
+           FILE_EXECUTE | FILE_LIST_DIRECTORY | FILE_TRAVERSE);
+      constexpr ACCESS_MASK kWriteAccessMask =
+          (GENERIC_WRITE | FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA |
+           FILE_APPEND_DATA | WRITE_DAC | WRITE_OWNER | FILE_DELETE_CHILD);
+      constexpr ACCESS_MASK kDeleteAccessMask = (DELETE);
+
+      const bool canRead = (0 != (ntDesiredAccess & kReadAccessMask));
+      const bool canWrite = (0 != (ntDesiredAccess & kWriteAccessMask));
+      const bool canDelete = (0 != (ntDesiredAccess & kDeleteAccessMask));
+
+      return FileAccessMode(canRead, canWrite, canDelete);
+    }
+
     /// Dumps to the log all relevant invocation parameters for a file operation that results in the
     /// creation of a new file handle. Parameters are a subset of those that would normally be
     /// passed to `NtCreateFile`, with the exception of some additional metadata about the invoked
@@ -350,121 +397,78 @@ namespace Pathwinder
       return enumerationStatus;
     }
 
-    /// Converts a `CreateDisposition` parameter, which system calls use to identify filesystem
-    /// behavior regarding creating new files or opening existing files, into an appropriate
-    /// internal create disposition object.
-    /// @param [in] ntCreateDisposition `CreateDisposition` parameter received from the application.
-    /// @return Corresponding create disposition object.
-    static CreateDisposition CreateDispositionFromNtParameter(ULONG ntCreateDisposition)
+    /// Creates a directory operation queue object based on the supplied directory enumeration
+    /// instruction.
+    /// @param [in] instruction Instruction that specifies how to implement the directory
+    /// enumeration operation and hence determines which queue or queues are needed. Mutable so that
+    /// data can be extracted from it using move semantics rather than requiring that data be
+    /// copied.
+    /// @param [in] fileInformationClass Type of information to request from the system when
+    /// querying for file information structures.
+    /// @param [in] queryFilePattern File pattern to supply to any created queues when they are
+    /// first created.
+    /// @param [in] handleAssociatedPath Absolute path internally associated with the handle to the
+    /// directory that is open for enumeration.
+    /// @param [in] handleRealOpenedPath Absolute path that was actually opened when creating the
+    /// handle to the directory that is open for enumeration.
+    /// @return Directory operation queue that will implement the instruction, or `nullptr` if the
+    /// instruction is a no-op and the represented enumeration can just be forwarded to the system.
+    static std::unique_ptr<IDirectoryOperationQueue> CreateDirectoryOperationQueue(
+        DirectoryEnumerationInstruction& instruction,
+        FILE_INFORMATION_CLASS fileInformationClass,
+        std::wstring_view queryFilePattern,
+        std::wstring_view handleAssociatedPath,
+        std::wstring_view handleRealOpenedPath)
     {
-      switch (ntCreateDisposition)
+      if (instruction == DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery())
+        return nullptr;
+
+      std::array<
+          std::unique_ptr<IDirectoryOperationQueue>,
+          MergedFileInformationQueue::kNumQueuesToMerge>
+          createdQueues;
+      unsigned int numCreatedQueues = 0;
+
+      for (const auto& singleDirectoryEnumeration : instruction.GetDirectoriesToEnumerate())
       {
-        case FILE_CREATE:
-          return CreateDisposition::CreateNewFile();
+        DebugAssert(
+            numCreatedQueues < createdQueues.size(),
+            "Too many directory operation queues are being created.");
 
-        case FILE_SUPERSEDE:
-        case FILE_OPEN_IF:
-        case FILE_OVERWRITE_IF:
-          return CreateDisposition::CreateNewOrOpenExistingFile();
+        if (DirectoryEnumerationInstruction::SingleDirectoryEnumeration::NoEnumeration() ==
+            singleDirectoryEnumeration)
+          continue;
 
-        case FILE_OPEN:
-        case FILE_OVERWRITE:
-          return CreateDisposition::OpenExistingFile();
+        std::wstring_view enumerationPath = singleDirectoryEnumeration.SelectDirectoryPath(
+            handleAssociatedPath, handleRealOpenedPath);
+        DebugAssert(false == enumerationPath.empty(), "Empty directory enumeration path.");
+
+        createdQueues[numCreatedQueues] = std::make_unique<EnumerationQueue>(
+            singleDirectoryEnumeration, enumerationPath, fileInformationClass, queryFilePattern);
+        numCreatedQueues += 1;
+      }
+
+      if (true == instruction.HasDirectoryNamesToInsert())
+      {
+        DebugAssert(
+            numCreatedQueues < createdQueues.size(),
+            "Too many directory operation queues are being created.");
+
+        createdQueues[numCreatedQueues] = std::make_unique<NameInsertionQueue>(
+            instruction.ExtractDirectoryNamesToInsert(), fileInformationClass, queryFilePattern);
+        numCreatedQueues += 1;
+      }
+
+      switch (numCreatedQueues)
+      {
+        case 0:
+          return nullptr;
+
+        case 1:
+          return std::move(createdQueues[0]);
 
         default:
-          return CreateDisposition::OpenExistingFile();
-      }
-    }
-
-    /// Executes any pre-operations needed ahead of invoking underlying system calls.
-    /// @param [in] functionName Name of the API function whose hook function is invoking this
-    /// function. Used only for logging.
-    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
-    /// the named function. Used only for logging.
-    /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation,
-    /// including identifying any pre-operations needed.
-    /// @return Result of executing the pre-operations. The code will indicate success if they all
-    /// succeed or a failure that corresponds to the first applicable pre-operation failure.
-    static NTSTATUS ExecuteExtraPreOperations(
-        const wchar_t* functionName,
-        unsigned int functionRequestIdentifier,
-        const FileOperationInstruction& instruction)
-    {
-      NTSTATUS extraPreOperationResult = NtStatus::kSuccess;
-
-      if (instruction.GetExtraPreOperations().contains(
-              static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)) &&
-          (NT_SUCCESS(extraPreOperationResult)))
-      {
-        Message::OutputFormatted(
-            Message::ESeverity::Debug,
-            L"%s(%u): Ensuring directory hierarchy exists for \"%.*s\".",
-            functionName,
-            functionRequestIdentifier,
-            static_cast<int>(instruction.GetExtraPreOperationOperand().length()),
-            instruction.GetExtraPreOperationOperand().data());
-        extraPreOperationResult =
-            static_cast<NTSTATUS>(FilesystemOperations::CreateDirectoryHierarchy(
-                instruction.GetExtraPreOperationOperand()));
-      }
-
-      if (!(NT_SUCCESS(extraPreOperationResult)))
-        Message::OutputFormatted(
-            Message::ESeverity::Error,
-            L"%s(%u): A required pre-operation failed (NTSTATUS = 0x%08x).",
-            functionName,
-            functionRequestIdentifier,
-            static_cast<unsigned int>(extraPreOperationResult));
-
-      return extraPreOperationResult;
-    }
-
-    /// Converts a `DesiredAccess` parameter, which system calls use to identify the type of access
-    /// requested to a file, into an appropriate internal file access mode object.
-    /// @param [in] ntDesiredAccess `DesiredAccess` parameter received from the application.
-    /// @return Corresponding file access mode object.
-    static FileAccessMode FileAccessModeFromNtParameter(ACCESS_MASK ntDesiredAccess)
-    {
-      constexpr ACCESS_MASK kReadAccessMask =
-          (GENERIC_READ | FILE_READ_DATA | FILE_READ_ATTRIBUTES | FILE_READ_EA | READ_CONTROL |
-           FILE_EXECUTE | FILE_LIST_DIRECTORY | FILE_TRAVERSE);
-      constexpr ACCESS_MASK kWriteAccessMask =
-          (GENERIC_WRITE | FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA |
-           FILE_APPEND_DATA | WRITE_DAC | WRITE_OWNER | FILE_DELETE_CHILD);
-      constexpr ACCESS_MASK kDeleteAccessMask = (DELETE);
-
-      const bool canRead = (0 != (ntDesiredAccess & kReadAccessMask));
-      const bool canWrite = (0 != (ntDesiredAccess & kWriteAccessMask));
-      const bool canDelete = (0 != (ntDesiredAccess & kDeleteAccessMask));
-
-      return FileAccessMode(canRead, canWrite, canDelete);
-    }
-
-    /// Fills the supplied object name and attributes structure with the name and attributes needed
-    /// to represent the redirected filename from a file operation redirection instruction. Does
-    /// nothing if the file operation redirection instruction does not specify any redirection. This
-    /// must be done in place because the `OBJECT_ATTRIBUTES` structure refers to its `ObjectName`
-    /// field by pointer. Returning by value would invalidate the address of the `ObjectName` field
-    /// and therefore not work.
-    /// @param [out] redirectedObjectNameAndAttributes Mutable reference to the structure to be
-    /// filled.
-    /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
-    /// @param [in] unredirectedObjectAttributes Object attributes structure received from the
-    /// application.
-    static void FillRedirectedObjectNameAndAttributesForInstruction(
-        SObjectNameAndAttributes& redirectedObjectNameAndAttributes,
-        const FileOperationInstruction& instruction,
-        const OBJECT_ATTRIBUTES& unredirectedObjectAttributes)
-    {
-      if (true == instruction.HasRedirectedFilename())
-      {
-        redirectedObjectNameAndAttributes.objectName =
-            Strings::NtConvertStringViewToUnicodeString(instruction.GetRedirectedFilename());
-
-        redirectedObjectNameAndAttributes.objectAttributes = unredirectedObjectAttributes;
-        redirectedObjectNameAndAttributes.objectAttributes.RootDirectory = nullptr;
-        redirectedObjectNameAndAttributes.objectAttributes.ObjectName =
-            &redirectedObjectNameAndAttributes.objectName;
+          return std::make_unique<MergedFileInformationQueue>(std::move(createdQueues));
       }
     }
 
@@ -488,7 +492,7 @@ namespace Pathwinder
     /// instruction, given a source path, file access mode, and create disposition.
     /// @return Context that contains all of the information needed to submit the file operation to
     /// the underlying system call.
-    static SFileOperationContext GetFileOperationRedirectionInformation(
+    static SFileOperationContext CreateFileOperationContext(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
         OpenHandleStore& openHandleStore,
@@ -601,11 +605,82 @@ namespace Pathwinder
       }
     }
 
+    /// Executes any pre-operations needed ahead of invoking underlying system calls.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this
+    /// function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
+    /// the named function. Used only for logging.
+    /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation,
+    /// including identifying any pre-operations needed.
+    /// @return Result of executing the pre-operations. The code will indicate success if they all
+    /// succeed or a failure that corresponds to the first applicable pre-operation failure.
+    static NTSTATUS ExecuteExtraPreOperations(
+        const wchar_t* functionName,
+        unsigned int functionRequestIdentifier,
+        const FileOperationInstruction& instruction)
+    {
+      NTSTATUS extraPreOperationResult = NtStatus::kSuccess;
+
+      if (instruction.GetExtraPreOperations().contains(
+              static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)) &&
+          (NT_SUCCESS(extraPreOperationResult)))
+      {
+        Message::OutputFormatted(
+            Message::ESeverity::Debug,
+            L"%s(%u): Ensuring directory hierarchy exists for \"%.*s\".",
+            functionName,
+            functionRequestIdentifier,
+            static_cast<int>(instruction.GetExtraPreOperationOperand().length()),
+            instruction.GetExtraPreOperationOperand().data());
+        extraPreOperationResult =
+            static_cast<NTSTATUS>(FilesystemOperations::CreateDirectoryHierarchy(
+                instruction.GetExtraPreOperationOperand()));
+      }
+
+      if (!(NT_SUCCESS(extraPreOperationResult)))
+        Message::OutputFormatted(
+            Message::ESeverity::Error,
+            L"%s(%u): A required pre-operation failed (NTSTATUS = 0x%08x).",
+            functionName,
+            functionRequestIdentifier,
+            static_cast<unsigned int>(extraPreOperationResult));
+
+      return extraPreOperationResult;
+    }
+
+    /// Fills the supplied object name and attributes structure with the name and attributes needed
+    /// to represent the redirected filename from a file operation redirection instruction. Does
+    /// nothing if the file operation redirection instruction does not specify any redirection. This
+    /// must be done in place because the `OBJECT_ATTRIBUTES` structure refers to its `ObjectName`
+    /// field by pointer. Returning by value would invalidate the address of the `ObjectName` field
+    /// and therefore not work.
+    /// @param [out] redirectedObjectNameAndAttributes Mutable reference to the structure to be
+    /// filled.
+    /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
+    /// @param [in] unredirectedObjectAttributes Object attributes structure received from the
+    /// application.
+    static void FillRedirectedObjectNameAndAttributesForInstruction(
+        SObjectNameAndAttributes& redirectedObjectNameAndAttributes,
+        const FileOperationInstruction& instruction,
+        const OBJECT_ATTRIBUTES& unredirectedObjectAttributes)
+    {
+      if (true == instruction.HasRedirectedFilename())
+      {
+        redirectedObjectNameAndAttributes.objectName =
+            Strings::NtConvertStringViewToUnicodeString(instruction.GetRedirectedFilename());
+
+        redirectedObjectNameAndAttributes.objectAttributes = unredirectedObjectAttributes;
+        redirectedObjectNameAndAttributes.objectAttributes.RootDirectory = nullptr;
+        redirectedObjectNameAndAttributes.objectAttributes.ObjectName =
+            &redirectedObjectNameAndAttributes.objectName;
+      }
+    }
+
     /// Determines the input/output mode for the specified file handle.
     /// @param [in] handle Filesystem object handle to check.
     /// @return Input/output mode for the handle, or #EInputOutputMode::Unknown in the event of an
     /// error.
-    static EInputOutputMode GetInputOutputModeForHandle(HANDLE handle)
+    static EInputOutputMode GetIoModeForHandle(HANDLE handle)
     {
       auto handleModeInformation = FilesystemOperations::QueryFileHandleMode(handle);
       if (handleModeInformation.HasError()) return EInputOutputMode::Unknown;
@@ -1029,7 +1104,7 @@ namespace Pathwinder
           openHandleStore.GetDataForHandle(fileHandle);
       if (false == maybeHandleData.has_value()) return std::nullopt;
 
-      switch (GetInputOutputModeForHandle(fileHandle))
+      switch (GetIoModeForHandle(fileHandle))
       {
         case EInputOutputMode::Synchronous:
           break;
@@ -1109,7 +1184,7 @@ namespace Pathwinder
         }
 
         std::unique_ptr<IDirectoryOperationQueue> directoryOperationQueueUniquePtr =
-            CreateDirectoryOperationQueueForInstruction(
+            CreateDirectoryOperationQueue(
                 directoryEnumerationInstruction,
                 fileInformationClass,
                 queryFilePattern,
@@ -1171,7 +1246,7 @@ namespace Pathwinder
           createDisposition,
           createOptions);
 
-      const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(
+      const SFileOperationContext operationContext = CreateFileOperationContext(
           functionName,
           functionRequestIdentifier,
           openHandleStore,
@@ -1373,7 +1448,7 @@ namespace Pathwinder
             unredirectedPath.data());
       }
 
-      const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(
+      const SFileOperationContext operationContext = CreateFileOperationContext(
           functionName,
           functionRequestIdentifier,
           openHandleStore,
@@ -1469,7 +1544,7 @@ namespace Pathwinder
             std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc,
         std::function<NTSTATUS(POBJECT_ATTRIBUTES)> underlyingSystemCallInvoker)
     {
-      const SFileOperationContext operationContext = GetFileOperationRedirectionInformation(
+      const SFileOperationContext operationContext = CreateFileOperationContext(
           functionName,
           functionRequestIdentifier,
           openHandleStore,

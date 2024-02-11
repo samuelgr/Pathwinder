@@ -54,12 +54,12 @@ namespace PathwinderTest
   {
     const auto directoryHandleIter = openFilesystemHandles.find(handle);
     if (openFilesystemHandles.cend() == directoryHandleIter) return std::nullopt;
-    return directoryHandleIter->second;
+    return directoryHandleIter->second.absolutePath;
   }
 
-  HANDLE MockFilesystemOperations::Open(std::wstring_view absolutePath)
+  HANDLE MockFilesystemOperations::Open(std::wstring_view absolutePath, EOpenHandleMode ioMode)
   {
-    HANDLE openResult = OpenFilesystemEntityInternal(absolutePath);
+    HANDLE openResult = OpenFilesystemEntityInternal(absolutePath, ioMode);
 
     if (nullptr == openResult)
       TEST_FAILED_BECAUSE(
@@ -125,13 +125,18 @@ namespace PathwinderTest
     }
   }
 
-  HANDLE MockFilesystemOperations::OpenFilesystemEntityInternal(std::wstring_view absolutePath)
+  HANDLE MockFilesystemOperations::OpenFilesystemEntityInternal(
+      std::wstring_view absolutePath, EOpenHandleMode ioMode)
   {
     if (false == Exists(absolutePath)) return nullptr;
 
     const HANDLE handleValue = reinterpret_cast<HANDLE>(nextHandleValue++);
     const bool insertWasSuccessful =
-        openFilesystemHandles.emplace(handleValue, std::wstring(absolutePath)).second;
+        openFilesystemHandles
+            .emplace(
+                handleValue,
+                SOpenHandleData{.absolutePath = std::wstring(absolutePath), .ioMode = ioMode})
+            .second;
 
     if (false == insertWasSuccessful)
       TEST_FAILED_BECAUSE(
@@ -187,7 +192,8 @@ namespace PathwinderTest
   ValueOrError<HANDLE, NTSTATUS> MockFilesystemOperations::OpenDirectoryForEnumeration(
       std::wstring_view absoluteDirectoryPath)
   {
-    HANDLE openResult = OpenFilesystemEntityInternal(absoluteDirectoryPath);
+    HANDLE openResult =
+        OpenFilesystemEntityInternal(absoluteDirectoryPath, EOpenHandleMode::SynchronousIoNonAlert);
     if (nullptr == openResult) return NtStatus::kObjectNameNotFound;
     return openResult;
   }
@@ -218,7 +224,7 @@ namespace PathwinderTest
             L"%s: Attempting to enumerate a directory using invalid directory handle %zu.",
             __FUNCTIONW__,
             reinterpret_cast<size_t>(directoryHandle));
-      std::wstring_view directoryToEnumerate = directoryHandleIter->second;
+      std::wstring_view directoryToEnumerate = directoryHandleIter->second.absolutePath;
 
       const auto directoryContentsIter = filesystemContents.find(directoryToEnumerate);
       if (filesystemContents.cend() == directoryContentsIter)
@@ -324,7 +330,23 @@ namespace PathwinderTest
 
   ValueOrError<ULONG, NTSTATUS> MockFilesystemOperations::QueryFileHandleMode(HANDLE fileHandle)
   {
-    TEST_FAILED_BECAUSE(L"%s: Unimplemented mock function called.", __FUNCTIONW__);
+    const auto directoryHandleIter = openFilesystemHandles.find(fileHandle);
+    if (openFilesystemHandles.cend() == directoryHandleIter) return NtStatus::kObjectNameNotFound;
+
+    switch (directoryHandleIter->second.ioMode)
+    {
+      case EOpenHandleMode::SynchronousIoAlert:
+        return FILE_SYNCHRONOUS_IO_ALERT;
+      case EOpenHandleMode::SynchronousIoNonAlert:
+        return FILE_SYNCHRONOUS_IO_NONALERT;
+      case EOpenHandleMode::Asynchronous:
+        return 0;
+      default:
+        TEST_FAILED_BECAUSE(
+            L"%s: Internal implementation error due to unrecognized I/O mode enumerator %u.",
+            __FUNCTIONW__,
+            static_cast<unsigned int>(directoryHandleIter->second.ioMode));
+    }
   }
 
   NTSTATUS MockFilesystemOperations::QuerySingleFileDirectoryInformation(

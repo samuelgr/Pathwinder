@@ -43,6 +43,14 @@ namespace PathwinderTest
       Directory
     };
 
+    /// Enumerates the different I/O modes that can be used to open handles to filesystem entities.
+    enum class EOpenHandleMode
+    {
+      SynchronousIoNonAlert,
+      SynchronousIoAlert,
+      Asynchronous
+    };
+
     /// Contains the information needed to represent a filesystem entity. This forms the "value"
     /// part of a key-value store representing a filesystem, so the name is not necessary here.
     /// Rather, it is the "key" part.
@@ -50,6 +58,13 @@ namespace PathwinderTest
     {
       EFilesystemEntityType type;
       unsigned int sizeInBytes;
+    };
+
+    /// Contains the information associated with any open handle in the fake filesystem.
+    struct SOpenHandleData
+    {
+      std::wstring absolutePath;
+      EOpenHandleMode ioMode;
     };
 
     /// Type alias for the contents of an individual directory. Key is a filename and value is
@@ -119,8 +134,12 @@ namespace PathwinderTest
     /// Generates a handle and marks a file or directory in the fake filesystem as being open.
     /// @param [in] absolutePath Absolute path of the file or directory to open, which must already
     /// exist in the fake filesystem. Paths are case-insensitive.
+    /// @param [in] ioMode I/O mode to associate with the newly-opened handle. This is an optional
+    /// parameter that defaults to synchronous non-alerting.
     /// @return Handle to the newly-opened file or directory.
-    HANDLE Open(std::wstring_view absolutePath);
+    HANDLE Open(
+        std::wstring_view absolutePath,
+        EOpenHandleMode ioMode = EOpenHandleMode::SynchronousIoNonAlert);
 
     /// Configures this object to allow or disallow closing invalid handles. If allowed, attempting
     /// to do so causes a normal status code to be returned, otherwise it triggers a test failure.
@@ -170,8 +189,9 @@ namespace PathwinderTest
     /// filesystem.
     /// @param [in] absolutePath Absolute path of the file or directory to open. Paths are
     /// case-insensitive.
+    /// @param [in] ioMode I/O mode to be associaetd with the newly-opened handle.
     /// @return Handle to the newly-opened file or directory, or `nullptr` if it does not exist.
-    HANDLE OpenFilesystemEntityInternal(std::wstring_view absolutePath);
+    HANDLE OpenFilesystemEntityInternal(std::wstring_view absolutePath, EOpenHandleMode ioMode);
 
     /// Configuration setting that determines whether or not it is considered a test failure to
     /// attempt to close an invalid (for example, not-previously-opened) handle. If so, doing so
@@ -183,7 +203,7 @@ namespace PathwinderTest
     TFilesystemContents filesystemContents;
 
     /// Open filesystem handles for files and directories. Maps from handle to directory full path.
-    std::unordered_map<HANDLE, std::wstring> openFilesystemHandles;
+    std::unordered_map<HANDLE, SOpenHandleData> openFilesystemHandles;
 
     /// In-progress directory enumerations.
     /// Maps from handle to directory enumeration state.

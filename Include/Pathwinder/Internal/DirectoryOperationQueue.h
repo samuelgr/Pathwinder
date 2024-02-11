@@ -261,25 +261,4 @@ namespace Pathwinder
     /// Queue which will provide the next element of the merged queues.
     IDirectoryOperationQueue* frontElementSourceQueue;
   };
-
-  /// Creates a directory operation queue object based on the supplied directory enumeration
-  /// instruction.
-  /// @param [in] instruction Instruction that specifies how to implement the directory
-  /// enumeration operation and hence determines which queue or queues are needed.
-  /// @param [in] fileInformationClass Type of information to request from the system when
-  /// querying for file information structures.
-  /// @param [in] queryFilePattern File pattern to supply to any created queues when they are
-  /// first created.
-  /// @param [in] handleAssociatedPath Absolute path internally associated with the handle to the
-  /// directory that is open for enumeration.
-  /// @param [in] handleRealOpenedPath Absolute path that was actually opened when creating the
-  /// handle to the directory that is open for enumeration.
-  /// @return Directory operation queue that will implement the instruction, or `nullptr` if the
-  /// instruction is a no-op and the represented enumeration can just be forwarded to the system.
-  std::unique_ptr<IDirectoryOperationQueue> CreateDirectoryOperationQueueForInstruction(
-      DirectoryEnumerationInstruction& instruction,
-      FILE_INFORMATION_CLASS fileInformationClass,
-      std::wstring_view queryFilePattern,
-      std::wstring_view handleAssociatedPath,
-      std::wstring_view handleRealOpenedPath);
 } // namespace Pathwinder
