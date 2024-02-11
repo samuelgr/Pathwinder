@@ -42,8 +42,9 @@ namespace Pathwinder
     BOOLEAN RtlIsNameInExpression(
         PUNICODE_STRING Expression, PUNICODE_STRING Name, BOOLEAN IgnoreCase, PWCH UpcaseTable)
     {
-      static decltype(&RtlIsNameInExpression) functionPtr =
-          reinterpret_cast<decltype(&RtlIsNameInExpression)>(
+      static BOOLEAN(__stdcall * functionPtr)(
+          PUNICODE_STRING Expression, PUNICODE_STRING Name, BOOLEAN IgnoreCase, PWCH UpcaseTable) =
+          reinterpret_cast<decltype(functionPtr)>(
               GetInternalWindowsApiFunctionAddress("RtlIsNameInExpression"));
       DebugAssert(
           nullptr != functionPtr,
