@@ -58,20 +58,22 @@ namespace Pathwinder
         HANDLE handle,
         std::function<NTSTATUS(HANDLE)> underlyingSystemCallInvoker);
 
-    /// Common internal entry point for intercepting directory enumerations. Parameters correspond
-    /// to the `NtQueryDirectoryFileEx` system call, with a few exceptions that are explicitly
-    /// documented.
+    /// Advances an in-progress directory enumeration operation by copying file information
+    /// structures to an application-supplied buffer. Most parameters come directly from
+    /// `NtQueryDirectoryFileEx` but those that do not are documented. This function should only be
+    /// invoked with file handles that are already cached in the open handle store and with a
+    /// pre-initialized directory enumeration operation state data structure associated with it.
     /// @param [in] functionName Name of the API function whose hook function is invoking this
     /// function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
     /// the named function. Used only for logging.
     /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
     /// file handles known to be open. Sets the context for this call.
-    /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a directory
-    /// enumeration instruction, given a source path, file access mode, and create disposition.
-    /// @return Result of the intercepted operation, if the operation should be intercepted, or
-    /// nothing at all to indicate that the operation should be forwarded to the system.
-    std::optional<NTSTATUS> DirectoryEnumeration(
+    /// @param [in] enumerationState Enumeration state data structure, which must be mutable so it
+    /// can be updated as the enumeration proceeds.
+    /// @return Windows error code corresponding to the result of advancing the directory
+    /// enumeration operation.
+    NTSTATUS DirectoryEnumerationAdvance(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
         OpenHandleStore& openHandleStore,
@@ -84,6 +86,30 @@ namespace Pathwinder
         ULONG length,
         FILE_INFORMATION_CLASS fileInformationClass,
         ULONG queryFlags,
+        PUNICODE_STRING fileName);
+
+    /// Prepares for a directory enumeration operation by initializing relevant data structures and
+    /// associating them with an open file handle. Similarly-named parameters correspond to the
+    /// `NtQueryDirectoryFileEx` system call, with a few exceptions that are explicitly documented.
+    /// If data structures have already been initialized for a specific open file handle directory
+    /// enumeration, this function returns a pointer to the existing object rather than initializing
+    /// a new one.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this
+    /// function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
+    /// the named function. Used only for logging.
+    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
+    /// file handles known to be open. Sets the context for this call.
+    /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a directory
+    /// enumeration instruction, given a source path, file access mode, and create disposition.
+    /// @return `true` if data structures were initialized successfully and the directory
+    /// enumeration operation should be intercepted, `false` otherwise.
+    bool DirectoryEnumerationPrepare(
+        const wchar_t* functionName,
+        unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
+        HANDLE fileHandle,
+        FILE_INFORMATION_CLASS fileInformationClass,
         PUNICODE_STRING fileName,
         std::function<DirectoryEnumerationInstruction(
             std::wstring_view associatedPath, std::wstring_view realOpenedPath)>

@@ -218,23 +218,17 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(
   if (RestartScan != 0) queryFlags |= SL_RESTART_SCAN;
   if (ReturnSingleEntry != 0) queryFlags |= SL_RETURN_SINGLE_ENTRY;
 
-  auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::DirectoryEnumeration(
-      GetFunctionName(),
-      GetRequestIdentifier(),
-      OpenHandleStoreInstance(),
-      FileHandle,
-      Event,
-      ApcRoutine,
-      ApcContext,
-      IoStatusBlock,
-      FileInformation,
-      Length,
-      FileInformationClass,
-      queryFlags,
-      FileName,
-      InstructionSourceForDirectoryEnumeration);
+  const bool shouldInterceptDirectoryEnumeration =
+      Pathwinder::FilesystemExecutor::DirectoryEnumerationPrepare(
+          GetFunctionName(),
+          GetRequestIdentifier(),
+          OpenHandleStoreInstance(),
+          FileHandle,
+          FileInformationClass,
+          FileName,
+          InstructionSourceForDirectoryEnumeration);
 
-  if (false == maybeHookFunctionResult.has_value())
+  if (false == shouldInterceptDirectoryEnumeration)
     return Original(
         FileHandle,
         Event,
@@ -248,7 +242,20 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(
         FileName,
         RestartScan);
 
-  return *maybeHookFunctionResult;
+  return Pathwinder::FilesystemExecutor::DirectoryEnumerationAdvance(
+      GetFunctionName(),
+      GetRequestIdentifier(),
+      OpenHandleStoreInstance(),
+      FileHandle,
+      Event,
+      ApcRoutine,
+      ApcContext,
+      IoStatusBlock,
+      FileInformation,
+      Length,
+      FileInformationClass,
+      queryFlags,
+      FileName);
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(
@@ -263,23 +270,17 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(
     ULONG QueryFlags,
     PUNICODE_STRING FileName)
 {
-  auto maybeHookFunctionResult = Pathwinder::FilesystemExecutor::DirectoryEnumeration(
-      GetFunctionName(),
-      GetRequestIdentifier(),
-      OpenHandleStoreInstance(),
-      FileHandle,
-      Event,
-      ApcRoutine,
-      ApcContext,
-      IoStatusBlock,
-      FileInformation,
-      Length,
-      FileInformationClass,
-      QueryFlags,
-      FileName,
-      InstructionSourceForDirectoryEnumeration);
+  const bool shouldInterceptDirectoryEnumeration =
+      Pathwinder::FilesystemExecutor::DirectoryEnumerationPrepare(
+          GetFunctionName(),
+          GetRequestIdentifier(),
+          OpenHandleStoreInstance(),
+          FileHandle,
+          FileInformationClass,
+          FileName,
+          InstructionSourceForDirectoryEnumeration);
 
-  if (false == maybeHookFunctionResult.has_value())
+  if (false == shouldInterceptDirectoryEnumeration)
     return Original(
         FileHandle,
         Event,
@@ -292,7 +293,20 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(
         QueryFlags,
         FileName);
 
-  return *maybeHookFunctionResult;
+  return Pathwinder::FilesystemExecutor::DirectoryEnumerationAdvance(
+      GetFunctionName(),
+      GetRequestIdentifier(),
+      OpenHandleStoreInstance(),
+      FileHandle,
+      Event,
+      ApcRoutine,
+      ApcContext,
+      IoStatusBlock,
+      FileInformation,
+      Length,
+      FileInformationClass,
+      QueryFlags,
+      FileName);
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(

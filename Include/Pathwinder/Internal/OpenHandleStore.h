@@ -47,6 +47,10 @@ namespace Pathwinder
       /// Set of already-enumerated files. Used for deduplication in the output.
       std::set<std::wstring, Strings::CaseInsensitiveLessThanComparator<wchar_t>>
           enumeratedFilenames;
+
+      /// Whether or not to enable special behavior for the first invocation of a directory
+      /// enumeration function, as specified by `NtQueryDirectoryFileEx` documentation.
+      bool isFirstInvocation;
     };
 
     /// By-reference view of data stored about an open handle.

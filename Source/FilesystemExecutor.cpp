@@ -251,41 +251,85 @@ namespace Pathwinder
       }
     }
 
-    /// Advances an in-progress directory enumeration operation by copying file information
-    /// structures to an application-supplied buffer. Most parameters come directly from
-    /// `NtQueryDirectoryFileEx` but those that do not are documented.
+    /// Internal implementation of advancing an in-progress directory enumeration operation.
     /// @param [in] functionName Name of the API function whose hook function is invoking this
     /// function. Used only for logging.
     /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
     /// the named function. Used only for logging.
-    /// @param [in] enumerationState Enumeration state data structure, which must be mutable so it
-    /// can be updated as the enumeration proceeds.
-    /// @param [in] isFirstInvocation Whether or not to enable special behavior for the first
-    /// invocation of a directory enumeration function, as specified by `NtQueryDirectoryFileEx`
-    /// documentation.
+    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
+    /// file handles known to be open. Sets the context for this call.
+    /// @param [in] fileHandle Open file handle for the directory being enumerated.
+    /// @param [out] ioStatusBlock Status block data structure to be filled with information on the
+    /// outcome of the directory enumeration operation.
+    /// @param [out] outputBuffer Buffer to be filled with file information structures as part of
+    /// the directory enumeration operation.
+    /// @param [in] outputBufferSizeBytes Capacity of the output buffer, in bytes.
+    /// @param [in] queryFlags Flags that determine how the query should be processed. See
+    /// `NtQueryDirectoryFileEx` for the meanings of these flags.
+    /// @param [in] queryFilePattern Pattern to be matched against individual file names, used as a
+    /// filter during directory enumeration. Per `NtQueryDirectoryFileEx` documentation, this
+    /// parameter is only honored if the flags specify to restart the scan.
     /// @return Windows error code corresponding to the result of advancing the directory
     /// enumeration operation.
     static NTSTATUS AdvanceDirectoryEnumerationOperation(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
-        OpenHandleStore::SInProgressDirectoryEnumeration& enumerationState,
-        bool isFirstInvocation,
+        OpenHandleStore& openHandleStore,
+        HANDLE fileHandle,
         PIO_STATUS_BLOCK ioStatusBlock,
         PVOID outputBuffer,
         ULONG outputBufferSizeBytes,
         ULONG queryFlags,
         std::wstring_view queryFilePattern)
     {
+      // It is a fatal error for a directory enumeration operation to be advanced if the directory
+      // handle is not cached or for the handle not to already have a properly-initialized directory
+      // enumeration state data structure object associated with it.
+      OpenHandleStore::SHandleDataView handleData = *(openHandleStore.GetDataForHandle(fileHandle));
+      OpenHandleStore::SInProgressDirectoryEnumeration& enumerationState =
+          *(*handleData.directoryEnumeration);
       DebugAssert(
           nullptr != enumerationState.queue,
           "Advancing directory enumeration state without an operation queue.");
 
       if (queryFlags & SL_RESTART_SCAN)
       {
+        if (true == queryFilePattern.empty())
+        {
+          Message::OutputFormatted(
+              Message::ESeverity::Debug,
+              L"%s(%u): Restarting scan for handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".",
+              functionName,
+              functionRequestIdentifier,
+              reinterpret_cast<size_t>(fileHandle),
+              static_cast<int>(handleData.associatedPath.length()),
+              handleData.associatedPath.data(),
+              static_cast<int>(handleData.realOpenedPath.length()),
+              handleData.realOpenedPath.data());
+        }
+        else
+        {
+          Message::OutputFormatted(
+              Message::ESeverity::Debug,
+              L"%s(%u): Restarting scan with file pattern \"%.*s\" for handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".",
+              functionName,
+              functionRequestIdentifier,
+              static_cast<int>(queryFilePattern.length()),
+              queryFilePattern.data(),
+              reinterpret_cast<size_t>(fileHandle),
+              static_cast<int>(handleData.associatedPath.length()),
+              handleData.associatedPath.data(),
+              static_cast<int>(handleData.realOpenedPath.length()),
+              handleData.realOpenedPath.data());
+        }
+
         enumerationState.queue->Restart(queryFilePattern);
         enumerationState.enumeratedFilenames.clear();
-        isFirstInvocation = true;
+        enumerationState.isFirstInvocation = true;
       }
+
+      const bool isFirstInvocation = enumerationState.isFirstInvocation;
+      enumerationState.isFirstInvocation = false;
 
       // The `Information` field of the output I/O status block records the total number of bytes
       // written.
@@ -1079,7 +1123,7 @@ namespace Pathwinder
       return closeHandleResult;
     }
 
-    std::optional<NTSTATUS> DirectoryEnumeration(
+    NTSTATUS DirectoryEnumerationAdvance(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
         OpenHandleStore& openHandleStore,
@@ -1092,17 +1136,41 @@ namespace Pathwinder
         ULONG length,
         FILE_INFORMATION_CLASS fileInformationClass,
         ULONG queryFlags,
+        PUNICODE_STRING fileName)
+    {
+      const std::wstring_view queryFilePattern =
+          ((nullptr == fileName) ? std::wstring_view()
+                                 : Strings::NtConvertUnicodeStringToStringView(*fileName));
+
+      return AdvanceDirectoryEnumerationOperation(
+          functionName,
+          functionRequestIdentifier,
+          openHandleStore,
+          fileHandle,
+          ioStatusBlock,
+          fileInformation,
+          length,
+          queryFlags,
+          queryFilePattern);
+    }
+
+    bool DirectoryEnumerationPrepare(
+        const wchar_t* functionName,
+        unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
+        HANDLE fileHandle,
+        FILE_INFORMATION_CLASS fileInformationClass,
         PUNICODE_STRING fileName,
         std::function<DirectoryEnumerationInstruction(std::wstring_view, std::wstring_view)>
             instructionSourceFunc)
     {
       std::optional<FileInformationStructLayout> maybeFileInformationStructLayout =
           FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass);
-      if (false == maybeFileInformationStructLayout.has_value()) return std::nullopt;
+      if (false == maybeFileInformationStructLayout.has_value()) return false;
 
       std::optional<OpenHandleStore::SHandleDataView> maybeHandleData =
           openHandleStore.GetDataForHandle(fileHandle);
-      if (false == maybeHandleData.has_value()) return std::nullopt;
+      if (false == maybeHandleData.has_value()) return false;
 
       switch (GetIoModeForHandle(fileHandle))
       {
@@ -1112,11 +1180,11 @@ namespace Pathwinder
         case EInputOutputMode::Asynchronous:
           Message::OutputFormatted(
               Message::ESeverity::Warning,
-              L"%s(%u): Application requested asynchronous directory enumeration with handle %zu, which is unimplemented.",
+              L"%s(%u): Application requested asynchronous directory enumeration for handle %zu, which is unimplemented.",
               functionName,
               functionRequestIdentifier,
               reinterpret_cast<size_t>(fileHandle));
-          return std::nullopt;
+          return false;
 
         default:
           Message::OutputFormatted(
@@ -1125,10 +1193,10 @@ namespace Pathwinder
               functionName,
               functionRequestIdentifier,
               reinterpret_cast<size_t>(fileHandle));
-          return std::nullopt;
+          return false;
       }
 
-      std::wstring_view queryFilePattern =
+      const std::wstring_view queryFilePattern =
           ((nullptr == fileName) ? std::wstring_view()
                                  : Strings::NtConvertUnicodeStringToStringView(*fileName));
       if (true == queryFilePattern.empty())
@@ -1160,10 +1228,6 @@ namespace Pathwinder
             maybeHandleData->realOpenedPath.data());
       }
 
-      // The underlying system calls are expected to behave slightly differently on a first
-      // invocation versus subsequent invocations.
-      bool newDirectoryEnumerationCreated = false;
-
       if (false == maybeHandleData->directoryEnumeration.has_value())
       {
         // A new directory enumeration queue needs to be created because a directory enumeration
@@ -1172,16 +1236,7 @@ namespace Pathwinder
         DirectoryEnumerationInstruction directoryEnumerationInstruction =
             instructionSourceFunc(maybeHandleData->associatedPath, maybeHandleData->realOpenedPath);
 
-        if (true == Globals::GetConfigurationData().isDryRunMode)
-        {
-          // This will mark the directory enumeration object as present but no-op. Future
-          // invocations will therefore not attempt to query for a directory enumeration instruction
-          // and will just be forwarded to the system.
-          openHandleStore.AssociateDirectoryEnumerationState(
-              fileHandle, nullptr, *maybeFileInformationStructLayout);
-
-          return std::nullopt;
-        }
+        if (true == Globals::GetConfigurationData().isDryRunMode) return false;
 
         std::unique_ptr<IDirectoryOperationQueue> directoryOperationQueueUniquePtr =
             CreateDirectoryOperationQueue(
@@ -1194,33 +1249,13 @@ namespace Pathwinder
             fileHandle,
             std::move(directoryOperationQueueUniquePtr),
             *maybeFileInformationStructLayout);
-        newDirectoryEnumerationCreated = true;
 
         // Re-obtain the handle data so that it contains a pointer to the newly-created directory
         // enumeration state object.
         maybeHandleData = openHandleStore.GetDataForHandle(fileHandle);
       }
 
-      DebugAssert(
-          (true == maybeHandleData->directoryEnumeration.has_value()),
-          "Failed to locate an in-progress directory enumearation stat data structure which should already exist.");
-
-      // At this point a directory enumeration queue will be present. If it is `nullptr` then it is
-      // a no-op and the original request just needs to be forwarded to the system.
-      OpenHandleStore::SInProgressDirectoryEnumeration& directoryEnumerationState =
-          *(*(maybeHandleData->directoryEnumeration));
-      if (nullptr == directoryEnumerationState.queue) return std::nullopt;
-
-      return AdvanceDirectoryEnumerationOperation(
-          functionName,
-          functionRequestIdentifier,
-          directoryEnumerationState,
-          newDirectoryEnumerationCreated,
-          ioStatusBlock,
-          fileInformation,
-          length,
-          queryFlags,
-          queryFilePattern);
+      return true;
     }
 
     NTSTATUS NewFileHandle(

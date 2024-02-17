@@ -47,7 +47,8 @@ namespace Pathwinder
 
     openHandleIter->second.directoryEnumeration = SInProgressDirectoryEnumeration{
         .queue = std::move(directoryEnumerationQueue),
-        .fileInformationStructLayout = fileInformationStructLayout};
+        .fileInformationStructLayout = fileInformationStructLayout,
+        .isFirstInvocation = true};
   }
 
   bool OpenHandleStore::Empty(void)
