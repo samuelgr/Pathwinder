@@ -3,7 +3,7 @@
  *   Path redirection for files, directories, and registry entries.
  ***************************************************************************************************
  * Authored by Samuel Grossman
- * Copyright (c) 2022-2023
+ * Copyright (c) 2022-2024
  ***********************************************************************************************//**
  * @file ResolverTest.cpp
  *   Unit tests for resolution of named references contained within a string.

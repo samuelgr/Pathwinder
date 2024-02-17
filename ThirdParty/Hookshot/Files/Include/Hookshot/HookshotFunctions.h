@@ -3,7 +3,7 @@
  *   General-purpose library for injecting DLLs and hooking function calls.
  ***************************************************************************************************
  * Authored by Samuel Grossman
- * Copyright (c) 2019-2023
+ * Copyright (c) 2019-2024
  ***********************************************************************************************//**
  * @file HookshotFunctions.h
  *   Function prototypes and macros for the public Hookshot interface. External users should
@@ -44,7 +44,7 @@ namespace Hookshot
 {
   /// Type definition for a pointer to the Hookshot library initialization function, whose address
   /// can be retrieved via a call to a function like `GetProcAddress`.
-  typedef Hookshot::IHookshot*(__fastcall* TLibraryInitializeProc)(void);
+  using TLibraryInitializeProc = Hookshot::IHookshot*(__fastcall*)(void);
 
 #ifdef _WIN64
   /// Name of the Hookshot library initialization function, which can be passed directly to a

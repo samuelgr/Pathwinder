@@ -3,7 +3,7 @@
  *   Path redirection for files, directories, and registry entries.
  ***************************************************************************************************
  * Authored by Samuel Grossman
- * Copyright (c) 2022-2023
+ * Copyright (c) 2022-2024
  ***********************************************************************************************//**
  * @file Harness.cpp
  *   Implementation of the test harness, including program entry point.

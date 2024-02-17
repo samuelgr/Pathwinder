@@ -1,6 +1,6 @@
 # Pathwinder
 
-*Documentation is incomplete because Pathwinder is still in development.*
+*Documentation is incomplete, possibly outdated or incorrect, and subject to change because Pathwinder is still in development.*
 
 Pathwinder acts on existing compiled compiled binary 32-bit (x86) and 64-bit (x64) applications by redirecting file operations from one location to another, subject to the *redirection rules* with which it is configured. Pathwinder presents applications with a consistent, but potentially illusionary, view of the filesystem. Applications continue to issue their file operations as usual, without modification, and Pathwinder can redirect them to other filesystem locations without the application being aware.
 
