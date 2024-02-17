@@ -1,5 +1,7 @@
 # Pathwinder
 
+*Documentation is incomplete because Pathwinder is still in development.*
+
 Pathwinder acts on existing compiled compiled binary 32-bit (x86) and 64-bit (x64) applications by redirecting file operations from one location to another, subject to the *redirection rules* with which it is configured. Pathwinder presents applications with a consistent, but potentially illusionary, view of the filesystem. Applications continue to issue their file operations as usual, without modification, and Pathwinder can redirect them to other filesystem locations without the application being aware.
 
 As a simple conceptual example, suppose an application located at `C:\Program Files\MyApp\MyApp.exe` stores its data in `C:\Program Files\MyApp\Data\`. A Pathwinder user can configure it with a redirection rule such that Pathwinder *redirects* all accesses to that directory to some other location, like `C:\Users\username\Documents\MyApp\`. The application *thinks* it is still reading from and writing to `C:\Program Files\MyApp\Data\`, but in fact it is actually reading from and writing to `C:\Users\username\Documents\MyApp\`.
@@ -194,4 +196,4 @@ Filesystem rules can additionally define one or more file patterns, which can be
 
 ## Mechanics of Filesystem Rules
 
-Text goes here.
+(to be filled in)
