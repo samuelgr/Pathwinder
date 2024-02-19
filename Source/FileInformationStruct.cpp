@@ -17,8 +17,6 @@
 #include <unordered_map>
 #include <utility>
 
-#include "DebugAssert.h"
-
 /// Produces a key-value pair definition for a file information class and the associatied
 /// structure's layout information.
 #define FILE_INFORMATION_LAYOUT_STRUCT_KEY_VALUE_PAIR_DEFINITION(structname)                       \
@@ -56,11 +54,6 @@ namespace Pathwinder
                 SFileIdExtdBothDirectoryInformation)};
 
     auto layoutIter = kFileInformationStructureLayouts.find(fileInformationClass);
-
-    DebugAssert(
-        layoutIter != kFileInformationStructureLayouts.cend(),
-        "Unsupported file information class.");
-
     if (layoutIter == kFileInformationStructureLayouts.cend()) return std::nullopt;
 
     return layoutIter->second;

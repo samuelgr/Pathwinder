@@ -14,6 +14,7 @@
 
 #include "FilesystemExecutor.h"
 
+#include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -22,6 +23,7 @@
 #include "ArrayList.h"
 #include "FilesystemDirector.h"
 #include "FilesystemInstruction.h"
+#include "MockDirectoryOperationQueue.h"
 #include "MockFilesystemOperations.h"
 #include "OpenHandleStore.h"
 #include "Strings.h"
@@ -33,7 +35,28 @@ namespace PathwinderTest
 
   /// Function request identifier to be passed to all filesystem executor functions when they are
   /// invoked for testing.
-  static unsigned int kFunctionRequestIdentifier = 0;
+  static constexpr unsigned int kFunctionRequestIdentifier = 0;
+
+  /// Record type for viewing and comparing in-progress directory enumeration state data structures.
+  /// Fields are as in the original structure but modified to avoid ownership. Intended for
+  /// comparing real records to one another during tests.
+  struct SDirectoryEnumerationStateSnapshot
+  {
+    IDirectoryOperationQueue* queue;
+    FileInformationStructLayout fileInformationStructLayout;
+    std::set<std::wstring, Strings::CaseInsensitiveLessThanComparator<wchar_t>> enumeratedFilenames;
+    bool isFirstInvocation;
+
+    inline SDirectoryEnumerationStateSnapshot(
+        const OpenHandleStore::SInProgressDirectoryEnumeration& inProgressDirectoryEnumeration)
+        : queue(inProgressDirectoryEnumeration.queue.get()),
+          fileInformationStructLayout(inProgressDirectoryEnumeration.fileInformationStructLayout),
+          enumeratedFilenames(inProgressDirectoryEnumeration.enumeratedFilenames),
+          isFirstInvocation(inProgressDirectoryEnumeration.isFirstInvocation)
+    {}
+
+    bool operator==(const SDirectoryEnumerationStateSnapshot& other) const = default;
+  };
 
   /// Copies a string to the dangling filename field of a file name information structure. Intended
   /// to be used to implement tests that query for file name information. Updates the length field
@@ -112,7 +135,8 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     mockFilesystem.AddDirectory(kDirectoryName);
 
-    const HANDLE directoryHandle = mockFilesystem.Open(kDirectoryName, MockFilesystemOperations::EOpenHandleMode::Asynchronous);
+    const HANDLE directoryHandle = mockFilesystem.Open(
+        kDirectoryName, MockFilesystemOperations::EOpenHandleMode::Asynchronous);
     TEST_ASSERT(kDirectoryName == mockFilesystem.GetPathFromHandle(directoryHandle));
 
     OpenHandleStore openHandleStore;
@@ -171,6 +195,94 @@ namespace PathwinderTest
     TEST_ASSERT(actualExecutorResult == expectedExecutorResult);
     TEST_ASSERT(false == openHandleStore.GetDataForHandle(directoryHandle).has_value());
     TEST_ASSERT(false == mockFilesystem.GetPathFromHandle(directoryHandle).has_value());
+  }
+
+  // Verifies that the correct paths for the provided directory handle are provided to the
+  // instruction source function when preparing to start a directory enumeration operation.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_InstructionSourcePathSelection)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kAssociatedPath);
+    mockFilesystem.AddDirectory(kRealOpenedPath);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
+
+    bool instructionSourceFuncInvoked = false;
+
+    FilesystemExecutor::DirectoryEnumerationPrepare(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        SFileNamesInformation::kFileInformationClass,
+        nullptr,
+        [&instructionSourceFuncInvoked](
+            std::wstring_view associatedPath,
+            std::wstring_view realOpenedPath) -> DirectoryEnumerationInstruction
+        {
+          TEST_ASSERT(associatedPath == kAssociatedPath);
+          TEST_ASSERT(realOpenedPath == kRealOpenedPath);
+
+          instructionSourceFuncInvoked = true;
+          return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+        });
+
+    TEST_ASSERT(true == instructionSourceFuncInvoked);
+  }
+
+  // Verifies that preparing for a directory enumeration is idempotent. Once a directory enumeration
+  // state data structure is associated with an object it remains unchanged even after a subsequent
+  // call to the directory enumeration preparation function.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_Idempotent)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kAssociatedPath);
+    mockFilesystem.AddDirectory(kRealOpenedPath);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
+    openHandleStore.AssociateDirectoryEnumerationState(
+        directoryHandle,
+        std::make_unique<MockDirectoryOperationQueue>(),
+        FileInformationStructLayout());
+
+    const SDirectoryEnumerationStateSnapshot expectedDirectoryEnumerationState =
+        *(*(openHandleStore.GetDataForHandle(directoryHandle)->directoryEnumeration));
+
+    // Since this invocation is expected to be idempotent the number of times it occurs is not
+    // important.
+    for (int i = 0; i < 10; ++i)
+    {
+      FilesystemExecutor::DirectoryEnumerationPrepare(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          directoryHandle,
+          SFileNamesInformation::kFileInformationClass,
+          nullptr,
+          [](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+          {
+            TEST_FAILED_BECAUSE(L"Unexpected invocation of instruction source function.");
+          });
+    }
+
+    const SDirectoryEnumerationStateSnapshot actualDirectoryEnumerationState =
+        *(*(openHandleStore.GetDataForHandle(directoryHandle)->directoryEnumeration));
+
+    TEST_ASSERT(actualDirectoryEnumerationState == expectedDirectoryEnumerationState);
   }
 
   // Verifies that whatever new handle value is written by the underlying system call is made

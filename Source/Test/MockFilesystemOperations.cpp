@@ -336,11 +336,11 @@ namespace PathwinderTest
     switch (directoryHandleIter->second.ioMode)
     {
       case EOpenHandleMode::SynchronousIoAlert:
-        return FILE_SYNCHRONOUS_IO_ALERT;
+        return static_cast<ULONG>(FILE_SYNCHRONOUS_IO_ALERT);
       case EOpenHandleMode::SynchronousIoNonAlert:
-        return FILE_SYNCHRONOUS_IO_NONALERT;
+        return static_cast<ULONG>(FILE_SYNCHRONOUS_IO_NONALERT);
       case EOpenHandleMode::Asynchronous:
-        return 0;
+        return static_cast<ULONG>(0);
       default:
         TEST_FAILED_BECAUSE(
             L"%s: Internal implementation error due to unrecognized I/O mode enumerator %u.",
