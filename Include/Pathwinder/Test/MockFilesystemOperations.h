@@ -125,11 +125,19 @@ namespace PathwinderTest
       AddFilesystemEntityInternal(absolutePath, EFilesystemEntityType::File, fileSizeInBytes);
     }
 
+    /// Retrieves the file pattern associated with the directory enumeration operation for the
+    /// specified handle.
+    /// @param [in] handle Handle for a directory being enumerated for which the file pattern is
+    /// desired.
+    /// @return File pattern associated with the in-progress directory enumeration, if there exists
+    /// an in-progress directory enumeration for the specified handle.
+    std::optional<std::wstring_view> GetFilePatternForDirectoryEnumeration(HANDLE handle) const;
+
     /// Retrieves the name of the filesystem entity associated with the specified handle that is
     /// already open.
     /// @param [in] handle Handle to query for the associated directory full path.
     /// @return Full path of the directory, if it is open for enumeration.
-    std::optional<std::wstring_view> GetPathFromHandle(HANDLE handle);
+    std::optional<std::wstring_view> GetPathFromHandle(HANDLE handle) const;
 
     /// Generates a handle and marks a file or directory in the fake filesystem as being open.
     /// @param [in] absolutePath Absolute path of the file or directory to open, which must already

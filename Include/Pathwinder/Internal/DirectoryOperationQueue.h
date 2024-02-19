@@ -94,6 +94,32 @@ namespace Pathwinder
 
     ~EnumerationQueue(void) override;
 
+    /// Retrieves the instruction that this queue object uses to determine which files to include in
+    /// the enumeration output. Primarily intended for tests.
+    /// @return Single directory enumeration instruction used for determining which files to include
+    /// in the enumeration output.
+    inline DirectoryEnumerationInstruction::SingleDirectoryEnumeration GetMatchInstruction(
+        void) const
+    {
+      return matchInstruction;
+    }
+
+    /// Retrieves the directory handle that was opened by this object for performing directory
+    /// enumeration. Primarily intended for tests.
+    /// @return Underlying directory handle used for enumeratingn directory contents.
+    inline HANDLE GetDirectoryHandle(void) const
+    {
+      return directoryHandle;
+    }
+
+    /// Retrieves the file information class with which this object was created. Primarily intended
+    /// for tests.
+    /// @return File information class used to query the system during directory enumeration.
+    inline FILE_INFORMATION_CLASS GetFileInformationClass(void) const
+    {
+      return fileInformationClass;
+    }
+
     // IDirectoryOperationQueue
     unsigned int CopyFront(void* dest, unsigned int capacityBytes) const override;
     NTSTATUS EnumerationStatus(void) const override;
@@ -167,6 +193,32 @@ namespace Pathwinder
     NameInsertionQueue(const NameInsertionQueue& other) = delete;
 
     NameInsertionQueue(NameInsertionQueue&& other) = default;
+
+    /// Retrieves the file information class with which this object was created. Primarily intended
+    /// for tests.
+    /// @return File information class used to query the system during directory enumeration.
+    inline FILE_INFORMATION_CLASS GetFileInformationClass(void) const
+    {
+      return fileInformationClass;
+    }
+
+    /// Retrieves the file match pattern, used to filter the enumeration output, with which this
+    /// object was created. Primarily intended for tests.
+    /// @return File match pattern string used to determine whether or not to include a particular
+    /// file or directory in the enumeration output.
+    inline std::wstring_view GetFilePattern(void) const
+    {
+      return filePattern;
+    }
+
+    /// Retrieves the name insertion instructions that this queue will use to generate directory
+    /// enumeration output. Primarily intended for tests.
+    /// @return Name insertion instructions.
+    inline const TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&
+        GetNameInsertionInstructions(void) const
+    {
+      return nameInsertionQueue;
+    }
 
     // IDirectoryOperationQueue
     unsigned int CopyFront(void* dest, unsigned int capacityBytes) const override;

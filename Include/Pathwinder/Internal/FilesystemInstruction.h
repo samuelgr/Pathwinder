@@ -251,7 +251,6 @@ namespace Pathwinder
       inline bool ShouldIncludeInDirectoryEnumeration(std::wstring_view filename) const
       {
         if (nullptr == filePatternSource) return true;
-
         return (filePatternSource->FileNameMatchesAnyPattern(filename) != invertFilePatternMatches);
       }
 
@@ -363,6 +362,22 @@ namespace Pathwinder
         std::array<SingleDirectoryEnumeration, 2>&& directoriesToEnumerate)
     {
       return DirectoryEnumerationInstruction(std::move(directoriesToEnumerate), std::nullopt);
+    }
+
+    /// Creates a directory enumeration instruction that specifies a specific set of individual
+    /// directory names to be used as the entire enumeration content. The enumeration result
+    /// provided back to the application will consist only of these directory names.
+    /// @param [in] directoryNamesToInsert Individual directory names to be inserted into the
+    /// enumeration result.
+    /// @return Directory enumeration encoded to request enumeration of the specific supplied
+    /// directory names and nothing else.
+    static inline DirectoryEnumerationInstruction UseOnlyRuleOriginDirectoryNames(
+        TemporaryVector<SingleDirectoryNameInsertion>&& directoryNamesToInsert)
+    {
+      return DirectoryEnumerationInstruction(
+          {SingleDirectoryEnumeration::NoEnumeration(),
+           SingleDirectoryEnumeration::NoEnumeration()},
+          std::move(directoryNamesToInsert));
     }
 
     /// Creates a directory enumeration instruction that specifies a specific set of individual

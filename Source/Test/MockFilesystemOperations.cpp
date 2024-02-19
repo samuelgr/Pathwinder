@@ -50,7 +50,15 @@ namespace PathwinderTest
         nextHandleValue(1000)
   {}
 
-  std::optional<std::wstring_view> MockFilesystemOperations::GetPathFromHandle(HANDLE handle)
+  std::optional<std::wstring_view> MockFilesystemOperations::GetFilePatternForDirectoryEnumeration(
+      HANDLE handle) const
+  {
+    const auto directoryEnumerationIter = inProgressDirectoryEnumerations.find(handle);
+    if (inProgressDirectoryEnumerations.cend() == directoryEnumerationIter) return std::nullopt;
+    return directoryEnumerationIter->second.filePattern;
+  }
+
+  std::optional<std::wstring_view> MockFilesystemOperations::GetPathFromHandle(HANDLE handle) const
   {
     const auto directoryHandleIter = openFilesystemHandles.find(handle);
     if (openFilesystemHandles.cend() == directoryHandleIter) return std::nullopt;

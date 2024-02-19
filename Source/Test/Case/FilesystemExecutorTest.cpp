@@ -23,10 +23,12 @@
 #include "ArrayList.h"
 #include "FilesystemDirector.h"
 #include "FilesystemInstruction.h"
+#include "FilesystemRule.h"
 #include "MockDirectoryOperationQueue.h"
 #include "MockFilesystemOperations.h"
 #include "OpenHandleStore.h"
 #include "Strings.h"
+#include "TemporaryBuffer.h"
 #include "ValueOrError.h"
 
 namespace PathwinderTest
@@ -56,7 +58,90 @@ namespace PathwinderTest
     {}
 
     bool operator==(const SDirectoryEnumerationStateSnapshot& other) const = default;
+
+    static SDirectoryEnumerationStateSnapshot GetForHandle(
+        HANDLE handle, OpenHandleStore& openHandleStore)
+    {
+      return *(*(openHandleStore.GetDataForHandle(handle)->directoryEnumeration));
+    }
   };
+
+  /// Determines if a directory operation queue object is of the specified type.
+  /// @tparam DirectoryOperationQueueType Type of directory operation queue to check for a match
+  /// with the parameter object.
+  /// @param [in] queueToCheck Directory operation queue to check.
+  /// @return `true` if the directory operation queue to check is type-compatible with the specified
+  /// type.
+  template <typename DirectoryOperationQueueType> static bool DirectoryOperationQueueTypeIs(
+      const IDirectoryOperationQueue& queueToCheck)
+  {
+    return (nullptr != dynamic_cast<const DirectoryOperationQueueType*>(&queueToCheck));
+  }
+
+  /// Verifies that the specified queue was created as an enumeration queue object and matches the
+  /// specifications determined by the other parameters.
+  /// @param [in] queueToCheck Queue object to be checked.
+  /// @param [in] mockFilesystem Mock filesystem controller object that will be queried as part of
+  /// the verification process.
+  /// @param [in] matchInstruction File matching instruction that should have been used to create
+  /// the enumeration queue.
+  /// @param [in] absoluteDirectoryPath Absolute directory path of the directory that the
+  /// enumeration queue is enumerating.
+  /// @param [in] fileInformationClass File information class that the queue will use when querying
+  /// the system for directory contents.
+  /// @param [in] filePattern File matching pattern that the queue is expected to use to filter
+  /// outputs of the enumeration.
+  static void VerifyIsEnumerationQueueAndMatchesSpec(
+      const IDirectoryOperationQueue* queueToCheck,
+      const MockFilesystemOperations& mockFilesystem,
+      DirectoryEnumerationInstruction::SingleDirectoryEnumeration matchInstruction,
+      std::wstring_view absoluteDirectoryPath,
+      FILE_INFORMATION_CLASS fileInformationClass,
+      std::wstring_view filePattern = std::wstring_view())
+  {
+    TEST_ASSERT(DirectoryOperationQueueTypeIs<EnumerationQueue>(*queueToCheck));
+    const EnumerationQueue& enumerationQueueToCheck =
+        *(static_cast<const EnumerationQueue*>(queueToCheck));
+
+    HANDLE enumeratedDirectoryHandle = enumerationQueueToCheck.GetDirectoryHandle();
+
+    TEST_ASSERT(enumerationQueueToCheck.GetMatchInstruction() == matchInstruction);
+    TEST_ASSERT(
+        mockFilesystem.GetPathFromHandle(enumeratedDirectoryHandle) == absoluteDirectoryPath);
+    TEST_ASSERT(enumerationQueueToCheck.GetFileInformationClass() == fileInformationClass);
+    TEST_ASSERT(mockFilesystem.GetFilePatternForDirectoryEnumeration(enumeratedDirectoryHandle)
+                    .has_value());
+    TEST_ASSERT(Strings::EqualsCaseInsensitive(
+        *mockFilesystem.GetFilePatternForDirectoryEnumeration(enumeratedDirectoryHandle),
+        filePattern));
+  }
+
+  /// Verifies that the specified queue was created as a name insertion object and matches the
+  /// specifications determined by the other parameters.
+  /// @param [in] queueToCheck Queue object to be checked.
+  /// @param [in] nameInsertionInstructions Name insertion instructions that the queue should use to
+  /// generate enumeration output.
+  /// @param [in] fileInformationClass File information class that the queue will use when querying
+  /// the system for directory contents.
+  /// @param [in] filePattern File matching pattern that the queue is expected to use to filter
+  /// outputs of the enumeration.
+  static void VerifyIsNameInsertionQueueAndMatchesSpec(
+      const IDirectoryOperationQueue* queueToCheck,
+      const TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&
+          nameInsertionInstructions,
+      FILE_INFORMATION_CLASS fileInformationClass,
+      std::wstring_view filePattern = std::wstring_view())
+  {
+    TEST_ASSERT(DirectoryOperationQueueTypeIs<NameInsertionQueue>(*queueToCheck));
+    const NameInsertionQueue& nameInsertionQueueToCheck =
+        *(static_cast<const NameInsertionQueue*>(queueToCheck));
+
+    TEST_ASSERT(
+        nameInsertionQueueToCheck.GetNameInsertionInstructions() == nameInsertionInstructions);
+    TEST_ASSERT(nameInsertionQueueToCheck.GetFileInformationClass() == fileInformationClass);
+    TEST_ASSERT(
+        Strings::EqualsCaseInsensitive(nameInsertionQueueToCheck.GetFilePattern(), filePattern));
+  }
 
   /// Copies a string to the dangling filename field of a file name information structure. Intended
   /// to be used to implement tests that query for file name information. Updates the length field
@@ -260,7 +345,7 @@ namespace PathwinderTest
         FileInformationStructLayout());
 
     const SDirectoryEnumerationStateSnapshot expectedDirectoryEnumerationState =
-        *(*(openHandleStore.GetDataForHandle(directoryHandle)->directoryEnumeration));
+        SDirectoryEnumerationStateSnapshot::GetForHandle(directoryHandle, openHandleStore);
 
     // Since this invocation is expected to be idempotent the number of times it occurs is not
     // important.
@@ -280,9 +365,550 @@ namespace PathwinderTest
     }
 
     const SDirectoryEnumerationStateSnapshot actualDirectoryEnumerationState =
-        *(*(openHandleStore.GetDataForHandle(directoryHandle)->directoryEnumeration));
+        SDirectoryEnumerationStateSnapshot::GetForHandle(directoryHandle, openHandleStore);
 
     TEST_ASSERT(actualDirectoryEnumerationState == expectedDirectoryEnumerationState);
+  }
+
+  // Verifies that the correct type of directory enumeration queues are created when the instruction
+  // specifies to merge two directory enumerations.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_MergeTwoDirectories)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+
+    // Expected result is two enumeration queues being merged together, the first for the associated
+    // path and the second for the real opened path.
+    const DirectoryEnumerationInstruction::SingleDirectoryEnumeration
+        singleEnumerationInstructions[] = {
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
+                EDirectoryPathSource::AssociatedPath),
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
+                EDirectoryPathSource::RealOpenedPath)};
+    const DirectoryEnumerationInstruction testInstruction =
+        DirectoryEnumerationInstruction::EnumerateDirectories(
+            {singleEnumerationInstructions[0], singleEnumerationInstructions[1]});
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kAssociatedPath);
+    mockFilesystem.AddDirectory(kRealOpenedPath);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
+
+    const bool expectedReturnValue = true;
+    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        SFileNamesInformation::kFileInformationClass,
+        nullptr,
+        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+        {
+          return testInstruction;
+        });
+
+    TEST_ASSERT(actualReturnValue == expectedReturnValue);
+    TEST_ASSERT(
+        openHandleStore.GetDataForHandle(directoryHandle)->directoryEnumeration.has_value());
+
+    const SDirectoryEnumerationStateSnapshot directoryEnumerationState =
+        SDirectoryEnumerationStateSnapshot::GetForHandle(directoryHandle, openHandleStore);
+
+    // Created queues are examined in detail at this point. The specific checks used here are based
+    // on the expected result, which is documented along with the directory enumeration instruction
+    // used in this test case.
+    TEST_ASSERT(DirectoryOperationQueueTypeIs<MergedFileInformationQueue>(
+        *directoryEnumerationState.queue));
+
+    MergedFileInformationQueue* topLevelMergeQueue =
+        static_cast<MergedFileInformationQueue*>(directoryEnumerationState.queue);
+
+    VerifyIsEnumerationQueueAndMatchesSpec(
+        topLevelMergeQueue->GetUnderlyingQueue(0),
+        mockFilesystem,
+        singleEnumerationInstructions[0],
+        kAssociatedPath,
+        SFileNamesInformation::kFileInformationClass);
+    VerifyIsEnumerationQueueAndMatchesSpec(
+        topLevelMergeQueue->GetUnderlyingQueue(1),
+        mockFilesystem,
+        singleEnumerationInstructions[1],
+        kRealOpenedPath,
+        SFileNamesInformation::kFileInformationClass);
+
+    for (unsigned int i = 2; i < MergedFileInformationQueue::kNumQueuesToMerge; ++i)
+      TEST_ASSERT(nullptr == topLevelMergeQueue->GetUnderlyingQueue(i));
+  }
+
+  // Verifies that the correct type of directory enumeration queues are created when the instruction
+  // specifies to merge two directory enumerations. This test case models a situation in which a
+  // filesystem rule that affects the enumeration uses a scope-determining file pattern and hence
+  // will modify the underlying enumeration operations to either match or not match the filesystem
+  // rule's file pattern.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_MergeTwoDirectoriesWithFilePatternSource)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+
+    const FilesystemRule testRule(kAssociatedPath, kRealOpenedPath, {L"*.txt", L"*.bin", L"*.log"});
+
+    // Expected result is two enumeration queues being merged together, the first for the associated
+    // path and the second for the real opened path.
+    const DirectoryEnumerationInstruction::SingleDirectoryEnumeration
+        singleEnumerationInstructions[] = {
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                IncludeOnlyMatchingFilenames(EDirectoryPathSource::AssociatedPath, testRule),
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                IncludeAllExceptMatchingFilenames(EDirectoryPathSource::RealOpenedPath, testRule)};
+    const DirectoryEnumerationInstruction testInstruction =
+        DirectoryEnumerationInstruction::EnumerateDirectories(
+            {singleEnumerationInstructions[0], singleEnumerationInstructions[1]});
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kAssociatedPath);
+    mockFilesystem.AddDirectory(kRealOpenedPath);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
+
+    const bool expectedReturnValue = true;
+    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        SFileNamesInformation::kFileInformationClass,
+        nullptr,
+        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+        {
+          return testInstruction;
+        });
+
+    TEST_ASSERT(actualReturnValue == expectedReturnValue);
+    TEST_ASSERT(
+        openHandleStore.GetDataForHandle(directoryHandle)->directoryEnumeration.has_value());
+
+    const SDirectoryEnumerationStateSnapshot directoryEnumerationState =
+        SDirectoryEnumerationStateSnapshot::GetForHandle(directoryHandle, openHandleStore);
+
+    // Created queues are examined in detail at this point. The specific checks used here are based
+    // on the expected result, which is documented along with the directory enumeration instruction
+    // used in this test case.
+    TEST_ASSERT(DirectoryOperationQueueTypeIs<MergedFileInformationQueue>(
+        *directoryEnumerationState.queue));
+
+    MergedFileInformationQueue* topLevelMergeQueue =
+        static_cast<MergedFileInformationQueue*>(directoryEnumerationState.queue);
+
+    VerifyIsEnumerationQueueAndMatchesSpec(
+        topLevelMergeQueue->GetUnderlyingQueue(0),
+        mockFilesystem,
+        singleEnumerationInstructions[0],
+        kAssociatedPath,
+        SFileNamesInformation::kFileInformationClass);
+    VerifyIsEnumerationQueueAndMatchesSpec(
+        topLevelMergeQueue->GetUnderlyingQueue(1),
+        mockFilesystem,
+        singleEnumerationInstructions[1],
+        kRealOpenedPath,
+        SFileNamesInformation::kFileInformationClass);
+
+    for (unsigned int i = 2; i < MergedFileInformationQueue::kNumQueuesToMerge; ++i)
+      TEST_ASSERT(nullptr == topLevelMergeQueue->GetUnderlyingQueue(i));
+  }
+
+  // Verifies that the correct type of directory enumeration queues are created when the instruction
+  // specifies to merge two directory enumerations and a file pattern is used to filter the
+  // enumeration output. This test models the situation in which application specified a file
+  // pattern, meaning that it is expected to be associated with the open directory handle and used
+  // to filter enumeration output.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_MergeTwoDirectoriesWithQueryFilePattern)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+
+    // Expected result is two enumeration queues being merged together, the first for the associated
+    // path and the second for the real opened path.
+    const DirectoryEnumerationInstruction::SingleDirectoryEnumeration
+        singleEnumerationInstructions[] = {
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
+                EDirectoryPathSource::AssociatedPath),
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
+                EDirectoryPathSource::RealOpenedPath)};
+    const DirectoryEnumerationInstruction testInstruction =
+        DirectoryEnumerationInstruction::EnumerateDirectories(
+            {singleEnumerationInstructions[0], singleEnumerationInstructions[1]});
+
+    constexpr std::wstring_view kQueryFilePattern = L"*.txt";
+    UNICODE_STRING filePatternUnicodeString =
+        Strings::NtConvertStringViewToUnicodeString(kQueryFilePattern);
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kAssociatedPath);
+    mockFilesystem.AddDirectory(kRealOpenedPath);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
+
+    const bool expectedReturnValue = true;
+    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        SFileNamesInformation::kFileInformationClass,
+        &filePatternUnicodeString,
+        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+        {
+          return testInstruction;
+        });
+
+    TEST_ASSERT(actualReturnValue == expectedReturnValue);
+    TEST_ASSERT(
+        openHandleStore.GetDataForHandle(directoryHandle)->directoryEnumeration.has_value());
+
+    const SDirectoryEnumerationStateSnapshot directoryEnumerationState =
+        SDirectoryEnumerationStateSnapshot::GetForHandle(directoryHandle, openHandleStore);
+
+    // Created queues are examined in detail at this point. The specific checks used here are based
+    // on the expected result, which is documented along with the directory enumeration instruction
+    // used in this test case.
+    TEST_ASSERT(DirectoryOperationQueueTypeIs<MergedFileInformationQueue>(
+        *directoryEnumerationState.queue));
+
+    MergedFileInformationQueue* topLevelMergeQueue =
+        static_cast<MergedFileInformationQueue*>(directoryEnumerationState.queue);
+
+    VerifyIsEnumerationQueueAndMatchesSpec(
+        topLevelMergeQueue->GetUnderlyingQueue(0),
+        mockFilesystem,
+        singleEnumerationInstructions[0],
+        kAssociatedPath,
+        SFileNamesInformation::kFileInformationClass,
+        kQueryFilePattern);
+    VerifyIsEnumerationQueueAndMatchesSpec(
+        topLevelMergeQueue->GetUnderlyingQueue(1),
+        mockFilesystem,
+        singleEnumerationInstructions[1],
+        kRealOpenedPath,
+        SFileNamesInformation::kFileInformationClass,
+        kQueryFilePattern);
+
+    for (unsigned int i = 2; i < MergedFileInformationQueue::kNumQueuesToMerge; ++i)
+      TEST_ASSERT(nullptr == topLevelMergeQueue->GetUnderlyingQueue(i));
+  }
+
+  // Verifies that the correct type of directory enumeration queue is created when the instruction
+  // specifies to enumerate a specific set of directories as the entire output of the enumeration.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_NameInsertion)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+
+    // Expected result is a single name insertion queue.
+    const FilesystemRule filesystemRules[] = {FilesystemRule(kAssociatedPath, kRealOpenedPath)};
+    const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion
+        singleNameInsertionInstructions[] = {
+            DirectoryEnumerationInstruction::SingleDirectoryNameInsertion(filesystemRules[0])};
+    const DirectoryEnumerationInstruction testInstruction =
+        DirectoryEnumerationInstruction::UseOnlyRuleOriginDirectoryNames(
+            {singleNameInsertionInstructions[0]});
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kAssociatedPath);
+    mockFilesystem.AddDirectory(kRealOpenedPath);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
+
+    const bool expectedReturnValue = true;
+    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        SFileNamesInformation::kFileInformationClass,
+        nullptr,
+        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+        {
+          return testInstruction;
+        });
+
+    TEST_ASSERT(actualReturnValue == expectedReturnValue);
+    TEST_ASSERT(
+        openHandleStore.GetDataForHandle(directoryHandle)->directoryEnumeration.has_value());
+
+    const SDirectoryEnumerationStateSnapshot directoryEnumerationState =
+        SDirectoryEnumerationStateSnapshot::GetForHandle(directoryHandle, openHandleStore);
+
+    // Created queues are examined in detail at this point. The specific checks used here are based
+    // on the expected result, which is documented along with the directory enumeration instruction
+    // used in this test case.
+    VerifyIsNameInsertionQueueAndMatchesSpec(
+        directoryEnumerationState.queue,
+        {singleNameInsertionInstructions[0]},
+        SFileNamesInformation::kFileInformationClass);
+  }
+
+  // Verifies that the correct type of directory enumeration queue is created when the instruction
+  // specifies to enumerate a specific set of directories as the entire output of the enumeration.
+  // This test models the situation in which application specified a file pattern, meaning that it
+  // is expected to be associated with the open directory handle and used to filter enumeration
+  // output.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_NameInsertionWithQueryFilePattern)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+
+    // Expected result is a single name insertion queue.
+    const FilesystemRule filesystemRules[] = {FilesystemRule(kAssociatedPath, kRealOpenedPath)};
+    const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion
+        singleNameInsertionInstructions[] = {
+            DirectoryEnumerationInstruction::SingleDirectoryNameInsertion(filesystemRules[0])};
+    const DirectoryEnumerationInstruction testInstruction =
+        DirectoryEnumerationInstruction::UseOnlyRuleOriginDirectoryNames(
+            {singleNameInsertionInstructions[0]});
+
+    constexpr std::wstring_view kQueryFilePattern = L"*.txt";
+    UNICODE_STRING filePatternUnicodeString =
+        Strings::NtConvertStringViewToUnicodeString(kQueryFilePattern);
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kAssociatedPath);
+    mockFilesystem.AddDirectory(kRealOpenedPath);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
+
+    const bool expectedReturnValue = true;
+    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        SFileNamesInformation::kFileInformationClass,
+        &filePatternUnicodeString,
+        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+        {
+          return testInstruction;
+        });
+
+    TEST_ASSERT(actualReturnValue == expectedReturnValue);
+    TEST_ASSERT(
+        openHandleStore.GetDataForHandle(directoryHandle)->directoryEnumeration.has_value());
+
+    const SDirectoryEnumerationStateSnapshot directoryEnumerationState =
+        SDirectoryEnumerationStateSnapshot::GetForHandle(directoryHandle, openHandleStore);
+
+    // Created queues are examined in detail at this point. The specific checks used here are based
+    // on the expected result, which is documented along with the directory enumeration instruction
+    // used in this test case.
+    VerifyIsNameInsertionQueueAndMatchesSpec(
+        directoryEnumerationState.queue,
+        {singleNameInsertionInstructions[0]},
+        SFileNamesInformation::kFileInformationClass,
+        kQueryFilePattern);
+  }
+
+  // Verifies that the correct type of directory enumeration queues are created when the instruction
+  // specifies both directory enumeration and name insertion.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_CombinedNameInsertionAndEnumeration)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+    constexpr std::wstring_view kOriginDirectory = L"E:\\OriginPath1";
+    constexpr std::wstring_view kTargetDirectory = L"E:\\TargetPath2";
+
+    // Expected result is a single name insertion queue.
+    const FilesystemRule filesystemRules[] = {FilesystemRule(kOriginDirectory, kTargetDirectory)};
+    const DirectoryEnumerationInstruction::SingleDirectoryEnumeration
+        singleEnumerationInstructions[] = {
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
+                EDirectoryPathSource::AssociatedPath),
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
+                EDirectoryPathSource::RealOpenedPath)};
+    const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion
+        singleNameInsertionInstructions[] = {
+            DirectoryEnumerationInstruction::SingleDirectoryNameInsertion(filesystemRules[0])};
+    const DirectoryEnumerationInstruction testInstruction =
+        DirectoryEnumerationInstruction::EnumerateDirectoriesAndInsertRuleOriginDirectoryNames(
+            {singleEnumerationInstructions[0], singleEnumerationInstructions[1]},
+            {singleNameInsertionInstructions[0]});
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kAssociatedPath);
+    mockFilesystem.AddDirectory(kRealOpenedPath);
+    mockFilesystem.AddDirectory(kOriginDirectory);
+    mockFilesystem.AddDirectory(kTargetDirectory);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
+
+    const bool expectedReturnValue = true;
+    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        SFileNamesInformation::kFileInformationClass,
+        nullptr,
+        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+        {
+          return testInstruction;
+        });
+
+    TEST_ASSERT(actualReturnValue == expectedReturnValue);
+    TEST_ASSERT(
+        openHandleStore.GetDataForHandle(directoryHandle)->directoryEnumeration.has_value());
+
+    const SDirectoryEnumerationStateSnapshot directoryEnumerationState =
+        SDirectoryEnumerationStateSnapshot::GetForHandle(directoryHandle, openHandleStore);
+
+    // Created queues are examined in detail at this point. The specific checks used here are based
+    // on the expected result, which is documented along with the directory enumeration instruction
+    // used in this test case.
+    TEST_ASSERT(DirectoryOperationQueueTypeIs<MergedFileInformationQueue>(
+        *directoryEnumerationState.queue));
+
+    MergedFileInformationQueue* topLevelMergeQueue =
+        static_cast<MergedFileInformationQueue*>(directoryEnumerationState.queue);
+
+    VerifyIsEnumerationQueueAndMatchesSpec(
+        topLevelMergeQueue->GetUnderlyingQueue(0),
+        mockFilesystem,
+        singleEnumerationInstructions[0],
+        kAssociatedPath,
+        SFileNamesInformation::kFileInformationClass);
+    VerifyIsEnumerationQueueAndMatchesSpec(
+        topLevelMergeQueue->GetUnderlyingQueue(1),
+        mockFilesystem,
+        singleEnumerationInstructions[1],
+        kRealOpenedPath,
+        SFileNamesInformation::kFileInformationClass);
+    VerifyIsNameInsertionQueueAndMatchesSpec(
+        topLevelMergeQueue->GetUnderlyingQueue(2),
+        {singleNameInsertionInstructions[0]},
+        SFileNamesInformation::kFileInformationClass);
+
+    for (unsigned int i = 3; i < MergedFileInformationQueue::kNumQueuesToMerge; ++i)
+      TEST_ASSERT(nullptr == topLevelMergeQueue->GetUnderlyingQueue(i));
+  }
+
+  // Verifies that the correct type of directory enumeration queues are created when the instruction
+  // specifies both directory enumeration and name insertion. This test models the situation in
+  // which application specified a file pattern, meaning that it is expected to be associated with
+  // the open directory handle and used to filter enumeration output.
+  TEST_CASE(
+      FilesystemExecutor_DirectoryEnumerationPrepare_CombinedNameInsertionAndEnumerationWithQueryFilePattern)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+    constexpr std::wstring_view kOriginDirectory = L"E:\\OriginPath1";
+    constexpr std::wstring_view kTargetDirectory = L"E:\\TargetPath2";
+
+    // Expected result is a single name insertion queue.
+    const FilesystemRule filesystemRules[] = {FilesystemRule(kOriginDirectory, kTargetDirectory)};
+    const DirectoryEnumerationInstruction::SingleDirectoryEnumeration
+        singleEnumerationInstructions[] = {
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
+                EDirectoryPathSource::AssociatedPath),
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
+                EDirectoryPathSource::RealOpenedPath)};
+    const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion
+        singleNameInsertionInstructions[] = {
+            DirectoryEnumerationInstruction::SingleDirectoryNameInsertion(filesystemRules[0])};
+    const DirectoryEnumerationInstruction testInstruction =
+        DirectoryEnumerationInstruction::EnumerateDirectoriesAndInsertRuleOriginDirectoryNames(
+            {singleEnumerationInstructions[0], singleEnumerationInstructions[1]},
+            {singleNameInsertionInstructions[0]});
+
+    constexpr std::wstring_view kQueryFilePattern = L"*.txt";
+    UNICODE_STRING filePatternUnicodeString =
+        Strings::NtConvertStringViewToUnicodeString(kQueryFilePattern);
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kAssociatedPath);
+    mockFilesystem.AddDirectory(kRealOpenedPath);
+    mockFilesystem.AddDirectory(kOriginDirectory);
+    mockFilesystem.AddDirectory(kTargetDirectory);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
+
+    const bool expectedReturnValue = true;
+    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        SFileNamesInformation::kFileInformationClass,
+        &filePatternUnicodeString,
+        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+        {
+          return testInstruction;
+        });
+
+    TEST_ASSERT(actualReturnValue == expectedReturnValue);
+    TEST_ASSERT(
+        openHandleStore.GetDataForHandle(directoryHandle)->directoryEnumeration.has_value());
+
+    const SDirectoryEnumerationStateSnapshot directoryEnumerationState =
+        SDirectoryEnumerationStateSnapshot::GetForHandle(directoryHandle, openHandleStore);
+
+    // Created queues are examined in detail at this point. The specific checks used here are based
+    // on the expected result, which is documented along with the directory enumeration instruction
+    // used in this test case.
+    TEST_ASSERT(DirectoryOperationQueueTypeIs<MergedFileInformationQueue>(
+        *directoryEnumerationState.queue));
+
+    MergedFileInformationQueue* topLevelMergeQueue =
+        static_cast<MergedFileInformationQueue*>(directoryEnumerationState.queue);
+
+    VerifyIsEnumerationQueueAndMatchesSpec(
+        topLevelMergeQueue->GetUnderlyingQueue(0),
+        mockFilesystem,
+        singleEnumerationInstructions[0],
+        kAssociatedPath,
+        SFileNamesInformation::kFileInformationClass,
+        kQueryFilePattern);
+    VerifyIsEnumerationQueueAndMatchesSpec(
+        topLevelMergeQueue->GetUnderlyingQueue(1),
+        mockFilesystem,
+        singleEnumerationInstructions[1],
+        kRealOpenedPath,
+        SFileNamesInformation::kFileInformationClass,
+        kQueryFilePattern);
+    VerifyIsNameInsertionQueueAndMatchesSpec(
+        topLevelMergeQueue->GetUnderlyingQueue(2),
+        {singleNameInsertionInstructions[0]},
+        SFileNamesInformation::kFileInformationClass,
+        kQueryFilePattern);
+
+    for (unsigned int i = 3; i < MergedFileInformationQueue::kNumQueuesToMerge; ++i)
+      TEST_ASSERT(nullptr == topLevelMergeQueue->GetUnderlyingQueue(i));
   }
 
   // Verifies that whatever new handle value is written by the underlying system call is made
