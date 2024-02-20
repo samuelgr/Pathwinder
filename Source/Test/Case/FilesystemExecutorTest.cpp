@@ -422,7 +422,7 @@ namespace PathwinderTest
     // is invoked after the enumeration finishes.
     for (int i = 0; i < 10; ++i)
     {
-      IO_STATUS_BLOCK finalIoStatusBlock{.Information = 255};
+      IO_STATUS_BLOCK finalIoStatusBlock = InitializeIoStatusBlock();
       const NTSTATUS finalExpectedReturnCode = NtStatus::kNoMoreFiles;
       const NTSTATUS finalActualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
           TestCaseName().data(),
@@ -440,6 +440,7 @@ namespace PathwinderTest
           nullptr);
 
       TEST_ASSERT(finalActualReturnCode == finalExpectedReturnCode);
+      TEST_ASSERT(finalIoStatusBlock.Status == finalExpectedReturnCode);
 
       const unsigned int finalExpectedBytesWritten = 0;
       const unsigned int finalActualBytesWritten =
@@ -800,7 +801,7 @@ namespace PathwinderTest
     // success on subsequent invocations.
     for (int i = 0; i < 10; ++i)
     {
-      IO_STATUS_BLOCK ioStatusBlock{.Information = 255};
+      IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
       const NTSTATUS expectedReturnCode = (0 == i ? NtStatus::kBufferTooSmall : NtStatus::kSuccess);
       const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
@@ -819,6 +820,7 @@ namespace PathwinderTest
           nullptr);
 
       TEST_ASSERT(actualReturnCode == expectedReturnCode);
+      TEST_ASSERT(ioStatusBlock.Status == expectedReturnCode);
 
       const unsigned int expectedBytesWritten = 0;
       unsigned int actualBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
@@ -911,7 +913,7 @@ namespace PathwinderTest
     // First invocation. A partial write is expected, along with a buffer overflow return code.
     do
     {
-      IO_STATUS_BLOCK ioStatusBlock{.Information = 255};
+      IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
       const NTSTATUS expectedReturnCode = NtStatus::kBufferOverflow;
       const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
@@ -949,7 +951,7 @@ namespace PathwinderTest
     // expected but with nothing written to the output buffer.
     for (int i = 0; i < 10; ++i)
     {
-      IO_STATUS_BLOCK ioStatusBlock{.Information = 255};
+      IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
       const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
       const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
@@ -979,7 +981,7 @@ namespace PathwinderTest
     // structure. Success is expected, and enumeration progress is expected to advance.
     do
     {
-      IO_STATUS_BLOCK ioStatusBlock{.Information = 255};
+      IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
       const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
       const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
@@ -1017,7 +1019,7 @@ namespace PathwinderTest
     // advanced. There should be no files left.
     for (int i = 0; i < 10; ++i)
     {
-      IO_STATUS_BLOCK ioStatusBlock{.Information = 255};
+      IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
       const NTSTATUS expectedReturnCode = NtStatus::kNoMoreFiles;
       const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
