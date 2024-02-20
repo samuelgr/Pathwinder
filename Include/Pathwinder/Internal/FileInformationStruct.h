@@ -426,6 +426,16 @@ namespace Pathwinder
     }
 
     /// Computes the hypothetical size, in bytes, of a file information structure if its
+    /// trailing filename field had the specified filename.
+    /// @param [in] fileName Hypothetical filename contained in the trailing filename field.
+    /// @return Hypothetical size, in bytes, of a file information structure.
+    inline unsigned int HypotheticalSizeForFileName(std::wstring_view fileName) const
+    {
+      return HypotheticalSizeForFileNameLength(
+          static_cast<unsigned int>(fileName.length() * sizeof(wchar_t)));
+    }
+
+    /// Computes the hypothetical size, in bytes, of a file information structure if its
     /// trailing filename field had the specified length.
     /// @param [in] fileNameLengthBytes Hypothetical length of the trailing filename field, in
     /// bytes.

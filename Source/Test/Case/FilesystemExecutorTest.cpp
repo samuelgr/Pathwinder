@@ -282,6 +282,753 @@ namespace PathwinderTest
     TEST_ASSERT(false == mockFilesystem.GetPathFromHandle(directoryHandle).has_value());
   }
 
+  // Verifies the nominal case of directory enumeration advancement whereby file information
+  // structures are copied to a buffer large enough to hold all of them. Checks that the file
+  // information structures are copied correctly and that all of them are copied.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_Nominal)
+  {
+    constexpr std::wstring_view kTestDirectory = L"X:\\Test\\Directory";
+
+    constexpr FILE_INFORMATION_CLASS kFileNamesInformationClass =
+        SFileNamesInformation::kFileInformationClass;
+    const FileInformationStructLayout fileNameStructLayout =
+        *FileInformationStructLayout::LayoutForFileInformationClass(kFileNamesInformationClass);
+
+    const MockDirectoryOperationQueue::TFileNamesToEnumerate expectedEnumeratedFilenames = {
+        L"file1.txt", L"00file2.txt", L"FILE3.log", L"app1.exe", L"binfile.bin"};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kTestDirectory);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kTestDirectory);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
+    openHandleStore.AssociateDirectoryEnumerationState(
+        directoryHandle,
+        std::make_unique<MockDirectoryOperationQueue>(
+            fileNameStructLayout,
+            MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
+        fileNameStructLayout);
+
+    TemporaryVector<uint8_t> enumerationOutputBytes;
+    IO_STATUS_BLOCK ioStatusBlock{};
+
+    const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
+    const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        nullptr,
+        nullptr,
+        nullptr,
+        &ioStatusBlock,
+        enumerationOutputBytes.Data(),
+        enumerationOutputBytes.CapacityBytes(),
+        kFileNamesInformationClass,
+        0,
+        nullptr);
+
+    TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+    MockDirectoryOperationQueue::TFileNamesToEnumerate actualEnumeratedFilenames;
+    const unsigned int expectedBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
+    unsigned int actualBytesWritten = 0;
+
+    size_t enumeratedOutputBytePosition = 0;
+    while (enumeratedOutputBytePosition <
+           std::min(expectedBytesWritten, enumerationOutputBytes.CapacityBytes()))
+    {
+      const SFileNamesInformation* enumeratedFileInformation =
+          reinterpret_cast<const SFileNamesInformation*>(
+              &enumerationOutputBytes.Data()[enumeratedOutputBytePosition]);
+
+      actualEnumeratedFilenames.emplace(
+          fileNameStructLayout.ReadFileName(enumeratedFileInformation));
+      actualBytesWritten += fileNameStructLayout.SizeOfStruct(enumeratedFileInformation);
+
+      if (0 == enumeratedFileInformation->nextEntryOffset) break;
+      enumeratedOutputBytePosition +=
+          static_cast<size_t>(enumeratedFileInformation->nextEntryOffset);
+    }
+
+    TEST_ASSERT(actualEnumeratedFilenames == expectedEnumeratedFilenames);
+    TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
+  }
+
+  // Verifies that, after all files are enumerated, subsequent invocations should result in no bytes
+  // being written and a status code indicating no more files being available.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_IndicateNoMoreFiles)
+  {
+    constexpr std::wstring_view kTestDirectory = L"X:\\Test\\Directory";
+
+    constexpr FILE_INFORMATION_CLASS kFileNamesInformationClass =
+        SFileNamesInformation::kFileInformationClass;
+    const FileInformationStructLayout fileNameStructLayout =
+        *FileInformationStructLayout::LayoutForFileInformationClass(kFileNamesInformationClass);
+
+    const MockDirectoryOperationQueue::TFileNamesToEnumerate expectedEnumeratedFilenames = {
+        L"file1.txt", L"00file2.txt", L"FILE3.log", L"app1.exe", L"binfile.bin"};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kTestDirectory);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kTestDirectory);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
+    openHandleStore.AssociateDirectoryEnumerationState(
+        directoryHandle,
+        std::make_unique<MockDirectoryOperationQueue>(
+            fileNameStructLayout,
+            MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
+        fileNameStructLayout);
+
+    TemporaryVector<uint8_t> enumerationOutputBytes;
+    IO_STATUS_BLOCK ioStatusBlock{};
+
+    const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
+    const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        nullptr,
+        nullptr,
+        nullptr,
+        &ioStatusBlock,
+        enumerationOutputBytes.Data(),
+        enumerationOutputBytes.CapacityBytes(),
+        kFileNamesInformationClass,
+        0,
+        nullptr);
+
+    TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+    // The function is expected to indicate no more files are available no matter how many times it
+    // is invoked after the enumeration finishes.
+    for (int i = 0; i < 10; ++i)
+    {
+      IO_STATUS_BLOCK finalIoStatusBlock{.Information = 255};
+      const NTSTATUS finalExpectedReturnCode = NtStatus::kNoMoreFiles;
+      const NTSTATUS finalActualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          directoryHandle,
+          nullptr,
+          nullptr,
+          nullptr,
+          &finalIoStatusBlock,
+          enumerationOutputBytes.Data(),
+          enumerationOutputBytes.CapacityBytes(),
+          kFileNamesInformationClass,
+          0,
+          nullptr);
+
+      TEST_ASSERT(finalActualReturnCode == finalExpectedReturnCode);
+
+      const unsigned int finalExpectedBytesWritten = 0;
+      const unsigned int finalActualBytesWritten =
+          static_cast<unsigned int>(finalIoStatusBlock.Information);
+      TEST_ASSERT(finalActualBytesWritten == finalExpectedBytesWritten);
+    }
+  }
+
+  // Verifies that, after all files are enumerated, restarting the enumeration results in them being
+  // properly enumerated all over again.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_RestartEnumeration)
+  {
+    constexpr std::wstring_view kTestDirectory = L"X:\\Test\\Directory";
+
+    constexpr FILE_INFORMATION_CLASS kFileNamesInformationClass =
+        SFileNamesInformation::kFileInformationClass;
+    const FileInformationStructLayout fileNameStructLayout =
+        *FileInformationStructLayout::LayoutForFileInformationClass(kFileNamesInformationClass);
+
+    const MockDirectoryOperationQueue::TFileNamesToEnumerate expectedEnumeratedFilenames = {
+        L"file1.txt", L"00file2.txt", L"FILE3.log", L"app1.exe", L"binfile.bin"};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kTestDirectory);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kTestDirectory);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
+    openHandleStore.AssociateDirectoryEnumerationState(
+        directoryHandle,
+        std::make_unique<MockDirectoryOperationQueue>(
+            fileNameStructLayout,
+            MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
+        fileNameStructLayout);
+
+    TemporaryVector<uint8_t> enumerationOutputBytes;
+    IO_STATUS_BLOCK ioStatusBlock{};
+
+    const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
+    const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        nullptr,
+        nullptr,
+        nullptr,
+        &ioStatusBlock,
+        enumerationOutputBytes.Data(),
+        enumerationOutputBytes.CapacityBytes(),
+        kFileNamesInformationClass,
+        0,
+        nullptr);
+
+    TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+    IO_STATUS_BLOCK finalIoStatusBlock{};
+    const NTSTATUS finalExpectedReturnCode = NtStatus::kSuccess;
+    const NTSTATUS finalActualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        nullptr,
+        nullptr,
+        nullptr,
+        &finalIoStatusBlock,
+        enumerationOutputBytes.Data(),
+        enumerationOutputBytes.CapacityBytes(),
+        kFileNamesInformationClass,
+        SL_RESTART_SCAN,
+        nullptr);
+
+    TEST_ASSERT(finalActualReturnCode == finalExpectedReturnCode);
+
+    // Because the preceding enumeration restarted the query, all of the files should be enumerated
+    // once again. The same checks below apply as in the nominal test case.
+
+    MockDirectoryOperationQueue::TFileNamesToEnumerate actualEnumeratedFilenames;
+    const unsigned int expectedBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
+    unsigned int actualBytesWritten = 0;
+
+    size_t enumeratedOutputBytePosition = 0;
+    while (enumeratedOutputBytePosition <
+           std::min(expectedBytesWritten, enumerationOutputBytes.CapacityBytes()))
+    {
+      const SFileNamesInformation* enumeratedFileInformation =
+          reinterpret_cast<const SFileNamesInformation*>(
+              &enumerationOutputBytes.Data()[enumeratedOutputBytePosition]);
+
+      actualEnumeratedFilenames.emplace(
+          fileNameStructLayout.ReadFileName(enumeratedFileInformation));
+      actualBytesWritten += fileNameStructLayout.SizeOfStruct(enumeratedFileInformation);
+
+      if (0 == enumeratedFileInformation->nextEntryOffset) break;
+      enumeratedOutputBytePosition +=
+          static_cast<size_t>(enumeratedFileInformation->nextEntryOffset);
+    }
+
+    TEST_ASSERT(actualEnumeratedFilenames == expectedEnumeratedFilenames);
+    TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
+  }
+
+  // Verifies that queues are properly restarted with a new file pattern if the application
+  // specifies that the scan is to be restarted.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_RestartWithQueryFilePattren)
+  {
+    constexpr std::wstring_view kTestDirectory = L"X:\\Test\\Directory";
+    constexpr std::wstring_view kTestFilePattern = L"file*.txt";
+
+    constexpr FILE_INFORMATION_CLASS kFileNamesInformationClass =
+        SFileNamesInformation::kFileInformationClass;
+    const FileInformationStructLayout fileNameStructLayout =
+        *FileInformationStructLayout::LayoutForFileInformationClass(kFileNamesInformationClass);
+
+    const MockDirectoryOperationQueue::TFileNamesToEnumerate expectedEnumeratedFilenames = {
+        L"file1.txt", L"00file2.txt", L"FILE3.log", L"app1.exe", L"binfile.bin"};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kTestDirectory);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kTestDirectory);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
+    openHandleStore.AssociateDirectoryEnumerationState(
+        directoryHandle,
+        std::make_unique<MockDirectoryOperationQueue>(
+            fileNameStructLayout,
+            MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
+        fileNameStructLayout);
+
+    const MockDirectoryOperationQueue* const directoryOperationQueue =
+        static_cast<const MockDirectoryOperationQueue*>(
+            SDirectoryEnumerationStateSnapshot::GetForHandle(directoryHandle, openHandleStore)
+                .queue);
+
+    TemporaryVector<uint8_t> enumerationOutputBytes;
+    IO_STATUS_BLOCK ioStatusBlock{};
+    UNICODE_STRING queryFilePatternUnicodeString =
+        Strings::NtConvertStringViewToUnicodeString(kTestFilePattern);
+
+    TEST_ASSERT(directoryOperationQueue->GetLastRestartedQueryFilePattern().empty());
+
+    FilesystemExecutor::DirectoryEnumerationAdvance(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        nullptr,
+        nullptr,
+        nullptr,
+        &ioStatusBlock,
+        enumerationOutputBytes.Data(),
+        enumerationOutputBytes.CapacityBytes(),
+        kFileNamesInformationClass,
+        SL_RESTART_SCAN,
+        &queryFilePatternUnicodeString);
+
+    TEST_ASSERT(directoryOperationQueue->GetLastRestartedQueryFilePattern() == kTestFilePattern);
+  }
+
+  // Verifies that files enumerated are deduplicated. The output should be the same as in the
+  // nominal case, but in this situation the input is three queues all providing identical file
+  // names.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_Deduplicate)
+  {
+    constexpr std::wstring_view kTestDirectory = L"X:\\Test\\Directory";
+
+    constexpr FILE_INFORMATION_CLASS kFileNamesInformationClass =
+        SFileNamesInformation::kFileInformationClass;
+    const FileInformationStructLayout fileNameStructLayout =
+        *FileInformationStructLayout::LayoutForFileInformationClass(kFileNamesInformationClass);
+
+    const MockDirectoryOperationQueue::TFileNamesToEnumerate expectedEnumeratedFilenames = {
+        L"file1.txt", L"00file2.txt", L"FILE3.log", L"app1.exe", L"binfile.bin"};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kTestDirectory);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kTestDirectory);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
+    openHandleStore.AssociateDirectoryEnumerationState(
+        directoryHandle,
+        std::make_unique<MergedFileInformationQueue>(MergedFileInformationQueue({
+            std::make_unique<MockDirectoryOperationQueue>(
+                fileNameStructLayout,
+                MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
+            std::make_unique<MockDirectoryOperationQueue>(
+                fileNameStructLayout,
+                MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
+            std::make_unique<MockDirectoryOperationQueue>(
+                fileNameStructLayout,
+                MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
+        })),
+        fileNameStructLayout);
+
+    TemporaryVector<uint8_t> enumerationOutputBytes;
+    IO_STATUS_BLOCK ioStatusBlock{};
+
+    const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
+    const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        nullptr,
+        nullptr,
+        nullptr,
+        &ioStatusBlock,
+        enumerationOutputBytes.Data(),
+        enumerationOutputBytes.CapacityBytes(),
+        kFileNamesInformationClass,
+        0,
+        nullptr);
+
+    TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+    MockDirectoryOperationQueue::TFileNamesToEnumerate actualEnumeratedFilenames;
+    const unsigned int expectedBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
+    unsigned int actualBytesWritten = 0;
+
+    size_t enumeratedOutputBytePosition = 0;
+    while (enumeratedOutputBytePosition <
+           std::min(expectedBytesWritten, enumerationOutputBytes.CapacityBytes()))
+    {
+      const SFileNamesInformation* enumeratedFileInformation =
+          reinterpret_cast<const SFileNamesInformation*>(
+              &enumerationOutputBytes.Data()[enumeratedOutputBytePosition]);
+
+      actualEnumeratedFilenames.emplace(
+          fileNameStructLayout.ReadFileName(enumeratedFileInformation));
+      actualBytesWritten += fileNameStructLayout.SizeOfStruct(enumeratedFileInformation);
+
+      if (0 == enumeratedFileInformation->nextEntryOffset) break;
+      enumeratedOutputBytePosition +=
+          static_cast<size_t>(enumeratedFileInformation->nextEntryOffset);
+    }
+
+    TEST_ASSERT(actualEnumeratedFilenames == expectedEnumeratedFilenames);
+    TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
+  }
+
+  // Verifies single-stepped directory enumeration advancement whereby one file information
+  // structure is copied to the output buffer each invocation. Checks that the file information
+  // structures are copied correctly and that all of them are copied.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_SingleEntry)
+  {
+    constexpr std::wstring_view kTestDirectory = L"X:\\Test\\Directory";
+
+    constexpr FILE_INFORMATION_CLASS kFileNamesInformationClass =
+        SFileNamesInformation::kFileInformationClass;
+    const FileInformationStructLayout fileNameStructLayout =
+        *FileInformationStructLayout::LayoutForFileInformationClass(kFileNamesInformationClass);
+
+    const MockDirectoryOperationQueue::TFileNamesToEnumerate expectedEnumeratedFilenames = {
+        L"file1.txt", L"00file2.txt", L"FILE3.log", L"app1.exe", L"binfile.bin"};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kTestDirectory);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kTestDirectory);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
+    openHandleStore.AssociateDirectoryEnumerationState(
+        directoryHandle,
+        std::make_unique<MockDirectoryOperationQueue>(
+            fileNameStructLayout,
+            MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
+        fileNameStructLayout);
+
+    TemporaryVector<uint8_t> enumerationOutputBytes;
+    MockDirectoryOperationQueue::TFileNamesToEnumerate actualEnumeratedFilenames;
+
+    for (auto i = 0; i < expectedEnumeratedFilenames.size(); ++i)
+    {
+      IO_STATUS_BLOCK ioStatusBlock{};
+
+      const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
+      const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          directoryHandle,
+          nullptr,
+          nullptr,
+          nullptr,
+          &ioStatusBlock,
+          enumerationOutputBytes.Data(),
+          enumerationOutputBytes.CapacityBytes(),
+          kFileNamesInformationClass,
+          SL_RETURN_SINGLE_ENTRY,
+          nullptr);
+
+      TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+      const unsigned int expectedBytesWritten =
+          static_cast<unsigned int>(ioStatusBlock.Information);
+      unsigned int actualBytesWritten =
+          fileNameStructLayout.SizeOfStruct(enumerationOutputBytes.Data());
+      TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
+
+      actualEnumeratedFilenames.emplace(
+          fileNameStructLayout.ReadFileName(enumerationOutputBytes.Data()));
+    }
+
+    TEST_ASSERT(actualEnumeratedFilenames == expectedEnumeratedFilenames);
+  }
+
+  // Verifies that no part of the base structure is written to the output buffer if the output
+  // buffer is declared as being too small to hold even the fixed part of the file information
+  // structure during directory enumeration. There is some special-case behavior on first invocation
+  // which is also checked in this test case.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_BufferTooSmallForBaseStruct)
+  {
+    constexpr std::wstring_view kTestDirectory = L"X:\\Test\\Directory";
+
+    constexpr FILE_INFORMATION_CLASS kFileNamesInformationClass =
+        SFileNamesInformation::kFileInformationClass;
+    const FileInformationStructLayout fileNameStructLayout =
+        *FileInformationStructLayout::LayoutForFileInformationClass(kFileNamesInformationClass);
+
+    const MockDirectoryOperationQueue::TFileNamesToEnumerate expectedEnumeratedFilenames = {
+        L"file1.txt", L"00file2.txt", L"FILE3.log", L"app1.exe", L"binfile.bin"};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kTestDirectory);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kTestDirectory);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
+    openHandleStore.AssociateDirectoryEnumerationState(
+        directoryHandle,
+        std::make_unique<MockDirectoryOperationQueue>(
+            fileNameStructLayout,
+            MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
+        fileNameStructLayout);
+
+    TemporaryVector<uint8_t> enumerationOutputBytes;
+
+    // It does not matter how many times the function is invoked. Since the base structure cannot
+    // fit in the buffer it should always fail in almost the same way every time. The only
+    // difference is the return code, which indicates the error on the first invocation and returns
+    // success on subsequent invocations.
+    for (int i = 0; i < 10; ++i)
+    {
+      IO_STATUS_BLOCK ioStatusBlock{.Information = 255};
+
+      const NTSTATUS expectedReturnCode = (0 == i ? NtStatus::kBufferTooSmall : NtStatus::kSuccess);
+      const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          directoryHandle,
+          nullptr,
+          nullptr,
+          nullptr,
+          &ioStatusBlock,
+          enumerationOutputBytes.Data(),
+          fileNameStructLayout.BaseStructureSize() - 1,
+          kFileNamesInformationClass,
+          0,
+          nullptr);
+
+      TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+      const unsigned int expectedBytesWritten = 0;
+      unsigned int actualBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
+
+      TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
+    }
+
+    // After repeatedly passing a buffer that is too small, enumeration should still be able to
+    // proceed as in the nominal case, with all expected files being enumerated successfully.
+    IO_STATUS_BLOCK ioStatusBlock{};
+    const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
+    const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        nullptr,
+        nullptr,
+        nullptr,
+        &ioStatusBlock,
+        enumerationOutputBytes.Data(),
+        enumerationOutputBytes.CapacityBytes(),
+        kFileNamesInformationClass,
+        0,
+        nullptr);
+
+    TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+    MockDirectoryOperationQueue::TFileNamesToEnumerate actualEnumeratedFilenames;
+    const unsigned int expectedBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
+    unsigned int actualBytesWritten = 0;
+
+    size_t enumeratedOutputBytePosition = 0;
+    while (enumeratedOutputBytePosition <
+           std::min(expectedBytesWritten, enumerationOutputBytes.CapacityBytes()))
+    {
+      const SFileNamesInformation* enumeratedFileInformation =
+          reinterpret_cast<const SFileNamesInformation*>(
+              &enumerationOutputBytes.Data()[enumeratedOutputBytePosition]);
+
+      actualEnumeratedFilenames.emplace(
+          fileNameStructLayout.ReadFileName(enumeratedFileInformation));
+      actualBytesWritten += fileNameStructLayout.SizeOfStruct(enumeratedFileInformation);
+
+      if (0 == enumeratedFileInformation->nextEntryOffset) break;
+      enumeratedOutputBytePosition +=
+          static_cast<size_t>(enumeratedFileInformation->nextEntryOffset);
+    }
+
+    TEST_ASSERT(actualEnumeratedFilenames == expectedEnumeratedFilenames);
+    TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
+  }
+
+  // Verifies that, on first invocation, if the output buffer is too small for the complete filename
+  // (but will fit the base structure itself), a partial write occurs and an appropriate status code
+  // is returned. Further verifies that, on subsequent invocations with the same situation, no
+  // partial write is even attempted.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_BufferTooSmallForCompleteStruct)
+  {
+    constexpr std::wstring_view kTestDirectory = L"X:\\Test\\Directory";
+    constexpr std::wstring_view kTestCompleteFileName = L"aVeryVeryLongFileNameGoesHere.txt";
+    constexpr std::wstring_view kTestPartialFileName = L"aVeryVeryLong";
+
+    constexpr FILE_INFORMATION_CLASS kFileNamesInformationClass =
+        SFileNamesInformation::kFileInformationClass;
+    const FileInformationStructLayout fileNameStructLayout =
+        *FileInformationStructLayout::LayoutForFileInformationClass(kFileNamesInformationClass);
+
+    const MockDirectoryOperationQueue::TFileNamesToEnumerate filesToEnumerate = {
+        std::wstring(kTestCompleteFileName)};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kTestDirectory);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kTestDirectory);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
+    openHandleStore.AssociateDirectoryEnumerationState(
+        directoryHandle,
+        std::make_unique<MockDirectoryOperationQueue>(
+            fileNameStructLayout,
+            MockDirectoryOperationQueue::TFileNamesToEnumerate(filesToEnumerate)),
+        fileNameStructLayout);
+
+    TemporaryVector<uint8_t> enumerationOutputBytes;
+
+    // First invocation. A partial write is expected, along with a buffer overflow return code.
+    do
+    {
+      IO_STATUS_BLOCK ioStatusBlock{.Information = 255};
+
+      const NTSTATUS expectedReturnCode = NtStatus::kBufferOverflow;
+      const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          directoryHandle,
+          nullptr,
+          nullptr,
+          nullptr,
+          &ioStatusBlock,
+          enumerationOutputBytes.Data(),
+          fileNameStructLayout.HypotheticalSizeForFileName(kTestPartialFileName),
+          kFileNamesInformationClass,
+          0,
+          nullptr);
+
+      TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+      const unsigned int expectedBytesWritten =
+          fileNameStructLayout.HypotheticalSizeForFileName(kTestPartialFileName);
+      unsigned int actualBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
+
+      TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
+
+      const std::wstring_view expectedPartialWriteFileName = kTestPartialFileName;
+      const std::wstring_view actualPartialWriteFileName =
+          fileNameStructLayout.ReadFileName(enumerationOutputBytes.Data());
+
+      TEST_ASSERT(actualPartialWriteFileName == expectedPartialWriteFileName);
+    }
+    while (false);
+
+    // Subsequent invocations with the same problem of the buffer being too small. Success is
+    // expected but with nothing written to the output buffer.
+    for (int i = 0; i < 10; ++i)
+    {
+      IO_STATUS_BLOCK ioStatusBlock{.Information = 255};
+
+      const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
+      const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          directoryHandle,
+          nullptr,
+          nullptr,
+          nullptr,
+          &ioStatusBlock,
+          enumerationOutputBytes.Data(),
+          fileNameStructLayout.HypotheticalSizeForFileName(kTestPartialFileName),
+          kFileNamesInformationClass,
+          0,
+          nullptr);
+
+      TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+      const unsigned int expectedBytesWritten = 0;
+      unsigned int actualBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
+
+      TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
+    }
+
+    // Subsequent invocation, this time with a buffer that is large enough to hold the entire
+    // structure. Success is expected, and enumeration progress is expected to advance.
+    do
+    {
+      IO_STATUS_BLOCK ioStatusBlock{.Information = 255};
+
+      const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
+      const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          directoryHandle,
+          nullptr,
+          nullptr,
+          nullptr,
+          &ioStatusBlock,
+          enumerationOutputBytes.Data(),
+          enumerationOutputBytes.CapacityBytes(),
+          kFileNamesInformationClass,
+          0,
+          nullptr);
+
+      TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+      const unsigned int expectedBytesWritten =
+          fileNameStructLayout.HypotheticalSizeForFileName(kTestCompleteFileName);
+      unsigned int actualBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
+
+      TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
+
+      const std::wstring_view expectedFileName = kTestCompleteFileName;
+      const std::wstring_view actualFileName =
+          fileNameStructLayout.ReadFileName(enumerationOutputBytes.Data());
+
+      TEST_ASSERT(actualFileName == expectedFileName);
+    }
+    while (false);
+
+    // Additional subsequent invocations, which are used to verify that enumeration progress has
+    // advanced. There should be no files left.
+    for (int i = 0; i < 10; ++i)
+    {
+      IO_STATUS_BLOCK ioStatusBlock{.Information = 255};
+
+      const NTSTATUS expectedReturnCode = NtStatus::kNoMoreFiles;
+      const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          directoryHandle,
+          nullptr,
+          nullptr,
+          nullptr,
+          &ioStatusBlock,
+          enumerationOutputBytes.Data(),
+          enumerationOutputBytes.CapacityBytes(),
+          kFileNamesInformationClass,
+          0,
+          nullptr);
+
+      TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+      const unsigned int expectedBytesWritten = 0;
+      unsigned int actualBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
+
+      TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
+    }
+  }
+
   // Verifies that the correct paths for the provided directory handle are provided to the
   // instruction source function when preparing to start a directory enumeration operation.
   TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_InstructionSourcePathSelection)

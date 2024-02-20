@@ -89,8 +89,10 @@ namespace PathwinderTest
     if (false == fileNamesToEnumerate.empty()) ++nextFileNameToEnumerate;
   }
 
-  void MockDirectoryOperationQueue::Restart(std::wstring_view unusedQueryFilePattern)
+  void MockDirectoryOperationQueue::Restart(std::wstring_view queryFilePattern)
   {
+    lastRestartedQueryFilePattern = queryFilePattern;
+
     if (false == fileNamesToEnumerate.empty())
       nextFileNameToEnumerate = fileNamesToEnumerate.cbegin();
   }
@@ -100,6 +102,6 @@ namespace PathwinderTest
     if (true == fileNamesToEnumerate.empty()) return 0;
 
     return fileInformationStructLayout.HypotheticalSizeForFileNameLength(
-        static_cast<unsigned int>(FileNameOfFront().length()));
+        static_cast<unsigned int>(FileNameOfFront().length() * sizeof(wchar_t)));
   }
 } // namespace PathwinderTest
