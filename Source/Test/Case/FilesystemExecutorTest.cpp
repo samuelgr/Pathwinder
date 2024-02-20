@@ -78,6 +78,14 @@ namespace PathwinderTest
     return (nullptr != dynamic_cast<const DirectoryOperationQueueType*>(&queueToCheck));
   }
 
+  /// Initializes an I/O status block before it is used and updated in tests.
+  /// @return Status block object initialized with values that should not persist after the
+  /// invocation of a filesystem executor function.
+  static IO_STATUS_BLOCK InitializeIoStatusBlock(void)
+  {
+    return {.Status = static_cast<NTSTATUS>(0xcdcdcdcd), .Information = 0xefefefef};
+  }
+
   /// Verifies that the specified queue was created as an enumeration queue object and matches the
   /// specifications determined by the other parameters.
   /// @param [in] queueToCheck Queue object to be checked.
@@ -313,7 +321,7 @@ namespace PathwinderTest
         fileNameStructLayout);
 
     TemporaryVector<uint8_t> enumerationOutputBytes;
-    IO_STATUS_BLOCK ioStatusBlock{};
+    IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
     const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
     const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
@@ -332,6 +340,7 @@ namespace PathwinderTest
         nullptr);
 
     TEST_ASSERT(actualReturnCode == expectedReturnCode);
+    TEST_ASSERT(ioStatusBlock.Status == expectedReturnCode);
 
     MockDirectoryOperationQueue::TFileNamesToEnumerate actualEnumeratedFilenames;
     const unsigned int expectedBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
@@ -388,7 +397,7 @@ namespace PathwinderTest
         fileNameStructLayout);
 
     TemporaryVector<uint8_t> enumerationOutputBytes;
-    IO_STATUS_BLOCK ioStatusBlock{};
+    IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
     const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
     const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
@@ -407,6 +416,7 @@ namespace PathwinderTest
         nullptr);
 
     TEST_ASSERT(actualReturnCode == expectedReturnCode);
+    TEST_ASSERT(ioStatusBlock.Status == expectedReturnCode);
 
     // The function is expected to indicate no more files are available no matter how many times it
     // is invoked after the enumeration finishes.
@@ -468,7 +478,7 @@ namespace PathwinderTest
         fileNameStructLayout);
 
     TemporaryVector<uint8_t> enumerationOutputBytes;
-    IO_STATUS_BLOCK ioStatusBlock{};
+    IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
     const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
     const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
@@ -487,8 +497,9 @@ namespace PathwinderTest
         nullptr);
 
     TEST_ASSERT(actualReturnCode == expectedReturnCode);
+    TEST_ASSERT(ioStatusBlock.Status == expectedReturnCode);
 
-    IO_STATUS_BLOCK finalIoStatusBlock{};
+    IO_STATUS_BLOCK finalIoStatusBlock = InitializeIoStatusBlock();
     const NTSTATUS finalExpectedReturnCode = NtStatus::kSuccess;
     const NTSTATUS finalActualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
         TestCaseName().data(),
@@ -506,6 +517,7 @@ namespace PathwinderTest
         nullptr);
 
     TEST_ASSERT(finalActualReturnCode == finalExpectedReturnCode);
+    TEST_ASSERT(finalIoStatusBlock.Status == finalExpectedReturnCode);
 
     // Because the preceding enumeration restarted the query, all of the files should be enumerated
     // once again. The same checks below apply as in the nominal test case.
@@ -571,7 +583,7 @@ namespace PathwinderTest
                 .queue);
 
     TemporaryVector<uint8_t> enumerationOutputBytes;
-    IO_STATUS_BLOCK ioStatusBlock{};
+    IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
     UNICODE_STRING queryFilePatternUnicodeString =
         Strings::NtConvertStringViewToUnicodeString(kTestFilePattern);
 
@@ -634,7 +646,7 @@ namespace PathwinderTest
         fileNameStructLayout);
 
     TemporaryVector<uint8_t> enumerationOutputBytes;
-    IO_STATUS_BLOCK ioStatusBlock{};
+    IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
     const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
     const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
@@ -653,6 +665,7 @@ namespace PathwinderTest
         nullptr);
 
     TEST_ASSERT(actualReturnCode == expectedReturnCode);
+    TEST_ASSERT(ioStatusBlock.Status == expectedReturnCode);
 
     MockDirectoryOperationQueue::TFileNamesToEnumerate actualEnumeratedFilenames;
     const unsigned int expectedBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
@@ -714,7 +727,7 @@ namespace PathwinderTest
 
     for (auto i = 0; i < expectedEnumeratedFilenames.size(); ++i)
     {
-      IO_STATUS_BLOCK ioStatusBlock{};
+      IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
       const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
       const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
@@ -733,6 +746,7 @@ namespace PathwinderTest
           nullptr);
 
       TEST_ASSERT(actualReturnCode == expectedReturnCode);
+      TEST_ASSERT(ioStatusBlock.Status == expectedReturnCode);
 
       const unsigned int expectedBytesWritten =
           static_cast<unsigned int>(ioStatusBlock.Information);
@@ -814,7 +828,7 @@ namespace PathwinderTest
 
     // After repeatedly passing a buffer that is too small, enumeration should still be able to
     // proceed as in the nominal case, with all expected files being enumerated successfully.
-    IO_STATUS_BLOCK ioStatusBlock{};
+    IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
     const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
     const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
         TestCaseName().data(),
@@ -832,6 +846,7 @@ namespace PathwinderTest
         nullptr);
 
     TEST_ASSERT(actualReturnCode == expectedReturnCode);
+    TEST_ASSERT(ioStatusBlock.Status == expectedReturnCode);
 
     MockDirectoryOperationQueue::TFileNamesToEnumerate actualEnumeratedFilenames;
     const unsigned int expectedBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);

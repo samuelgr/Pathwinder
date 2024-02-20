@@ -1142,7 +1142,7 @@ namespace Pathwinder
           ((nullptr == fileName) ? std::wstring_view()
                                  : Strings::NtConvertUnicodeStringToStringView(*fileName));
 
-      return AdvanceDirectoryEnumerationOperation(
+      ioStatusBlock->Status = AdvanceDirectoryEnumerationOperation(
           functionName,
           functionRequestIdentifier,
           openHandleStore,
@@ -1152,6 +1152,8 @@ namespace Pathwinder
           length,
           queryFlags,
           queryFilePattern);
+
+      return ioStatusBlock->Status;
     }
 
     bool DirectoryEnumerationPrepare(
