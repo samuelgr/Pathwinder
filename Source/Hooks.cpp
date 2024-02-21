@@ -218,17 +218,20 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(
   if (RestartScan != 0) queryFlags |= SL_RESTART_SCAN;
   if (ReturnSingleEntry != 0) queryFlags |= SL_RETURN_SINGLE_ENTRY;
 
-  const bool shouldInterceptDirectoryEnumeration =
+  const std::optional<NTSTATUS> prepareResult =
       Pathwinder::FilesystemExecutor::DirectoryEnumerationPrepare(
           GetFunctionName(),
           GetRequestIdentifier(),
           OpenHandleStoreInstance(),
           FileHandle,
+          FileInformation,
+          Length,
           FileInformationClass,
           FileName,
           InstructionSourceForDirectoryEnumeration);
 
-  if (false == shouldInterceptDirectoryEnumeration)
+  if (false == prepareResult.has_value())
+  {
     return Original(
         FileHandle,
         Event,
@@ -241,6 +244,16 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFile::Hook(
         ReturnSingleEntry,
         FileName,
         RestartScan);
+  }
+  else if (Pathwinder::NtStatus::kSuccess != *prepareResult)
+  {
+    // Failures encountered during the preparation stage indicate a problem with the parameters.
+    // Based on the observed behavior of Windows itself, an appropriate status code is returned to
+    // the application without touching the I/O status block. This is true irrespective of whether
+    // the directory enumeration is supposed to be synchronous or asynchronous.
+
+    return *prepareResult;
+  }
 
   return Pathwinder::FilesystemExecutor::DirectoryEnumerationAdvance(
       GetFunctionName(),
@@ -270,17 +283,20 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(
     ULONG QueryFlags,
     PUNICODE_STRING FileName)
 {
-  const bool shouldInterceptDirectoryEnumeration =
+  const std::optional<NTSTATUS> prepareResult =
       Pathwinder::FilesystemExecutor::DirectoryEnumerationPrepare(
           GetFunctionName(),
           GetRequestIdentifier(),
           OpenHandleStoreInstance(),
           FileHandle,
+          FileInformation,
+          Length,
           FileInformationClass,
           FileName,
           InstructionSourceForDirectoryEnumeration);
 
-  if (false == shouldInterceptDirectoryEnumeration)
+  if (false == prepareResult.has_value())
+  {
     return Original(
         FileHandle,
         Event,
@@ -292,6 +308,16 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryDirectoryFileEx::Hook(
         FileInformationClass,
         QueryFlags,
         FileName);
+  }
+  else if (Pathwinder::NtStatus::kSuccess != *prepareResult)
+  {
+    // Failures encountered during the preparation stage indicate a problem with the parameters.
+    // Based on the observed behavior of Windows itself, an appropriate status code is returned to
+    // the application without touching the I/O status block. This is true irrespective of whether
+    // the directory enumeration is supposed to be synchronous or asynchronous.
+
+    return *prepareResult;
+  }
 
   return Pathwinder::FilesystemExecutor::DirectoryEnumerationAdvance(
       GetFunctionName(),

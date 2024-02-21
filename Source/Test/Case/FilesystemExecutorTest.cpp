@@ -14,6 +14,7 @@
 
 #include "FilesystemExecutor.h"
 
+#include <array>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -449,6 +450,88 @@ namespace PathwinderTest
     }
   }
 
+  // Verifies that, if no files match the specified directory enumeration query, on first invocation
+  // the return code is that no files match, and on subsequent invocations the return code indicates
+  // no more files available.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_IndicateNoMatchingFilesThenNoMoreFiles)
+  {
+    constexpr std::wstring_view kTestDirectory = L"X:\\Test\\Directory";
+
+    constexpr FILE_INFORMATION_CLASS kFileNamesInformationClass =
+        SFileNamesInformation::kFileInformationClass;
+    const FileInformationStructLayout fileNameStructLayout =
+        *FileInformationStructLayout::LayoutForFileInformationClass(kFileNamesInformationClass);
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kTestDirectory);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kTestDirectory);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
+    openHandleStore.AssociateDirectoryEnumerationState(
+        directoryHandle,
+        std::make_unique<MockDirectoryOperationQueue>(NtStatus::kNoMoreFiles),
+        fileNameStructLayout);
+
+    TemporaryVector<uint8_t> enumerationOutputBytes;
+    IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
+
+    const NTSTATUS expectedReturnCode = NtStatus::kNoSuchFile;
+    const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        nullptr,
+        nullptr,
+        nullptr,
+        &ioStatusBlock,
+        enumerationOutputBytes.Data(),
+        enumerationOutputBytes.CapacityBytes(),
+        kFileNamesInformationClass,
+        0,
+        nullptr);
+
+    TEST_ASSERT(actualReturnCode == expectedReturnCode);
+    TEST_ASSERT(ioStatusBlock.Status == expectedReturnCode);
+
+    const unsigned int expectedBytesWritten = 0;
+    const unsigned int actualBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
+    TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
+
+    // The function is expected to indicate no more files are available no matter how many times it
+    // is invoked after the enumeration finishes.
+    for (int i = 0; i < 10; ++i)
+    {
+      IO_STATUS_BLOCK finalIoStatusBlock = InitializeIoStatusBlock();
+      const NTSTATUS finalExpectedReturnCode = NtStatus::kNoMoreFiles;
+      const NTSTATUS finalActualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+          TestCaseName().data(),
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          directoryHandle,
+          nullptr,
+          nullptr,
+          nullptr,
+          &finalIoStatusBlock,
+          enumerationOutputBytes.Data(),
+          enumerationOutputBytes.CapacityBytes(),
+          kFileNamesInformationClass,
+          0,
+          nullptr);
+
+      TEST_ASSERT(finalActualReturnCode == finalExpectedReturnCode);
+      TEST_ASSERT(finalIoStatusBlock.Status == finalExpectedReturnCode);
+
+      const unsigned int finalExpectedBytesWritten = 0;
+      const unsigned int finalActualBytesWritten =
+          static_cast<unsigned int>(finalIoStatusBlock.Information);
+      TEST_ASSERT(finalActualBytesWritten == finalExpectedBytesWritten);
+    }
+  }
+
   // Verifies that, after all files are enumerated, restarting the enumeration results in them being
   // properly enumerated all over again.
   TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_RestartEnumeration)
@@ -726,7 +809,7 @@ namespace PathwinderTest
     TemporaryVector<uint8_t> enumerationOutputBytes;
     MockDirectoryOperationQueue::TFileNamesToEnumerate actualEnumeratedFilenames;
 
-    for (auto i = 0; i < expectedEnumeratedFilenames.size(); ++i)
+    for (size_t i = 0; i < expectedEnumeratedFilenames.size(); ++i)
     {
       IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
@@ -762,123 +845,8 @@ namespace PathwinderTest
     TEST_ASSERT(actualEnumeratedFilenames == expectedEnumeratedFilenames);
   }
 
-  // Verifies that no part of the base structure is written to the output buffer if the output
-  // buffer is declared as being too small to hold even the fixed part of the file information
-  // structure during directory enumeration. There is some special-case behavior on first invocation
-  // which is also checked in this test case.
-  TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_BufferTooSmallForBaseStruct)
-  {
-    constexpr std::wstring_view kTestDirectory = L"X:\\Test\\Directory";
-
-    constexpr FILE_INFORMATION_CLASS kFileNamesInformationClass =
-        SFileNamesInformation::kFileInformationClass;
-    const FileInformationStructLayout fileNameStructLayout =
-        *FileInformationStructLayout::LayoutForFileInformationClass(kFileNamesInformationClass);
-
-    const MockDirectoryOperationQueue::TFileNamesToEnumerate expectedEnumeratedFilenames = {
-        L"file1.txt", L"00file2.txt", L"FILE3.log", L"app1.exe", L"binfile.bin"};
-
-    MockFilesystemOperations mockFilesystem;
-    mockFilesystem.AddDirectory(kTestDirectory);
-
-    const HANDLE directoryHandle = mockFilesystem.Open(kTestDirectory);
-
-    OpenHandleStore openHandleStore;
-    openHandleStore.InsertHandle(
-        directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
-    openHandleStore.AssociateDirectoryEnumerationState(
-        directoryHandle,
-        std::make_unique<MockDirectoryOperationQueue>(
-            fileNameStructLayout,
-            MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
-        fileNameStructLayout);
-
-    TemporaryVector<uint8_t> enumerationOutputBytes;
-
-    // It does not matter how many times the function is invoked. Since the base structure cannot
-    // fit in the buffer it should always fail in almost the same way every time. The only
-    // difference is the return code, which indicates the error on the first invocation and returns
-    // success on subsequent invocations.
-    for (int i = 0; i < 10; ++i)
-    {
-      IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
-
-      const NTSTATUS expectedReturnCode = (0 == i ? NtStatus::kBufferTooSmall : NtStatus::kSuccess);
-      const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
-          TestCaseName().data(),
-          kFunctionRequestIdentifier,
-          openHandleStore,
-          directoryHandle,
-          nullptr,
-          nullptr,
-          nullptr,
-          &ioStatusBlock,
-          enumerationOutputBytes.Data(),
-          fileNameStructLayout.BaseStructureSize() - 1,
-          kFileNamesInformationClass,
-          0,
-          nullptr);
-
-      TEST_ASSERT(actualReturnCode == expectedReturnCode);
-      TEST_ASSERT(ioStatusBlock.Status == expectedReturnCode);
-
-      const unsigned int expectedBytesWritten = 0;
-      unsigned int actualBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
-
-      TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
-    }
-
-    // After repeatedly passing a buffer that is too small, enumeration should still be able to
-    // proceed as in the nominal case, with all expected files being enumerated successfully.
-    IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
-    const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
-    const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
-        TestCaseName().data(),
-        kFunctionRequestIdentifier,
-        openHandleStore,
-        directoryHandle,
-        nullptr,
-        nullptr,
-        nullptr,
-        &ioStatusBlock,
-        enumerationOutputBytes.Data(),
-        enumerationOutputBytes.CapacityBytes(),
-        kFileNamesInformationClass,
-        0,
-        nullptr);
-
-    TEST_ASSERT(actualReturnCode == expectedReturnCode);
-    TEST_ASSERT(ioStatusBlock.Status == expectedReturnCode);
-
-    MockDirectoryOperationQueue::TFileNamesToEnumerate actualEnumeratedFilenames;
-    const unsigned int expectedBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
-    unsigned int actualBytesWritten = 0;
-
-    size_t enumeratedOutputBytePosition = 0;
-    while (enumeratedOutputBytePosition <
-           std::min(expectedBytesWritten, enumerationOutputBytes.CapacityBytes()))
-    {
-      const SFileNamesInformation* enumeratedFileInformation =
-          reinterpret_cast<const SFileNamesInformation*>(
-              &enumerationOutputBytes.Data()[enumeratedOutputBytePosition]);
-
-      actualEnumeratedFilenames.emplace(
-          fileNameStructLayout.ReadFileName(enumeratedFileInformation));
-      actualBytesWritten += fileNameStructLayout.SizeOfStruct(enumeratedFileInformation);
-
-      if (0 == enumeratedFileInformation->nextEntryOffset) break;
-      enumeratedOutputBytePosition +=
-          static_cast<size_t>(enumeratedFileInformation->nextEntryOffset);
-    }
-
-    TEST_ASSERT(actualEnumeratedFilenames == expectedEnumeratedFilenames);
-    TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
-  }
-
-  // Verifies that, on first invocation, if the output buffer is too small for the complete filename
-  // (but will fit the base structure itself), a partial write occurs and an appropriate status code
-  // is returned. Further verifies that, on subsequent invocations with the same situation, no
-  // partial write is even attempted.
+  // Verifies that, if the output buffer is too small for the complete filename (but will fit the
+  // base structure itself), a partial write occurs and an appropriate status code is returned.
   TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_BufferTooSmallForCompleteStruct)
   {
     constexpr std::wstring_view kTestDirectory = L"X:\\Test\\Directory";
@@ -910,8 +878,9 @@ namespace PathwinderTest
 
     TemporaryVector<uint8_t> enumerationOutputBytes;
 
-    // First invocation. A partial write is expected, along with a buffer overflow return code.
-    do
+    // Initial invocations with the buffer too small to hold a complete output structure. A partial
+    // write is expected, along with a buffer overflow return code.
+    for (int i = 0; i < 10; ++i)
     {
       IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
@@ -939,42 +908,23 @@ namespace PathwinderTest
 
       TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
 
+      // The file information structure is expected to indicate the length of the filename itself,
+      // irrespective of what portion of it was able to be written into the buffer provided.
+      const size_t expectedFileNameLength = kTestCompleteFileName.length() * sizeof(wchar_t);
+      const size_t actualFileNameLength = static_cast<size_t>(
+          fileNameStructLayout.ReadFileNameLength(enumerationOutputBytes.Data()));
+
+      TEST_ASSERT(actualFileNameLength == expectedFileNameLength);
+
+      // Actual partial write content is not as simple as reading from the structure because the
+      // structure is expected to contain a file name length field indicating the length of the
+      // actual filename, in bytes, even though only part of it could fit into the supplied buffer.
       const std::wstring_view expectedPartialWriteFileName = kTestPartialFileName;
-      const std::wstring_view actualPartialWriteFileName =
-          fileNameStructLayout.ReadFileName(enumerationOutputBytes.Data());
+      const std::wstring_view actualPartialWriteFileName = std::wstring_view(
+          fileNameStructLayout.ReadFileName(enumerationOutputBytes.Data()).data(),
+          (actualBytesWritten - offsetof(SFileNamesInformation, fileName)) / sizeof(wchar_t));
 
       TEST_ASSERT(actualPartialWriteFileName == expectedPartialWriteFileName);
-    }
-    while (false);
-
-    // Subsequent invocations with the same problem of the buffer being too small. Success is
-    // expected but with nothing written to the output buffer.
-    for (int i = 0; i < 10; ++i)
-    {
-      IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
-
-      const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
-      const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
-          TestCaseName().data(),
-          kFunctionRequestIdentifier,
-          openHandleStore,
-          directoryHandle,
-          nullptr,
-          nullptr,
-          nullptr,
-          &ioStatusBlock,
-          enumerationOutputBytes.Data(),
-          fileNameStructLayout.HypotheticalSizeForFileName(kTestPartialFileName),
-          kFileNamesInformationClass,
-          0,
-          nullptr);
-
-      TEST_ASSERT(actualReturnCode == expectedReturnCode);
-
-      const unsigned int expectedBytesWritten = 0;
-      unsigned int actualBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
-
-      TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
     }
 
     // Subsequent invocation, this time with a buffer that is large enough to hold the entire
@@ -1053,6 +1003,8 @@ namespace PathwinderTest
     constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
     constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
 
+    std::array<uint8_t, 256> unusedBuffer{};
+
     MockFilesystemOperations mockFilesystem;
     mockFilesystem.AddDirectory(kAssociatedPath);
     mockFilesystem.AddDirectory(kRealOpenedPath);
@@ -1070,6 +1022,8 @@ namespace PathwinderTest
         kFunctionRequestIdentifier,
         openHandleStore,
         directoryHandle,
+        unusedBuffer.data(),
+        static_cast<ULONG>(unusedBuffer.size()),
         SFileNamesInformation::kFileInformationClass,
         nullptr,
         [&instructionSourceFuncInvoked](
@@ -1094,6 +1048,8 @@ namespace PathwinderTest
     constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
     constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
 
+    std::array<uint8_t, 256> unusedBuffer{};
+
     MockFilesystemOperations mockFilesystem;
     mockFilesystem.AddDirectory(kAssociatedPath);
     mockFilesystem.AddDirectory(kRealOpenedPath);
@@ -1115,17 +1071,25 @@ namespace PathwinderTest
     // important.
     for (int i = 0; i < 10; ++i)
     {
-      FilesystemExecutor::DirectoryEnumerationPrepare(
-          TestCaseName().data(),
-          kFunctionRequestIdentifier,
-          openHandleStore,
-          directoryHandle,
-          SFileNamesInformation::kFileInformationClass,
-          nullptr,
-          [](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
-          {
-            TEST_FAILED_BECAUSE(L"Unexpected invocation of instruction source function.");
-          });
+      const std::optional<NTSTATUS> expectedReturnValue = NtStatus::kSuccess;
+      const std::optional<NTSTATUS> actualReturnValue =
+          FilesystemExecutor::DirectoryEnumerationPrepare(
+              TestCaseName().data(),
+              kFunctionRequestIdentifier,
+              openHandleStore,
+              directoryHandle,
+              unusedBuffer.data(),
+              static_cast<ULONG>(unusedBuffer.size()),
+              SFileNamesInformation::kFileInformationClass,
+              nullptr,
+              [](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+              {
+                TEST_FAILED_BECAUSE(L"Unexpected invocation of instruction source function.");
+              });
+
+      // Preparation is expected to succeed so that the directory enumeration takes place inside
+      // Pathwinder using the prepared data structures.
+      TEST_ASSERT(actualReturnValue == expectedReturnValue);
     }
 
     const SDirectoryEnumerationStateSnapshot actualDirectoryEnumerationState =
@@ -1134,12 +1098,127 @@ namespace PathwinderTest
     TEST_ASSERT(actualDirectoryEnumerationState == expectedDirectoryEnumerationState);
   }
 
+  // Verifies that an application-provided buffer that is not large enough to hold the base
+  // structure itself is rejected with the correct return code.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_BufferTooSmallForBaseStruct)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+
+    std::array<uint8_t, sizeof(SFileNamesInformation) - 1> tooSmallBuffer{};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kAssociatedPath);
+    mockFilesystem.AddDirectory(kRealOpenedPath);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
+
+    const std::optional<NTSTATUS> expectedReturnValue = NtStatus::kInfoLengthMismatch;
+    const std::optional<NTSTATUS> actualReturnValue =
+        FilesystemExecutor::DirectoryEnumerationPrepare(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            directoryHandle,
+            tooSmallBuffer.data(),
+            static_cast<ULONG>(tooSmallBuffer.size()),
+            SFileNamesInformation::kFileInformationClass,
+            nullptr,
+            [](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+            {
+              TEST_FAILED_BECAUSE(L"Unexpected invocation of instruction source function.");
+            });
+
+    TEST_ASSERT(actualReturnValue == expectedReturnValue);
+  }
+
+  // Verifies that directory enumeration operations are passed through to the system if the file
+  // information class is not recognized as one that Pathwinder can intercept.
+  TEST_CASE(
+      FilesystemExecutor_DirectoryEnumerationPrepare_PassthroughUnsupportedFileInformationClass)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+
+    std::array<uint8_t, 256> unusedBuffer{};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kAssociatedPath);
+    mockFilesystem.AddDirectory(kRealOpenedPath);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
+
+    const std::optional<NTSTATUS> expectedReturnValue = std::nullopt;
+    const std::optional<NTSTATUS> actualReturnValue =
+        FilesystemExecutor::DirectoryEnumerationPrepare(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            directoryHandle,
+            unusedBuffer.data(),
+            static_cast<ULONG>(unusedBuffer.size()),
+            SFileBasicInformation::kFileInformationClass,
+            nullptr,
+            [](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+            {
+              TEST_FAILED_BECAUSE(L"Unexpected invocation of instruction source function.");
+            });
+
+    TEST_ASSERT(actualReturnValue == expectedReturnValue);
+  }
+
+  // Verifies that directory enumeration operations are passed through to the system if the provided
+  // handle is not one that is cached in the open handle store.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_PassthroughUncachedHandle)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+
+    std::array<uint8_t, 256> unusedBuffer{};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kAssociatedPath);
+    mockFilesystem.AddDirectory(kRealOpenedPath);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath);
+
+    OpenHandleStore openHandleStore;
+
+    const std::optional<NTSTATUS> expectedReturnValue = std::nullopt;
+    const std::optional<NTSTATUS> actualReturnValue =
+        FilesystemExecutor::DirectoryEnumerationPrepare(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            directoryHandle,
+            unusedBuffer.data(),
+            static_cast<ULONG>(unusedBuffer.size()),
+            SFileNamesInformation::kFileInformationClass,
+            nullptr,
+            [](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+            {
+              TEST_FAILED_BECAUSE(L"Unexpected invocation of instruction source function.");
+            });
+
+    TEST_ASSERT(actualReturnValue == expectedReturnValue);
+  }
+
   // Verifies that the correct type of directory enumeration queues are created when the instruction
   // specifies to merge two directory enumerations.
   TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_MergeTwoDirectories)
   {
     constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
     constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+
+    std::array<uint8_t, 256> unusedBuffer{};
 
     // Expected result is two enumeration queues being merged together, the first for the associated
     // path and the second for the real opened path.
@@ -1163,18 +1242,22 @@ namespace PathwinderTest
     openHandleStore.InsertHandle(
         directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
 
-    const bool expectedReturnValue = true;
-    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
-        TestCaseName().data(),
-        kFunctionRequestIdentifier,
-        openHandleStore,
-        directoryHandle,
-        SFileNamesInformation::kFileInformationClass,
-        nullptr,
-        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
-        {
-          return testInstruction;
-        });
+    const std::optional<NTSTATUS> expectedReturnValue = NtStatus::kSuccess;
+    const std::optional<NTSTATUS> actualReturnValue =
+        FilesystemExecutor::DirectoryEnumerationPrepare(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            directoryHandle,
+            unusedBuffer.data(),
+            static_cast<ULONG>(unusedBuffer.size()),
+            SFileNamesInformation::kFileInformationClass,
+            nullptr,
+            [&testInstruction](
+                std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+            {
+              return testInstruction;
+            });
 
     TEST_ASSERT(actualReturnValue == expectedReturnValue);
     TEST_ASSERT(
@@ -1219,6 +1302,8 @@ namespace PathwinderTest
     constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
     constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
 
+    std::array<uint8_t, 256> unusedBuffer{};
+
     const FilesystemRule testRule(kAssociatedPath, kRealOpenedPath, {L"*.txt", L"*.bin", L"*.log"});
 
     // Expected result is two enumeration queues being merged together, the first for the associated
@@ -1243,18 +1328,22 @@ namespace PathwinderTest
     openHandleStore.InsertHandle(
         directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
 
-    const bool expectedReturnValue = true;
-    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
-        TestCaseName().data(),
-        kFunctionRequestIdentifier,
-        openHandleStore,
-        directoryHandle,
-        SFileNamesInformation::kFileInformationClass,
-        nullptr,
-        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
-        {
-          return testInstruction;
-        });
+    const std::optional<NTSTATUS> expectedReturnValue = NtStatus::kSuccess;
+    const std::optional<NTSTATUS> actualReturnValue =
+        FilesystemExecutor::DirectoryEnumerationPrepare(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            directoryHandle,
+            unusedBuffer.data(),
+            static_cast<ULONG>(unusedBuffer.size()),
+            SFileNamesInformation::kFileInformationClass,
+            nullptr,
+            [&testInstruction](
+                std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+            {
+              return testInstruction;
+            });
 
     TEST_ASSERT(actualReturnValue == expectedReturnValue);
     TEST_ASSERT(
@@ -1299,6 +1388,8 @@ namespace PathwinderTest
     constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
     constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
 
+    std::array<uint8_t, 256> unusedBuffer{};
+
     // Expected result is two enumeration queues being merged together, the first for the associated
     // path and the second for the real opened path.
     const DirectoryEnumerationInstruction::SingleDirectoryEnumeration
@@ -1325,18 +1416,22 @@ namespace PathwinderTest
     openHandleStore.InsertHandle(
         directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
 
-    const bool expectedReturnValue = true;
-    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
-        TestCaseName().data(),
-        kFunctionRequestIdentifier,
-        openHandleStore,
-        directoryHandle,
-        SFileNamesInformation::kFileInformationClass,
-        &filePatternUnicodeString,
-        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
-        {
-          return testInstruction;
-        });
+    const std::optional<NTSTATUS> expectedReturnValue = NtStatus::kSuccess;
+    const std::optional<NTSTATUS> actualReturnValue =
+        FilesystemExecutor::DirectoryEnumerationPrepare(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            directoryHandle,
+            unusedBuffer.data(),
+            static_cast<ULONG>(unusedBuffer.size()),
+            SFileNamesInformation::kFileInformationClass,
+            &filePatternUnicodeString,
+            [&testInstruction](
+                std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+            {
+              return testInstruction;
+            });
 
     TEST_ASSERT(actualReturnValue == expectedReturnValue);
     TEST_ASSERT(
@@ -1380,6 +1475,8 @@ namespace PathwinderTest
     constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
     constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
 
+    std::array<uint8_t, 256> unusedBuffer{};
+
     // Expected result is a single name insertion queue.
     const FilesystemRule filesystemRules[] = {FilesystemRule(kAssociatedPath, kRealOpenedPath)};
     const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion
@@ -1399,18 +1496,22 @@ namespace PathwinderTest
     openHandleStore.InsertHandle(
         directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
 
-    const bool expectedReturnValue = true;
-    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
-        TestCaseName().data(),
-        kFunctionRequestIdentifier,
-        openHandleStore,
-        directoryHandle,
-        SFileNamesInformation::kFileInformationClass,
-        nullptr,
-        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
-        {
-          return testInstruction;
-        });
+    const std::optional<NTSTATUS> expectedReturnValue = NtStatus::kSuccess;
+    const std::optional<NTSTATUS> actualReturnValue =
+        FilesystemExecutor::DirectoryEnumerationPrepare(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            directoryHandle,
+            unusedBuffer.data(),
+            static_cast<ULONG>(unusedBuffer.size()),
+            SFileNamesInformation::kFileInformationClass,
+            nullptr,
+            [&testInstruction](
+                std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+            {
+              return testInstruction;
+            });
 
     TEST_ASSERT(actualReturnValue == expectedReturnValue);
     TEST_ASSERT(
@@ -1438,6 +1539,8 @@ namespace PathwinderTest
     constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
     constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
 
+    std::array<uint8_t, 256> unusedBuffer{};
+
     // Expected result is a single name insertion queue.
     const FilesystemRule filesystemRules[] = {FilesystemRule(kAssociatedPath, kRealOpenedPath)};
     const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion
@@ -1461,18 +1564,22 @@ namespace PathwinderTest
     openHandleStore.InsertHandle(
         directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
 
-    const bool expectedReturnValue = true;
-    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
-        TestCaseName().data(),
-        kFunctionRequestIdentifier,
-        openHandleStore,
-        directoryHandle,
-        SFileNamesInformation::kFileInformationClass,
-        &filePatternUnicodeString,
-        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
-        {
-          return testInstruction;
-        });
+    const std::optional<NTSTATUS> expectedReturnValue = NtStatus::kSuccess;
+    const std::optional<NTSTATUS> actualReturnValue =
+        FilesystemExecutor::DirectoryEnumerationPrepare(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            directoryHandle,
+            unusedBuffer.data(),
+            static_cast<ULONG>(unusedBuffer.size()),
+            SFileNamesInformation::kFileInformationClass,
+            &filePatternUnicodeString,
+            [&testInstruction](
+                std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+            {
+              return testInstruction;
+            });
 
     TEST_ASSERT(actualReturnValue == expectedReturnValue);
     TEST_ASSERT(
@@ -1499,6 +1606,8 @@ namespace PathwinderTest
     constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
     constexpr std::wstring_view kOriginDirectory = L"E:\\OriginPath1";
     constexpr std::wstring_view kTargetDirectory = L"E:\\TargetPath2";
+
+    std::array<uint8_t, 256> unusedBuffer{};
 
     // Expected result is a single name insertion queue.
     const FilesystemRule filesystemRules[] = {FilesystemRule(kOriginDirectory, kTargetDirectory)};
@@ -1528,18 +1637,22 @@ namespace PathwinderTest
     openHandleStore.InsertHandle(
         directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
 
-    const bool expectedReturnValue = true;
-    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
-        TestCaseName().data(),
-        kFunctionRequestIdentifier,
-        openHandleStore,
-        directoryHandle,
-        SFileNamesInformation::kFileInformationClass,
-        nullptr,
-        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
-        {
-          return testInstruction;
-        });
+    const std::optional<NTSTATUS> expectedReturnValue = NtStatus::kSuccess;
+    const std::optional<NTSTATUS> actualReturnValue =
+        FilesystemExecutor::DirectoryEnumerationPrepare(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            directoryHandle,
+            unusedBuffer.data(),
+            static_cast<ULONG>(unusedBuffer.size()),
+            SFileNamesInformation::kFileInformationClass,
+            nullptr,
+            [&testInstruction](
+                std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+            {
+              return testInstruction;
+            });
 
     TEST_ASSERT(actualReturnValue == expectedReturnValue);
     TEST_ASSERT(
@@ -1590,6 +1703,8 @@ namespace PathwinderTest
     constexpr std::wstring_view kOriginDirectory = L"E:\\OriginPath1";
     constexpr std::wstring_view kTargetDirectory = L"E:\\TargetPath2";
 
+    std::array<uint8_t, 256> unusedBuffer{};
+
     // Expected result is a single name insertion queue.
     const FilesystemRule filesystemRules[] = {FilesystemRule(kOriginDirectory, kTargetDirectory)};
     const DirectoryEnumerationInstruction::SingleDirectoryEnumeration
@@ -1622,18 +1737,22 @@ namespace PathwinderTest
     openHandleStore.InsertHandle(
         directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
 
-    const bool expectedReturnValue = true;
-    const bool actualReturnValue = FilesystemExecutor::DirectoryEnumerationPrepare(
-        TestCaseName().data(),
-        kFunctionRequestIdentifier,
-        openHandleStore,
-        directoryHandle,
-        SFileNamesInformation::kFileInformationClass,
-        &filePatternUnicodeString,
-        [&testInstruction](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
-        {
-          return testInstruction;
-        });
+    const std::optional<NTSTATUS> expectedReturnValue = NtStatus::kSuccess;
+    const std::optional<NTSTATUS> actualReturnValue =
+        FilesystemExecutor::DirectoryEnumerationPrepare(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            directoryHandle,
+            unusedBuffer.data(),
+            static_cast<ULONG>(unusedBuffer.size()),
+            SFileNamesInformation::kFileInformationClass,
+            &filePatternUnicodeString,
+            [&testInstruction](
+                std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+            {
+              return testInstruction;
+            });
 
     TEST_ASSERT(actualReturnValue == expectedReturnValue);
     TEST_ASSERT(

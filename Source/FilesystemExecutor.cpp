@@ -291,6 +291,7 @@ namespace Pathwinder
       DebugAssert(
           nullptr != enumerationState.queue,
           "Advancing directory enumeration state without an operation queue.");
+      if (nullptr == enumerationState.queue) return NtStatus::kInternalError;
 
       if (queryFlags & SL_RESTART_SCAN)
       {
@@ -331,10 +332,6 @@ namespace Pathwinder
       const bool isFirstInvocation = enumerationState.isFirstInvocation;
       enumerationState.isFirstInvocation = false;
 
-      // The `Information` field of the output I/O status block records the total number of bytes
-      // written.
-      ioStatusBlock->Information = 0;
-
       // This block will cause `STATUS_NO_MORE_FILES` to be returned if the queue is empty and
       // enumeration is complete. Getting past here means the queue is not empty and more files
       // can be enumerated.
@@ -346,27 +343,34 @@ namespace Pathwinder
         // it matches no files. Otherwise, a directory enumeration would at very least include
         // "." and ".." entries.
         if ((true == isFirstInvocation) && NtStatus::kNoMoreFiles == enumerationStatus)
-          return NtStatus::kNoSuchFile;
+          enumerationStatus = NtStatus::kNoSuchFile;
 
+        ioStatusBlock->Status = enumerationStatus;
+        ioStatusBlock->Information = 0;
         return enumerationStatus;
       }
 
-      // Some extra checks are required if this is the first invocation. This is to handle partial
-      // writes when the buffer is too small to hold a single complete structure. On subsequent
-      // calls these checks are omitted, per `NtQueryDirectoryFileEx` documentation.
-      if (true == isFirstInvocation)
+      // If this condition is true, then the output buffer cannot hold even one complete file
+      // information structure. The application must be informed of the buffer overflow condition.
+      if (outputBufferSizeBytes < enumerationState.queue->SizeOfFront())
       {
-        if (outputBufferSizeBytes <
-            enumerationState.fileInformationStructLayout.BaseStructureSize())
-          return NtStatus::kBufferTooSmall;
+        // I/O status block gets the return code and the total number of bytes actually written to
+        // the output buffer.
+        ioStatusBlock->Status = NtStatus::kBufferOverflow;
+        ioStatusBlock->Information = static_cast<ULONG_PTR>(
+            enumerationState.queue->CopyFront(outputBuffer, outputBufferSizeBytes));
 
-        if (outputBufferSizeBytes < enumerationState.queue->SizeOfFront())
-        {
-          ioStatusBlock->Information = static_cast<ULONG_PTR>(
-              enumerationState.queue->CopyFront(outputBuffer, outputBufferSizeBytes));
-          enumerationState.fileInformationStructLayout.ClearNextEntryOffset(outputBuffer);
-          return NtStatus::kBufferOverflow;
-        }
+        // File information structure has no next entry offset, and its length field contains the
+        // length of the filename that would be written to the output buffer if there were
+        // sufficient space (the actual length of the filename, even though the whole thing could
+        // not be copied).
+        enumerationState.fileInformationStructLayout.ClearNextEntryOffset(outputBuffer);
+        enumerationState.fileInformationStructLayout.WriteFileNameLength(
+            outputBuffer,
+            static_cast<FileInformationStructLayout::TFileNameLength>(
+                enumerationState.queue->FileNameOfFront().length() * sizeof(wchar_t)));
+
+        return NtStatus::kBufferOverflow;
       }
 
       const unsigned int maxElementsToWrite =
@@ -421,8 +425,6 @@ namespace Pathwinder
       if (nullptr != lastBufferPosition)
         enumerationState.fileInformationStructLayout.ClearNextEntryOffset(lastBufferPosition);
 
-      ioStatusBlock->Information = numBytesWritten;
-
       // Whether or not the queue still has any file information structures is not relevant.
       // Coming into this function call there was at least one such structure available.
       // Even if it was not actually copied to the application buffer, and hence 0 bytes were
@@ -437,6 +439,9 @@ namespace Pathwinder
         default:
           break;
       }
+
+      ioStatusBlock->Status = enumerationStatus;
+      ioStatusBlock->Information = numBytesWritten;
 
       return enumerationStatus;
     }
@@ -1142,7 +1147,7 @@ namespace Pathwinder
           ((nullptr == fileName) ? std::wstring_view()
                                  : Strings::NtConvertUnicodeStringToStringView(*fileName));
 
-      ioStatusBlock->Status = AdvanceDirectoryEnumerationOperation(
+      return AdvanceDirectoryEnumerationOperation(
           functionName,
           functionRequestIdentifier,
           openHandleStore,
@@ -1152,15 +1157,15 @@ namespace Pathwinder
           length,
           queryFlags,
           queryFilePattern);
-
-      return ioStatusBlock->Status;
     }
 
-    bool DirectoryEnumerationPrepare(
+    std::optional<NTSTATUS> DirectoryEnumerationPrepare(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
         OpenHandleStore& openHandleStore,
         HANDLE fileHandle,
+        PVOID fileInformation,
+        ULONG length,
         FILE_INFORMATION_CLASS fileInformationClass,
         PUNICODE_STRING fileName,
         std::function<DirectoryEnumerationInstruction(std::wstring_view, std::wstring_view)>
@@ -1168,11 +1173,11 @@ namespace Pathwinder
     {
       std::optional<FileInformationStructLayout> maybeFileInformationStructLayout =
           FileInformationStructLayout::LayoutForFileInformationClass(fileInformationClass);
-      if (false == maybeFileInformationStructLayout.has_value()) return false;
+      if (false == maybeFileInformationStructLayout.has_value()) return std::nullopt;
 
       std::optional<OpenHandleStore::SHandleDataView> maybeHandleData =
           openHandleStore.GetDataForHandle(fileHandle);
-      if (false == maybeHandleData.has_value()) return false;
+      if (false == maybeHandleData.has_value()) return std::nullopt;
 
       switch (GetIoModeForHandle(fileHandle))
       {
@@ -1186,7 +1191,7 @@ namespace Pathwinder
               functionName,
               functionRequestIdentifier,
               reinterpret_cast<size_t>(fileHandle));
-          return false;
+          return std::nullopt;
 
         default:
           Message::OutputFormatted(
@@ -1195,8 +1200,20 @@ namespace Pathwinder
               functionName,
               functionRequestIdentifier,
               reinterpret_cast<size_t>(fileHandle));
-          return false;
+          return std::nullopt;
       }
+
+      // It is an error for the application to provide a buffer that is too small to hold even the
+      // fixed part of the file information structure (i.e. the size of the structure itself,
+      // without accounting for the dangling filename part.
+      if (length < static_cast<ULONG>(maybeFileInformationStructLayout->BaseStructureSize()))
+        return NtStatus::kInfoLengthMismatch;
+
+      // Other known application errors:
+      //   - Inaccessible pointer passed for the output buffer (`STATUS_ACCESS_VIOLATION`)
+      //   - Invalid file or event handle (`STATUS_INVALID_HANDLE`)
+      //   - Wrong object type for file or event handle (`STATUS_OBJECT_TYPE_MISMATCH`)
+      // None of these errors currently have checks implemented.
 
       const std::wstring_view queryFilePattern =
           ((nullptr == fileName) ? std::wstring_view()
@@ -1238,7 +1255,7 @@ namespace Pathwinder
         DirectoryEnumerationInstruction directoryEnumerationInstruction =
             instructionSourceFunc(maybeHandleData->associatedPath, maybeHandleData->realOpenedPath);
 
-        if (true == Globals::GetConfigurationData().isDryRunMode) return false;
+        if (true == Globals::GetConfigurationData().isDryRunMode) return std::nullopt;
 
         std::unique_ptr<IDirectoryOperationQueue> directoryOperationQueueUniquePtr =
             CreateDirectoryOperationQueue(
@@ -1257,7 +1274,7 @@ namespace Pathwinder
         maybeHandleData = openHandleStore.GetDataForHandle(fileHandle);
       }
 
-      return true;
+      return NtStatus::kSuccess;
     }
 
     NTSTATUS NewFileHandle(

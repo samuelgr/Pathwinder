@@ -102,13 +102,17 @@ namespace Pathwinder
     /// file handles known to be open. Sets the context for this call.
     /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a directory
     /// enumeration instruction, given a source path, file access mode, and create disposition.
-    /// @return `true` if data structures were initialized successfully and the directory
-    /// enumeration operation should be intercepted, `false` otherwise.
-    bool DirectoryEnumerationPrepare(
+    /// @return Nothing if the request should be passed to the underlying system call without
+    /// modification, a status code other than 0 (success) if that code should immediately be
+    /// returned without further processing, or 0 (success) to indicate that the preparations were
+    /// successful and that the directory enumeration is ready to proceed.
+    std::optional<NTSTATUS> DirectoryEnumerationPrepare(
         const wchar_t* functionName,
         unsigned int functionRequestIdentifier,
         OpenHandleStore& openHandleStore,
         HANDLE fileHandle,
+        PVOID fileInformation,
+        ULONG length,
         FILE_INFORMATION_CLASS fileInformationClass,
         PUNICODE_STRING fileName,
         std::function<DirectoryEnumerationInstruction(
