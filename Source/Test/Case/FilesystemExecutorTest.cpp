@@ -1040,6 +1040,66 @@ namespace PathwinderTest
     TEST_ASSERT(true == instructionSourceFuncInvoked);
   }
 
+  // Verifies the nominal situation of preparing for directory enumeration, which is expected to
+  // succeed. A few different handle modes are tried, and all are expected to succeed.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_NominalWithMultipleIoModes)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+
+    constexpr MockFilesystemOperations::EOpenHandleMode kOpenHandleModesToTry[] = {
+        MockFilesystemOperations::EOpenHandleMode::SynchronousIoNonAlert,
+        MockFilesystemOperations::EOpenHandleMode::SynchronousIoAlert,
+        MockFilesystemOperations::EOpenHandleMode::Asynchronous};
+
+    for (const auto openHandleModeToTry : kOpenHandleModesToTry)
+    {
+      std::array<uint8_t, 256> unusedBuffer{};
+
+      MockFilesystemOperations mockFilesystem;
+      mockFilesystem.AddDirectory(kAssociatedPath);
+      mockFilesystem.AddDirectory(kRealOpenedPath);
+
+      const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath, openHandleModeToTry);
+
+      OpenHandleStore openHandleStore;
+      openHandleStore.InsertHandle(
+          directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
+      openHandleStore.AssociateDirectoryEnumerationState(
+          directoryHandle,
+          std::make_unique<MockDirectoryOperationQueue>(),
+          FileInformationStructLayout());
+
+      const SDirectoryEnumerationStateSnapshot expectedDirectoryEnumerationState =
+          SDirectoryEnumerationStateSnapshot::GetForHandle(directoryHandle, openHandleStore);
+
+      const std::optional<NTSTATUS> expectedReturnValue = NtStatus::kSuccess;
+      const std::optional<NTSTATUS> actualReturnValue =
+          FilesystemExecutor::DirectoryEnumerationPrepare(
+              TestCaseName().data(),
+              kFunctionRequestIdentifier,
+              openHandleStore,
+              directoryHandle,
+              unusedBuffer.data(),
+              static_cast<ULONG>(unusedBuffer.size()),
+              SFileNamesInformation::kFileInformationClass,
+              nullptr,
+              [](std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+              {
+                TEST_FAILED_BECAUSE(L"Unexpected invocation of instruction source function.");
+              });
+
+      // Preparation is expected to succeed so that the directory enumeration takes place inside
+      // Pathwinder using the prepared data structures.
+      TEST_ASSERT(actualReturnValue == expectedReturnValue);
+
+      const SDirectoryEnumerationStateSnapshot actualDirectoryEnumerationState =
+          SDirectoryEnumerationStateSnapshot::GetForHandle(directoryHandle, openHandleStore);
+
+      TEST_ASSERT(actualDirectoryEnumerationState == expectedDirectoryEnumerationState);
+    }
+  }
+
   // Verifies that preparing for a directory enumeration is idempotent. Once a directory enumeration
   // state data structure is associated with an object it remains unchanged even after a subsequent
   // call to the directory enumeration preparation function.

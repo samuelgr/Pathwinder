@@ -83,9 +83,16 @@ namespace Pathwinder
     /// `STATUS_NO_MORE_FILES`: No more files were found which match the file specification.
     inline constexpr NTSTATUS kNoMoreFiles = 0x80000006;
 
+    /// `STATUS_NOT_IMPLEMENTED`: The requested operation is not implemented.
+    inline constexpr NTSTATUS kNotImplemented = 0xC0000002;
+
     /// `STATUS_INVALID_INFO_CLASS`: The specified information class is not a valid information
     /// class for the specified object.
     inline constexpr NTSTATUS kInvalidInfoClass = 0xC0000003;
+
+    /// `STATUS_INFO_LENGTH_MISMATCH`: The specified information record length does not match the
+    /// length that is required for the specified information class.
+    inline constexpr NTSTATUS kInfoLengthMismatch = 0xC0000004;
 
     /// `STATUS_ACCESS_VIOLATION`:  The instruction at 0x%08lx referenced memory at 0x%08lx. The
     /// memory could not be %s.
@@ -96,10 +103,6 @@ namespace Pathwinder
 
     /// `STATUS_INVALID_PARAMETER`: An invalid parameter was passed to a service or function.
     inline constexpr NTSTATUS kInvalidParameter = 0xC000000D;
-
-    /// `STATUS_INFO_LENGTH_MISMATCH`: The specified information record length does not match the
-    /// length that is required for the specified information class.
-    inline constexpr NTSTATUS kInfoLengthMismatch = 0xC0000004;
 
     /// `STATUS_NO_SUCH_FILE`: The file does not exist.
     inline constexpr NTSTATUS kNoSuchFile = 0xC000000F;

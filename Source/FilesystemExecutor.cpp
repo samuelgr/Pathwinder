@@ -1143,19 +1143,39 @@ namespace Pathwinder
           ((nullptr == fileName) ? std::wstring_view()
                                  : Strings::NtConvertUnicodeStringToStringView(*fileName));
 
-      const NTSTATUS directoryEnumerationAdvanceResult = AdvanceDirectoryEnumerationOperation(
-          functionName,
-          functionRequestIdentifier,
-          openHandleStore,
-          fileHandle,
-          ioStatusBlock,
-          fileInformation,
-          length,
-          queryFlags,
-          queryFilePattern);
+      switch (GetIoModeForHandle(fileHandle))
+      {
+        case EInputOutputMode::Synchronous:
+          ioStatusBlock->Status = AdvanceDirectoryEnumerationOperation(
+              functionName,
+              functionRequestIdentifier,
+              openHandleStore,
+              fileHandle,
+              ioStatusBlock,
+              fileInformation,
+              length,
+              queryFlags,
+              queryFilePattern);
+          return ioStatusBlock->Status;
 
-      ioStatusBlock->Status = directoryEnumerationAdvanceResult;
-      return directoryEnumerationAdvanceResult;
+        case EInputOutputMode::Asynchronous:
+          Message::OutputFormatted(
+              Message::ESeverity::Warning,
+              L"%s(%u): Application requested asynchronous directory enumeration for handle %zu, which is unimplemented.",
+              functionName,
+              functionRequestIdentifier,
+              reinterpret_cast<size_t>(fileHandle));
+          return NtStatus::kNotImplemented;
+
+        default:
+          Message::OutputFormatted(
+              Message::ESeverity::Error,
+              L"%s(%u): Failed to determine I/O mode during directory enumeration for handle %zu.",
+              functionName,
+              functionRequestIdentifier,
+              reinterpret_cast<size_t>(fileHandle));
+          return NtStatus::kInvalidParameter;
+      }
     }
 
     std::optional<NTSTATUS> DirectoryEnumerationPrepare(
@@ -1177,30 +1197,6 @@ namespace Pathwinder
       std::optional<OpenHandleStore::SHandleDataView> maybeHandleData =
           openHandleStore.GetDataForHandle(fileHandle);
       if (false == maybeHandleData.has_value()) return std::nullopt;
-
-      switch (GetIoModeForHandle(fileHandle))
-      {
-        case EInputOutputMode::Synchronous:
-          break;
-
-        case EInputOutputMode::Asynchronous:
-          Message::OutputFormatted(
-              Message::ESeverity::Warning,
-              L"%s(%u): Application requested asynchronous directory enumeration for handle %zu, which is unimplemented.",
-              functionName,
-              functionRequestIdentifier,
-              reinterpret_cast<size_t>(fileHandle));
-          return std::nullopt;
-
-        default:
-          Message::OutputFormatted(
-              Message::ESeverity::Error,
-              L"%s(%u): Failed to determine I/O mode during directory enumeration for handle %zu.",
-              functionName,
-              functionRequestIdentifier,
-              reinterpret_cast<size_t>(fileHandle));
-          return std::nullopt;
-      }
 
       // It is an error for the application to provide a buffer that is too small to hold even the
       // fixed part of the file information structure (i.e. the size of the structure itself,
