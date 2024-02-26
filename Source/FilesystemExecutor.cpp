@@ -345,7 +345,6 @@ namespace Pathwinder
         if ((true == isFirstInvocation) && NtStatus::kNoMoreFiles == enumerationStatus)
           enumerationStatus = NtStatus::kNoSuchFile;
 
-        ioStatusBlock->Status = enumerationStatus;
         ioStatusBlock->Information = 0;
         return enumerationStatus;
       }
@@ -356,7 +355,6 @@ namespace Pathwinder
       {
         // I/O status block gets the return code and the total number of bytes actually written to
         // the output buffer.
-        ioStatusBlock->Status = NtStatus::kBufferOverflow;
         ioStatusBlock->Information = static_cast<ULONG_PTR>(
             enumerationState.queue->CopyFront(outputBuffer, outputBufferSizeBytes));
 
@@ -440,9 +438,7 @@ namespace Pathwinder
           break;
       }
 
-      ioStatusBlock->Status = enumerationStatus;
       ioStatusBlock->Information = numBytesWritten;
-
       return enumerationStatus;
     }
 
@@ -1147,7 +1143,7 @@ namespace Pathwinder
           ((nullptr == fileName) ? std::wstring_view()
                                  : Strings::NtConvertUnicodeStringToStringView(*fileName));
 
-      return AdvanceDirectoryEnumerationOperation(
+      const NTSTATUS directoryEnumerationAdvanceResult = AdvanceDirectoryEnumerationOperation(
           functionName,
           functionRequestIdentifier,
           openHandleStore,
@@ -1157,6 +1153,9 @@ namespace Pathwinder
           length,
           queryFlags,
           queryFilePattern);
+
+      ioStatusBlock->Status = directoryEnumerationAdvanceResult;
+      return directoryEnumerationAdvanceResult;
     }
 
     std::optional<NTSTATUS> DirectoryEnumerationPrepare(
