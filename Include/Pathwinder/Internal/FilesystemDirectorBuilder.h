@@ -12,7 +12,6 @@
 
 #pragma once
 
-#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -34,7 +33,7 @@ namespace Pathwinder
   public:
 
     inline FilesystemDirectorBuilder(void)
-        : originDirectories(L"\\"), targetDirectories(), filesystemRules()
+        : originDirectoryIndex(L"\\"), targetDirectories(), filesystemRules()
     {}
 
     /// Attempts to build a filesystem director object using a configuration data object.
@@ -121,23 +120,12 @@ namespace Pathwinder
     }
 
     /// Determines if any rule added to this object uses the specified directory as its origin
-    /// or target directory.
-    /// @param [in] directoryFullPath Full path of the directory to check.
-    /// @return `true` if so, `false` if not.
-    inline bool HasDirectory(std::wstring_view directoryFullPath) const
-    {
-      return (
-          originDirectories.Contains(directoryFullPath) ||
-          targetDirectories.contains(directoryFullPath));
-    }
-
-    /// Determines if any rule added to this object uses the specified directory as its origin
     /// directory.
     /// @param [in] directoryFullPath Full path of the directory to check.
     /// @return `true` if so, `false` if not.
     inline bool HasOriginDirectory(std::wstring_view directoryFullPath) const
     {
-      return originDirectories.Contains(directoryFullPath);
+      return originDirectories.contains(directoryFullPath);
     }
 
     /// Determines if any rule added to this object uses the specified directory as its target
@@ -151,14 +139,17 @@ namespace Pathwinder
 
   private:
 
-    /// Indexes all absolute paths to origin directories used by filesystem rules.
-    PrefixIndex<wchar_t, FilesystemRule> originDirectories;
+    /// Stores all absolute paths to origin directories used by filesystem rules.
+    TPathStringContainer originDirectories;
 
     /// Stores all absolute paths to target directories used by filesystem rules.
-    std::unordered_set<std::wstring_view> targetDirectories;
+    TPathStringContainer targetDirectories;
+
+    /// Indexes all absolute paths to origin directories used by filesystem rules.
+    TPrefixDirectoryIndex originDirectoryIndex;
 
     /// Holds all filesystem rules contained within the candidate filesystem director object.
     /// Maps from rule name to rule object.
-    std::map<std::wstring, FilesystemRule, std::less<>> filesystemRules;
+    TFilesystemRuleMap filesystemRules;
   };
 } // namespace Pathwinder

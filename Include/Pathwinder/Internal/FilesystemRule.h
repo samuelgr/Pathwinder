@@ -272,10 +272,10 @@ namespace Pathwinder
     size_t targetDirectorySeparator;
 
     /// Absolute path to the origin directory.
-    std::wstring originDirectoryFullPath;
+    std::wstring_view originDirectoryFullPath;
 
     /// Absolute path to the target directory.
-    std::wstring targetDirectoryFullPath;
+    std::wstring_view targetDirectoryFullPath;
 
     /// Pattern that specifies which files within the origin and target directories are affected
     /// by this rule. Can be used to filter this rule to apply to only specific named files. If

@@ -29,14 +29,15 @@ namespace PathwinderTest
 
   /// Convenience function for constructing a filesystem director object from a map of rules.
   /// Performs some of the same operations that a filesystem director builder would do internally
-  /// but without any of the filesystem consistency checks.
+  /// but without any of the filesystem consistency checks. Assumes all strings used in filesystem
+  /// rules are owned by the test case and therefore does not transfer ownership to the filesystem
+  /// director object.
   /// @param [in] filesystemRules Map of filesystem rule names to filesystem rules, which is
   /// consumed using move semantics.
   /// @return Newly-constructed filesystem director object.
-  static FilesystemDirector MakeFilesystemDirector(
-      std::map<std::wstring, FilesystemRule, std::less<>>&& filesystemRules)
+  static FilesystemDirector MakeFilesystemDirector(TFilesystemRuleMap&& filesystemRules)
   {
-    PrefixIndex<wchar_t, FilesystemRule> originDirectoryIndex(L"\\");
+    TPrefixDirectoryIndex originDirectoryIndex(L"\\");
 
     for (auto& filesystemRulePair : filesystemRules)
     {
@@ -45,7 +46,9 @@ namespace PathwinderTest
           filesystemRulePair.second.GetOriginDirectoryFullPath(), filesystemRulePair.second);
     }
 
-    return FilesystemDirector(std::move(filesystemRules), std::move(originDirectoryIndex));
+    return FilesystemDirector(
+        std::move(originDirectoryIndex),
+        std::move(filesystemRules));
   }
 
   /// Convenience helper for evaluating an expected outcome of a rule not being present.

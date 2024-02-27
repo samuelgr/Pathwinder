@@ -291,29 +291,28 @@ namespace Pathwinder
           static_cast<int>(ruleName.length()),
           ruleName.data());
 
-    TemporaryString originDirectoryFullPath = maybeOriginDirectoryResolvedString.Value();
-    originDirectoryFullPath.RemoveTrailing(L'\\');
+    std::wstring_view originDirectoryFullPath = Strings::RemoveTrailing(
+        std::wstring_view(maybeOriginDirectoryResolvedString.Value()), L'\\');
 
-    if (false == originDirectoryFullPath.AsStringView().contains(L'\\'))
+    if (false == originDirectoryFullPath.contains(L'\\'))
       return Strings::FormatString(
           L"Error while creating filesystem rule \"%.*s\": Constraint violation: Origin directory cannot be a filesystem root.",
           static_cast<int>(ruleName.length()),
           ruleName.data());
-    if (true == originDirectoryFullPath.Empty())
+    if (true == originDirectoryFullPath.empty())
       return Strings::FormatString(
           L"Error while creating filesystem rule \"%.*s\": Origin directory: Failed to resolve full path: %s",
           static_cast<int>(ruleName.length()),
           ruleName.data(),
           Strings::SystemErrorCodeString(GetLastError()).AsCString());
-    if (true == originDirectoryFullPath.Overflow())
+    if (true == HasOriginDirectory(originDirectoryFullPath))
       return Strings::FormatString(
-          L"Error while creating filesystem rule \"%.*s\": Origin directory: Full path exceeds limit of %u characters.",
+          L"Error while creating filesystem rule \"%.*s\": Constraint violation: Origin directory is already in use as an origin directory by another rule.",
           static_cast<int>(ruleName.length()),
-          ruleName.data(),
-          originDirectoryFullPath.Capacity());
-    if (true == HasDirectory(originDirectoryFullPath))
+          ruleName.data());
+    if (true == HasTargetDirectory(originDirectoryFullPath))
       return Strings::FormatString(
-          L"Error while creating filesystem rule \"%.*s\": Constraint violation: Origin directory is already in use as either an origin or target directory by another rule.",
+          L"Error while creating filesystem rule \"%.*s\": Constraint violation: Origin directory is already in use as a target directory by another rule.",
           static_cast<int>(ruleName.length()),
           ruleName.data());
 
@@ -331,37 +330,36 @@ namespace Pathwinder
           static_cast<int>(ruleName.length()),
           ruleName.data());
 
-    TemporaryString targetDirectoryFullPath = maybeTargetDirectoryResolvedString.Value();
-    targetDirectoryFullPath.RemoveTrailing(L'\\');
+    std::wstring_view targetDirectoryFullPath = Strings::RemoveTrailing(
+        std::wstring_view(maybeTargetDirectoryResolvedString.Value()), L'\\');
 
-    if (false == targetDirectoryFullPath.AsStringView().contains(L'\\'))
+    if (false == targetDirectoryFullPath.contains(L'\\'))
       return Strings::FormatString(
           L"Error while creating filesystem rule \"%.*s\": Constraint violation: Target directory cannot be a filesystem root.",
           static_cast<int>(ruleName.length()),
           ruleName.data());
-    if (true == targetDirectoryFullPath.Empty())
+    if (true == targetDirectoryFullPath.empty())
       return Strings::FormatString(
           L"Error while creating filesystem rule \"%.*s\": Target directory: Failed to resolve full path: %s",
           static_cast<int>(ruleName.length()),
           ruleName.data(),
           Strings::SystemErrorCodeString(GetLastError()).AsCString());
-    if (true == targetDirectoryFullPath.Overflow())
-      return Strings::FormatString(
-          L"Error while creating filesystem rule \"%.*s\": Target directory: Full path exceeds limit of %u characters.",
-          static_cast<int>(ruleName.length()),
-          ruleName.data(),
-          targetDirectoryFullPath.Capacity());
     if (true == HasOriginDirectory(targetDirectoryFullPath))
       return Strings::FormatString(
           L"Error while creating filesystem rule \"%.*s\": Constraint violation: Target directory is already in use as an origin directory by another rule.",
           static_cast<int>(ruleName.length()),
           ruleName.data());
 
+    const std::wstring_view originDirectoryFullPathOwnedView =
+        *originDirectories.emplace(originDirectoryFullPath).first;
+    const std::wstring_view targetDirectoryFullPathOwnedView =
+        *targetDirectories.emplace(targetDirectoryFullPath).first;
+
     const auto createResult = filesystemRules.emplace(
         std::wstring(ruleName),
         FilesystemRule(
-            originDirectoryFullPath.AsStringView(),
-            targetDirectoryFullPath.AsStringView(),
+            originDirectoryFullPathOwnedView,
+            targetDirectoryFullPathOwnedView,
             std::move(filePatterns),
             redirectMode));
     DebugAssert(
@@ -372,7 +370,7 @@ namespace Pathwinder
     FilesystemRule* newRule = &createResult.first->second;
 
     newRule->SetName(newRuleName);
-    originDirectories.Insert(newRule->GetOriginDirectoryFullPath(), *newRule);
+    originDirectoryIndex.Insert(newRule->GetOriginDirectoryFullPath(), *newRule);
     targetDirectories.emplace(newRule->GetTargetDirectoryFullPath());
 
     return newRule;
@@ -423,7 +421,7 @@ namespace Pathwinder
     if (true == filesystemRules.empty())
       return L"Error while building a filesystem director configuration: Internal error: Attempted to finalize an empty registry.";
 
-    PrefixIndex<wchar_t, FilesystemRule> allDirectories;
+    TPrefixDirectoryIndex allDirectories;
 
     for (const auto& filesystemRuleRecord : filesystemRules)
     {
@@ -487,6 +485,10 @@ namespace Pathwinder
       }
     }
 
-    return FilesystemDirector(std::move(filesystemRules), std::move(originDirectories));
+    return FilesystemDirector(
+        std::move(originDirectories),
+        std::move(targetDirectories),
+        std::move(originDirectoryIndex),
+        std::move(filesystemRules));
   }
 } // namespace Pathwinder
