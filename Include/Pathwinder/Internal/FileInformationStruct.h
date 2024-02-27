@@ -62,7 +62,9 @@ namespace Pathwinder
     /// returned to the pool.
     static constexpr unsigned int kBufferPoolSize = 64;
 
-    inline FileInformationStructBuffer(void) : buffer(bufferPool.Allocate()) {}
+    inline FileInformationStructBuffer(void)
+        : buffer(reinterpret_cast<uint8_t*>(bufferPool.Allocate()))
+    {}
 
     inline ~FileInformationStructBuffer(void)
     {

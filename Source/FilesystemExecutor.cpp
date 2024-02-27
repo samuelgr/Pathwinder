@@ -20,6 +20,7 @@
 
 #include "ApiWindows.h"
 #include "ArrayList.h"
+#include "BufferPool.h"
 #include "FileInformationStruct.h"
 #include "FilesystemOperations.h"
 #include "Globals.h"
@@ -28,6 +29,7 @@
 #include "OpenHandleStore.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
+#include "ThreadPool.h"
 #include "ValueOrError.h"
 
 namespace Pathwinder
@@ -61,6 +63,124 @@ namespace Pathwinder
       /// If an input path was composed, for example due to combination with a root directory,
       /// then that input path is stored here.
       std::optional<TemporaryString> composedInputPath;
+    };
+
+    /// Directory enumeration request parameters.
+    struct SDirectoryEnumerationParams
+    {
+      /// Cached data associated with the open file handle.
+      OpenHandleStore::SHandleDataView handleData;
+
+      /// Status block data structure to be filled with information on the outcome of the directory
+      /// enumeration operation.
+      PIO_STATUS_BLOCK ioStatusBlock;
+
+      /// Buffer to be filled with file information structures as part of the directory enumeration
+      /// operation.
+      PVOID outputBuffer;
+
+      /// Capacity of the output buffer, in bytes.
+      ULONG outputBufferSizeBytes;
+
+      /// Flags that determine how the query should be processed. See `NtQueryDirectoryFileEx` for
+      /// the meanings of these flags.
+      ULONG queryFlags;
+    };
+
+    /// Application-requested mechanism to be used upon completion of a directory enumeration
+    /// operation.
+    struct SDirectoryEnumerationCompletionSignal
+    {
+      /// If not `nullptr`, this event will be signalled when the asynchronous enumeration
+      /// completes.
+      HANDLE eventToSignal;
+
+      /// If not `nullptr`, this routine will be queued to the APC queue of the target thread when
+      /// the asynchronous enumeration completes.
+      PIO_APC_ROUTINE apcRoutine;
+
+      /// Pointer to the I/O status block to be passed to the APC routine when it is invoked.
+      PIO_STATUS_BLOCK apcIoStatusBlock;
+
+      /// Parameter to be passed to the APC routine when it is queued.
+      PVOID apcContextParam;
+
+      /// Handle to the thread on which the APC routine should be queued. Can be `nullptr` if an
+      /// APC routine should not be queued.
+      HANDLE apcTargetThread;
+    };
+
+    /// Function pointer type for a function that asynchronously advances a directory enumeration
+    /// operation.
+    using TAsyncDirectoryEnumerationFunc = void (*)(
+        const SDirectoryEnumerationParams&, const SDirectoryEnumerationCompletionSignal&);
+
+    /// Light-weight implementation of supporting functionality for asynchronous directory
+    /// enumeration. Intended to be instantiated as a singleton object.
+    class AsynchronousDirectoryEnumerationImpl
+    {
+    public:
+
+      inline AsynchronousDirectoryEnumerationImpl(void)
+          : contextBufferPool(), executionThreadPool(ThreadPool::Create())
+      {}
+
+      inline bool SubmitOperation(
+          TAsyncDirectoryEnumerationFunc func,
+          const SDirectoryEnumerationParams& params,
+          const SDirectoryEnumerationCompletionSignal& completionSignal)
+      {
+        if (false == executionThreadPool.has_value()) return false;
+
+        SDirectoryEnumerationAsyncContext* const asyncContext =
+            reinterpret_cast<SDirectoryEnumerationAsyncContext*>(contextBufferPool.Allocate());
+
+        *asyncContext = {
+            .func = func,
+            .params = params,
+            .completionSignal = completionSignal,
+            .bufferPool = &contextBufferPool};
+
+        return executionThreadPool->SubmitWork(AsyncCallback, asyncContext);
+      }
+
+    private:
+
+      /// Context record for holding all of the data associated with the asynchronous advancement of
+      /// a directory enumeration operation.
+      struct SDirectoryEnumerationAsyncContext
+      {
+        TAsyncDirectoryEnumerationFunc func;
+        SDirectoryEnumerationParams params;
+        SDirectoryEnumerationCompletionSignal completionSignal;
+        void* bufferPool;
+      };
+
+      /// Type alias for sizing and configuring the buffer pool that holds context data for
+      /// asynchronous directory enumeration operations.
+      using TContextBufferPool = BufferPool<sizeof(SDirectoryEnumerationAsyncContext), 4, 64>;
+
+      /// Callback entry point for an asynchronous directory enumeration operation. Passed directly
+      /// to the thread pool as the function to invoke, and in turn invokes the function contained
+      /// in the context object.
+      static void CALLBACK AsyncCallback(PTP_CALLBACK_INSTANCE instance, PVOID context)
+      {
+        const SDirectoryEnumerationAsyncContext* const asyncContext =
+            reinterpret_cast<SDirectoryEnumerationAsyncContext*>(context);
+
+        asyncContext->func(asyncContext->params, asyncContext->completionSignal);
+
+        TContextBufferPool* contextBufferPool =
+            reinterpret_cast<TContextBufferPool*>(asyncContext->bufferPool);
+        contextBufferPool->Free(context);
+      }
+
+      /// Buffer pool used to hold context data to be passed as input to the asynchronous directory
+      /// enumeration operation.
+      TContextBufferPool contextBufferPool;
+
+      /// Thread pool used to execute all asynchronous directory enumeration operations.
+      std::optional<ThreadPool> executionThreadPool;
     };
 
     /// Holds all of the information needed to represent a create disposition that should be
@@ -162,6 +282,26 @@ namespace Pathwinder
       return FileAccessMode(canRead, canWrite, canDelete);
     }
 
+    /// Obtains a real handle for the calling thread, with `THREAD_ALL_ACCESS` access rights.
+    /// @return Handle for the calling thread, or `nullptr` in the event of a failure.
+    static HANDLE HandleForCurrentThread(void)
+    {
+      HANDLE currentThreadHandle = nullptr;
+
+      if (0 ==
+          DuplicateHandle(
+              GetCurrentProcess(),
+              GetCurrentThread(),
+              GetCurrentProcess(),
+              &currentThreadHandle,
+              THREAD_ALL_ACCESS,
+              FALSE,
+              0))
+        return nullptr;
+
+      return currentThreadHandle;
+    }
+
     /// Dumps to the log all relevant invocation parameters for a file operation that results in the
     /// creation of a new file handle. Parameters are a subset of those that would normally be
     /// passed to `NtCreateFile`, with the exception of some additional metadata about the invoked
@@ -252,82 +392,13 @@ namespace Pathwinder
     }
 
     /// Internal implementation of advancing an in-progress directory enumeration operation.
-    /// @param [in] functionName Name of the API function whose hook function is invoking this
-    /// function. Used only for logging.
-    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
-    /// the named function. Used only for logging.
-    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
-    /// file handles known to be open. Sets the context for this call.
-    /// @param [in] fileHandle Open file handle for the directory being enumerated.
-    /// @param [out] ioStatusBlock Status block data structure to be filled with information on the
-    /// outcome of the directory enumeration operation.
-    /// @param [out] outputBuffer Buffer to be filled with file information structures as part of
-    /// the directory enumeration operation.
-    /// @param [in] outputBufferSizeBytes Capacity of the output buffer, in bytes.
-    /// @param [in] queryFlags Flags that determine how the query should be processed. See
-    /// `NtQueryDirectoryFileEx` for the meanings of these flags.
-    /// @param [in] queryFilePattern Pattern to be matched against individual file names, used as a
-    /// filter during directory enumeration. Per `NtQueryDirectoryFileEx` documentation, this
-    /// parameter is only honored if the flags specify to restart the scan.
+    /// @param [in] params Parameter record containing information on how to process the request.
     /// @return Windows error code corresponding to the result of advancing the directory
     /// enumeration operation.
-    static NTSTATUS AdvanceDirectoryEnumerationOperation(
-        const wchar_t* functionName,
-        unsigned int functionRequestIdentifier,
-        OpenHandleStore& openHandleStore,
-        HANDLE fileHandle,
-        PIO_STATUS_BLOCK ioStatusBlock,
-        PVOID outputBuffer,
-        ULONG outputBufferSizeBytes,
-        ULONG queryFlags,
-        std::wstring_view queryFilePattern)
+    static NTSTATUS AdvanceDirectoryEnumerationOperation(const SDirectoryEnumerationParams& params)
     {
-      // It is a fatal error for a directory enumeration operation to be advanced if the directory
-      // handle is not cached or for the handle not to already have a properly-initialized directory
-      // enumeration state data structure object associated with it.
-      OpenHandleStore::SHandleDataView handleData = *(openHandleStore.GetDataForHandle(fileHandle));
       OpenHandleStore::SInProgressDirectoryEnumeration& enumerationState =
-          *(*handleData.directoryEnumeration);
-      DebugAssert(
-          nullptr != enumerationState.queue,
-          "Advancing directory enumeration state without an operation queue.");
-      if (nullptr == enumerationState.queue) return NtStatus::kInternalError;
-
-      if (queryFlags & SL_RESTART_SCAN)
-      {
-        if (true == queryFilePattern.empty())
-        {
-          Message::OutputFormatted(
-              Message::ESeverity::Debug,
-              L"%s(%u): Restarting scan for handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".",
-              functionName,
-              functionRequestIdentifier,
-              reinterpret_cast<size_t>(fileHandle),
-              static_cast<int>(handleData.associatedPath.length()),
-              handleData.associatedPath.data(),
-              static_cast<int>(handleData.realOpenedPath.length()),
-              handleData.realOpenedPath.data());
-        }
-        else
-        {
-          Message::OutputFormatted(
-              Message::ESeverity::Debug,
-              L"%s(%u): Restarting scan with file pattern \"%.*s\" for handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".",
-              functionName,
-              functionRequestIdentifier,
-              static_cast<int>(queryFilePattern.length()),
-              queryFilePattern.data(),
-              reinterpret_cast<size_t>(fileHandle),
-              static_cast<int>(handleData.associatedPath.length()),
-              handleData.associatedPath.data(),
-              static_cast<int>(handleData.realOpenedPath.length()),
-              handleData.realOpenedPath.data());
-        }
-
-        enumerationState.queue->Restart(queryFilePattern);
-        enumerationState.enumeratedFilenames.clear();
-        enumerationState.isFirstInvocation = true;
-      }
+          *(*params.handleData.directoryEnumeration);
 
       const bool isFirstInvocation = enumerationState.isFirstInvocation;
       enumerationState.isFirstInvocation = false;
@@ -345,26 +416,26 @@ namespace Pathwinder
         if ((true == isFirstInvocation) && NtStatus::kNoMoreFiles == enumerationStatus)
           enumerationStatus = NtStatus::kNoSuchFile;
 
-        ioStatusBlock->Information = 0;
+        params.ioStatusBlock->Information = 0;
         return enumerationStatus;
       }
 
       // If this condition is true, then the output buffer cannot hold even one complete file
       // information structure. The application must be informed of the buffer overflow condition.
-      if (outputBufferSizeBytes < enumerationState.queue->SizeOfFront())
+      if (params.outputBufferSizeBytes < enumerationState.queue->SizeOfFront())
       {
         // I/O status block gets the return code and the total number of bytes actually written to
         // the output buffer.
-        ioStatusBlock->Information = static_cast<ULONG_PTR>(
-            enumerationState.queue->CopyFront(outputBuffer, outputBufferSizeBytes));
+        params.ioStatusBlock->Information = static_cast<ULONG_PTR>(
+            enumerationState.queue->CopyFront(params.outputBuffer, params.outputBufferSizeBytes));
 
         // File information structure has no next entry offset, and its length field contains the
         // length of the filename that would be written to the output buffer if there were
         // sufficient space (the actual length of the filename, even though the whole thing could
         // not be copied).
-        enumerationState.fileInformationStructLayout.ClearNextEntryOffset(outputBuffer);
+        enumerationState.fileInformationStructLayout.ClearNextEntryOffset(params.outputBuffer);
         enumerationState.fileInformationStructLayout.WriteFileNameLength(
-            outputBuffer,
+            params.outputBuffer,
             static_cast<FileInformationStructLayout::TFileNameLength>(
                 enumerationState.queue->FileNameOfFront().length() * sizeof(wchar_t)));
 
@@ -372,7 +443,8 @@ namespace Pathwinder
       }
 
       const unsigned int maxElementsToWrite =
-          ((queryFlags & SL_RETURN_SINGLE_ENTRY) ? 1 : std::numeric_limits<unsigned int>::max());
+          ((params.queryFlags & SL_RETURN_SINGLE_ENTRY) ? 1
+                                                        : std::numeric_limits<unsigned int>::max());
       unsigned int numElementsWritten = 0;
       unsigned int numBytesWritten = 0;
       void* lastBufferPosition = nullptr;
@@ -382,8 +454,8 @@ namespace Pathwinder
       while ((NT_SUCCESS(enumerationStatus)) && (numElementsWritten < maxElementsToWrite))
       {
         void* const bufferPosition = reinterpret_cast<void*>(
-            reinterpret_cast<size_t>(outputBuffer) + static_cast<size_t>(numBytesWritten));
-        const unsigned int bufferCapacityLeftBytes = outputBufferSizeBytes - numBytesWritten;
+            reinterpret_cast<size_t>(params.outputBuffer) + static_cast<size_t>(numBytesWritten));
+        const unsigned int bufferCapacityLeftBytes = params.outputBufferSizeBytes - numBytesWritten;
 
         if (bufferCapacityLeftBytes < enumerationState.queue->SizeOfFront()) break;
 
@@ -438,8 +510,51 @@ namespace Pathwinder
           break;
       }
 
-      ioStatusBlock->Information = numBytesWritten;
+      params.ioStatusBlock->Information = numBytesWritten;
       return enumerationStatus;
+    }
+
+    /// Wrapper for submitting a request to advance a directory enumeration operation
+    /// asynchronously.
+    /// @param [in] params Parameter record containing information on how to process the request.
+    /// @param [in] completionSignal Completion signal record containing information on how to
+    /// signal to the application that the operation has completed.
+    /// @return `true` if the asynchronous operation was queued successfully, `false` otherwise.
+    static bool AsynchronouslyAdvanceDirectoryEnumerationOperation(
+        const SDirectoryEnumerationParams& params,
+        const SDirectoryEnumerationCompletionSignal& completionSignal)
+    {
+      static AsynchronousDirectoryEnumerationImpl asyncImpl;
+
+      return asyncImpl.SubmitOperation(
+          [](const SDirectoryEnumerationParams& params,
+             const SDirectoryEnumerationCompletionSignal& completionSignal) -> void
+          {
+            params.ioStatusBlock->Status = AdvanceDirectoryEnumerationOperation(params);
+
+            if (nullptr != completionSignal.eventToSignal) SetEvent(completionSignal.eventToSignal);
+
+            if (nullptr != completionSignal.apcRoutine)
+            {
+              static_assert(sizeof(ULONG_PTR) == sizeof(PVOID), "Context parameter size mismatch.");
+
+              QueueUserAPC(
+                  [](ULONG_PTR param) -> void
+                  {
+                    const SDirectoryEnumerationCompletionSignal& completionSignal =
+                        *reinterpret_cast<const SDirectoryEnumerationCompletionSignal*>(param);
+
+                    completionSignal.apcRoutine(
+                        completionSignal.apcContextParam, completionSignal.apcIoStatusBlock, 0);
+                  },
+                  completionSignal.apcTargetThread,
+                  reinterpret_cast<ULONG_PTR>(&completionSignal));
+
+              FilesystemOperations::CloseHandle(completionSignal.apcTargetThread);
+            }
+          },
+          params,
+          completionSignal);
     }
 
     /// Creates a directory operation queue object based on the supplied directory enumeration
@@ -1139,33 +1254,77 @@ namespace Pathwinder
         ULONG queryFlags,
         PUNICODE_STRING fileName)
     {
-      const std::wstring_view queryFilePattern =
-          ((nullptr == fileName) ? std::wstring_view()
-                                 : Strings::NtConvertUnicodeStringToStringView(*fileName));
+      // It is a fatal error for a directory enumeration operation to be advanced if the directory
+      // handle is not cached or for the handle not to already have a properly-initialized directory
+      // enumeration state data structure object associated with it.
+      OpenHandleStore::SHandleDataView handleData = *(openHandleStore.GetDataForHandle(fileHandle));
+      OpenHandleStore::SInProgressDirectoryEnumeration& enumerationState =
+          *(*handleData.directoryEnumeration);
+      DebugAssert(
+          nullptr != enumerationState.queue,
+          "Advancing directory enumeration state without an operation queue.");
+      if (nullptr == enumerationState.queue) return NtStatus::kInternalError;
+
+      if (queryFlags & SL_RESTART_SCAN)
+      {
+        const std::wstring_view queryFilePattern =
+            ((nullptr == fileName) ? std::wstring_view()
+                                   : Strings::NtConvertUnicodeStringToStringView(*fileName));
+
+        enumerationState.queue->Restart(queryFilePattern);
+        enumerationState.enumeratedFilenames.clear();
+        enumerationState.isFirstInvocation = true;
+      }
 
       switch (GetIoModeForHandle(fileHandle))
       {
         case EInputOutputMode::Synchronous:
-          ioStatusBlock->Status = AdvanceDirectoryEnumerationOperation(
-              functionName,
-              functionRequestIdentifier,
-              openHandleStore,
-              fileHandle,
-              ioStatusBlock,
-              fileInformation,
-              length,
-              queryFlags,
-              queryFilePattern);
-          return ioStatusBlock->Status;
-
-        case EInputOutputMode::Asynchronous:
           Message::OutputFormatted(
-              Message::ESeverity::Warning,
-              L"%s(%u): Application requested asynchronous directory enumeration for handle %zu, which is unimplemented.",
+              Message::ESeverity::SuperDebug,
+              L"%s(%u): Application requested synchronous directory enumeration for handle %zu.",
               functionName,
               functionRequestIdentifier,
               reinterpret_cast<size_t>(fileHandle));
-          return NtStatus::kNotImplemented;
+          ioStatusBlock->Status = AdvanceDirectoryEnumerationOperation(
+              {.handleData = handleData,
+               .ioStatusBlock = ioStatusBlock,
+               .outputBuffer = fileInformation,
+               .outputBufferSizeBytes = length,
+               .queryFlags = queryFlags});
+          return ioStatusBlock->Status;
+
+        case EInputOutputMode::Asynchronous:
+          if (true ==
+              AsynchronouslyAdvanceDirectoryEnumerationOperation(
+                  {.handleData = handleData,
+                   .ioStatusBlock = ioStatusBlock,
+                   .outputBuffer = fileInformation,
+                   .outputBufferSizeBytes = length,
+                   .queryFlags = queryFlags},
+                  {.eventToSignal = event,
+                   .apcRoutine = apcRoutine,
+                   .apcIoStatusBlock = ioStatusBlock,
+                   .apcContextParam = apcContext,
+                   .apcTargetThread = HandleForCurrentThread()}))
+          {
+            Message::OutputFormatted(
+                Message::ESeverity::SuperDebug,
+                L"%s(%u): Application requested asynchronous directory enumeration for handle %zu, and the request was successfully enqueued.",
+                functionName,
+                functionRequestIdentifier,
+                reinterpret_cast<size_t>(fileHandle));
+            return NtStatus::kPending;
+          }
+          else
+          {
+            Message::OutputFormatted(
+                Message::ESeverity::Error,
+                L"%s(%u): Application requested asynchronous directory enumeration for handle %zu, but the request failed to be enqueued.",
+                functionName,
+                functionRequestIdentifier,
+                reinterpret_cast<size_t>(fileHandle));
+            return NtStatus::kInternalError;
+          }
 
         default:
           Message::OutputFormatted(

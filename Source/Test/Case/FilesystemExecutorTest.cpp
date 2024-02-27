@@ -368,6 +368,195 @@ namespace PathwinderTest
     TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
   }
 
+  // Verifies the nominal case of directory enumeration advancement whereby file information
+  // structures are copied to a buffer large enough to hold all of them. Checks that the file
+  // information structures are copied correctly and that all of them are copied. This version of
+  // the test case uses asynchronous directory enumeration synchronized by an event.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_NominalAsyncEvent)
+  {
+    constexpr std::wstring_view kTestDirectory = L"X:\\Test\\Directory";
+
+    constexpr FILE_INFORMATION_CLASS kFileNamesInformationClass =
+        SFileNamesInformation::kFileInformationClass;
+    const FileInformationStructLayout fileNameStructLayout =
+        *FileInformationStructLayout::LayoutForFileInformationClass(kFileNamesInformationClass);
+
+    const MockDirectoryOperationQueue::TFileNamesToEnumerate expectedEnumeratedFilenames = {
+        L"file1.txt", L"00file2.txt", L"FILE3.log", L"app1.exe", L"binfile.bin"};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kTestDirectory);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(
+        kTestDirectory, MockFilesystemOperations::EOpenHandleMode::Asynchronous);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
+    openHandleStore.AssociateDirectoryEnumerationState(
+        directoryHandle,
+        std::make_unique<MockDirectoryOperationQueue>(
+            fileNameStructLayout,
+            MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
+        fileNameStructLayout);
+
+    TemporaryVector<uint8_t> enumerationOutputBytes;
+    IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
+
+    HANDLE syncEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+    TEST_ASSERT(nullptr != syncEvent);
+
+    const NTSTATUS expectedReturnCode = NtStatus::kPending;
+    const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        syncEvent,
+        nullptr,
+        nullptr,
+        &ioStatusBlock,
+        enumerationOutputBytes.Data(),
+        enumerationOutputBytes.CapacityBytes(),
+        kFileNamesInformationClass,
+        0,
+        nullptr);
+
+    TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+    TEST_ASSERT(WAIT_OBJECT_0 == WaitForSingleObject(syncEvent, 10));
+
+    const NTSTATUS expectedResult = NtStatus::kSuccess;
+    const NTSTATUS actualResult = ioStatusBlock.Status;
+    TEST_ASSERT(actualResult == expectedResult);
+
+    MockDirectoryOperationQueue::TFileNamesToEnumerate actualEnumeratedFilenames;
+    const unsigned int expectedBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
+    unsigned int actualBytesWritten = 0;
+
+    size_t enumeratedOutputBytePosition = 0;
+    while (enumeratedOutputBytePosition <
+           std::min(expectedBytesWritten, enumerationOutputBytes.CapacityBytes()))
+    {
+      const SFileNamesInformation* enumeratedFileInformation =
+          reinterpret_cast<const SFileNamesInformation*>(
+              &enumerationOutputBytes.Data()[enumeratedOutputBytePosition]);
+
+      actualEnumeratedFilenames.emplace(
+          fileNameStructLayout.ReadFileName(enumeratedFileInformation));
+      actualBytesWritten += fileNameStructLayout.SizeOfStruct(enumeratedFileInformation);
+
+      if (0 == enumeratedFileInformation->nextEntryOffset) break;
+      enumeratedOutputBytePosition +=
+          static_cast<size_t>(enumeratedFileInformation->nextEntryOffset);
+    }
+
+    TEST_ASSERT(actualEnumeratedFilenames == expectedEnumeratedFilenames);
+    TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
+  }
+
+  // Verifies the nominal case of directory enumeration advancement whereby file information
+  // structures are copied to a buffer large enough to hold all of them. Checks that the file
+  // information structures are copied correctly and that all of them are copied. This version of
+  // the test case uses an APC routine.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_NominalAsyncApcRoutine)
+  {
+    struct STestApcData
+    {
+      DWORD threadId;
+      PIO_STATUS_BLOCK ioStatusBlockPtr;
+
+      inline bool operator==(const STestApcData& other) const = default;
+    };
+
+    constexpr std::wstring_view kTestDirectory = L"X:\\Test\\Directory";
+
+    constexpr FILE_INFORMATION_CLASS kFileNamesInformationClass =
+        SFileNamesInformation::kFileInformationClass;
+    const FileInformationStructLayout fileNameStructLayout =
+        *FileInformationStructLayout::LayoutForFileInformationClass(kFileNamesInformationClass);
+
+    const MockDirectoryOperationQueue::TFileNamesToEnumerate expectedEnumeratedFilenames = {
+        L"file1.txt", L"00file2.txt", L"FILE3.log", L"app1.exe", L"binfile.bin"};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kTestDirectory);
+    mockFilesystem.SetConfigAllowCloseInvalidHandle(true);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(
+        kTestDirectory, MockFilesystemOperations::EOpenHandleMode::Asynchronous);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
+    openHandleStore.AssociateDirectoryEnumerationState(
+        directoryHandle,
+        std::make_unique<MockDirectoryOperationQueue>(
+            fileNameStructLayout,
+            MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
+        fileNameStructLayout);
+
+    TemporaryVector<uint8_t> enumerationOutputBytes;
+    IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
+
+    const STestApcData expectedApcData = {
+        .threadId = GetCurrentThreadId(), .ioStatusBlockPtr = &ioStatusBlock};
+    STestApcData actualApcData{};
+
+    const NTSTATUS expectedReturnCode = NtStatus::kPending;
+    const NTSTATUS actualReturnCode = FilesystemExecutor::DirectoryEnumerationAdvance(
+        TestCaseName().data(),
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        directoryHandle,
+        nullptr,
+        [](PVOID context, PIO_STATUS_BLOCK ioStatusBlock, ULONG reserved) -> void
+        {
+          *reinterpret_cast<STestApcData*>(context) = {
+              .threadId = GetCurrentThreadId(), .ioStatusBlockPtr = ioStatusBlock};
+        },
+        &actualApcData,
+        &ioStatusBlock,
+        enumerationOutputBytes.Data(),
+        enumerationOutputBytes.CapacityBytes(),
+        kFileNamesInformationClass,
+        0,
+        nullptr);
+
+    TEST_ASSERT(actualReturnCode == expectedReturnCode);
+
+    TEST_ASSERT(WAIT_IO_COMPLETION == SleepEx(10, TRUE));
+    TEST_ASSERT(actualApcData == expectedApcData);
+
+    const NTSTATUS expectedResult = NtStatus::kSuccess;
+    const NTSTATUS actualResult = ioStatusBlock.Status;
+    TEST_ASSERT(actualResult == expectedResult);
+
+    MockDirectoryOperationQueue::TFileNamesToEnumerate actualEnumeratedFilenames;
+    const unsigned int expectedBytesWritten = static_cast<unsigned int>(ioStatusBlock.Information);
+    unsigned int actualBytesWritten = 0;
+
+    size_t enumeratedOutputBytePosition = 0;
+    while (enumeratedOutputBytePosition <
+           std::min(expectedBytesWritten, enumerationOutputBytes.CapacityBytes()))
+    {
+      const SFileNamesInformation* enumeratedFileInformation =
+          reinterpret_cast<const SFileNamesInformation*>(
+              &enumerationOutputBytes.Data()[enumeratedOutputBytePosition]);
+
+      actualEnumeratedFilenames.emplace(
+          fileNameStructLayout.ReadFileName(enumeratedFileInformation));
+      actualBytesWritten += fileNameStructLayout.SizeOfStruct(enumeratedFileInformation);
+
+      if (0 == enumeratedFileInformation->nextEntryOffset) break;
+      enumeratedOutputBytePosition +=
+          static_cast<size_t>(enumeratedFileInformation->nextEntryOffset);
+    }
+
+    TEST_ASSERT(actualEnumeratedFilenames == expectedEnumeratedFilenames);
+    TEST_ASSERT(actualBytesWritten == expectedBytesWritten);
+  }
+
   // Verifies that, after all files are enumerated, subsequent invocations should result in no bytes
   // being written and a status code indicating no more files being available.
   TEST_CASE(FilesystemExecutor_DirectoryEnumerationAdvance_IndicateNoMoreFiles)

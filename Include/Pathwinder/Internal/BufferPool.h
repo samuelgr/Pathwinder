@@ -49,7 +49,7 @@ namespace Pathwinder
 
     /// Allocates a buffer for the caller to use.
     /// @return Buffer that the caller can use.
-    uint8_t* Allocate(void)
+    void* Allocate(void)
     {
       std::scoped_lock lock(allocationMutex);
 
@@ -63,7 +63,7 @@ namespace Pathwinder
 
     /// Deallocates a buffer once the caller is finished with it.
     /// @param [in] Previously-allocated buffer that the caller is returning.
-    void Free(uint8_t* buffer)
+    void Free(void* buffer)
     {
       std::scoped_lock lock(allocationMutex);
 
@@ -73,7 +73,7 @@ namespace Pathwinder
       }
       else
       {
-        availableBuffers[numAvailableBuffers] = buffer;
+        availableBuffers[numAvailableBuffers] = reinterpret_cast<uint8_t*>(buffer);
         numAvailableBuffers += 1;
       }
     }
