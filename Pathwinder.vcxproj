@@ -135,6 +135,7 @@
     <ClCompile Include="Source\Resolver.cpp" />
     <ClCompile Include="Source\Strings.cpp" />
     <ClCompile Include="Source\TemporaryBuffer.cpp" />
+    <ClCompile Include="Source\ThreadPool.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Include\Pathwinder\Internal\ApiBitSet.h" />
@@ -162,6 +163,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\Resolver.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Strings.h" />
     <ClInclude Include="Include\Pathwinder\Internal\TemporaryBuffer.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\ThreadPool.h" />
     <ClInclude Include="Include\Pathwinder\Internal\ValueOrError.h" />
     <ClInclude Include="Resources\Pathwinder.h" />
   </ItemGroup>
