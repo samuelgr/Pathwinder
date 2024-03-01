@@ -33,7 +33,11 @@ namespace Pathwinder
   public:
 
     inline FilesystemDirectorBuilder(void)
-        : originDirectoryIndex(L"\\"), targetDirectories(), filesystemRules()
+        : originDirectories(),
+          targetDirectories(),
+          filesystemRuleNames(),
+          originDirectoryIndex(L"\\"),
+          filesystemRules()
     {}
 
     /// Attempts to build a filesystem director object using a configuration data object.
@@ -80,7 +84,7 @@ namespace Pathwinder
     /// behavior is to use simple redirection mode.
     /// @return Pointer to the new rule on success, error message on failure.
     ValueOrError<const FilesystemRule*, TemporaryString> AddRule(
-        std::wstring_view ruleName,
+        std::wstring&& ruleName,
         std::wstring_view originDirectory,
         std::wstring_view targetDirectory,
         std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>(),
@@ -95,7 +99,7 @@ namespace Pathwinder
     /// that define the new rule.
     /// @return Pointer to the new rule on success, error message on failure.
     ValueOrError<const FilesystemRule*, TemporaryString> AddRuleFromConfigurationSection(
-        std::wstring_view ruleName, Configuration::Section& configSection);
+        std::wstring&& ruleName, Configuration::Section& configSection);
 
     /// Attempts to build a real filesystem director object using all of the rules added so far.
     /// Built filesystem director objects are immutable. Some constraints that are enforced
@@ -140,16 +144,19 @@ namespace Pathwinder
   private:
 
     /// Stores all absolute paths to origin directories used by filesystem rules.
-    TPathStringContainer originDirectories;
+    TCaseInsensitiveStringSet originDirectories;
 
     /// Stores all absolute paths to target directories used by filesystem rules.
-    TPathStringContainer targetDirectories;
+    TCaseInsensitiveStringSet targetDirectories;
+
+    /// Stores all filesystem rule names.
+    TCaseInsensitiveStringSet filesystemRuleNames;
 
     /// Indexes all absolute paths to origin directories used by filesystem rules.
     TPrefixDirectoryIndex originDirectoryIndex;
 
     /// Holds all filesystem rules contained within the candidate filesystem director object.
     /// Maps from rule name to rule object.
-    TFilesystemRuleMap filesystemRules;
+    TFilesystemRuleMapByName filesystemRules;
   };
 } // namespace Pathwinder

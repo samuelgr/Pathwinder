@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -25,9 +26,9 @@
 
 namespace Pathwinder
 {
-  /// Type alias for holding owned path strings, usually used to hold origin and target directory
-  /// full paths. Contained path strings are compared case-insensitively.
-  using TPathStringContainer = std::unordered_set<
+  /// Type alias for holding owned strings for deduplication and organization. Contained strings are
+  /// compared case-insensitively.
+  using TCaseInsensitiveStringSet = std::unordered_set<
       std::wstring,
       Strings::CaseInsensitiveHasher<wchar_t>,
       Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
@@ -35,8 +36,16 @@ namespace Pathwinder
   /// Type alias for holding a map from filesystem rule name to filesystem rule object. All
   /// filesystem rules are uniquely identified by name, and the names are considered case
   /// insensitive.
-  using TFilesystemRuleMap =
-      std::map<std::wstring, FilesystemRule, Strings::CaseInsensitiveLessThanComparator<wchar_t>>;
+  using TFilesystemRuleMapByName = std::
+      map<std::wstring_view, FilesystemRule, Strings::CaseInsensitiveLessThanComparator<wchar_t>>;
+
+  /// Type alias for holding a map from origin directory to a container of filesystem objects all
+  /// having the same origin directory.
+  using TFilesystemRuleMapByOriginDirectory = std::unordered_map<
+      std::wstring_view,
+      FilesystemRuleContainer,
+      Strings::CaseInsensitiveHasher<wchar_t>,
+      Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
 
   /// Type alias for holding an index that can identify filesystem rules by directory prefix.
   using TPrefixDirectoryIndex = PrefixIndex<wchar_t, FilesystemRule>;
@@ -216,12 +225,14 @@ namespace Pathwinder
     /// Move-constructs each individual instance variable. Does not validate any inputs or perform
     /// any consistency checks. Intended to be invoked by a filesystem director builder.
     inline FilesystemDirector(
-        TPathStringContainer&& originDirectories,
-        TPathStringContainer&& targetDirectories,
+        TCaseInsensitiveStringSet&& originDirectories,
+        TCaseInsensitiveStringSet&& targetDirectories,
+        TCaseInsensitiveStringSet&& filesystemRuleNames,
         TPrefixDirectoryIndex&& originDirectoryIndex,
-        TFilesystemRuleMap&& filesystemRules)
+        TFilesystemRuleMapByName&& filesystemRules)
         : originDirectories(std::move(originDirectories)),
           targetDirectories(std::move(targetDirectories)),
+          filesystemRuleNames(std::move(filesystemRuleNames)),
           originDirectoryIndex(std::move(originDirectoryIndex)),
           filesystemRules(std::move(filesystemRules))
     {}
@@ -231,10 +242,11 @@ namespace Pathwinder
     /// object. Intended to be invoked by tests, which tend to use string literals when creating
     /// filesystem rules and hence ownership does not need to be transferred to this object.
     inline FilesystemDirector(
-        TPrefixDirectoryIndex&& originDirectoryIndex, TFilesystemRuleMap&& filesystemRules)
+        TPrefixDirectoryIndex&& originDirectoryIndex, TFilesystemRuleMapByName&& filesystemRules)
         : FilesystemDirector(
-              TPathStringContainer(),
-              TPathStringContainer(),
+              TCaseInsensitiveStringSet(),
+              TCaseInsensitiveStringSet(),
+              TCaseInsensitiveStringSet(),
               std::move(originDirectoryIndex),
               std::move(filesystemRules))
     {}
@@ -331,16 +343,19 @@ namespace Pathwinder
   private:
 
     /// Stores all absolute paths to origin directories used by filesystem rules.
-    TPathStringContainer originDirectories;
+    TCaseInsensitiveStringSet originDirectories;
 
     /// Stores all absolute paths to target directories used by filesystem rules.
-    TPathStringContainer targetDirectories;
+    TCaseInsensitiveStringSet targetDirectories;
+
+    /// Stores all filesystem rule names.
+    TCaseInsensitiveStringSet filesystemRuleNames;
 
     /// Indexes all absolute paths of origin directories used by filesystem rules.
     TPrefixDirectoryIndex originDirectoryIndex;
 
     /// Holds all filesystem rules contained within the candidate filesystem director object.
     /// Maps from rule name to rule object.
-    TFilesystemRuleMap filesystemRules;
+    TFilesystemRuleMapByName filesystemRules;
   };
 } // namespace Pathwinder

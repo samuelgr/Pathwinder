@@ -1553,7 +1553,8 @@ namespace PathwinderTest
 
     std::array<uint8_t, 256> unusedBuffer{};
 
-    const FilesystemRule testRule(kAssociatedPath, kRealOpenedPath, {L"*.txt", L"*.bin", L"*.log"});
+    const FilesystemRule testRule(
+        L"", kAssociatedPath, kRealOpenedPath, {L"*.txt", L"*.bin", L"*.log"});
 
     // Expected result is two enumeration queues being merged together, the first for the associated
     // path and the second for the real opened path.
@@ -1727,7 +1728,8 @@ namespace PathwinderTest
     std::array<uint8_t, 256> unusedBuffer{};
 
     // Expected result is a single name insertion queue.
-    const FilesystemRule filesystemRules[] = {FilesystemRule(kAssociatedPath, kRealOpenedPath)};
+    const FilesystemRule filesystemRules[] = {
+        FilesystemRule(L"", kAssociatedPath, kRealOpenedPath)};
     const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion
         singleNameInsertionInstructions[] = {
             DirectoryEnumerationInstruction::SingleDirectoryNameInsertion(filesystemRules[0])};
@@ -1791,7 +1793,8 @@ namespace PathwinderTest
     std::array<uint8_t, 256> unusedBuffer{};
 
     // Expected result is a single name insertion queue.
-    const FilesystemRule filesystemRules[] = {FilesystemRule(kAssociatedPath, kRealOpenedPath)};
+    const FilesystemRule filesystemRules[] = {
+        FilesystemRule(L"", kAssociatedPath, kRealOpenedPath)};
     const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion
         singleNameInsertionInstructions[] = {
             DirectoryEnumerationInstruction::SingleDirectoryNameInsertion(filesystemRules[0])};
@@ -1859,7 +1862,8 @@ namespace PathwinderTest
     std::array<uint8_t, 256> unusedBuffer{};
 
     // Expected result is a single name insertion queue.
-    const FilesystemRule filesystemRules[] = {FilesystemRule(kOriginDirectory, kTargetDirectory)};
+    const FilesystemRule filesystemRules[] = {
+        FilesystemRule(L"", kOriginDirectory, kTargetDirectory)};
     const DirectoryEnumerationInstruction::SingleDirectoryEnumeration
         singleEnumerationInstructions[] = {
             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
@@ -1955,7 +1959,8 @@ namespace PathwinderTest
     std::array<uint8_t, 256> unusedBuffer{};
 
     // Expected result is a single name insertion queue.
-    const FilesystemRule filesystemRules[] = {FilesystemRule(kOriginDirectory, kTargetDirectory)};
+    const FilesystemRule filesystemRules[] = {
+        FilesystemRule(L"", kOriginDirectory, kTargetDirectory)};
     const DirectoryEnumerationInstruction::SingleDirectoryEnumeration
         singleEnumerationInstructions[] = {
             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(

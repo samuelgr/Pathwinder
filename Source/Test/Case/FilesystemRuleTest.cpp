@@ -46,7 +46,7 @@ namespace PathwinderTest
       const std::wstring_view expectedTargetDirectoryName = kDirectoryTestRecord.second.second;
 
       const FilesystemRule filesystemRule(
-          expectedOriginDirectoryFullPath, expectedTargetDirectoryFullPath);
+          L"", expectedOriginDirectoryFullPath, expectedTargetDirectoryFullPath);
 
       const std::wstring_view actualOriginDirectoryFullPath =
           filesystemRule.GetOriginDirectoryFullPath();
@@ -85,7 +85,7 @@ namespace PathwinderTest
       const std::wstring_view expectedTargetDirectoryParent = kDirectoryTestRecord.second.second;
 
       const FilesystemRule filesystemRule(
-          kDirectoryTestRecord.first.first, kDirectoryTestRecord.second.first);
+          L"", kDirectoryTestRecord.first.first, kDirectoryTestRecord.second.first);
 
       const std::wstring_view actualOriginDirectoryParent =
           filesystemRule.GetOriginDirectoryParent();
@@ -106,7 +106,7 @@ namespace PathwinderTest
 
     constexpr std::wstring_view kTestFiles[] = {L"File1", L".file2", L"FILE3.BIN"};
 
-    const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
+    const FilesystemRule filesystemRule(L"", kOriginDirectory, kTargetDirectory);
 
     for (const auto& kTestFile : kTestFiles)
     {
@@ -142,7 +142,7 @@ namespace PathwinderTest
 
     constexpr std::wstring_view kTestFiles[] = {L"File1", L".file2", L"FILE3.BIN"};
 
-    const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
+    const FilesystemRule filesystemRule(L"", kOriginDirectory, kTargetDirectory);
 
     for (const auto& kTestFile : kTestFiles)
     {
@@ -178,7 +178,7 @@ namespace PathwinderTest
     constexpr std::wstring_view kInputPathFile = L"file2.txt";
     constexpr std::wstring_view kExpectedOutputPath = L"D:\\Target\\Subdir2\\file2.txt";
 
-    const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
+    const FilesystemRule filesystemRule(L"", kOriginDirectory, kTargetDirectory);
 
     std::optional<TemporaryString> actualOutputPath =
         filesystemRule.RedirectPathOriginToTarget(kInputPathDirectory, kInputPathFile);
@@ -201,7 +201,7 @@ namespace PathwinderTest
         L"    ASDF", L"gh.jkl", L"A", L"test.file"};
 
     const FilesystemRule filesystemRule(
-        kOriginDirectory, kTargetDirectory, std::move(filePatterns));
+        L"", kOriginDirectory, kTargetDirectory, std::move(filePatterns));
 
     for (const auto& kTestFile : kTestFilesMatching)
     {
@@ -236,7 +236,7 @@ namespace PathwinderTest
     constexpr std::wstring_view kExpectedOutputPath =
         L"D:\\AnotherDirectory\\Target\\Subdir1\\Subdir2\\file.txt";
 
-    const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
+    const FilesystemRule filesystemRule(L"", kOriginDirectory, kTargetDirectory);
     std::optional<TemporaryString> actualOutputPath =
         filesystemRule.RedirectPathOriginToTarget(kInputDirectory, kInputFile);
     TEST_ASSERT(actualOutputPath.has_value());
@@ -256,7 +256,7 @@ namespace PathwinderTest
     constexpr std::wstring_view kInputFile = L"file.txt";
 
     const FilesystemRule filesystemRule(
-        kOriginDirectory, kTargetDirectory, std::move(filePatterns));
+        L"", kOriginDirectory, kTargetDirectory, std::move(filePatterns));
     std::optional<TemporaryString> actualOutputPath =
         filesystemRule.RedirectPathOriginToTarget(kInputDirectory, kInputFile);
     TEST_ASSERT(false == actualOutputPath.has_value());
@@ -270,7 +270,7 @@ namespace PathwinderTest
     constexpr std::wstring_view kOriginDirectory = L"C:\\Directory\\Origin";
     constexpr std::wstring_view kTargetDirectory = L"D:\\AnotherDirectory\\Target";
 
-    const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
+    const FilesystemRule filesystemRule(L"", kOriginDirectory, kTargetDirectory);
 
     TEST_ASSERT(
         EDirectoryCompareResult::Equal ==
@@ -296,7 +296,7 @@ namespace PathwinderTest
     constexpr std::wstring_view kOriginCompareDirectory = L"c:\\direCTory\\oriGin";
     constexpr std::wstring_view kTargetCompareDirectory = L"d:\\aNOTHeRdireCTORy\\tARgeT";
 
-    const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
+    const FilesystemRule filesystemRule(L"", kOriginDirectory, kTargetDirectory);
 
     TEST_ASSERT(
         EDirectoryCompareResult::Equal ==
@@ -324,7 +324,7 @@ namespace PathwinderTest
         {L"c:\\diRECTory\\oRIGin\\sub dIRECTory 2\\suBDir3\\suBDir4",
          EDirectoryCompareResult::CandidateIsDescendant}};
 
-    const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
+    const FilesystemRule filesystemRule(L"", kOriginDirectory, kTargetDirectory);
 
     for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
       TEST_ASSERT(
@@ -346,7 +346,7 @@ namespace PathwinderTest
         {L"d:", EDirectoryCompareResult::CandidateIsAncestor},
         {L"d:\\aNOTHeRdiRECTorY", EDirectoryCompareResult::CandidateIsParent}};
 
-    const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
+    const FilesystemRule filesystemRule(L"", kOriginDirectory, kTargetDirectory);
 
     for (const auto& kDirectoryTestRecord : kDirectoryTestRecords)
       TEST_ASSERT(
@@ -369,7 +369,7 @@ namespace PathwinderTest
         L"D:\\Another",
         L"D:\\AnotherDirectory\\Target234"};
 
-    const FilesystemRule filesystemRule(kOriginDirectory, kTargetDirectory);
+    const FilesystemRule filesystemRule(L"", kOriginDirectory, kTargetDirectory);
 
     for (const auto& kDirectory : kDirectories)
     {
@@ -380,5 +380,99 @@ namespace PathwinderTest
           EDirectoryCompareResult::Unrelated ==
           filesystemRule.DirectoryCompareWithTarget(kDirectory));
     }
+  }
+
+  // Verifies that a filesystem rule container correctly identifies rules that match file patterns.
+  // In this case all file patterns are totally disjoint.
+  TEST_CASE(FilesystemRuleContainer_IdentifyRuleMatchingFilename)
+  {
+    FilesystemRuleContainer ruleContainer;
+    ruleContainer.EmplaceRule(
+        L"TXT", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.txt"});
+    ruleContainer.EmplaceRule(
+        L"BIN", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.bin"});
+    ruleContainer.EmplaceRule(
+        L"LOG", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.log"});
+    ruleContainer.EmplaceRule(
+        L"EXE", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.exe"});
+
+    constexpr struct
+    {
+      std::wstring_view inputFileName;
+      std::wstring_view expectedRuleName;
+    } kTestRecords[] = {
+        {.inputFileName = L"file1.TXT", .expectedRuleName = L"TXT"},
+        {.inputFileName = L"File2.txt", .expectedRuleName = L"TXT"},
+        {.inputFileName = L"log file.Log", .expectedRuleName = L"LOG"},
+        {.inputFileName = L"app.exe", .expectedRuleName = L"EXE"},
+        {.inputFileName = L"binfile_1234.bin", .expectedRuleName = L"BIN"},
+        {.inputFileName = L"document.docx", .expectedRuleName = L""}};
+
+    for (const auto& testRecord : kTestRecords)
+    {
+      if (true == testRecord.expectedRuleName.empty())
+      {
+        TEST_ASSERT(false == ruleContainer.HasRuleMatchingFileName(testRecord.inputFileName));
+        TEST_ASSERT(nullptr == ruleContainer.RuleMatchingFileName(testRecord.inputFileName));
+      }
+      else
+      {
+        TEST_ASSERT(true == ruleContainer.HasRuleMatchingFileName(testRecord.inputFileName));
+        TEST_ASSERT(nullptr != ruleContainer.RuleMatchingFileName(testRecord.inputFileName));
+        TEST_ASSERT(
+            ruleContainer.RuleMatchingFileName(testRecord.inputFileName)->GetName() ==
+            testRecord.expectedRuleName);
+      }
+    }
+  }
+
+  TEST_CASE(FilesystemRuleContainer_RuleOrder)
+  {
+    FilesystemRuleContainer ruleContainer;
+
+    // These rules all have three file patterns.
+    ruleContainer.EmplaceRule(
+        L"C3",
+        std::wstring_view(),
+        std::wstring_view(),
+        std::vector<std::wstring>{L"1", L"2", L"3"});
+    ruleContainer.EmplaceRule(
+        L"D3",
+        std::wstring_view(),
+        std::wstring_view(),
+        std::vector<std::wstring>{L"4", L"5", L"6"});
+    ruleContainer.EmplaceRule(
+        L"B3",
+        std::wstring_view(),
+        std::wstring_view(),
+        std::vector<std::wstring>{L"7", L"8", L"9"});
+
+    // These rules all have two file patterns.
+    ruleContainer.EmplaceRule(
+        L"B2", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"a", L"b"});
+    ruleContainer.EmplaceRule(
+        L"D2", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"c", L"d"});
+    ruleContainer.EmplaceRule(
+        L"C2", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"e", L"f"});
+
+    // These rules all have one file pattern.
+    ruleContainer.EmplaceRule(
+        L"D1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"g"});
+    ruleContainer.EmplaceRule(
+        L"C1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"h"});
+    ruleContainer.EmplaceRule(
+        L"B1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"i"});
+
+    // This rule has no file patterns.
+    ruleContainer.EmplaceRule(L"A", std::wstring_view(), std::wstring_view());
+
+    // Filesystem rules are expected to be ordered first by number of file patterns in descending
+    // order and second by rule name. So more file patterns means earlier in the order.
+    const std::vector<std::wstring_view> expectedRuleOrder = {
+        L"B3", L"C3", L"D3", L"B2", L"C2", L"D2", L"B1", L"C1", L"D1", L"A"};
+    std::vector<std::wstring_view> actualRuleOrder;
+    for (const auto& filesystemRule : ruleContainer.AllRules())
+      actualRuleOrder.push_back(filesystemRule.GetName());
+    TEST_ASSERT(actualRuleOrder == expectedRuleOrder);
   }
 } // namespace PathwinderTest

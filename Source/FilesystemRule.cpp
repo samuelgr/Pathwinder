@@ -198,17 +198,18 @@ namespace Pathwinder
   }
 
   FilesystemRule::FilesystemRule(
+      std::wstring_view name,
       std::wstring_view originDirectoryFullPath,
       std::wstring_view targetDirectoryFullPath,
       std::vector<std::wstring>&& filePatterns,
       ERedirectMode redirectMode)
-      : redirectMode(redirectMode),
+      : name(name),
+        redirectMode(redirectMode),
         originDirectorySeparator(FinalSeparatorPosition(originDirectoryFullPath)),
         targetDirectorySeparator(FinalSeparatorPosition(targetDirectoryFullPath)),
         originDirectoryFullPath(originDirectoryFullPath),
         targetDirectoryFullPath(targetDirectoryFullPath),
-        filePatterns(std::move(filePatterns)),
-        name()
+        filePatterns(std::move(filePatterns))
   {
     // The specific implementation used for comparing file names to file patterns requires that
     // all pattern strings be uppercase. Comparisons remain case-insensitive. This is just a
@@ -267,5 +268,14 @@ namespace Pathwinder
         filePatterns,
         namespacePrefix,
         extraSuffix);
+  }
+
+  bool FilesystemRuleContainer::OrderedFilesystemRuleLessThanComparator::operator()(
+      const FilesystemRule& lhs, const FilesystemRule& rhs) const
+  {
+    if (lhs.GetFilePatterns().size() == rhs.GetFilePatterns().size())
+      return (Strings::CompareCaseInsensitive(lhs.GetName(), rhs.GetName()) < 0);
+
+    return (lhs.GetFilePatterns().size() > rhs.GetFilePatterns().size());
   }
 } // namespace Pathwinder

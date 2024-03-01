@@ -36,7 +36,7 @@ namespace PathwinderTest
   /// @return Filesystem rule object with the specified file pattern.
   static inline FilesystemRule CreateFilePatternSourceRule(std::wstring_view filePattern)
   {
-    return FilesystemRule(L"", L"", {std::wstring(filePattern)});
+    return FilesystemRule(L"", L"", L"", {std::wstring(filePattern)});
   }
 
   /// Generates and returns a single directory enumeration instruction that basically acts as a
@@ -466,7 +466,7 @@ namespace PathwinderTest
     mockFilesystem.AddDirectory(L"C:\\Directory2\\Target");
 
     const FilesystemRule filesystemRules[] = {
-        FilesystemRule(L"C:\\Directory1\\Origin", L"C:\\Directory2\\Target")};
+        FilesystemRule(L"", L"C:\\Directory1\\Origin", L"C:\\Directory2\\Target")};
 
     TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
         nameInsertionInstructions;
@@ -496,7 +496,7 @@ namespace PathwinderTest
     mockFilesystem.AddDirectory(L"C:\\Directory2\\Target");
 
     const FilesystemRule filesystemRules[] = {
-        FilesystemRule(L"C:\\Directory1\\Origin", L"C:\\Directory2\\Target")};
+        FilesystemRule(L"", L"C:\\Directory1\\Origin", L"C:\\Directory2\\Target")};
 
     constexpr std::wstring_view kFilePattern = L"a*";
 
@@ -522,7 +522,7 @@ namespace PathwinderTest
     mockFilesystem.AddDirectory(L"C:\\Directory2\\Target");
 
     const FilesystemRule filesystemRules[] = {
-        FilesystemRule(L"C:\\Directory1\\Origin", L"C:\\Directory2\\Target")};
+        FilesystemRule(L"", L"C:\\Directory1\\Origin", L"C:\\Directory2\\Target")};
 
     TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
         nameInsertionInstructions;
@@ -551,7 +551,7 @@ namespace PathwinderTest
     mockFilesystem.AddDirectory(L"C:\\Directory2\\Origin");
 
     const FilesystemRule filesystemRules[] = {
-        FilesystemRule(L"C:\\Directory1\\Origin", L"C:\\Directory2\\Target")};
+        FilesystemRule(L"", L"C:\\Directory1\\Origin", L"C:\\Directory2\\Target")};
 
     TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
         nameInsertionInstructions;
@@ -574,10 +574,10 @@ namespace PathwinderTest
     mockFilesystem.AddDirectory(L"C:\\DirectoryTarget\\Target3");
 
     const FilesystemRule filesystemRules[] = {
-        FilesystemRule(L"C:\\DirectoryOrigin\\Origin1", L"C:\\DirectoryTarget\\Target1"),
-        FilesystemRule(L"C:\\DirectoryOrigin\\Origin2", L"C:\\DirectoryTarget\\Target2"),
-        FilesystemRule(L"C:\\DirectoryOrigin\\Origin3", L"C:\\DirectoryTarget\\Target3"),
-        FilesystemRule(L"C:\\DirectoryOrigin\\Origin4", L"C:\\DirectoryTarget\\Target4")};
+        FilesystemRule(L"", L"C:\\DirectoryOrigin\\Origin1", L"C:\\DirectoryTarget\\Target1"),
+        FilesystemRule(L"", L"C:\\DirectoryOrigin\\Origin2", L"C:\\DirectoryTarget\\Target2"),
+        FilesystemRule(L"", L"C:\\DirectoryOrigin\\Origin3", L"C:\\DirectoryTarget\\Target3"),
+        FilesystemRule(L"", L"C:\\DirectoryOrigin\\Origin4", L"C:\\DirectoryTarget\\Target4")};
 
     TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
         nameInsertionInstructions;

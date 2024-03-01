@@ -35,13 +35,12 @@ namespace PathwinderTest
   /// @param [in] filesystemRules Map of filesystem rule names to filesystem rules, which is
   /// consumed using move semantics.
   /// @return Newly-constructed filesystem director object.
-  static FilesystemDirector MakeFilesystemDirector(TFilesystemRuleMap&& filesystemRules)
+  static FilesystemDirector MakeFilesystemDirector(TFilesystemRuleMapByName&& filesystemRules)
   {
     TPrefixDirectoryIndex originDirectoryIndex(L"\\");
 
     for (auto& filesystemRulePair : filesystemRules)
     {
-      filesystemRulePair.second.SetName(filesystemRulePair.first);
       originDirectoryIndex.Insert(
           filesystemRulePair.second.GetOriginDirectoryFullPath(), filesystemRulePair.second);
     }
@@ -79,9 +78,9 @@ namespace PathwinderTest
   TEST_CASE(FilesystemDirector_SelectRuleForPath_Nominal)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-        {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-        {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin2", L"C:\\Target2")},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin3", L"C:\\Target3")},
     }));
 
     TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForPath(L"C:\\Origin1\\file1.txt")));
@@ -100,9 +99,9 @@ namespace PathwinderTest
   TEST_CASE(FilesystemDirector_SelectRuleForPath_CaseInsensitive)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-        {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-        {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin2", L"C:\\Target2")},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin3", L"C:\\Target3")},
     }));
 
     TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForPath(L"C:\\ORIGIN1\\file1.txt")));
@@ -119,9 +118,9 @@ namespace PathwinderTest
   TEST_CASE(FilesystemDirector_SelectRuleForPath_ChooseMostSpecific)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-        {L"2", FilesystemRule(L"C:\\Origin1\\Origin2", L"C:\\Target2")},
-        {L"3", FilesystemRule(L"C:\\Origin1\\Origin2\\Origin3", L"C:\\Target3")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin1\\Origin2", L"C:\\Target2")},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin1\\Origin2\\Origin3", L"C:\\Target3")},
     }));
 
     TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForPath(L"C:\\Origin1\\file1.txt")));
@@ -142,7 +141,7 @@ namespace PathwinderTest
   TEST_CASE(FilesystemDirector_IsPrefixForAnyRule_Nominal)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Level1\\Level2\\Level3\\Origin", L"C:\\Target")},
+        {L"1", FilesystemRule(L"1", L"C:\\Level1\\Level2\\Level3\\Origin", L"C:\\Target")},
     }));
 
     constexpr std::pair<std::wstring_view, bool> kTestInputsAndExpectedOutputs[] = {
@@ -171,9 +170,9 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
 
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-        {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-        {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin2", L"C:\\Target2")},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin3", L"C:\\Target3")},
     }));
 
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
@@ -207,9 +206,9 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
 
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1", {}, ERedirectMode::Overlay)},
-        {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2", {}, ERedirectMode::Overlay)},
-        {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3", {}, ERedirectMode::Overlay)},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1", {}, ERedirectMode::Overlay)},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin2", L"C:\\Target2", {}, ERedirectMode::Overlay)},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin3", L"C:\\Target3", {}, ERedirectMode::Overlay)},
     }));
 
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
@@ -246,9 +245,9 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
 
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1", {}, ERedirectMode::Overlay)},
-        {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2", {}, ERedirectMode::Overlay)},
-        {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3", {}, ERedirectMode::Overlay)},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1", {}, ERedirectMode::Overlay)},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin2", L"C:\\Target2", {}, ERedirectMode::Overlay)},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin3", L"C:\\Target3", {}, ERedirectMode::Overlay)},
     }));
 
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
@@ -294,9 +293,9 @@ namespace PathwinderTest
     mockFilesystem.AddFile(L"C:\\Origin1\\file1.txt");
 
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-        {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-        {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin2", L"C:\\Target2")},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin3", L"C:\\Target3")},
     }));
 
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
@@ -347,7 +346,7 @@ namespace PathwinderTest
     mockFilesystem.AddDirectory(L"C:\\Origin1");
 
     const FilesystemDirector director(
-        MakeFilesystemDirector({{L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")}}));
+        MakeFilesystemDirector({{L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")}}));
 
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
         {L"C:\\Origin1\\AnyTypeOfFile",
@@ -377,9 +376,9 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
 
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-        {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-        {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin2", L"C:\\Target2")},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin3", L"C:\\Target3")},
     }));
 
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
@@ -415,9 +414,9 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
 
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-        {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-        {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin2", L"C:\\Target2")},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin3", L"C:\\Target3")},
     }));
 
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
@@ -448,9 +447,9 @@ namespace PathwinderTest
   TEST_CASE(FilesystemDirector_GetInstructionForFileOperation_NonRedirectedInputPath)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-        {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-        {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin2", L"C:\\Target2")},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin3", L"C:\\Target3")},
     }));
 
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
@@ -477,7 +476,7 @@ namespace PathwinderTest
   TEST_CASE(FilesystemDirector_GetInstructionForFileOperation_NoRedirectionNotNullTerminated)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Base\\Origin", L"C:\\Base\\Target")},
+        {L"1", FilesystemRule(L"1", L"C:\\Base\\Origin", L"C:\\Base\\Target")},
     }));
 
     // String buffer identifies "C:\Base\Origin" which intuitively should be redirected to
@@ -523,7 +522,7 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
 
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")},
     }));
 
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
@@ -555,7 +554,7 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
 
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Base\\Origin", L"C:\\Base\\Target")},
+        {L"1", FilesystemRule(L"1", L"C:\\Base\\Origin", L"C:\\Base\\Target")},
     }));
 
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
@@ -581,9 +580,9 @@ namespace PathwinderTest
   TEST_CASE(FilesystemDirector_GetInstructionForFileOperation_InvalidInputPath)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin1", L"C:\\Target1")},
-        {L"2", FilesystemRule(L"C:\\Origin2", L"C:\\Target2")},
-        {L"3", FilesystemRule(L"C:\\Origin3", L"C:\\Target3")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin2", L"C:\\Target2")},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin3", L"C:\\Target3")},
     }));
 
     const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
@@ -606,7 +605,7 @@ namespace PathwinderTest
   TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectory)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target")},
     }));
 
     constexpr std::wstring_view associatedPath = L"C:\\Origin";
@@ -627,7 +626,7 @@ namespace PathwinderTest
       FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryInOverlayMode)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {}, ERedirectMode::Overlay)},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target", {}, ERedirectMode::Overlay)},
     }));
 
     constexpr std::wstring_view associatedPath = L"C:\\Origin";
@@ -653,7 +652,7 @@ namespace PathwinderTest
       FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithFilePattern)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {L"*.txt", L"*.rtf"})},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target", {L"*.txt", L"*.rtf"})},
     }));
 
     constexpr std::wstring_view associatedPath = L"C:\\Origin";
@@ -681,9 +680,9 @@ namespace PathwinderTest
       FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithChildRules)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
-        {L"2", FilesystemRule(L"C:\\Origin\\SubA", L"C:\\TargetA")},
-        {L"3", FilesystemRule(L"C:\\Origin\\SubB", L"C:\\TargetB")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target")},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin\\SubA", L"C:\\TargetA")},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin\\SubB", L"C:\\TargetB")},
     }));
 
     constexpr std::wstring_view associatedPath = L"C:\\Origin";
@@ -712,13 +711,13 @@ namespace PathwinderTest
     // out-of-order. The sorting should be on the basis of the "SubX..." part of the origin
     // directories.
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"hLHzENdEZK", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
-        {L"FinvonNsbQ", FilesystemRule(L"C:\\Origin\\SubE1", L"C:\\TargetE")},
-        {L"PKwVeAGYUo", FilesystemRule(L"C:\\Origin\\SubC123456", L"C:\\TargetC")},
-        {L"sIyMXWTnKx", FilesystemRule(L"C:\\Origin\\SubA", L"C:\\TargetA")},
-        {L"OlwBqHThwu", FilesystemRule(L"C:\\Origin\\SubD12345678", L"C:\\TargetD")},
-        {L"jSRmdsNLMw", FilesystemRule(L"C:\\Origin\\SubB123", L"C:\\TargetB")},
-        {L"FVWrFofofc", FilesystemRule(L"C:\\Origin\\SubF12345", L"C:\\TargetF")},
+        {L"hLHzENdEZK", FilesystemRule(L"hLHzENdEZK", L"C:\\Origin", L"C:\\Target")},
+        {L"FinvonNsbQ", FilesystemRule(L"FinvonNsbQ", L"C:\\Origin\\SubE1", L"C:\\TargetE")},
+        {L"PKwVeAGYUo", FilesystemRule(L"PKwVeAGYUo", L"C:\\Origin\\SubC123456", L"C:\\TargetC")},
+        {L"sIyMXWTnKx", FilesystemRule(L"sIyMXWTnKx", L"C:\\Origin\\SubA", L"C:\\TargetA")},
+        {L"OlwBqHThwu", FilesystemRule(L"OlwBqHThwu", L"C:\\Origin\\SubD12345678", L"C:\\TargetD")},
+        {L"jSRmdsNLMw", FilesystemRule(L"jSRmdsNLMw", L"C:\\Origin\\SubB123", L"C:\\TargetB")},
+        {L"FVWrFofofc", FilesystemRule(L"FVWrFofofc", L"C:\\Origin\\SubF12345", L"C:\\TargetF")},
     }));
 
     constexpr std::wstring_view associatedPath = L"C:\\Origin";
@@ -749,9 +748,9 @@ namespace PathwinderTest
       FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithFilePatternAndChildRules)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {L"*.txt", L"*.rtf"})},
-        {L"2", FilesystemRule(L"C:\\Origin\\SubA", L"C:\\TargetA", {L"*.exe"})},
-        {L"3", FilesystemRule(L"C:\\Origin\\SubB", L"C:\\TargetB", {L"*.bat"})},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target", {L"*.txt", L"*.rtf"})},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin\\SubA", L"C:\\TargetA", {L"*.exe"})},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin\\SubB", L"C:\\TargetB", {L"*.bat"})},
     }));
 
     constexpr std::wstring_view associatedPath = L"C:\\Origin";
@@ -780,7 +779,7 @@ namespace PathwinderTest
       FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectory)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target")},
     }));
 
     constexpr std::wstring_view associatedPath = L"C:\\Origin\\Subdir123\\AnotherDir";
@@ -802,7 +801,7 @@ namespace PathwinderTest
       FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectoryInOverlayMode)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {}, ERedirectMode::Overlay)},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target", {}, ERedirectMode::Overlay)},
     }));
 
     constexpr std::wstring_view associatedPath = L"C:\\Origin\\Subdir123\\AnotherDir";
@@ -828,7 +827,7 @@ namespace PathwinderTest
       FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateDescendantOfOriginDirectoryWithFilePatterns)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target", {L"Subdir*"})},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target", {L"Subdir*"})},
     }));
 
     constexpr std::wstring_view associatedPath = L"C:\\Origin\\Subdir123\\AnotherDir";
@@ -849,7 +848,7 @@ namespace PathwinderTest
   TEST_CASE(FilesystemDirectory_GetInstructionForDirectoryEnumeration_EnumerateUnrelatedDirectory)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
-        {L"1", FilesystemRule(L"C:\\Origin", L"C:\\Target")},
+        {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target")},
     }));
 
     constexpr std::wstring_view associatedPath = L"C:\\SomeOtherDirectory";

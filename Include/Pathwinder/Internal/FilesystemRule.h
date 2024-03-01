@@ -13,10 +13,12 @@
 
 #include <cstddef>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "Strings.h"
 #include "TemporaryBuffer.h"
 
 namespace Pathwinder
@@ -76,10 +78,11 @@ namespace Pathwinder
   {
   public:
 
-    /// File patterns are optional, with default behavior matching all files. This is preferred
-    /// over a single-element vector containing "*" because file pattern match checking can be
-    /// skipped entirely.
+    /// Constructs a fully-functional filesystem rule. File patterns are optional, with default
+    /// behavior matching all files. This is preferred over a single-element vector containing "*"
+    /// because file pattern match checking can be skipped entirely.
     FilesystemRule(
+        std::wstring_view name,
         std::wstring_view originDirectoryFullPath,
         std::wstring_view targetDirectoryFullPath,
         std::vector<std::wstring>&& filePatterns = std::vector<std::wstring>(),
@@ -244,18 +247,10 @@ namespace Pathwinder
         std::wstring_view namespacePrefix = std::wstring_view(),
         std::wstring_view extraSuffix = std::wstring_view()) const;
 
-    /// Sets the name of this rule.
-    /// param [in] newName New name for this rule.
-    inline void SetName(std::wstring_view newName)
-    {
-      name = newName;
-    }
-
   private:
 
-    /// Name of this filesystem rule.
-    /// Not used internally for any specific purpose but rather intended as a convenience for
-    /// rules that are contained in a data structure that identifies them by name.
+    /// Name of this filesystem rule. This field is considered metadata only. It is not used
+    /// internally for any specific purpose.
     std::wstring_view name;
 
     /// Redirection mode for this filesystem rule.
@@ -282,5 +277,75 @@ namespace Pathwinder
     /// empty, it is assumed that there is no filter and therefore the rule applies to all files
     /// in the origin and target directories.
     std::vector<std::wstring> filePatterns;
+  };
+
+  /// Holds multiple filesystem rules together in a container such that they can be organized by
+  /// some property they have in common and queried conveniently.
+  class FilesystemRuleContainer
+  {
+  public:
+
+    /// Comparator function object type for establishing the ordering of filesystem rules. If the
+    /// number of file patterns is the same, then filesystem rules are ordered by name. Otherwise,
+    /// the filesystem rules are ordered in descending order by number of file patterns. That way, 0
+    /// file patterns is guaranteed to be at the end of the ordering, so that filesystem rules with
+    /// no file patterns can act as a "catch-all" default, whereas more specific rules are given
+    /// have precedence.
+    struct OrderedFilesystemRuleLessThanComparator
+    {
+      bool operator()(const FilesystemRule& lhs, const FilesystemRule& rhs) const;
+    };
+
+    /// Type alias for the internal container type that holds filesystem rules themselves.
+    using TFilesystemRules = std::set<FilesystemRule, OrderedFilesystemRuleLessThanComparator>;
+
+    FilesystemRuleContainer(void) = default;
+
+    bool operator==(const FilesystemRuleContainer& other) const = default;
+
+    /// Provides read-only access to the rules held by this object. Intended for iterating in a
+    /// loop over all of them.
+    /// @return Read-only reference to the underlying container.
+    inline const TFilesystemRules& AllRules(void) const
+    {
+      return filesystemRules;
+    }
+
+    /// Attempts to construct a new filesystem rule using the supplied constructor arguments.
+    /// @return Read-only pointer to the new rule, or `nullptr` in the event of an error.
+    template <typename... Args> inline const FilesystemRule* EmplaceRule(Args&&... args)
+    {
+      auto emplaceResult = filesystemRules.emplace(std::forward<Args>(args)...);
+      if (false == emplaceResult.second) return nullptr;
+      return &(*emplaceResult.first);
+    }
+
+    /// Determines if the specified filename matches any of the file patterns associated with
+    /// any of the rules held by this object. Input filename must not contain any backslash
+    /// separators, as it is intended to represent a file within a directory rather than a path.
+    /// @param [in] candidateFileName File name to check for matches with any file pattern.
+    /// @return `true` if any file pattern produces a match, `false` otherwise.
+    inline bool HasRuleMatchingFileName(std::wstring_view candidateFileName) const
+    {
+      return (nullptr != RuleMatchingFileName(candidateFileName));
+    }
+
+    /// Identifies the first filesystem rule found such that the specified filename matches any of
+    /// the file patterns associated with that rule. Input filename must not contain any backslash
+    /// separators, as it is intended to represent a file within a directory rather than a path.
+    /// @param [in] candidateFileName File name to check for matches with any file pattern.
+    /// @return Pointer to the first rule that matches, or `nullptr` if none exist.
+    inline const FilesystemRule* RuleMatchingFileName(std::wstring_view candidateFileName) const
+    {
+      for (const auto& filesystemRule : filesystemRules)
+        if (filesystemRule.FileNameMatchesAnyPattern(candidateFileName)) return &filesystemRule;
+
+      return nullptr;
+    }
+
+  private:
+
+    /// Storage for all filesystem rule objects owned by this container.
+    TFilesystemRules filesystemRules;
   };
 } // namespace Pathwinder
