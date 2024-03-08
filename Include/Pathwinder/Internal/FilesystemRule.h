@@ -281,7 +281,8 @@ namespace Pathwinder
 
   /// Holds multiple filesystem rules together in a container such that they can be organized by
   /// some property they have in common and queried conveniently.
-  class FilesystemRuleContainer
+  /// @tparam kMaxRuleCount Maximum number of rules that can be contained in this container type.
+  template <const unsigned int kMaxRuleCount> class FilesystemRuleContainer
   {
   public:
 
@@ -293,7 +294,12 @@ namespace Pathwinder
     /// have precedence.
     struct OrderedFilesystemRuleLessThanComparator
     {
-      bool operator()(const FilesystemRule& lhs, const FilesystemRule& rhs) const;
+      inline bool operator()(const FilesystemRule& lhs, const FilesystemRule& rhs) const
+      {
+        if (lhs.GetFilePatterns().size() == rhs.GetFilePatterns().size())
+          return (Strings::CompareCaseInsensitive(lhs.GetName(), rhs.GetName()) < 0);
+        return (lhs.GetFilePatterns().size() > rhs.GetFilePatterns().size());
+      }
     };
 
     /// Type alias for the internal container type that holds filesystem rules themselves.
@@ -315,6 +321,8 @@ namespace Pathwinder
     /// @return Read-only pointer to the new rule, or `nullptr` in the event of an error.
     template <typename... Args> inline const FilesystemRule* EmplaceRule(Args&&... args)
     {
+      if (static_cast<size_t>(kMaxRuleCount) == filesystemRules.size()) return nullptr;
+
       auto emplaceResult = filesystemRules.emplace(std::forward<Args>(args)...);
       if (false == emplaceResult.second) return nullptr;
       return &(*emplaceResult.first);

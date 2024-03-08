@@ -386,7 +386,7 @@ namespace PathwinderTest
   // In this case all file patterns are totally disjoint.
   TEST_CASE(FilesystemRuleContainer_IdentifyRuleMatchingFilename)
   {
-    FilesystemRuleContainer ruleContainer;
+    FilesystemRuleContainer<64> ruleContainer;
     ruleContainer.EmplaceRule(
         L"TXT", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.txt"});
     ruleContainer.EmplaceRule(
@@ -426,9 +426,12 @@ namespace PathwinderTest
     }
   }
 
+  // Verifies that a filesystem rule container correctly orders filesystem rules based on the
+  // documented ordering mechanism of descending by number of file patterns and then ascending by
+  // rule name.
   TEST_CASE(FilesystemRuleContainer_RuleOrder)
   {
-    FilesystemRuleContainer ruleContainer;
+    FilesystemRuleContainer<64> ruleContainer;
 
     // These rules all have three file patterns.
     ruleContainer.EmplaceRule(
@@ -474,5 +477,36 @@ namespace PathwinderTest
     for (const auto& filesystemRule : ruleContainer.AllRules())
       actualRuleOrder.push_back(filesystemRule.GetName());
     TEST_ASSERT(actualRuleOrder == expectedRuleOrder);
+  }
+
+  // Verifies that a filesystem rule container rejects filesystem rules if the capacity of the
+  // container has been reached.
+  TEST_CASE(FilesystemRuleContainer_EnforceCapacity)
+  {
+    FilesystemRuleContainer<3> ruleContainer;
+
+    // These rules will all fit into the container.
+    TEST_ASSERT(
+        nullptr !=
+        ruleContainer.EmplaceRule(
+            L"D1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"g"}));
+    TEST_ASSERT(
+        nullptr !=
+        ruleContainer.EmplaceRule(
+            L"C1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"h"}));
+    TEST_ASSERT(
+        nullptr !=
+        ruleContainer.EmplaceRule(
+            L"B1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"i"}));
+
+    // This rule will not fit and should be rejected.
+    TEST_ASSERT(
+        nullptr == ruleContainer.EmplaceRule(L"A", std::wstring_view(), std::wstring_view()));
+
+    const std::set<std::wstring_view> expectedRules = {L"B1", L"C1", L"D1"};
+    std::set<std::wstring_view> actualRules;
+    for (const auto& filesystemRule : ruleContainer.AllRules())
+      actualRules.insert(filesystemRule.GetName());
+    TEST_ASSERT(actualRules == expectedRules);
   }
 } // namespace PathwinderTest

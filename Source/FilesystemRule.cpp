@@ -269,13 +269,4 @@ namespace Pathwinder
         namespacePrefix,
         extraSuffix);
   }
-
-  bool FilesystemRuleContainer::OrderedFilesystemRuleLessThanComparator::operator()(
-      const FilesystemRule& lhs, const FilesystemRule& rhs) const
-  {
-    if (lhs.GetFilePatterns().size() == rhs.GetFilePatterns().size())
-      return (Strings::CompareCaseInsensitive(lhs.GetName(), rhs.GetName()) < 0);
-
-    return (lhs.GetFilePatterns().size() > rhs.GetFilePatterns().size());
-  }
 } // namespace Pathwinder

@@ -26,6 +26,12 @@
 
 namespace Pathwinder
 {
+  /// Maximum number of filesystem rules that can have the same origin directory and are therefore
+  /// held in the same filesystem rule container. The higher this number, the more overhead gets
+  /// introduced when executing filesystem requests that involve merging of contents using multiple
+  /// filesystem rules (for example, directory enumeration).
+  inline constexpr unsigned int kMaxFilesystemRulesPerOriginDirectory = 3;
+
   /// Type alias for holding owned strings for deduplication and organization. Contained strings are
   /// compared case-insensitively.
   using TCaseInsensitiveStringSet = std::unordered_set<
@@ -43,7 +49,7 @@ namespace Pathwinder
   /// having the same origin directory.
   using TFilesystemRuleMapByOriginDirectory = std::unordered_map<
       std::wstring_view,
-      FilesystemRuleContainer,
+      FilesystemRuleContainer<kMaxFilesystemRulesPerOriginDirectory>,
       Strings::CaseInsensitiveHasher<wchar_t>,
       Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
 
