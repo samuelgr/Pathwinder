@@ -41,9 +41,8 @@ namespace Pathwinder
 
   /// Type alias for holding a map from filesystem rule name to filesystem rule object. All
   /// filesystem rules are uniquely identified by name, and the names are considered case
-  /// insensitive.
-  using TFilesystemRuleMapByName = std::
-      map<std::wstring_view, FilesystemRule, Strings::CaseInsensitiveLessThanComparator<wchar_t>>;
+  /// sensitive.
+  using TFilesystemRuleMapByName = std::map<std::wstring_view, FilesystemRule>;
 
   /// Type alias for holding a map from origin directory to a container of filesystem objects all
   /// having the same origin directory.
