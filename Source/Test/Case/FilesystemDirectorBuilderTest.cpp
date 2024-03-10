@@ -155,8 +155,8 @@ namespace PathwinderTest
   TEST_CASE(FilesystemDirectorBuilder_AddRule_Failure_DuplicateRuleName)
   {
     FilesystemDirectorBuilder directorBuilder;
-    TEST_ASSERT(directorBuilder.AddRule(L"Rule1", L"C:\\OriginDir1", L"C:\\TargetDir1").HasValue());
-    TEST_ASSERT(directorBuilder.AddRule(L"RULE1", L"C:\\OriginDir2", L"C:\\TargetDir2").HasError());
+    TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir1").HasValue());
+    TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir2", L"C:\\TargetDir2").HasError());
   }
 
   // Verifies that rule creation fails if either the origin directory or the target directory is a

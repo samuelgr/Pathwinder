@@ -39,6 +39,10 @@ namespace Pathwinder
       Strings::CaseInsensitiveHasher<wchar_t>,
       Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
 
+  /// Type alias for holding owned strings for deduplication and organization. Contained strings are
+  /// compared case-sensitively.
+  using TCaseSensitiveStringSet = std::unordered_set<std::wstring>;
+
   /// Type alias for holding a map from filesystem rule name to filesystem rule object. All
   /// filesystem rules are uniquely identified by name, and the names are considered case
   /// sensitive.
@@ -232,7 +236,7 @@ namespace Pathwinder
     inline FilesystemDirector(
         TCaseInsensitiveStringSet&& originDirectories,
         TCaseInsensitiveStringSet&& targetDirectories,
-        TCaseInsensitiveStringSet&& filesystemRuleNames,
+        TCaseSensitiveStringSet&& filesystemRuleNames,
         TPrefixDirectoryIndex&& originDirectoryIndex,
         TFilesystemRuleMapByName&& filesystemRules)
         : originDirectories(std::move(originDirectories)),
@@ -251,7 +255,7 @@ namespace Pathwinder
         : FilesystemDirector(
               TCaseInsensitiveStringSet(),
               TCaseInsensitiveStringSet(),
-              TCaseInsensitiveStringSet(),
+              TCaseSensitiveStringSet(),
               std::move(originDirectoryIndex),
               std::move(filesystemRules))
     {}
@@ -354,7 +358,7 @@ namespace Pathwinder
     TCaseInsensitiveStringSet targetDirectories;
 
     /// Stores all filesystem rule names.
-    TCaseInsensitiveStringSet filesystemRuleNames;
+    TCaseSensitiveStringSet filesystemRuleNames;
 
     /// Indexes all absolute paths of origin directories used by filesystem rules.
     TPrefixDirectoryIndex originDirectoryIndex;

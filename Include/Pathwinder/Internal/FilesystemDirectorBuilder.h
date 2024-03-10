@@ -150,7 +150,7 @@ namespace Pathwinder
     TCaseInsensitiveStringSet targetDirectories;
 
     /// Stores all filesystem rule names.
-    TCaseInsensitiveStringSet filesystemRuleNames;
+    TCaseSensitiveStringSet filesystemRuleNames;
 
     /// Indexes all absolute paths to origin directories used by filesystem rules.
     TPrefixDirectoryIndex originDirectoryIndex;
