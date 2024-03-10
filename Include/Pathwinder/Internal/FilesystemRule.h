@@ -11,13 +11,14 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <optional>
-#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "ArrayList.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
 
@@ -280,7 +281,8 @@ namespace Pathwinder
   };
 
   /// Holds multiple filesystem rules together in a container such that they can be organized by
-  /// some property they have in common and queried conveniently.
+  /// some property they have in common and queried conveniently. Does not own the underlying
+  /// filesystem rule objects and instead acts as an organizational index.
   /// @tparam kMaxRuleCount Maximum number of rules that can be contained in this container type.
   template <const unsigned int kMaxRuleCount> class FilesystemRuleContainer
   {
@@ -294,16 +296,20 @@ namespace Pathwinder
     /// have precedence.
     struct OrderedFilesystemRuleLessThanComparator
     {
-      inline bool operator()(const FilesystemRule& lhs, const FilesystemRule& rhs) const
+      inline bool operator()(const FilesystemRule* lhs, const FilesystemRule* rhs) const
       {
-        if (lhs.GetFilePatterns().size() == rhs.GetFilePatterns().size())
-          return (Strings::CompareCaseInsensitive(lhs.GetName(), rhs.GetName()) < 0);
-        return (lhs.GetFilePatterns().size() > rhs.GetFilePatterns().size());
+        DebugAssert(
+            (nullptr != lhs) && (nullptr != rhs),
+            "Filesystem rules inside a container should never be null.");
+
+        if (lhs->GetFilePatterns().size() == rhs->GetFilePatterns().size())
+          return (Strings::CompareCaseInsensitive(lhs->GetName(), rhs->GetName()) < 0);
+        return (lhs->GetFilePatterns().size() > rhs->GetFilePatterns().size());
       }
     };
 
-    /// Type alias for the internal container type that holds filesystem rules themselves.
-    using TFilesystemRules = std::set<FilesystemRule, OrderedFilesystemRuleLessThanComparator>;
+    /// Type alias for the internal container type that holds references to filesystem rules.
+    using TFilesystemRules = ArrayList<const FilesystemRule*, kMaxRuleCount>;
 
     FilesystemRuleContainer(void) = default;
 
@@ -317,15 +323,20 @@ namespace Pathwinder
       return filesystemRules;
     }
 
-    /// Attempts to construct a new filesystem rule using the supplied constructor arguments.
-    /// @return Read-only pointer to the new rule, or `nullptr` in the event of an error.
-    template <typename... Args> inline const FilesystemRule* EmplaceRule(Args&&... args)
+    /// Attempts to insert a reference to a filesystem rule into this container. Insertion will fail
+    /// if this container is already full.
+    /// @param [in] ruleToInsert Rule to be inserted.
+    /// @return `true` if the insertion was successful, `false` otherwise.
+    bool InsertRule(const FilesystemRule& ruleToInsert)
     {
-      if (static_cast<size_t>(kMaxRuleCount) == filesystemRules.size()) return nullptr;
+      if (filesystemRules.Capacity() == filesystemRules.Size()) return false;
 
-      auto emplaceResult = filesystemRules.emplace(std::forward<Args>(args)...);
-      if (false == emplaceResult.second) return nullptr;
-      return &(*emplaceResult.first);
+      filesystemRules.EmplaceBack(&ruleToInsert);
+      std::sort(
+          filesystemRules.begin(),
+          filesystemRules.end(),
+          OrderedFilesystemRuleLessThanComparator());
+      return true;
     }
 
     /// Determines if the specified filename matches any of the file patterns associated with
@@ -346,7 +357,7 @@ namespace Pathwinder
     inline const FilesystemRule* RuleMatchingFileName(std::wstring_view candidateFileName) const
     {
       for (const auto& filesystemRule : filesystemRules)
-        if (filesystemRule.FileNameMatchesAnyPattern(candidateFileName)) return &filesystemRule;
+        if (filesystemRule->FileNameMatchesAnyPattern(candidateFileName)) return filesystemRule;
 
       return nullptr;
     }

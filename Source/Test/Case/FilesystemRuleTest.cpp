@@ -14,6 +14,7 @@
 #include "FilesystemRule.h"
 
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -386,15 +387,20 @@ namespace PathwinderTest
   // In this case all file patterns are totally disjoint.
   TEST_CASE(FilesystemRuleContainer_IdentifyRuleMatchingFilename)
   {
+    const FilesystemRule rules[] = {
+        FilesystemRule(
+            L"TXT", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.txt"}),
+        FilesystemRule(
+            L"BIN", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.bin"}),
+        FilesystemRule(
+            L"LOG", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.log"}),
+        FilesystemRule(
+            L"EXE", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.exe"}),
+    };
+
     FilesystemRuleContainer<64> ruleContainer;
-    ruleContainer.EmplaceRule(
-        L"TXT", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.txt"});
-    ruleContainer.EmplaceRule(
-        L"BIN", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.bin"});
-    ruleContainer.EmplaceRule(
-        L"LOG", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.log"});
-    ruleContainer.EmplaceRule(
-        L"EXE", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.exe"});
+    for (const auto& rule : rules)
+      TEST_ASSERT(true == ruleContainer.InsertRule(rule));
 
     constexpr struct
     {
@@ -431,43 +437,46 @@ namespace PathwinderTest
   // rule name.
   TEST_CASE(FilesystemRuleContainer_RuleOrder)
   {
+    const FilesystemRule rules[] = {
+        // These rules all have three file patterns.
+        FilesystemRule(
+            L"C3",
+            std::wstring_view(),
+            std::wstring_view(),
+            std::vector<std::wstring>{L"1", L"2", L"3"}),
+        FilesystemRule(
+            L"D3",
+            std::wstring_view(),
+            std::wstring_view(),
+            std::vector<std::wstring>{L"4", L"5", L"6"}),
+        FilesystemRule(
+            L"B3",
+            std::wstring_view(),
+            std::wstring_view(),
+            std::vector<std::wstring>{L"7", L"8", L"9"}),
+
+        // These rules all have two file patterns.
+        FilesystemRule(
+            L"B2", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"a", L"b"}),
+        FilesystemRule(
+            L"D2", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"c", L"d"}),
+        FilesystemRule(
+            L"C2", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"e", L"f"}),
+
+        // These rules all have one file pattern.
+        FilesystemRule(
+            L"D1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"g"}),
+        FilesystemRule(
+            L"C1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"h"}),
+        FilesystemRule(
+            L"B1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"i"}),
+
+        // This rule has no file patterns.
+        FilesystemRule(L"A", std::wstring_view(), std::wstring_view())};
+
     FilesystemRuleContainer<64> ruleContainer;
-
-    // These rules all have three file patterns.
-    ruleContainer.EmplaceRule(
-        L"C3",
-        std::wstring_view(),
-        std::wstring_view(),
-        std::vector<std::wstring>{L"1", L"2", L"3"});
-    ruleContainer.EmplaceRule(
-        L"D3",
-        std::wstring_view(),
-        std::wstring_view(),
-        std::vector<std::wstring>{L"4", L"5", L"6"});
-    ruleContainer.EmplaceRule(
-        L"B3",
-        std::wstring_view(),
-        std::wstring_view(),
-        std::vector<std::wstring>{L"7", L"8", L"9"});
-
-    // These rules all have two file patterns.
-    ruleContainer.EmplaceRule(
-        L"B2", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"a", L"b"});
-    ruleContainer.EmplaceRule(
-        L"D2", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"c", L"d"});
-    ruleContainer.EmplaceRule(
-        L"C2", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"e", L"f"});
-
-    // These rules all have one file pattern.
-    ruleContainer.EmplaceRule(
-        L"D1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"g"});
-    ruleContainer.EmplaceRule(
-        L"C1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"h"});
-    ruleContainer.EmplaceRule(
-        L"B1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"i"});
-
-    // This rule has no file patterns.
-    ruleContainer.EmplaceRule(L"A", std::wstring_view(), std::wstring_view());
+    for (const auto& rule : rules)
+      TEST_ASSERT(true == ruleContainer.InsertRule(rule));
 
     // Filesystem rules are expected to be ordered first by number of file patterns in descending
     // order and second by rule name. So more file patterns means earlier in the order.
@@ -475,7 +484,7 @@ namespace PathwinderTest
         L"B3", L"C3", L"D3", L"B2", L"C2", L"D2", L"B1", L"C1", L"D1", L"A"};
     std::vector<std::wstring_view> actualRuleOrder;
     for (const auto& filesystemRule : ruleContainer.AllRules())
-      actualRuleOrder.push_back(filesystemRule.GetName());
+      actualRuleOrder.push_back(filesystemRule->GetName());
     TEST_ASSERT(actualRuleOrder == expectedRuleOrder);
   }
 
@@ -483,30 +492,29 @@ namespace PathwinderTest
   // container has been reached.
   TEST_CASE(FilesystemRuleContainer_EnforceCapacity)
   {
-    FilesystemRuleContainer<3> ruleContainer;
-
     // These rules will all fit into the container.
-    TEST_ASSERT(
-        nullptr !=
-        ruleContainer.EmplaceRule(
-            L"D1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"g"}));
-    TEST_ASSERT(
-        nullptr !=
-        ruleContainer.EmplaceRule(
-            L"C1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"h"}));
-    TEST_ASSERT(
-        nullptr !=
-        ruleContainer.EmplaceRule(
-            L"B1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"i"}));
+    const FilesystemRule rulesThatWillFit[] = {
+        FilesystemRule(
+            L"D1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"g"}),
+        FilesystemRule(
+            L"C1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"h"}),
+        FilesystemRule(
+            L"B1", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"i"})};
 
-    // This rule will not fit and should be rejected.
-    TEST_ASSERT(
-        nullptr == ruleContainer.EmplaceRule(L"A", std::wstring_view(), std::wstring_view()));
+    // These rules will not fit and should be rejected.
+    const FilesystemRule rulesThatWillNotFit[] = {
+        FilesystemRule(L"A", std::wstring_view(), std::wstring_view())};
+
+    FilesystemRuleContainer<_countof(rulesThatWillFit)> ruleContainer;
+    for (const auto& rule : rulesThatWillFit)
+      TEST_ASSERT(true == ruleContainer.InsertRule(rule));
+    for (const auto& rule : rulesThatWillNotFit)
+      TEST_ASSERT(false == ruleContainer.InsertRule(rule));
 
     const std::set<std::wstring_view> expectedRules = {L"B1", L"C1", L"D1"};
     std::set<std::wstring_view> actualRules;
     for (const auto& filesystemRule : ruleContainer.AllRules())
-      actualRules.insert(filesystemRule.GetName());
+      actualRules.insert(filesystemRule->GetName());
     TEST_ASSERT(actualRules == expectedRules);
   }
 } // namespace PathwinderTest
