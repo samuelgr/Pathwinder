@@ -36,8 +36,8 @@ namespace Pathwinder
         : originDirectories(),
           targetDirectories(),
           filesystemRuleNames(),
-          originDirectoryIndex(L"\\"),
-          filesystemRules()
+          filesystemRulesByOriginDirectory(L"\\"),
+          filesystemRulesByName()
     {}
 
     /// Attempts to build a filesystem director object using a configuration data object.
@@ -120,7 +120,7 @@ namespace Pathwinder
     /// @return Number of filesystem rules.
     inline unsigned int CountOfRules(void) const
     {
-      return static_cast<unsigned int>(filesystemRules.size());
+      return static_cast<unsigned int>(filesystemRulesByName.size());
     }
 
     /// Determines if any rule added to this object uses the specified directory as its origin
@@ -153,10 +153,10 @@ namespace Pathwinder
     TCaseSensitiveStringSet filesystemRuleNames;
 
     /// Indexes all absolute paths to origin directories used by filesystem rules.
-    TPrefixDirectoryIndex originDirectoryIndex;
+    TFilesystemRulePrefixTree filesystemRulesByOriginDirectory;
 
     /// Holds all filesystem rules contained within the candidate filesystem director object.
     /// Maps from rule name to rule object.
-    TFilesystemRuleMapByName filesystemRules;
+    TFilesystemRuleIndexByName filesystemRulesByName;
   };
 } // namespace Pathwinder

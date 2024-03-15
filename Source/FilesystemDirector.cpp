@@ -36,10 +36,10 @@ namespace Pathwinder
     // "C:\Dir1\Dir2\textfile.txt" would need to use "C:\Dir1\Dir2" even though technically both
     // rules do match.
 
-    auto ruleNode = originDirectoryIndex.LongestMatchingPrefix(absolutePath);
+    auto ruleNode = filesystemRulesByOriginDirectory.LongestMatchingPrefix(absolutePath);
     if (nullptr == ruleNode) return nullptr;
 
-    return ruleNode->GetData();
+    return &ruleNode->GetData();
   }
 
   DirectoryEnumerationInstruction FilesystemDirector::GetInstructionForDirectoryEnumeration(
@@ -255,14 +255,14 @@ namespace Pathwinder
           directoryPath.substr(directoryPathWindowsNamespacePrefix.length());
 
       auto parentOfDirectoriesToInsert =
-          originDirectoryIndex.TraverseTo(directoryPathTrimmedForQuery);
+          filesystemRulesByOriginDirectory.TraverseTo(directoryPathTrimmedForQuery);
       if (nullptr != parentOfDirectoriesToInsert)
       {
         for (const auto& childItem : parentOfDirectoriesToInsert->GetChildren())
         {
           if (true == childItem.second.HasData())
           {
-            const FilesystemRule& childRule = *(childItem.second.GetData());
+            const FilesystemRule& childRule = childItem.second.GetData();
 
             // Insertion of a rule's origin directory into the enumeration results
             // requires that two things be true: (1) Origin directory base name matches

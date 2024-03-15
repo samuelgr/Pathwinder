@@ -347,20 +347,19 @@ namespace Pathwinder
         nameEmplaceResult.second,
         "FilesystemDirectorBuilder consistency check failed due to unsuccessful emplacement of a supposedly-unique filesystem rule name string.");
 
-    const auto createResult = filesystemRules.emplace(
+    const auto createResult = filesystemRulesByOriginDirectory.Emplace(
+        originDirectoryFullPathOwnedView,
         *nameEmplaceResult.first,
-        FilesystemRule(
-            *nameEmplaceResult.first,
-            originDirectoryFullPathOwnedView,
-            targetDirectoryFullPathOwnedView,
-            std::move(filePatterns),
-            redirectMode));
+        originDirectoryFullPathOwnedView,
+        targetDirectoryFullPathOwnedView,
+        std::move(filePatterns),
+        redirectMode);
     DebugAssert(
         createResult.second,
         "FilesystemDirectorBuilder consistency check failed due to unsuccessful creation of a supposedly-unique filesystem rule.");
 
-    FilesystemRule* const newRule = &createResult.first->second;
-    originDirectoryIndex.Insert(newRule->GetOriginDirectoryFullPath(), newRule);
+    const FilesystemRule* const newRule = &createResult.first->GetData();
+    filesystemRulesByName.emplace(newRule->GetName(), newRule);
 
     return newRule;
   }
@@ -404,14 +403,20 @@ namespace Pathwinder
 
   ValueOrError<FilesystemDirector, TemporaryString> FilesystemDirectorBuilder::Build(void)
   {
-    if (true == filesystemRules.empty())
+    using TFilesystemRulePrefixTreeByReference = PrefixTree<
+        TFilesystemRulePrefixTree::TChar,
+        const TFilesystemRulePrefixTree::TData*,
+        TFilesystemRulePrefixTree::THash,
+        TFilesystemRulePrefixTree::TEquals>;
+
+    TFilesystemRulePrefixTreeByReference allDirectories;
+
+    if (true == filesystemRulesByName.empty())
       return L"Error while building a filesystem director configuration: Internal error: Attempted to finalize an empty registry.";
 
-    TPrefixDirectoryIndex allDirectories;
-
-    for (const auto& filesystemRuleRecord : filesystemRules)
+    for (const auto& filesystemRuleRecord : filesystemRulesByName)
     {
-      const FilesystemRule& filesystemRule = filesystemRuleRecord.second;
+      const FilesystemRule& filesystemRule = *filesystemRuleRecord.second;
 
       const bool originExists =
           FilesystemOperations::Exists(filesystemRule.GetOriginDirectoryFullPath().data());
@@ -431,19 +436,20 @@ namespace Pathwinder
             static_cast<int>(filesystemRuleRecord.first.length()),
             filesystemRuleRecord.first.data());
 
-      // Both origin and target directories are added to a prefix index containing all
-      // directories. This is done to implement the check for constraint (3). Directory
-      // uniqueness should already have been verified at filesystem rule creation time, so it
-      // is an internal error indicative of a bug if those checks passed but there is still
-      // some non-uniqueness here.
+      // Both origin and target directories are added to a prefix index containing all directories.
+      // This is done to implement the check for constraint (3). Directory uniqueness should already
+      // have been verified at filesystem rule creation time, so it is an internal error indicative
+      // of a bug if those checks passed but there is still some non-uniqueness here.
       if (false ==
-          allDirectories.Insert(filesystemRule.GetOriginDirectoryFullPath(), &filesystemRule).second)
+          allDirectories.Insert(filesystemRule.GetOriginDirectoryFullPath(), &filesystemRule)
+              .second)
         return Strings::FormatString(
             L"Error while building a filesystem director configuration: Filesystem rule \"%.*s\": Internal error: Origin directory conflicts with another rule, but this should have been caught already.",
             static_cast<int>(filesystemRuleRecord.first.length()),
             filesystemRuleRecord.first.data());
       if (false ==
-          allDirectories.Insert(filesystemRule.GetTargetDirectoryFullPath(), &filesystemRule).second)
+          allDirectories.Insert(filesystemRule.GetTargetDirectoryFullPath(), &filesystemRule)
+              .second)
         return Strings::FormatString(
             L"Error while building a filesystem director configuration: Filesystem rule \"%.*s\": Internal error: Target directory conflicts with another rule, but this should have been caught already.",
             static_cast<int>(filesystemRuleRecord.first.length()),
@@ -454,10 +460,10 @@ namespace Pathwinder
     // ancestors in the prefix index. Since the prefix index contains all origin and target
     // directories this check directly implements constraint (3). If an ancestor is located then
     // the configuration violates this constraint and should be rejected.
-    for (const auto& filesystemRuleRecord : filesystemRules)
+    for (const auto& filesystemRuleRecord : filesystemRulesByName)
     {
       auto targetDirectoryNode =
-          allDirectories.Find(filesystemRuleRecord.second.GetTargetDirectoryFullPath());
+          allDirectories.Find(filesystemRuleRecord.second->GetTargetDirectoryFullPath());
       if (nullptr == targetDirectoryNode)
         return Strings::FormatString(
             L"Error while building a filesystem director configuration: Filesystem rule \"%.*s\": Internal error: Target directory is improperly properly indexed.",
@@ -481,7 +487,7 @@ namespace Pathwinder
         std::move(originDirectories),
         std::move(targetDirectories),
         std::move(filesystemRuleNames),
-        std::move(originDirectoryIndex),
-        std::move(filesystemRules));
+        std::move(filesystemRulesByOriginDirectory),
+        std::move(filesystemRulesByName));
   }
 } // namespace Pathwinder

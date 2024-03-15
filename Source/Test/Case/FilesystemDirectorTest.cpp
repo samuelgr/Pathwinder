@@ -27,6 +27,9 @@ namespace PathwinderTest
 {
   using namespace ::Pathwinder;
 
+  /// Type alias for holding filesystem rules created in-line inside individual test cases.
+  using TFilesystemRulesByName = std::map<std::wstring_view, FilesystemRule>;
+
   /// Convenience function for constructing a filesystem director object from a map of rules.
   /// Performs some of the same operations that a filesystem director builder would do internally
   /// but without any of the filesystem consistency checks. Assumes all strings used in filesystem
@@ -35,19 +38,24 @@ namespace PathwinderTest
   /// @param [in] filesystemRules Map of filesystem rule names to filesystem rules, which is
   /// consumed using move semantics.
   /// @return Newly-constructed filesystem director object.
-  static FilesystemDirector MakeFilesystemDirector(TFilesystemRuleMapByName&& filesystemRules)
+  static FilesystemDirector MakeFilesystemDirector(TFilesystemRulesByName&& filesystemRules)
   {
-    TPrefixDirectoryIndex originDirectoryIndex(L"\\");
+    TFilesystemRulePrefixTree filesystemRulesByOriginDirectory;
+    TFilesystemRuleIndexByName filesystemRulesByName;
 
     for (auto& filesystemRulePair : filesystemRules)
     {
-      originDirectoryIndex.Insert(
-          filesystemRulePair.second.GetOriginDirectoryFullPath(), &filesystemRulePair.second);
+      const FilesystemRule* const newRule =
+          &filesystemRulesByOriginDirectory
+               .Insert(
+                   filesystemRulePair.second.GetOriginDirectoryFullPath(),
+                   std::move(filesystemRulePair.second))
+               .first->GetData();
+      filesystemRulesByName.emplace(newRule->GetName(), newRule);
     }
 
     return FilesystemDirector(
-        std::move(originDirectoryIndex),
-        std::move(filesystemRules));
+        std::move(filesystemRulesByOriginDirectory), std::move(filesystemRulesByName));
   }
 
   /// Convenience helper for evaluating an expected outcome of a rule not being present.

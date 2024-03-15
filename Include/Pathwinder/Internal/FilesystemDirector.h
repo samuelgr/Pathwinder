@@ -43,25 +43,17 @@ namespace Pathwinder
   /// compared case-sensitively.
   using TCaseSensitiveStringSet = std::unordered_set<std::wstring>;
 
+  /// Type alias for holding an index that can identify filesystem rules by directory prefix.
+  using TFilesystemRulePrefixTree = PrefixTree<
+      wchar_t,
+      FilesystemRule,
+      Strings::CaseInsensitiveHasher<wchar_t>,
+      Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
+
   /// Type alias for holding a map from filesystem rule name to filesystem rule object. All
   /// filesystem rules are uniquely identified by name, and the names are considered case
   /// sensitive.
-  using TFilesystemRuleMapByName = std::map<std::wstring_view, FilesystemRule>;
-
-  /// Type alias for holding a map from origin directory to a container of filesystem objects all
-  /// having the same origin directory.
-  using TFilesystemRuleMapByOriginDirectory = std::unordered_map<
-      std::wstring_view,
-      FilesystemRuleContainer<kMaxFilesystemRulesPerOriginDirectory>,
-      Strings::CaseInsensitiveHasher<wchar_t>,
-      Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
-
-  /// Type alias for holding an index that can identify filesystem rules by directory prefix.
-  using TPrefixDirectoryIndex = PrefixTree<
-      wchar_t,
-      const FilesystemRule*,
-      Strings::CaseInsensitiveHasher<wchar_t>,
-      Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
+  using TFilesystemRuleIndexByName = std::map<std::wstring_view, const FilesystemRule*>;
 
   /// Identifies a create disposition setting based on what types of file accesses are allowed.
   /// Immutable once constructed.
@@ -241,13 +233,13 @@ namespace Pathwinder
         TCaseInsensitiveStringSet&& originDirectories,
         TCaseInsensitiveStringSet&& targetDirectories,
         TCaseSensitiveStringSet&& filesystemRuleNames,
-        TPrefixDirectoryIndex&& originDirectoryIndex,
-        TFilesystemRuleMapByName&& filesystemRules)
+        TFilesystemRulePrefixTree&& filesystemRulesByOriginDirectory,
+        TFilesystemRuleIndexByName&& filesystemRulesByName)
         : originDirectories(std::move(originDirectories)),
           targetDirectories(std::move(targetDirectories)),
           filesystemRuleNames(std::move(filesystemRuleNames)),
-          originDirectoryIndex(std::move(originDirectoryIndex)),
-          filesystemRules(std::move(filesystemRules))
+          filesystemRulesByOriginDirectory(std::move(filesystemRulesByOriginDirectory)),
+          filesystemRulesByName(std::move(filesystemRulesByName))
     {}
 
     /// Move-constructs each individual instance variable, but with the understanding that all
@@ -255,13 +247,14 @@ namespace Pathwinder
     /// object. Intended to be invoked by tests, which tend to use string literals when creating
     /// filesystem rules and hence ownership does not need to be transferred to this object.
     inline FilesystemDirector(
-        TPrefixDirectoryIndex&& originDirectoryIndex, TFilesystemRuleMapByName&& filesystemRules)
+        TFilesystemRulePrefixTree&& filesystemRulesByOriginDirectory,
+        TFilesystemRuleIndexByName&& filesystemRulesByName)
         : FilesystemDirector(
               TCaseInsensitiveStringSet(),
               TCaseInsensitiveStringSet(),
               TCaseSensitiveStringSet(),
-              std::move(originDirectoryIndex),
-              std::move(filesystemRules))
+              std::move(filesystemRulesByOriginDirectory),
+              std::move(filesystemRulesByName))
     {}
 
     FilesystemDirector(const FilesystemDirector&) = delete;
@@ -276,7 +269,7 @@ namespace Pathwinder
     /// @return Number of filesystem rules.
     inline unsigned int CountOfRules(void) const
     {
-      return static_cast<unsigned int>(filesystemRules.size());
+      return static_cast<unsigned int>(filesystemRulesByName.size());
     }
 
     /// Searches for the specified rule by name and returns a pointer to the corresponding
@@ -285,10 +278,10 @@ namespace Pathwinder
     /// @return Pointer to the rule, or `nullptr` if no matching rule is found.
     inline const FilesystemRule* FindRuleByName(std::wstring_view ruleName) const
     {
-      const auto ruleIt = filesystemRules.find(ruleName);
-      if (filesystemRules.cend() == ruleIt) return nullptr;
+      const auto ruleIt = filesystemRulesByName.find(ruleName);
+      if (filesystemRulesByName.cend() == ruleIt) return nullptr;
 
-      return &ruleIt->second;
+      return ruleIt->second;
     }
 
     /// Searches for the specified rule by origin directory and returns a pointer to the
@@ -298,10 +291,10 @@ namespace Pathwinder
     inline const FilesystemRule* FindRuleByOriginDirectory(
         std::wstring_view ruleOriginDirectoryFullPath) const
     {
-      const auto ruleNode = originDirectoryIndex.Find(ruleOriginDirectoryFullPath);
+      const auto ruleNode = filesystemRulesByOriginDirectory.Find(ruleOriginDirectoryFullPath);
       if (nullptr == ruleNode) return nullptr;
 
-      return ruleNode->GetData();
+      return &ruleNode->GetData();
     }
 
     /// Generates an instruction for how to execute a directory enumeration, which involves
@@ -342,7 +335,7 @@ namespace Pathwinder
     /// of the specified path, `false` otherwise.
     inline bool IsPrefixForAnyRule(std::wstring_view absoluteFilePathTrimmed) const
     {
-      return originDirectoryIndex.HasPathForPrefix(absoluteFilePathTrimmed);
+      return filesystemRulesByOriginDirectory.HasPathForPrefix(absoluteFilePathTrimmed);
     }
 
     /// Determines which rule from among those held by this object should be used for a
@@ -365,10 +358,10 @@ namespace Pathwinder
     TCaseSensitiveStringSet filesystemRuleNames;
 
     /// Indexes all absolute paths of origin directories used by filesystem rules.
-    TPrefixDirectoryIndex originDirectoryIndex;
+    TFilesystemRulePrefixTree filesystemRulesByOriginDirectory;
 
     /// Holds all filesystem rules contained within the candidate filesystem director object.
     /// Maps from rule name to rule object.
-    TFilesystemRuleMapByName filesystemRules;
+    TFilesystemRuleIndexByName filesystemRulesByName;
   };
 } // namespace Pathwinder

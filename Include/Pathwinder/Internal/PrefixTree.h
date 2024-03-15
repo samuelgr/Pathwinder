@@ -41,16 +41,24 @@ namespace Pathwinder
   {
   public:
 
+    /// Convenience type aliases.
+    using TChar = CharType;
+    using TStringView = std::basic_string_view<CharType>;
+    using TData = DataType;
+    using TDataPtr = DataType*;
+    using TDataRef = DataType&;
+    using THash = Hasher;
+    using TEquals = EqualityComparator;
+
     /// Individual node within the prefix tree.
     class Node
     {
     public:
 
       /// Type alias for the container that holds this node's children.
-      using TChildrenContainer =
-          std::unordered_map<std::basic_string_view<CharType>, Node, Hasher, EqualityComparator>;
+      using TChildrenContainer = std::unordered_map<TStringView, Node, THash, TEquals>;
 
-      inline Node(Node* parent, std::basic_string_view<CharType> parentKey)
+      inline Node(Node* parent, TStringView parentKey)
           : data(), parent(parent), parentKey(parentKey), children()
       {}
 
@@ -73,10 +81,17 @@ namespace Pathwinder
         data = std::nullopt;
       }
 
+      /// Updates the optional data stored within this node by constructing a new data object in
+      /// place using perfect forwarding.
+      template <typename... Args> inline void EmplaceData(Args&&... args)
+      {
+        data.emplace(std::forward<Args>(args)...);
+      }
+
       /// Removes a child of this node.
       /// This will delete not only the child but also all of its children.
       /// @param [in] childKey Path prefix portion to use as a search key for a child node.
-      void EraseChild(std::basic_string_view<CharType> childKey)
+      void EraseChild(TStringView childKey)
       {
         auto childIter = children.find(childKey);
         if (children.end() == childIter) return;
@@ -88,7 +103,7 @@ namespace Pathwinder
       /// prefix portion.
       /// @param [in] childKey Path prefix portion to use as a search key for a child node.
       /// @return Pointer to the child node if it exists, `nullptr` otherwise.
-      const Node* FindChild(std::basic_string_view<CharType> childKey) const
+      const Node* FindChild(TStringView childKey) const
       {
         const auto childIter = children.find(childKey);
         if (children.cend() == childIter) return nullptr;
@@ -100,7 +115,7 @@ namespace Pathwinder
       /// @param [in] childKey Path prefix portion to use as a key for locating or creating a
       /// child node.
       /// @return Pointer to the child node.
-      inline Node* FindOrEmplaceChild(std::basic_string_view<CharType> childKey)
+      inline Node* FindOrEmplaceChild(TStringView childKey)
       {
         return &(children.emplace(childKey, Node(this, childKey)).first->second);
       }
@@ -131,7 +146,7 @@ namespace Pathwinder
       /// Provides read-only access to the data contained within this node without first verifying
       /// that it exists.
       /// @return Read-only reference to stored node data.
-      inline const DataType& GetData(void) const
+      inline const TData& GetData(void) const
       {
         return *data;
       }
@@ -154,7 +169,7 @@ namespace Pathwinder
       /// to this node.
       /// @return Key within the parent node's children data structure that corresponds to
       /// this node.
-      inline std::basic_string_view<CharType> GetParentKey(void) const
+      inline TStringView GetParentKey(void) const
       {
         return parentKey;
       }
@@ -191,14 +206,14 @@ namespace Pathwinder
 
       /// Updates the optional data stored within this node using copy semantics.
       /// @param [in] newData New data to be stored within this node.
-      inline void SetData(const DataType& newData)
+      inline void SetData(const TData& newData)
       {
         data = newData;
       }
 
       /// Updates the optional data stored within this node using move semantics.
       /// @param [in] newData New data to be stored within this node.
-      inline void SetData(DataType&& newData)
+      inline void SetData(TData&& newData)
       {
         data = std::move(newData);
       }
@@ -207,13 +222,13 @@ namespace Pathwinder
 
       /// Optional data associated with the node. If present (not null), the path prefix
       /// string up to this point is considered "contained" in the tree data structure.
-      std::optional<DataType> data;
+      std::optional<TData> data;
 
       /// Parent node, one level up in the tree. Cannot be used to modify the tree.
       Node* parent;
 
       /// Key within the parent node's child map that is associated with this node.
-      std::basic_string_view<CharType> parentKey;
+      TStringView parentKey;
 
       /// Child nodes, stored associatively by path prefix string.
       TChildrenContainer children;
@@ -227,22 +242,18 @@ namespace Pathwinder
 
     /// Fills path delimiters using an array and a count. An array-out-of-bounds error will
     /// occur if the number of delimiters is too high.
-    PrefixTree(
-        const std::basic_string_view<CharType>* pathDelimiterArray,
-        unsigned int pathDelimiterArrayCount)
-        : rootNode(nullptr, std::basic_string_view<CharType>()),
+    PrefixTree(const TStringView* pathDelimiterArray, unsigned int pathDelimiterArrayCount)
+        : rootNode(nullptr, TStringView()),
           pathDelimiters(pathDelimiterArray, pathDelimiterArrayCount)
     {}
 
-    inline PrefixTree(std::initializer_list<std::basic_string_view<CharType>> pathDelimiterInitList)
+    inline PrefixTree(std::initializer_list<TStringView> pathDelimiterInitList)
         : PrefixTree(
               pathDelimiterInitList.begin(),
               static_cast<unsigned int>(pathDelimiterInitList.size()))
     {}
 
-    inline PrefixTree(std::basic_string_view<CharType> pathDelimiter)
-        : PrefixTree(&pathDelimiter, 1)
-    {}
+    inline PrefixTree(TStringView pathDelimiter) : PrefixTree(&pathDelimiter, 1) {}
 
     PrefixTree(const PrefixTree&) = delete;
 
@@ -256,9 +267,26 @@ namespace Pathwinder
     /// @param [in] prefix Prefix string for which to search.
     /// @return `true` if a node exists for the given prefix and it contains data, `false`
     /// otherwise.
-    inline bool Contains(std::basic_string_view<CharType> prefix) const
+    inline bool Contains(TStringView prefix) const
     {
       return (nullptr != Find(prefix));
+    }
+
+    /// Creates any nodes needed to represent the specified prefix and then inserts a new prefix
+    /// data element by constructing it in place using perfect forwarding. No changes are made, and
+    /// no construction takes place, if the prefix already exists within the tree.
+    /// @param [in] prefix Prefix string for which data is to be inserted.
+    /// @param [in] data Reference to the data to be associated with the specified prefix.
+    /// @return Pair consisting of a pointer to the node that corresponds to the very last
+    /// component (i.e. deepest within the tree) of the prefix string and a Boolean value
+    /// (`true` if the tree was modified, `false` if not).
+    template <typename... Args> std::pair<const Node*, bool> Emplace(
+        TStringView prefix, Args&&... args)
+    {
+      Node* const node = PrefixPathCreateInternal(prefix);
+      if (true == node->HasData()) return std::make_pair(node, false);
+      node->EmplaceData(std::forward<Args>(args)...);
+      return std::make_pair(node, true);
     }
 
     /// Erases the specified path prefix from the tree so that it is no longer considered
@@ -266,7 +294,7 @@ namespace Pathwinder
     /// @param [in] prefix Prefix string to be erased.
     /// @return `true` if a the prefix was located in the index (in which case it was erased by
     /// this method), `false` otherwise.
-    bool Erase(std::basic_string_view<CharType> prefix)
+    bool Erase(TStringView prefix)
     {
       Node* node = MutableFindInternal(prefix);
       if (nullptr == node) return false;
@@ -276,7 +304,7 @@ namespace Pathwinder
       while ((false == node->HasData()) && (false == node->HasChildren()) &&
              (true == node->HasParent()))
       {
-        std::basic_string_view<CharType> childKeyToErase = node->GetParentKey();
+        TStringView childKeyToErase = node->GetParentKey();
         node = node->GetParent();
         node->EraseChild(childKeyToErase);
       }
@@ -288,7 +316,7 @@ namespace Pathwinder
     /// if it exists and has data.
     /// @param [in] prefix Prefix string for which to search.
     /// @return Pointer to the node if it exists and contains data, `nullptr` otherwise.
-    const Node* Find(std::basic_string_view<CharType> prefix) const
+    const Node* Find(TStringView prefix) const
     {
       const Node* const node = TraverseTo(prefix);
 
@@ -302,7 +330,7 @@ namespace Pathwinder
     /// necessarily existing exactly at, the specified prefix.
     /// @param [in] prefix Prefix string for which to search.
     /// @return `true` if a path exists with the specified prefix, `false` otherwise.
-    inline bool HasPathForPrefix(std::basic_string_view<CharType> prefix) const
+    inline bool HasPathForPrefix(TStringView prefix) const
     {
       return (nullptr != TraverseTo(prefix));
     }
@@ -315,8 +343,7 @@ namespace Pathwinder
     /// @return Pair consisting of a pointer to the node that corresponds to the very last
     /// component (i.e. deepest within the tree) of the prefix string and a Boolean value
     /// (`true` if the tree was modified, `false` if not).
-    std::pair<const Node*, bool> Insert(
-        std::basic_string_view<CharType> prefix, const DataType& data)
+    std::pair<const Node*, bool> Insert(TStringView prefix, const TData& data)
     {
       Node* const node = PrefixPathCreateInternal(prefix);
       if (true == node->HasData()) return std::make_pair(node, false);
@@ -332,7 +359,7 @@ namespace Pathwinder
     /// @return Pair consisting of a pointer to the node that corresponds to the very last
     /// component (i.e. deepest within the tree) of the prefix string and a Boolean value
     /// (`true` if the tree was modified, `false` if not).
-    std::pair<const Node*, bool> Insert(std::basic_string_view<CharType> prefix, DataType&& data)
+    std::pair<const Node*, bool> Insert(TStringView prefix, TData&& data)
     {
       Node* const node = PrefixPathCreateInternal(prefix);
       if (true == node->HasData()) return std::make_pair(node, false);
@@ -345,18 +372,17 @@ namespace Pathwinder
     /// @param [in] stringToMatch Delimited string for which the longest matching prefix is
     /// desired.
     /// @return Pointer to the node if it exists and contains data, `nullptr` otherwise.
-    const Node* LongestMatchingPrefix(std::basic_string_view<CharType> stringToMatch) const
+    const Node* LongestMatchingPrefix(TStringView stringToMatch) const
     {
       size_t tokenizeState = 0;
 
       const Node* currentNode = &rootNode;
       const Node* longestMatchingPrefixNode = nullptr;
 
-      for (std::optional<std::basic_string_view<CharType>> maybeNextPathComponent =
-               Strings::TokenizeString<CharType>(
-                   tokenizeState, stringToMatch, pathDelimiters.Data(), pathDelimiters.Size());
+      for (std::optional<TStringView> maybeNextPathComponent = Strings::TokenizeString<TChar>(
+               tokenizeState, stringToMatch, pathDelimiters.Data(), pathDelimiters.Size());
            true == maybeNextPathComponent.has_value();
-           maybeNextPathComponent = Strings::TokenizeString<CharType>(
+           maybeNextPathComponent = Strings::TokenizeString<TChar>(
                tokenizeState, stringToMatch, pathDelimiters.Data(), pathDelimiters.Size()))
       {
         if (0 == maybeNextPathComponent->length()) continue;
@@ -382,11 +408,11 @@ namespace Pathwinder
     /// @return Pointer to the node that corresponds to the very last component (i.e. deepest
     /// within the tree) of the prefix string, or `nullptr` if no path exists to the requested
     /// prefix.
-    const Node* TraverseTo(std::basic_string_view<CharType> prefix) const
+    const Node* TraverseTo(TStringView prefix) const
     {
       const Node* currentNode = &rootNode;
 
-      for (std::basic_string_view<CharType> pathComponent :
+      for (TStringView pathComponent :
            Strings::Tokenizer(prefix, pathDelimiters.Data(), pathDelimiters.Size()))
       {
         if (0 == pathComponent.length()) continue;
@@ -407,7 +433,7 @@ namespace Pathwinder
     /// @param [in] data Reference to the data to be associated with the specified prefix.
     /// @return Pointer to the node that corresponds to the very last component (i.e. deepest
     /// within the tree) of the prefix string.
-    const Node* Update(std::basic_string_view<CharType> prefix, const DataType& data)
+    const Node* Update(TStringView prefix, const TData& data)
     {
       Node* const node = PrefixPathCreateInternal(prefix);
       node->SetData(data);
@@ -421,7 +447,7 @@ namespace Pathwinder
     /// @param [in] data Reference to the data to be associated with the specified prefix.
     /// @return Pointer to the node that corresponds to the very last component (i.e. deepest
     /// within the tree) of the prefix string.
-    const Node* Update(std::basic_string_view<CharType> prefix, DataType&& data)
+    const Node* Update(TStringView prefix, TData&& data)
     {
       Node* const node = PrefixPathCreateInternal(prefix);
       node->SetData(std::move(data));
@@ -434,7 +460,7 @@ namespace Pathwinder
     /// if it exists and has data.
     /// @param [in] prefix Prefix string for which to search.
     /// @return Pointer to the node if it exists and contains data, `nullptr` otherwise.
-    inline Node* MutableFindInternal(std::basic_string_view<CharType> prefix)
+    inline Node* MutableFindInternal(TStringView prefix)
     {
       // It is safe to use const_cast here because `this` points to a non-const object.
       return const_cast<Node*>(Find(prefix));
@@ -444,11 +470,11 @@ namespace Pathwinder
     /// @param [in] prefix Prefix string for which a path within the tree needs to exist.
     /// @return Pointer to the node that corresponds to the very last component (i.e. deepest
     /// within the tree) of the prefix string.
-    Node* PrefixPathCreateInternal(std::basic_string_view<CharType> prefix)
+    Node* PrefixPathCreateInternal(TStringView prefix)
     {
       Node* currentNode = &rootNode;
 
-      for (std::basic_string_view<CharType> pathComponent :
+      for (TStringView pathComponent :
            Strings::Tokenizer(prefix, pathDelimiters.Data(), pathDelimiters.Size()))
       {
         if (true == pathComponent.empty()) continue;
@@ -465,6 +491,6 @@ namespace Pathwinder
 
     /// Delimiters that act as delimiters between components of path strings. Immutable once this
     /// object is created.
-    const ArrayList<std::basic_string_view<CharType>, kMaxDelimiters> pathDelimiters;
+    ArrayList<TStringView, kMaxDelimiters> pathDelimiters;
   };
 } // namespace Pathwinder
