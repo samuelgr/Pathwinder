@@ -136,7 +136,7 @@
     <ClCompile Include="Source\Test\Case\FilesystemRuleTest.cpp" />
     <ClCompile Include="Source\Test\Case\OpenHandleStoreTest.cpp" />
     <ClCompile Include="Source\Test\Case\PathwinderConfigReaderTest.cpp" />
-    <ClCompile Include="Source\Test\Case\PrefixIndexTest.cpp" />
+    <ClCompile Include="Source\Test\Case\PrefixTreeTest.cpp" />
     <ClCompile Include="Source\Test\Case\ResolverTest.cpp" />
     <ClCompile Include="Source\Test\Case\StringsTest.cpp" />
     <ClCompile Include="Source\Test\Case\ThreadPoolTest.cpp" />
@@ -168,7 +168,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\MutexWrapper.h" />
     <ClInclude Include="Include\Pathwinder\Internal\OpenHandleStore.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PathwinderConfigReader.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\PrefixIndex.h" />
+    <ClInclude Include="Include\Pathwinder\Internal\PrefixTree.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Resolver.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Strings.h" />
     <ClInclude Include="Include\Pathwinder\Internal\TemporaryBuffer.h" />

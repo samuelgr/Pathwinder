@@ -22,7 +22,7 @@
 #include "FilesystemOperations.h"
 #include "FilesystemRule.h"
 #include "Message.h"
-#include "PrefixIndex.h"
+#include "PrefixTree.h"
 #include "Strings.h"
 
 namespace Pathwinder

@@ -116,7 +116,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\DebugAssert.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Internal\PrefixIndex.h">
+    <ClInclude Include="Include\Pathwinder\Internal\PrefixTree.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirectorBuilder.h">

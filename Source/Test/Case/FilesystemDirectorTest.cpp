@@ -20,7 +20,7 @@
 
 #include "FilesystemInstruction.h"
 #include "MockFilesystemOperations.h"
-#include "PrefixIndex.h"
+#include "PrefixTree.h"
 #include "TemporaryBuffer.h"
 
 namespace PathwinderTest

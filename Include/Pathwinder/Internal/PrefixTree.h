@@ -5,9 +5,9 @@
  * Authored by Samuel Grossman
  * Copyright (c) 2022-2024
  ***********************************************************************************************//**
- * @file PrefixIndex.h
- *   Declaration and implementation of an index data structure efficiently
- *   traversable using prefixes in delimited strings.
+ * @file PrefixTree.h
+ *   Declaration and implementation of a data structure efficiently traversable using prefixes
+ *   in delimited strings.
  **************************************************************************************************/
 
 #pragma once
@@ -28,7 +28,7 @@ namespace Pathwinder
   /// delimited string. Case is preserved as provided by input string, but all comparisons and
   /// traversals are case-insensitive.
   /// @tparam CharType Type of character in each string, either narrow or wide.
-  template <typename CharType, typename DataType> class PrefixIndex
+  template <typename CharType, typename DataType> class PrefixTree
   {
   public:
 
@@ -51,9 +51,9 @@ namespace Pathwinder
       Node(const Node&) = delete;
 
       inline Node(Node&& other) noexcept
-          : data(other.data),
-            parent(other.parent),
-            parentKey(other.parentKey),
+          : data(std::move(other.data)),
+            parent(std::move(other.parent)),
+            parentKey(std::move(other.parentKey)),
             children(std::move(other.children))
       {}
 
@@ -216,11 +216,12 @@ namespace Pathwinder
     /// Maximum number of path delimiter strings allowed in a path prefix tree.
     static constexpr unsigned int kMaxDelimiters = 4;
 
-    inline PrefixIndex(void) : PrefixIndex(L"\\") {}
+    /// Default constructor uses a standard backslash delimiter for filesystem paths.
+    inline PrefixTree(void) : PrefixTree(L"\\") {}
 
     /// Fills path delimiters using an array and a count. An array-out-of-bounds error will
     /// occur if the number of delimiters is too high.
-    PrefixIndex(
+    PrefixTree(
         const std::basic_string_view<CharType>* pathDelimiterArray,
         unsigned int pathDelimiterArrayCount)
         : rootNode(nullptr, std::basic_string_view<CharType>()),
@@ -231,24 +232,23 @@ namespace Pathwinder
         pathDelimiters[i] = pathDelimiterArray[i];
     }
 
-    inline PrefixIndex(
-        std::initializer_list<std::basic_string_view<CharType>> pathDelimiterInitList)
-        : PrefixIndex(
+    inline PrefixTree(std::initializer_list<std::basic_string_view<CharType>> pathDelimiterInitList)
+        : PrefixTree(
               pathDelimiterInitList.begin(),
               static_cast<unsigned int>(pathDelimiterInitList.size()))
     {}
 
-    inline PrefixIndex(std::basic_string_view<CharType> pathDelimiter)
-        : PrefixIndex(&pathDelimiter, 1)
+    inline PrefixTree(std::basic_string_view<CharType> pathDelimiter)
+        : PrefixTree(&pathDelimiter, 1)
     {}
 
-    PrefixIndex(const PrefixIndex&) = delete;
+    PrefixTree(const PrefixTree&) = delete;
 
-    PrefixIndex(PrefixIndex&& other) = default;
+    PrefixTree(PrefixTree&& other) = default;
 
-    PrefixIndex& operator=(const PrefixIndex&) = delete;
+    PrefixTree& operator=(const PrefixTree&) = delete;
 
-    PrefixIndex& operator=(PrefixIndex&& other) = default;
+    PrefixTree& operator=(PrefixTree&& other) = default;
 
     /// Determines if the tree contains the specified path prefix.
     /// @param [in] prefix Prefix string for which to search.
