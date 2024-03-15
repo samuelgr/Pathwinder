@@ -583,43 +583,33 @@ namespace Pathwinder
       if (instruction == DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery())
         return nullptr;
 
-      std::array<
-          std::unique_ptr<IDirectoryOperationQueue>,
-          MergedFileInformationQueue::kNumQueuesToMerge>
-          createdQueues;
-      unsigned int numCreatedQueues = 0;
+      MergedFileInformationQueue::TQueuesToMerge createdQueues;
 
       for (const auto& singleDirectoryEnumeration : instruction.GetDirectoriesToEnumerate())
       {
         DebugAssert(
-            numCreatedQueues < createdQueues.size(),
+            createdQueues.Size() < createdQueues.Capacity(),
             "Too many directory operation queues are being created.");
-
-        if (DirectoryEnumerationInstruction::SingleDirectoryEnumeration::NoEnumeration() ==
-            singleDirectoryEnumeration)
-          continue;
 
         std::wstring_view enumerationPath = singleDirectoryEnumeration.SelectDirectoryPath(
             handleAssociatedPath, handleRealOpenedPath);
         DebugAssert(false == enumerationPath.empty(), "Empty directory enumeration path.");
 
-        createdQueues[numCreatedQueues] = std::make_unique<EnumerationQueue>(
-            singleDirectoryEnumeration, enumerationPath, fileInformationClass, queryFilePattern);
-        numCreatedQueues += 1;
+        createdQueues.PushBack(std::make_unique<EnumerationQueue>(
+            singleDirectoryEnumeration, enumerationPath, fileInformationClass, queryFilePattern));
       }
 
       if (true == instruction.HasDirectoryNamesToInsert())
       {
         DebugAssert(
-            numCreatedQueues < createdQueues.size(),
+            createdQueues.Size() < createdQueues.Capacity(),
             "Too many directory operation queues are being created.");
 
-        createdQueues[numCreatedQueues] = std::make_unique<NameInsertionQueue>(
-            instruction.ExtractDirectoryNamesToInsert(), fileInformationClass, queryFilePattern);
-        numCreatedQueues += 1;
+        createdQueues.PushBack(std::make_unique<NameInsertionQueue>(
+            instruction.ExtractDirectoryNamesToInsert(), fileInformationClass, queryFilePattern));
       }
 
-      switch (numCreatedQueues)
+      switch (createdQueues.Size())
       {
         case 0:
           return nullptr;

@@ -905,7 +905,7 @@ namespace PathwinderTest
         directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
     openHandleStore.AssociateDirectoryEnumerationState(
         directoryHandle,
-        std::make_unique<MergedFileInformationQueue>(MergedFileInformationQueue({
+        std::make_unique<MergedFileInformationQueue>(MergedFileInformationQueue::Create({
             std::make_unique<MockDirectoryOperationQueue>(
                 fileNameStructLayout,
                 MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
@@ -1524,6 +1524,7 @@ namespace PathwinderTest
     MergedFileInformationQueue* topLevelMergeQueue =
         static_cast<MergedFileInformationQueue*>(directoryEnumerationState.queue);
 
+    TEST_ASSERT(2 == topLevelMergeQueue->GetUnderlyingQueueCount());
     VerifyIsEnumerationQueueAndMatchesSpec(
         topLevelMergeQueue->GetUnderlyingQueue(0),
         mockFilesystem,
@@ -1536,9 +1537,6 @@ namespace PathwinderTest
         singleEnumerationInstructions[1],
         kRealOpenedPath,
         SFileNamesInformation::kFileInformationClass);
-
-    for (unsigned int i = 2; i < MergedFileInformationQueue::kNumQueuesToMerge; ++i)
-      TEST_ASSERT(nullptr == topLevelMergeQueue->GetUnderlyingQueue(i));
   }
 
   // Verifies that the correct type of directory enumeration queues are created when the instruction
@@ -1611,6 +1609,7 @@ namespace PathwinderTest
     MergedFileInformationQueue* topLevelMergeQueue =
         static_cast<MergedFileInformationQueue*>(directoryEnumerationState.queue);
 
+    TEST_ASSERT(2 == topLevelMergeQueue->GetUnderlyingQueueCount());
     VerifyIsEnumerationQueueAndMatchesSpec(
         topLevelMergeQueue->GetUnderlyingQueue(0),
         mockFilesystem,
@@ -1623,9 +1622,6 @@ namespace PathwinderTest
         singleEnumerationInstructions[1],
         kRealOpenedPath,
         SFileNamesInformation::kFileInformationClass);
-
-    for (unsigned int i = 2; i < MergedFileInformationQueue::kNumQueuesToMerge; ++i)
-      TEST_ASSERT(nullptr == topLevelMergeQueue->GetUnderlyingQueue(i));
   }
 
   // Verifies that the correct type of directory enumeration queues are created when the instruction
@@ -1699,6 +1695,7 @@ namespace PathwinderTest
     MergedFileInformationQueue* topLevelMergeQueue =
         static_cast<MergedFileInformationQueue*>(directoryEnumerationState.queue);
 
+    TEST_ASSERT(2 == topLevelMergeQueue->GetUnderlyingQueueCount());
     VerifyIsEnumerationQueueAndMatchesSpec(
         topLevelMergeQueue->GetUnderlyingQueue(0),
         mockFilesystem,
@@ -1713,9 +1710,6 @@ namespace PathwinderTest
         kRealOpenedPath,
         SFileNamesInformation::kFileInformationClass,
         kQueryFilePattern);
-
-    for (unsigned int i = 2; i < MergedFileInformationQueue::kNumQueuesToMerge; ++i)
-      TEST_ASSERT(nullptr == topLevelMergeQueue->GetUnderlyingQueue(i));
   }
 
   // Verifies that the correct type of directory enumeration queue is created when the instruction
@@ -1923,6 +1917,7 @@ namespace PathwinderTest
     MergedFileInformationQueue* topLevelMergeQueue =
         static_cast<MergedFileInformationQueue*>(directoryEnumerationState.queue);
 
+    TEST_ASSERT(3 == topLevelMergeQueue->GetUnderlyingQueueCount());
     VerifyIsEnumerationQueueAndMatchesSpec(
         topLevelMergeQueue->GetUnderlyingQueue(0),
         mockFilesystem,
@@ -1939,9 +1934,6 @@ namespace PathwinderTest
         topLevelMergeQueue->GetUnderlyingQueue(2),
         {singleNameInsertionInstructions[0]},
         SFileNamesInformation::kFileInformationClass);
-
-    for (unsigned int i = 3; i < MergedFileInformationQueue::kNumQueuesToMerge; ++i)
-      TEST_ASSERT(nullptr == topLevelMergeQueue->GetUnderlyingQueue(i));
   }
 
   // Verifies that the correct type of directory enumeration queues are created when the instruction
@@ -2024,6 +2016,7 @@ namespace PathwinderTest
     MergedFileInformationQueue* topLevelMergeQueue =
         static_cast<MergedFileInformationQueue*>(directoryEnumerationState.queue);
 
+    TEST_ASSERT(3 == topLevelMergeQueue->GetUnderlyingQueueCount());
     VerifyIsEnumerationQueueAndMatchesSpec(
         topLevelMergeQueue->GetUnderlyingQueue(0),
         mockFilesystem,
@@ -2043,9 +2036,6 @@ namespace PathwinderTest
         {singleNameInsertionInstructions[0]},
         SFileNamesInformation::kFileInformationClass,
         kQueryFilePattern);
-
-    for (unsigned int i = 3; i < MergedFileInformationQueue::kNumQueuesToMerge; ++i)
-      TEST_ASSERT(nullptr == topLevelMergeQueue->GetUnderlyingQueue(i));
   }
 
   // Verifies that whatever new handle value is written by the underlying system call is made

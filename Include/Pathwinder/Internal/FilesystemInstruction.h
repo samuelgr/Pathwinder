@@ -12,12 +12,12 @@
 
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <optional>
 #include <string_view>
 
 #include "ApiBitSet.h"
+#include "ArrayList.h"
 #include "FilesystemRule.h"
 #include "TemporaryBuffer.h"
 
@@ -131,6 +131,18 @@ namespace Pathwinder
   {
   public:
 
+    /// Maximum number of individual directory enumerations that can be merged together into the
+    /// output of an application-requested directory enumeration operation. This value determines
+    /// the sizes of various internal data structures, and increasing it adds overhead to the
+    /// execution of directory enumeration operations. Must be at least 2because this allows for
+    /// both the original requested directory and the target directory of a filesystem rule. Values
+    /// above 2 allow for multiple filesystem rules to have the contents of their target directories
+    /// merged into the same output.
+    static constexpr unsigned int kMaxMergedDirectoryEnumerations = 2;
+    static_assert(
+        kMaxMergedDirectoryEnumerations >= 2,
+        "At least two directory enumerations must be able to be merged together, one for the original requested directory and one for the target of a filesystem rule.");
+
     /// Holds the information needed to describe how to enumerate a single directory as part of
     /// a larger directory enumeration operation. Immutable once constructed.
     class SingleDirectoryEnumeration
@@ -155,14 +167,6 @@ namespace Pathwinder
       {}
 
       bool operator==(const SingleDirectoryEnumeration& other) const = default;
-
-      /// Creates an instance of this class that represents a no-op (i.e. not doing any
-      /// directory enumeration).
-      /// @return Instance of this class that represents no enumeration to be done.
-      static inline SingleDirectoryEnumeration NoEnumeration(void)
-      {
-        return SingleDirectoryEnumeration();
-      }
 
       /// Creates an instance of this class that unconditionally includes all filenames.
       /// @param [in] directoryPathSource Enumerator that describes how to obtain the absolute
@@ -330,9 +334,18 @@ namespace Pathwinder
       const FilesystemRule* filesystemRule;
     };
 
+    /// Type alias for holding instructions for individual directory enumerations that need to be
+    /// merged together as part of an application-requested directory enumeration operation.
+    using TDirectoriesToEnumerate =
+        ArrayList<SingleDirectoryEnumeration, kMaxMergedDirectoryEnumerations>;
+
+    /// Type alias for holding individual directory name insertions that need to be merged into the
+    /// result of an application-requested directory enumeration operation.
+    using TDirectoryNamesToInsert = TemporaryVector<SingleDirectoryNameInsertion>;
+
     inline DirectoryEnumerationInstruction(
-        std::array<SingleDirectoryEnumeration, 2>&& directoriesToEnumerate,
-        std::optional<TemporaryVector<SingleDirectoryNameInsertion>>&& directoryNamesToInsert)
+        TDirectoriesToEnumerate&& directoriesToEnumerate,
+        std::optional<TDirectoryNamesToInsert>&& directoryNamesToInsert)
         : directoriesToEnumerate(std::move(directoriesToEnumerate)),
           directoryNamesToInsert(std::move(directoryNamesToInsert))
     {}
@@ -346,8 +359,7 @@ namespace Pathwinder
     static inline DirectoryEnumerationInstruction PassThroughUnmodifiedQuery(void)
     {
       return DirectoryEnumerationInstruction(
-          {SingleDirectoryEnumeration::IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath),
-           SingleDirectoryEnumeration::NoEnumeration()},
+          {SingleDirectoryEnumeration::IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath)},
           std::nullopt);
     }
 
@@ -359,7 +371,7 @@ namespace Pathwinder
     /// @return Directory enumeration instruction encoded to request enumeration of the
     /// directories in the order provided.
     static inline DirectoryEnumerationInstruction EnumerateDirectories(
-        std::array<SingleDirectoryEnumeration, 2>&& directoriesToEnumerate)
+        TDirectoriesToEnumerate&& directoriesToEnumerate)
     {
       return DirectoryEnumerationInstruction(std::move(directoriesToEnumerate), std::nullopt);
     }
@@ -372,12 +384,9 @@ namespace Pathwinder
     /// @return Directory enumeration encoded to request enumeration of the specific supplied
     /// directory names and nothing else.
     static inline DirectoryEnumerationInstruction UseOnlyRuleOriginDirectoryNames(
-        TemporaryVector<SingleDirectoryNameInsertion>&& directoryNamesToInsert)
+        TDirectoryNamesToInsert&& directoryNamesToInsert)
     {
-      return DirectoryEnumerationInstruction(
-          {SingleDirectoryEnumeration::NoEnumeration(),
-           SingleDirectoryEnumeration::NoEnumeration()},
-          std::move(directoryNamesToInsert));
+      return DirectoryEnumerationInstruction({}, std::move(directoryNamesToInsert));
     }
 
     /// Creates a directory enumeration instruction that specifies a specific set of individual
@@ -389,11 +398,10 @@ namespace Pathwinder
     /// @return Directory enumeration encoded to request insertion of the specific supplied
     /// directory names into the enumeration result.
     static inline DirectoryEnumerationInstruction InsertRuleOriginDirectoryNames(
-        TemporaryVector<SingleDirectoryNameInsertion>&& directoryNamesToInsert)
+        TDirectoryNamesToInsert&& directoryNamesToInsert)
     {
       return DirectoryEnumerationInstruction(
-          {SingleDirectoryEnumeration::IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath),
-           SingleDirectoryEnumeration::NoEnumeration()},
+          {SingleDirectoryEnumeration::IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath)},
           std::move(directoryNamesToInsert));
     }
 
@@ -410,8 +418,8 @@ namespace Pathwinder
     /// into the enumeration result.
     static inline DirectoryEnumerationInstruction
         EnumerateDirectoriesAndInsertRuleOriginDirectoryNames(
-            std::array<SingleDirectoryEnumeration, 2>&& directoriesToEnumerate,
-            TemporaryVector<SingleDirectoryNameInsertion>&& directoryNamesToInsert)
+            TDirectoriesToEnumerate&& directoriesToEnumerate,
+            TDirectoryNamesToInsert&& directoryNamesToInsert)
     {
       return DirectoryEnumerationInstruction(
           std::move(directoriesToEnumerate), std::move(directoryNamesToInsert));
@@ -420,17 +428,16 @@ namespace Pathwinder
     /// Extracts the container of directory names to be inserted into the enumeration result.
     /// Does not check that directory names are actually present.
     /// @return Container of directory names to insert, extracted using move semantics.
-    inline TemporaryVector<SingleDirectoryNameInsertion> ExtractDirectoryNamesToInsert(void)
+    inline TDirectoryNamesToInsert ExtractDirectoryNamesToInsert(void)
     {
-      TemporaryVector<SingleDirectoryNameInsertion> extractedDirectoryNamesToInsert(
-          std::move(*directoryNamesToInsert));
+      TDirectoryNamesToInsert extractedDirectoryNamesToInsert(std::move(*directoryNamesToInsert));
       directoryNamesToInsert.reset();
       return extractedDirectoryNamesToInsert;
     }
 
     /// Obtains a read-only reference to the container of directories to be enumerated.
     /// @return Read-only reference to the container of directories to be enumerated.
-    inline const std::array<SingleDirectoryEnumeration, 2>& GetDirectoriesToEnumerate(void) const
+    inline const TDirectoriesToEnumerate& GetDirectoriesToEnumerate(void) const
     {
       return directoriesToEnumerate;
     }
@@ -438,8 +445,7 @@ namespace Pathwinder
     /// Obtains a read-only reference to the container of directory names to be inserted into
     /// the enumeration result. Does not check that directory names are actually present.
     /// @return Read-only reference to the container of directory names to insert.
-    inline const TemporaryVector<SingleDirectoryNameInsertion>& GetDirectoryNamesToInsert(
-        void) const
+    inline const TDirectoryNamesToInsert& GetDirectoryNamesToInsert(void) const
     {
       return *directoryNamesToInsert;
     }
@@ -456,12 +462,12 @@ namespace Pathwinder
 
     /// Descriptions of how to enumerate the directories that need to be enumerated as the
     /// execution of this directory enumeration instruction.
-    std::array<SingleDirectoryEnumeration, 2> directoriesToEnumerate;
+    TDirectoriesToEnumerate directoriesToEnumerate;
 
     /// Base names of any directories that should be inserted into the enumeration result.
     /// These are not subject to any additional file pattern matching.
     /// If not present then no additional names need to be inserted.
-    std::optional<TemporaryVector<SingleDirectoryNameInsertion>> directoryNamesToInsert;
+    std::optional<TDirectoryNamesToInsert> directoryNamesToInsert;
   };
 
   /// Contains all of the information needed to execute a file operation complete with potential
@@ -679,7 +685,7 @@ namespace Pathwinder
       sizeof(DirectoryEnumerationInstruction::SingleDirectoryNameInsertion) <= 16,
       "Data structure size constraint violation.");
   static_assert(
-      sizeof(DirectoryEnumerationInstruction) <= 64, "Data structure size constraint violation.");
+      sizeof(DirectoryEnumerationInstruction) <= 128, "Data structure size constraint violation.");
   static_assert(
       sizeof(FileOperationInstruction) <= 64, "Data structure size constraint violation.");
 #else
@@ -690,7 +696,7 @@ namespace Pathwinder
       sizeof(DirectoryEnumerationInstruction::SingleDirectoryNameInsertion) <= 8,
       "Data structure size constraint violation.");
   static_assert(
-      sizeof(DirectoryEnumerationInstruction) <= 32, "Data structure size constraint violation.");
+      sizeof(DirectoryEnumerationInstruction) <= 64, "Data structure size constraint violation.");
   static_assert(
       sizeof(FileOperationInstruction) <= 32, "Data structure size constraint violation.");
 #endif

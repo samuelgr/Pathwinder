@@ -66,8 +66,7 @@ namespace Pathwinder
     // place, the path being queried for directory enumeration may have filesystem rule origin
     // directories as direct children, and these would potentially need to be enumerated.
 
-    std::array<DirectoryEnumerationInstruction::SingleDirectoryEnumeration, 2>
-        directoriesToEnumerate;
+    DirectoryEnumerationInstruction::TDirectoriesToEnumerate directoriesToEnumerate;
     if (associatedPath != realOpenedPath)
     {
       // This block implements parts 1 and 2.

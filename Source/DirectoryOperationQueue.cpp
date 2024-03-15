@@ -19,6 +19,7 @@
 #include <unordered_map>
 
 #include "ApiWindows.h"
+#include "ArrayList.h"
 #include "BufferPool.h"
 #include "DebugAssert.h"
 #include "FileInformationStruct.h"
@@ -129,13 +130,26 @@ namespace Pathwinder
     Restart(queryFilePattern);
   }
 
-  MergedFileInformationQueue::MergedFileInformationQueue(
-      std::array<std::unique_ptr<IDirectoryOperationQueue>, 3>&& queuesToMerge)
+  MergedFileInformationQueue::MergedFileInformationQueue(TQueuesToMerge&& queuesToMerge)
       : IDirectoryOperationQueue(),
         queuesToMerge(std::move(queuesToMerge)),
         frontElementSourceQueue(nullptr)
   {
     SelectFrontElementSourceQueueInternal();
+  }
+
+  MergedFileInformationQueue MergedFileInformationQueue::Create(
+      std::array<std::unique_ptr<IDirectoryOperationQueue>, kNumQueuesToMerge>&& underlyingQueues)
+  {
+    MergedFileInformationQueue::TQueuesToMerge queuesToMerge;
+
+    for (auto& underlyingQueue : underlyingQueues)
+    {
+      if (nullptr == underlyingQueue) continue;
+      queuesToMerge.PushBack(std::move(underlyingQueue));
+    }
+
+    return MergedFileInformationQueue(std::move(queuesToMerge));
   }
 
   void EnumerationQueue::AdvanceQueueContentsInternal(
