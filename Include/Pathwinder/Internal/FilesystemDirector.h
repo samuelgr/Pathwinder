@@ -26,6 +26,124 @@
 
 namespace Pathwinder
 {
+  /// Holds multiple filesystem rules together in a container such that they can be organized by
+  /// some property they have in common and queried conveniently.
+  /// @tparam kMaxRuleCount Maximum number of rules that can be contained in this container type.
+  template <const unsigned int kMaxRuleCount> class FilesystemRuleContainer
+  {
+  public:
+
+    /// Comparator function object type for establishing the ordering of filesystem rules. If the
+    /// number of file patterns is the same, then filesystem rules are ordered by name. Otherwise,
+    /// the filesystem rules are ordered in descending order by number of file patterns. That way, 0
+    /// file patterns is guaranteed to be at the end of the ordering, so that filesystem rules with
+    /// no file patterns can act as a "catch-all" default, whereas more specific rules are given
+    /// have precedence.
+    struct OrderedFilesystemRuleLessThanComparator
+    {
+      inline bool operator()(const FilesystemRule& lhs, const FilesystemRule& rhs) const
+      {
+        if (lhs.GetFilePatterns().size() == rhs.GetFilePatterns().size())
+          return (Strings::CompareCaseInsensitive(lhs.GetName(), rhs.GetName()) < 0);
+        return (lhs.GetFilePatterns().size() > rhs.GetFilePatterns().size());
+      }
+    };
+
+    /// Type alias for the internal container type that holds the filesystem rules themselves.
+    using TFilesystemRules = ArrayList<FilesystemRule, kMaxRuleCount>;
+
+    FilesystemRuleContainer(void) = default;
+
+    bool operator==(const FilesystemRuleContainer& other) const = default;
+
+    /// Provides read-only access to the rules held by this object. Intended for iterating in a
+    /// loop over all of them.
+    /// @return Read-only reference to the underlying container.
+    inline const TFilesystemRules& AllRules(void) const
+    {
+      return filesystemRules;
+    }
+
+    /// Attempts to insert a filesystem rule into this container by constructing it in place.
+    /// Insertion will fail if this container is already full.
+    /// @param [in] ruleToInsert Rule to be inserted.
+    /// @return `true` if the insertion was successful, `false` otherwise.
+    template <typename... Args> inline bool EmplaceRule(Args&&... args)
+    {
+      if (filesystemRules.Capacity() == filesystemRules.Size()) return false;
+      filesystemRules.EmplaceBack(std::forward<Args>(args)...);
+      return true;
+    }
+
+    /// Attempts to insert a filesystem rule into this container using copy semantics. Insertion
+    /// will fail if this container is already full.
+    /// @param [in] ruleToInsert Rule to be inserted.
+    /// @return `true` if the insertion was successful, `false` otherwise.
+    bool InsertRule(const FilesystemRule& ruleToInsert)
+    {
+      return EmplaceRule(ruleToInsert);
+    }
+
+    /// Attempts to insert a filesystem rule into this container using move semantics. Insertion
+    /// will fail if this container is already full.
+    /// @param [in] ruleToInsert Rule to be inserted.
+    /// @return `true` if the insertion was successful, `false` otherwise.
+    bool InsertRule(FilesystemRule&& ruleToInsert)
+    {
+      return EmplaceRule(std::move(ruleToInsert));
+    }
+
+    /// Determines if the specified filename matches any of the file patterns associated with
+    /// any of the rules held by this object. Input filename must not contain any backslash
+    /// separators, as it is intended to represent a file within a directory rather than a path.
+    /// @param [in] candidateFileName File name to check for matches with any file pattern.
+    /// @return `true` if any file pattern produces a match, `false` otherwise.
+    inline bool HasRuleMatchingFileName(std::wstring_view candidateFileName) const
+    {
+      return (nullptr != RuleMatchingFileName(candidateFileName));
+    }
+
+    /// Identifies the first filesystem rule found such that the specified filename matches any of
+    /// the file patterns associated with that rule. Input filename must not contain any backslash
+    /// separators, as it is intended to represent a file within a directory rather than a path.
+    /// @param [in] candidateFileName File name to check for matches with any file pattern.
+    /// @return Pointer to the first rule that matches, or `nullptr` if none exist.
+    inline const FilesystemRule* RuleMatchingFileName(std::wstring_view candidateFileName) const
+    {
+      for (const auto& filesystemRule : filesystemRules)
+        if (filesystemRule.FileNameMatchesAnyPattern(candidateFileName)) return &filesystemRule;
+
+      return nullptr;
+    }
+
+    /// Reorders the rules in this container such that they appear in descending order by number of
+    /// file patterns and then in ascending order by rule name.
+    void SortRules(void)
+    {
+      if constexpr (kMaxRuleCount > 1)
+      {
+        if (filesystemRules.Size() > 1)
+          std::sort(
+              filesystemRules.begin(),
+              filesystemRules.end(),
+              OrderedFilesystemRuleLessThanComparator());
+      }
+    }
+
+  private:
+
+    /// Storage for all filesystem rule objects owned by this container.
+    TFilesystemRules filesystemRules;
+  };
+
+  /// Maximum number of filesystem rules that can have the same origin directory. Providing each
+  /// filesystem rule with different file patterns enables differently-named files to be redirected
+  /// to different locations. The value is constrained by how many underlying directory enumerations
+  /// are allowed to be merged together, because one such underlying enumeration may be required for
+  /// each filesystem rule that has the same origin directory as the directory being enumerated.
+  inline constexpr unsigned int kMaxFilesystemRulesPerOriginDirectory =
+      DirectoryEnumerationInstruction::kMaxMergedDirectoryEnumerations - 1;
+
   /// Type alias for holding owned strings for deduplication and organization. Contained strings are
   /// compared case-insensitively.
   using TCaseInsensitiveStringSet = std::unordered_set<
