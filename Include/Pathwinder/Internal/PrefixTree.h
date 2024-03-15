@@ -12,12 +12,12 @@
 
 #pragma once
 
-#include <array>
 #include <initializer_list>
 #include <optional>
 #include <string_view>
 #include <unordered_map>
 
+#include "ArrayList.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
 
@@ -25,10 +25,19 @@ namespace Pathwinder
 {
   /// Data structure for indexing objects identified by delimited strings for efficient traversal
   /// by prefix. Implemented as a prefix tree where each level represents a token within the
-  /// delimited string. Case is preserved as provided by input string, but all comparisons and
-  /// traversals are case-insensitive.
+  /// delimited string.
   /// @tparam CharType Type of character in each string, either narrow or wide.
-  template <typename CharType, typename DataType> class PrefixTree
+  /// @tparam DataType Type of data that can be stored at each node in the prefix tree.
+  /// @tparam Hasher Optional hasher for strings stored internally. Defaults to the standard
+  /// case-sensitive hasher for string view objects.
+  /// @tparam EqualityComparator Optional equality comparator for strings stored internally.
+  /// Defaults to the standard case-sensitive equality comparator for string view objects.
+  template <
+      typename CharType,
+      typename DataType,
+      typename Hasher = std::hash<std::basic_string_view<CharType>>,
+      typename EqualityComparator = std::equal_to<std::basic_string_view<CharType>>>
+  class PrefixTree
   {
   public:
 
@@ -38,11 +47,8 @@ namespace Pathwinder
     public:
 
       /// Type alias for the container that holds this node's children.
-      using TChildrenContainer = std::unordered_map<
-          std::basic_string_view<CharType>,
-          Node,
-          Strings::CaseInsensitiveHasher<CharType>,
-          Strings::CaseInsensitiveEqualityComparator<CharType>>;
+      using TChildrenContainer =
+          std::unordered_map<std::basic_string_view<CharType>, Node, Hasher, EqualityComparator>;
 
       inline Node(Node* parent, std::basic_string_view<CharType> parentKey)
           : data(), parent(parent), parentKey(parentKey), children()
@@ -225,12 +231,8 @@ namespace Pathwinder
         const std::basic_string_view<CharType>* pathDelimiterArray,
         unsigned int pathDelimiterArrayCount)
         : rootNode(nullptr, std::basic_string_view<CharType>()),
-          pathDelimiters(),
-          pathDelimiterCount(pathDelimiterArrayCount)
-    {
-      for (unsigned int i = 0; i < pathDelimiterArrayCount; ++i)
-        pathDelimiters[i] = pathDelimiterArray[i];
-    }
+          pathDelimiters(pathDelimiterArray, pathDelimiterArrayCount)
+    {}
 
     inline PrefixTree(std::initializer_list<std::basic_string_view<CharType>> pathDelimiterInitList)
         : PrefixTree(
@@ -352,10 +354,10 @@ namespace Pathwinder
 
       for (std::optional<std::basic_string_view<CharType>> maybeNextPathComponent =
                Strings::TokenizeString<CharType>(
-                   tokenizeState, stringToMatch, pathDelimiters.data(), pathDelimiterCount);
+                   tokenizeState, stringToMatch, pathDelimiters.Data(), pathDelimiters.Size());
            true == maybeNextPathComponent.has_value();
            maybeNextPathComponent = Strings::TokenizeString<CharType>(
-               tokenizeState, stringToMatch, pathDelimiters.data(), pathDelimiterCount))
+               tokenizeState, stringToMatch, pathDelimiters.Data(), pathDelimiters.Size()))
       {
         if (0 == maybeNextPathComponent->length()) continue;
 
@@ -385,7 +387,7 @@ namespace Pathwinder
       const Node* currentNode = &rootNode;
 
       for (std::basic_string_view<CharType> pathComponent :
-           Strings::Tokenizer(prefix, pathDelimiters.data(), pathDelimiterCount))
+           Strings::Tokenizer(prefix, pathDelimiters.Data(), pathDelimiters.Size()))
       {
         if (0 == pathComponent.length()) continue;
 
@@ -447,7 +449,7 @@ namespace Pathwinder
       Node* currentNode = &rootNode;
 
       for (std::basic_string_view<CharType> pathComponent :
-           Strings::Tokenizer(prefix, pathDelimiters.data(), pathDelimiterCount))
+           Strings::Tokenizer(prefix, pathDelimiters.Data(), pathDelimiters.Size()))
       {
         if (true == pathComponent.empty()) continue;
 
@@ -457,16 +459,12 @@ namespace Pathwinder
       return currentNode;
     }
 
-    /// Root node of the path prefix tree data structure.
-    /// Will only ever contain children, no data or parents.
+    /// Root node of the path prefix tree data structure. Will only ever contain children, no data
+    /// or parents.
     Node rootNode;
 
-    /// Delimiters that act as delimiters between components of path strings.
-    /// Immutable once this object is created.
-    std::array<std::basic_string_view<CharType>, kMaxDelimiters> pathDelimiters;
-
-    /// Actual number of path component delimiters.
-    /// Immutable once this object is created.
-    unsigned int pathDelimiterCount;
+    /// Delimiters that act as delimiters between components of path strings. Immutable once this
+    /// object is created.
+    const ArrayList<std::basic_string_view<CharType>, kMaxDelimiters> pathDelimiters;
   };
 } // namespace Pathwinder

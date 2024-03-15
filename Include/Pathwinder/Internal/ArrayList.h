@@ -38,6 +38,12 @@ namespace Pathwinder
 
     constexpr ArrayList(void) : backingArray(), size(0) {}
 
+    inline ArrayList(const T* inputArray, unsigned int inputArrayCount) : ArrayList()
+    {
+      for (unsigned int i = 0; ((i < inputArrayCount) && (i < kCapacity)); ++i)
+        PushBack(inputArray[i]);
+    }
+
     inline ArrayList(std::initializer_list<T> initializers) : ArrayList()
     {
       *this = initializers;

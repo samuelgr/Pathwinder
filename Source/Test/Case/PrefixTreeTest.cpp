@@ -90,46 +90,6 @@ namespace PathwinderTest
     TEST_ASSERT(level5Node->GetData() == 5);
   }
 
-  // Inserts a few strings into the prefix index and queries the prefix index using all lower-case
-  // to test for case insensitivity. Verifies that only the strings specifically inserted are seen
-  // as being contained in the index and that the correct data reference is returned accordingly
-  // for queries. Only some of the strings represent valid objects that are "contained" in the
-  // index, but all levels should at least be indicated as being valid prefix paths.
-  TEST_CASE(PrefixTree_QueryContents_CaseInsensitive)
-  {
-    TTestPrefixTree index(L"\\");
-
-    index.Insert(L"Level1\\Level2\\Level3\\Level4\\Level5", 5);
-    index.Insert(L"Level1\\Level2", 2);
-
-    TEST_ASSERT(false == index.Contains(L"level1"));
-    TEST_ASSERT(true == index.HasPathForPrefix(L"level1"));
-
-    TEST_ASSERT(true == index.Contains(L"level1\\level2"));
-    TEST_ASSERT(true == index.HasPathForPrefix(L"level1\\level2"));
-
-    TEST_ASSERT(false == index.Contains(L"level1\\level2\\level3"));
-    TEST_ASSERT(true == index.HasPathForPrefix(L"level1\\level2\\level3"));
-
-    TEST_ASSERT(false == index.Contains(L"level1\\level2\\level3\\level4"));
-    TEST_ASSERT(true == index.HasPathForPrefix(L"level1\\level2\\level3\\level4"));
-
-    TEST_ASSERT(true == index.Contains(L"level1\\level2\\level3\\level4\\level5"));
-    TEST_ASSERT(true == index.HasPathForPrefix(L"level1\\level2\\level3\\level4\\level5"));
-
-    TEST_ASSERT(nullptr == index.Find(L"level1"));
-    TEST_ASSERT(nullptr == index.Find(L"level1\\level2\\level3"));
-    TEST_ASSERT(nullptr == index.Find(L"level1\\level2\\level3\\level4"));
-
-    auto level2Node = index.Find(L"level1\\level2");
-    TEST_ASSERT(nullptr != level2Node);
-    TEST_ASSERT(level2Node->GetData() == 2);
-
-    auto level5Node = index.Find(L"level1\\level2\\level3\\level4\\level5");
-    TEST_ASSERT(nullptr != level5Node);
-    TEST_ASSERT(level5Node->GetData() == 5);
-  }
-
   // Inserts a few strings into the prefix index using multiple delimters.
   // Verifies that only the strings specifically inserted are seen as being contained in the index
   // and uses multiple different delimiters when querying.
