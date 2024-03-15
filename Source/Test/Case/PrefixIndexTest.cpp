@@ -23,10 +23,6 @@ namespace PathwinderTest
 {
   using namespace ::Pathwinder;
 
-  /// Test data that can be referenced by prefix index data structures that are created in test
-  /// cases.
-  static constexpr int kTestData[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-
   /// Type alias for all tests that exercise the prefix index data structure.
   using TTestPrefixIndex = PrefixIndex<wchar_t, int>;
 
@@ -63,8 +59,8 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    index.Insert(L"Level1\\Level2\\Level3\\Level4\\Level5", kTestData[5]);
-    index.Insert(L"Level1\\Level2", kTestData[2]);
+    index.Insert(L"Level1\\Level2\\Level3\\Level4\\Level5", 5);
+    index.Insert(L"Level1\\Level2", 2);
 
     TEST_ASSERT(false == index.Contains(L"Level1"));
     TEST_ASSERT(true == index.HasPathForPrefix(L"Level1"));
@@ -87,11 +83,11 @@ namespace PathwinderTest
 
     auto level2Node = index.Find(L"Level1\\Level2");
     TEST_ASSERT(nullptr != level2Node);
-    TEST_ASSERT(level2Node->GetData() == &kTestData[2]);
+    TEST_ASSERT(level2Node->GetData() == 2);
 
     auto level5Node = index.Find(L"Level1\\Level2\\Level3\\Level4\\Level5");
     TEST_ASSERT(nullptr != level5Node);
-    TEST_ASSERT(level5Node->GetData() == &kTestData[5]);
+    TEST_ASSERT(level5Node->GetData() == 5);
   }
 
   // Inserts a few strings into the prefix index and queries the prefix index using all lower-case
@@ -103,8 +99,8 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    index.Insert(L"Level1\\Level2\\Level3\\Level4\\Level5", kTestData[5]);
-    index.Insert(L"Level1\\Level2", kTestData[2]);
+    index.Insert(L"Level1\\Level2\\Level3\\Level4\\Level5", 5);
+    index.Insert(L"Level1\\Level2", 2);
 
     TEST_ASSERT(false == index.Contains(L"level1"));
     TEST_ASSERT(true == index.HasPathForPrefix(L"level1"));
@@ -127,11 +123,11 @@ namespace PathwinderTest
 
     auto level2Node = index.Find(L"level1\\level2");
     TEST_ASSERT(nullptr != level2Node);
-    TEST_ASSERT(level2Node->GetData() == &kTestData[2]);
+    TEST_ASSERT(level2Node->GetData() == 2);
 
     auto level5Node = index.Find(L"level1\\level2\\level3\\level4\\level5");
     TEST_ASSERT(nullptr != level5Node);
-    TEST_ASSERT(level5Node->GetData() == &kTestData[5]);
+    TEST_ASSERT(level5Node->GetData() == 5);
   }
 
   // Inserts a few strings into the prefix index using multiple delimters.
@@ -141,8 +137,8 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index({L"\\", L"/"});
 
-    index.Insert(L"Level1\\Level2\\Level3\\Level4", kTestData[4]);
-    index.Insert(L"Level1/Level2\\Level3/Level4\\Level5/Level6\\Level7/Level8", kTestData[8]);
+    index.Insert(L"Level1\\Level2\\Level3\\Level4", 4);
+    index.Insert(L"Level1/Level2\\Level3/Level4\\Level5/Level6\\Level7/Level8", 8);
 
     TEST_ASSERT(false == index.Contains(L"Level1"));
     TEST_ASSERT(false == index.Contains(L"Level1/Level2"));
@@ -163,8 +159,8 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    index.Insert(L"Level1\\Level2\\\\Level3\\\\\\Level4\\\\\\\\Level5", kTestData[5]);
-    index.Insert(L"Level1\\\\\\\\\\Level2", kTestData[2]);
+    index.Insert(L"Level1\\Level2\\\\Level3\\\\\\Level4\\\\\\\\Level5", 5);
+    index.Insert(L"Level1\\\\\\\\\\Level2", 2);
 
     TEST_ASSERT(false == index.Contains(L"Level1"));
     TEST_ASSERT(true == index.Contains(L"Level1\\Level2"));
@@ -178,11 +174,11 @@ namespace PathwinderTest
 
     auto level2Node = index.Find(L"Level1\\Level2");
     TEST_ASSERT(nullptr != level2Node);
-    TEST_ASSERT(level2Node->GetData() == &kTestData[2]);
+    TEST_ASSERT(level2Node->GetData() == 2);
 
     auto level5Node = index.Find(L"Level1\\Level2\\Level3\\Level4\\Level5");
     TEST_ASSERT(nullptr != level5Node);
-    TEST_ASSERT(level5Node->GetData() == &kTestData[5]);
+    TEST_ASSERT(level5Node->GetData() == 5);
   }
 
   // Inserts a few strings into the prefix index using multiple delimters, as with the multiple
@@ -193,10 +189,9 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index({L"\\", L"/"});
 
-    index.Insert(L"Level1\\/\\////\\Level2///\\Level3\\Level4", kTestData[4]);
+    index.Insert(L"Level1\\/\\////\\Level2///\\Level3\\Level4", 4);
     index.Insert(
-        L"Level1/Level2\\\\Level3\\/\\\\Level4////\\Level5/\\\\\\Level6\\Level7//Level8",
-        kTestData[8]);
+        L"Level1/Level2\\\\Level3\\/\\\\Level4////\\Level5/\\\\\\Level6\\Level7//Level8", 8);
 
     TEST_ASSERT(false == index.Contains(L"Level1"));
     TEST_ASSERT(false == index.Contains(L"Level1/Level2"));
@@ -216,8 +211,8 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    index.Insert(L"Level1\\Level2\\Level3\\Level4\\Level5", kTestData[5]);
-    index.Insert(L"Level1\\Level2", kTestData[2]);
+    index.Insert(L"Level1\\Level2\\Level3\\Level4\\Level5", 5);
+    index.Insert(L"Level1\\Level2", 2);
 
     const TTestPrefixIndex::Node* nodeLevel1 = index.TraverseTo(L"Level1");
     const TTestPrefixIndex::Node* nodeLevel2 = index.TraverseTo(L"Level1\\Level2");
@@ -252,18 +247,15 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    auto insertResult = index.Insert(L"Level1\\Level2\\Level3", kTestData[3]);
+    auto insertResult = index.Insert(L"Level1\\Level2\\Level3", 3);
     auto level3Node = insertResult.first;
     TEST_ASSERT(true == insertResult.second);
 
-    TEST_ASSERT(
-        std::make_pair(level3Node, false) == index.Insert(L"Level1\\Level2\\Level3", kTestData[6]));
-    TEST_ASSERT(
-        std::make_pair(level3Node, false) == index.Insert(L"Level1\\Level2\\Level3", kTestData[7]));
-    TEST_ASSERT(
-        std::make_pair(level3Node, false) == index.Insert(L"Level1\\Level2\\Level3", kTestData[8]));
+    TEST_ASSERT(std::make_pair(level3Node, false) == index.Insert(L"Level1\\Level2\\Level3", 6));
+    TEST_ASSERT(std::make_pair(level3Node, false) == index.Insert(L"Level1\\Level2\\Level3", 7));
+    TEST_ASSERT(std::make_pair(level3Node, false) == index.Insert(L"Level1\\Level2\\Level3", 8));
 
-    TEST_ASSERT(level3Node->GetData() == &kTestData[3]);
+    TEST_ASSERT(level3Node->GetData() == 3);
   }
 
   // Largely the same as the nominal test case except only checks contents and uses the update
@@ -273,8 +265,8 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    index.Update(L"Level1\\Level2\\Level3\\Level4\\Level5", kTestData[5]);
-    index.Update(L"Level1\\Level2", kTestData[2]);
+    index.Update(L"Level1\\Level2\\Level3\\Level4\\Level5", 5);
+    index.Update(L"Level1\\Level2", 2);
 
     TEST_ASSERT(false == index.Contains(L"Level1"));
     TEST_ASSERT(true == index.Contains(L"Level1\\Level2"));
@@ -289,23 +281,22 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    index.Insert(L"Level1\\Level2\\Level3\\Level4\\Level5", kTestData[5]);
-    index.Insert(L"Level1\\Level2", kTestData[2]);
+    index.Insert(L"Level1\\Level2\\Level3\\Level4\\Level5", 5);
+    index.Insert(L"Level1\\Level2", 2);
 
     auto level2Node = index.Find(L"Level1\\Level2");
     TEST_ASSERT(nullptr != level2Node);
-    TEST_ASSERT(level2Node->GetData() == &kTestData[2]);
+    TEST_ASSERT(level2Node->GetData() == 2);
 
     auto level5Node = index.Find(L"Level1\\Level2\\Level3\\Level4\\Level5");
     TEST_ASSERT(nullptr != level5Node);
-    TEST_ASSERT(level5Node->GetData() == &kTestData[5]);
+    TEST_ASSERT(level5Node->GetData() == 5);
 
-    TEST_ASSERT(
-        level5Node == index.Update(L"Level1\\Level2\\Level3\\Level4\\Level5", kTestData[10]));
-    TEST_ASSERT(level5Node->GetData() == &kTestData[10]);
+    TEST_ASSERT(level5Node == index.Update(L"Level1\\Level2\\Level3\\Level4\\Level5", 10));
+    TEST_ASSERT(level5Node->GetData() == 10);
 
-    TEST_ASSERT(level2Node == index.Update(L"Level1\\Level2", kTestData[14]));
-    TEST_ASSERT(level2Node->GetData() == &kTestData[14]);
+    TEST_ASSERT(level2Node == index.Update(L"Level1\\Level2", 14));
+    TEST_ASSERT(level2Node->GetData() == 14);
   }
 
   // Inserts a few strings into the prefix index and then erases some of them.
@@ -315,10 +306,10 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    index.Insert(L"Root\\Level1\\A\\Level2\\Level3", kTestData[3]);
-    index.Insert(L"Root\\Level1\\A\\Level2\\Level3\\Level4\\Level5\\Level6", kTestData[6]);
-    index.Insert(L"Root\\Level1\\B\\Level7\\Level8\\Level9", kTestData[9]);
-    index.Insert(L"Root\\Level1\\B\\Level7\\Level8", kTestData[8]);
+    index.Insert(L"Root\\Level1\\A\\Level2\\Level3", 3);
+    index.Insert(L"Root\\Level1\\A\\Level2\\Level3\\Level4\\Level5\\Level6", 6);
+    index.Insert(L"Root\\Level1\\B\\Level7\\Level8\\Level9", 9);
+    index.Insert(L"Root\\Level1\\B\\Level7\\Level8", 8);
 
     TEST_ASSERT(true == index.Contains(L"Root\\Level1\\A\\Level2\\Level3"));
     TEST_ASSERT(true == index.Contains(L"Root\\Level1\\A\\Level2\\Level3\\Level4\\Level5\\Level6"));
@@ -340,14 +331,14 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    TEST_ASSERT(true == index.Insert(L"Level1\\Level2\\Level3\\Level4", kTestData[14]).second);
+    TEST_ASSERT(true == index.Insert(L"Level1\\Level2\\Level3\\Level4", 14).second);
 
     TEST_ASSERT(false == index.Erase(L"Level1\\Level2"));
     TEST_ASSERT(false == index.Erase(L"Level1\\Level2\\Level3\\Level4\\Level5"));
 
     auto level4Node = index.Find(L"Level1\\Level2\\Level3\\Level4");
     TEST_ASSERT(nullptr != level4Node);
-    TEST_ASSERT(level4Node->GetData() == &kTestData[14]);
+    TEST_ASSERT(level4Node->GetData() == 14);
   }
 
   // Attempts to locate the longest matching prefix in the nominal situation in which such a
@@ -356,7 +347,7 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    TEST_ASSERT(true == index.Insert(L"Level1\\Level2\\Level3\\Level4", kTestData[14]).second);
+    TEST_ASSERT(true == index.Insert(L"Level1\\Level2\\Level3\\Level4", 14).second);
 
     auto level4Node = index.Find(L"Level1\\Level2\\Level3\\Level4");
     TEST_ASSERT(nullptr != level4Node);
@@ -372,7 +363,7 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    TEST_ASSERT(true == index.Insert(L"Level1\\Level2\\Level3\\Level4", kTestData[14]).second);
+    TEST_ASSERT(true == index.Insert(L"Level1\\Level2\\Level3\\Level4", 14).second);
 
     auto longestMatchingPrefixNode = index.LongestMatchingPrefix(L"A\\B\\C\\D");
     TEST_ASSERT(nullptr == longestMatchingPrefixNode);
@@ -385,7 +376,7 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    TEST_ASSERT(true == index.Insert(L"Level1\\Level2\\Level3\\Level4", kTestData[14]).second);
+    TEST_ASSERT(true == index.Insert(L"Level1\\Level2\\Level3\\Level4", 14).second);
 
     auto level4Node = index.Find(L"Level1\\Level2\\Level3\\Level4");
     TEST_ASSERT(nullptr != level4Node);
@@ -401,13 +392,9 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    TEST_ASSERT(
-        true ==
-        index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", kTestData[14]).second);
-    TEST_ASSERT(
-        true ==
-        index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", kTestData[15]).second);
-    TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch", kTestData[0]).second);
+    TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", 14).second);
+    TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", 15).second);
+    TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch", 0).second);
 
     auto branchNode = index.Find(L"Root\\Level1\\Level2\\Branch");
     TEST_ASSERT(nullptr != branchNode);
@@ -425,12 +412,8 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    TEST_ASSERT(
-        true ==
-        index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", kTestData[14]).second);
-    TEST_ASSERT(
-        true ==
-        index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", kTestData[15]).second);
+    TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch\\Level3\\Level4", 14).second);
+    TEST_ASSERT(true == index.Insert(L"Root\\Level1\\Level2\\Branch\\Level5\\Level6", 15).second);
 
     auto longestMatchingPrefixNode =
         index.LongestMatchingPrefix(L"Root\\Level1\\Level2\\Branch\\Level7\\Level8");
@@ -444,11 +427,11 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    const TTestPrefixIndex::Node* nodeBase = index.Insert(L"Base", kTestData[0]).first;
-    const TTestPrefixIndex::Node* nodeSub2 = index.Insert(L"Base\\Sub\\2", kTestData[2]).first;
-    const TTestPrefixIndex::Node* nodeSub3 = index.Insert(L"Base\\Sub\\3", kTestData[3]).first;
-    const TTestPrefixIndex::Node* nodeSub4 = index.Insert(L"Base\\Sub\\4", kTestData[4]).first;
-    const TTestPrefixIndex::Node* nodeSub5 = index.Insert(L"Base\\Sub\\5", kTestData[5]).first;
+    const TTestPrefixIndex::Node* nodeBase = index.Insert(L"Base", 0).first;
+    const TTestPrefixIndex::Node* nodeSub2 = index.Insert(L"Base\\Sub\\2", 2).first;
+    const TTestPrefixIndex::Node* nodeSub3 = index.Insert(L"Base\\Sub\\3", 3).first;
+    const TTestPrefixIndex::Node* nodeSub4 = index.Insert(L"Base\\Sub\\4", 4).first;
+    const TTestPrefixIndex::Node* nodeSub5 = index.Insert(L"Base\\Sub\\5", 5).first;
 
     TEST_ASSERT(nullptr != nodeBase);
     TEST_ASSERT(nullptr != nodeSub2);
@@ -475,10 +458,10 @@ namespace PathwinderTest
   {
     TTestPrefixIndex index(L"\\");
 
-    const TTestPrefixIndex::Node* nodeSub2 = index.Insert(L"Base\\Sub\\2", kTestData[2]).first;
-    const TTestPrefixIndex::Node* nodeSub3 = index.Insert(L"Base\\Sub\\3", kTestData[3]).first;
-    const TTestPrefixIndex::Node* nodeSub4 = index.Insert(L"Base\\Sub\\4", kTestData[4]).first;
-    const TTestPrefixIndex::Node* nodeSub5 = index.Insert(L"Base\\Sub\\5", kTestData[5]).first;
+    const TTestPrefixIndex::Node* nodeSub2 = index.Insert(L"Base\\Sub\\2", 2).first;
+    const TTestPrefixIndex::Node* nodeSub3 = index.Insert(L"Base\\Sub\\3", 3).first;
+    const TTestPrefixIndex::Node* nodeSub4 = index.Insert(L"Base\\Sub\\4", 4).first;
+    const TTestPrefixIndex::Node* nodeSub5 = index.Insert(L"Base\\Sub\\5", 5).first;
 
     TEST_ASSERT(nullptr != nodeSub2);
     TEST_ASSERT(nullptr != nodeSub3);

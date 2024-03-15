@@ -64,7 +64,7 @@ namespace Pathwinder
       /// Clears the data associated with this node.
       inline void ClearData(void)
       {
-        data = nullptr;
+        data = std::nullopt;
       }
 
       /// Removes a child of this node.
@@ -122,12 +122,12 @@ namespace Pathwinder
         return children;
       }
 
-      /// Retrieves a read-only pointer to the optional data contained within this node, which
-      /// may not exist.
-      /// @return Read-only pointer to optional node data, or `nullptr` if no data exist.
-      inline const DataType* GetData(void) const
+      /// Provides read-only access to the data contained within this node without first verifying
+      /// that it exists.
+      /// @return Read-only reference to stored node data.
+      inline const DataType& GetData(void) const
       {
-        return data;
+        return *data;
       }
 
       /// Retrieves a read-only pointer to this node's parent, if it exists.
@@ -173,7 +173,7 @@ namespace Pathwinder
       /// @return `true` if so, `false` if not.
       inline bool HasData(void) const
       {
-        return (nullptr != data);
+        return data.has_value();
       }
 
       /// Determines if this node contains data.
@@ -183,18 +183,25 @@ namespace Pathwinder
         return (nullptr != parent);
       }
 
-      /// Updates the optional data stored within this node.
+      /// Updates the optional data stored within this node using copy semantics.
       /// @param [in] newData New data to be stored within this node.
-      inline void SetData(const DataType* newData)
+      inline void SetData(const DataType& newData)
       {
         data = newData;
+      }
+
+      /// Updates the optional data stored within this node using move semantics.
+      /// @param [in] newData New data to be stored within this node.
+      inline void SetData(DataType&& newData)
+      {
+        data = std::move(newData);
       }
 
     private:
 
       /// Optional data associated with the node. If present (not null), the path prefix
       /// string up to this point is considered "contained" in the tree data structure.
-      const DataType* data;
+      std::optional<DataType> data;
 
       /// Parent node, one level up in the tree. Cannot be used to modify the tree.
       Node* parent;
@@ -299,10 +306,10 @@ namespace Pathwinder
     }
 
     /// Creates any nodes needed to represent the specified prefix and then inserts a new prefix
-    /// data element. No changes are made if the prefix already exists within the tree.
+    /// data element using copy semantics. No changes are made if the prefix already exists within
+    /// the tree.
     /// @param [in] prefix Prefix string for which data is to be inserted.
-    /// @param [in] data Read-only reference to the data to be associated with the specified
-    /// prefix.
+    /// @param [in] data Reference to the data to be associated with the specified prefix.
     /// @return Pair consisting of a pointer to the node that corresponds to the very last
     /// component (i.e. deepest within the tree) of the prefix string and a Boolean value
     /// (`true` if the tree was modified, `false` if not).
@@ -310,10 +317,24 @@ namespace Pathwinder
         std::basic_string_view<CharType> prefix, const DataType& data)
     {
       Node* const node = PrefixPathCreateInternal(prefix);
-
       if (true == node->HasData()) return std::make_pair(node, false);
+      node->SetData(data);
+      return std::make_pair(node, true);
+    }
 
-      node->SetData(&data);
+    /// Creates any nodes needed to represent the specified prefix and then inserts a new prefix
+    /// data element using move semantics. No changes are made if the prefix already exists within
+    /// the tree.
+    /// @param [in] prefix Prefix string for which data is to be inserted.
+    /// @param [in] data Reference to the data to be associated with the specified prefix.
+    /// @return Pair consisting of a pointer to the node that corresponds to the very last
+    /// component (i.e. deepest within the tree) of the prefix string and a Boolean value
+    /// (`true` if the tree was modified, `false` if not).
+    std::pair<const Node*, bool> Insert(std::basic_string_view<CharType> prefix, DataType&& data)
+    {
+      Node* const node = PrefixPathCreateInternal(prefix);
+      if (true == node->HasData()) return std::make_pair(node, false);
+      node->SetData(std::move(data));
       return std::make_pair(node, true);
     }
 
@@ -377,18 +398,31 @@ namespace Pathwinder
       return currentNode;
     }
 
-    /// Updates the data associated with the specified prefix.
-    /// If the prefix does not already exist within the tree it is inserted as if #Insert were
-    /// invoked.
+    /// Updates the data associated with the specified prefix using copy semantics. If the prefix
+    /// does not already exist within the tree then it is inserted, otherwise it is updated with the
+    /// new data.
     /// @param [in] prefix Prefix string for which data is to be inserted.
-    /// @param [in] data Read-only reference to the data to be associated with the specified
-    /// prefix.
+    /// @param [in] data Reference to the data to be associated with the specified prefix.
     /// @return Pointer to the node that corresponds to the very last component (i.e. deepest
     /// within the tree) of the prefix string.
     const Node* Update(std::basic_string_view<CharType> prefix, const DataType& data)
     {
       Node* const node = PrefixPathCreateInternal(prefix);
-      node->SetData(&data);
+      node->SetData(data);
+      return node;
+    }
+
+    /// Updates the data associated with the specified prefix using move semantics. If the prefix
+    /// does not already exist within the tree then it is inserted, otherwise it is updated with the
+    /// new data.
+    /// @param [in] prefix Prefix string for which data is to be inserted.
+    /// @param [in] data Reference to the data to be associated with the specified prefix.
+    /// @return Pointer to the node that corresponds to the very last component (i.e. deepest
+    /// within the tree) of the prefix string.
+    const Node* Update(std::basic_string_view<CharType> prefix, DataType&& data)
+    {
+      Node* const node = PrefixPathCreateInternal(prefix);
+      node->SetData(std::move(data));
       return node;
     }
 

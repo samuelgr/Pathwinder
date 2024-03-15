@@ -57,7 +57,7 @@ namespace Pathwinder
       Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
 
   /// Type alias for holding an index that can identify filesystem rules by directory prefix.
-  using TPrefixDirectoryIndex = PrefixIndex<wchar_t, FilesystemRule>;
+  using TPrefixDirectoryIndex = PrefixIndex<wchar_t, const FilesystemRule*>;
 
   /// Identifies a create disposition setting based on what types of file accesses are allowed.
   /// Immutable once constructed.

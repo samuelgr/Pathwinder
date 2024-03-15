@@ -42,7 +42,7 @@ namespace PathwinderTest
     for (auto& filesystemRulePair : filesystemRules)
     {
       originDirectoryIndex.Insert(
-          filesystemRulePair.second.GetOriginDirectoryFullPath(), filesystemRulePair.second);
+          filesystemRulePair.second.GetOriginDirectoryFullPath(), &filesystemRulePair.second);
     }
 
     return FilesystemDirector(

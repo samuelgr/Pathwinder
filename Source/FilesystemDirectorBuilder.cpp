@@ -360,7 +360,7 @@ namespace Pathwinder
         "FilesystemDirectorBuilder consistency check failed due to unsuccessful creation of a supposedly-unique filesystem rule.");
 
     FilesystemRule* const newRule = &createResult.first->second;
-    originDirectoryIndex.Insert(newRule->GetOriginDirectoryFullPath(), *newRule);
+    originDirectoryIndex.Insert(newRule->GetOriginDirectoryFullPath(), newRule);
 
     return newRule;
   }
@@ -437,13 +437,13 @@ namespace Pathwinder
       // is an internal error indicative of a bug if those checks passed but there is still
       // some non-uniqueness here.
       if (false ==
-          allDirectories.Insert(filesystemRule.GetOriginDirectoryFullPath(), filesystemRule).second)
+          allDirectories.Insert(filesystemRule.GetOriginDirectoryFullPath(), &filesystemRule).second)
         return Strings::FormatString(
             L"Error while building a filesystem director configuration: Filesystem rule \"%.*s\": Internal error: Origin directory conflicts with another rule, but this should have been caught already.",
             static_cast<int>(filesystemRuleRecord.first.length()),
             filesystemRuleRecord.first.data());
       if (false ==
-          allDirectories.Insert(filesystemRule.GetTargetDirectoryFullPath(), filesystemRule).second)
+          allDirectories.Insert(filesystemRule.GetTargetDirectoryFullPath(), &filesystemRule).second)
         return Strings::FormatString(
             L"Error while building a filesystem director configuration: Filesystem rule \"%.*s\": Internal error: Target directory conflicts with another rule, but this should have been caught already.",
             static_cast<int>(filesystemRuleRecord.first.length()),
