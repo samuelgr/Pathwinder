@@ -50,7 +50,7 @@ namespace PathwinderTest
     return (contentsOfA == contentsOfB);
   }
 
-  // Inserts a few strings into the prefix index.
+  // Inserts a few strings into the prefix index using a single delimiter.
   // Verifies that only the strings specifically inserted are seen as being contained in the index
   // and that the correct data reference is returned accordingly for queries. Only some of the
   // strings represent valid objects that are "contained" in the index, but all levels should at
@@ -439,5 +439,29 @@ namespace PathwinderTest
 
     TEST_ASSERT(nullptr == nodeSub5->GetClosestAncestor());
     TEST_ASSERT(false == nodeSub5->HasAncestor());
+  }
+
+  // Verifies that data stored at each individual node can be modified after the node is already
+  // inserted. This is mostly a compilation issue, meaning that the test will fail to build if data
+  // cannot be updated.
+  TEST_CASE(PrefixTree_MutableData)
+  {
+    constexpr std::wstring_view kTestInsertPath = L"SomeTestLocation";
+
+    TTestPrefixTree index(L"\\");
+
+    const TTestPrefixTree::Node* insertedNode = index.Insert(kTestInsertPath, 4).first;
+    TEST_ASSERT(nullptr != insertedNode);
+    TEST_ASSERT(4 == insertedNode->GetData());
+
+    insertedNode->Data() = 5;
+    TEST_ASSERT(5 == insertedNode->GetData());
+
+    const TTestPrefixTree::Node* foundNode = index.Find(kTestInsertPath);
+    TEST_ASSERT(insertedNode == foundNode);
+    TEST_ASSERT(5 == foundNode->GetData());
+
+    foundNode->Data() = 6;
+    TEST_ASSERT(6 == foundNode->GetData());
   }
 } // namespace PathwinderTest

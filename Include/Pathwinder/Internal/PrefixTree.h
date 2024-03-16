@@ -81,6 +81,15 @@ namespace Pathwinder
         data = std::nullopt;
       }
 
+      /// Provides access to the data contained within this node without first verifying that it
+      /// exists. This method is only for changing the stored data. It cannot be used for clearing
+      /// it entirely or adding data to a node that does not already contain data.
+      /// @return Mutable reference to the stored node data.
+      inline TData& Data(void) const
+      {
+        return *data;
+      }
+
       /// Updates the optional data stored within this node by constructing a new data object in
       /// place using perfect forwarding.
       template <typename... Args> inline void EmplaceData(Args&&... args)
@@ -220,9 +229,12 @@ namespace Pathwinder
 
     private:
 
-      /// Optional data associated with the node. If present (not null), the path prefix
-      /// string up to this point is considered "contained" in the tree data structure.
-      std::optional<TData> data;
+      /// Optional data associated with the node. If present, the path prefix string up to this
+      /// point is considered "contained" in the tree data structure. Can be mutated even when the
+      /// node itself is constant because no part of the data structure depends on the value of the
+      /// data. Methods that allow access to this field properly ensure data structure clients
+      /// cannot create or clear the data but can update the value stored, if present.
+      mutable std::optional<TData> data;
 
       /// Parent node, one level up in the tree. Cannot be used to modify the tree.
       Node* parent;
