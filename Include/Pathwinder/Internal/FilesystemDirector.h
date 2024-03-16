@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -27,9 +28,9 @@
 namespace Pathwinder
 {
   /// Holds multiple filesystem rules together in a container such that they can be organized by
-  /// some property they have in common and queried conveniently.
+  /// some property they have in common and queried conveniently by file pattern.
   /// @tparam kMaxRuleCount Maximum number of rules that can be contained in this container type.
-  template <const unsigned int kMaxRuleCount> class FilesystemRuleContainer
+  template <const unsigned int kMaxRuleCount> class RelatedFilesystemRuleContainer
   {
   public:
 
@@ -50,11 +51,11 @@ namespace Pathwinder
     };
 
     /// Type alias for the internal container type that holds the filesystem rules themselves.
-    using TFilesystemRules = ArrayList<FilesystemRule, kMaxRuleCount>;
+    using TFilesystemRules = std::set<FilesystemRule, OrderedFilesystemRuleLessThanComparator>;
 
-    FilesystemRuleContainer(void) = default;
+    RelatedFilesystemRuleContainer(void) = default;
 
-    bool operator==(const FilesystemRuleContainer& other) const = default;
+    bool operator==(const RelatedFilesystemRuleContainer& other) const = default;
 
     /// Provides read-only access to the rules held by this object. Intended for iterating in a
     /// loop over all of them.
@@ -65,30 +66,38 @@ namespace Pathwinder
     }
 
     /// Attempts to insert a filesystem rule into this container by constructing it in place.
-    /// Insertion will fail if this container is already full.
+    /// Insertion will fail if this container is already full, in which case the pointer returned
+    /// will be `nullptr`.
     /// @param [in] ruleToInsert Rule to be inserted.
-    /// @return `true` if the insertion was successful, `false` otherwise.
-    template <typename... Args> inline bool EmplaceRule(Args&&... args)
+    /// @return Pair containing a pointer to the newly-constructed rule if a new rule was created
+    /// and `true` if the insertion was successful, `false` otherwise.
+    template <typename... Args> inline std::pair<const FilesystemRule*, bool> EmplaceRule(
+        Args&&... args)
     {
-      if (filesystemRules.Capacity() == filesystemRules.Size()) return false;
-      filesystemRules.EmplaceBack(std::forward<Args>(args)...);
-      return true;
+      if (kMaxRuleCount == static_cast<unsigned int>(filesystemRules.size()))
+        return std::make_pair(nullptr, false);
+      auto emplaceResult = filesystemRules.emplace(std::forward<Args>(args)...);
+      return std::make_pair(&(*emplaceResult.first), emplaceResult.second);
     }
 
     /// Attempts to insert a filesystem rule into this container using copy semantics. Insertion
-    /// will fail if this container is already full.
+    /// will fail if this container is already full, in which case the pointer returned
+    /// will be `nullptr`.
     /// @param [in] ruleToInsert Rule to be inserted.
-    /// @return `true` if the insertion was successful, `false` otherwise.
-    bool InsertRule(const FilesystemRule& ruleToInsert)
+    /// @return Pair containing a pointer to the newly-inserted rule if a new rule was inserted
+    /// and `true` if the insertion was successful, `false` otherwise.
+    std::pair<const FilesystemRule*, bool> InsertRule(const FilesystemRule& ruleToInsert)
     {
       return EmplaceRule(ruleToInsert);
     }
 
     /// Attempts to insert a filesystem rule into this container using move semantics. Insertion
-    /// will fail if this container is already full.
+    /// will fail if this container is already full, in which case the pointer returned
+    /// will be `nullptr`.
     /// @param [in] ruleToInsert Rule to be inserted.
-    /// @return `true` if the insertion was successful, `false` otherwise.
-    bool InsertRule(FilesystemRule&& ruleToInsert)
+    /// @return Pair containing a pointer to the newly-inserted rule if a new rule was inserted
+    /// and `true` if the insertion was successful, `false` otherwise.
+    std::pair<const FilesystemRule*, bool> InsertRule(FilesystemRule&& ruleToInsert)
     {
       return EmplaceRule(std::move(ruleToInsert));
     }
@@ -114,20 +123,6 @@ namespace Pathwinder
         if (filesystemRule.FileNameMatchesAnyPattern(candidateFileName)) return &filesystemRule;
 
       return nullptr;
-    }
-
-    /// Reorders the rules in this container such that they appear in descending order by number of
-    /// file patterns and then in ascending order by rule name.
-    void SortRules(void)
-    {
-      if constexpr (kMaxRuleCount > 1)
-      {
-        if (filesystemRules.Size() > 1)
-          std::sort(
-              filesystemRules.begin(),
-              filesystemRules.end(),
-              OrderedFilesystemRuleLessThanComparator());
-      }
     }
 
   private:
@@ -158,7 +153,7 @@ namespace Pathwinder
   /// Type alias for holding an index that can identify filesystem rules by directory prefix.
   using TFilesystemRulePrefixTree = PrefixTree<
       wchar_t,
-      FilesystemRule,
+      RelatedFilesystemRuleContainer<kMaxFilesystemRulesPerOriginDirectory>,
       Strings::CaseInsensitiveHasher<wchar_t>,
       Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
 
@@ -394,19 +389,6 @@ namespace Pathwinder
       if (filesystemRulesByName.cend() == ruleIt) return nullptr;
 
       return ruleIt->second;
-    }
-
-    /// Searches for the specified rule by origin directory and returns a pointer to the
-    /// corresponding object, if found.
-    /// @param [in] ruleOriginDirectoryFullPath Full path of the directory for which to search.
-    /// @return Pointer to the rule, or `nullptr` if no matching rule is found.
-    inline const FilesystemRule* FindRuleByOriginDirectory(
-        std::wstring_view ruleOriginDirectoryFullPath) const
-    {
-      const auto ruleNode = filesystemRulesByOriginDirectory.Find(ruleOriginDirectoryFullPath);
-      if (nullptr == ruleNode) return nullptr;
-
-      return &ruleNode->GetData();
     }
 
     /// Generates an instruction for how to execute a directory enumeration, which involves

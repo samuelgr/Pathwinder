@@ -347,18 +347,32 @@ namespace Pathwinder
         nameEmplaceResult.second,
         "FilesystemDirectorBuilder consistency check failed due to unsuccessful emplacement of a supposedly-unique filesystem rule name string.");
 
-    const auto createResult = filesystemRulesByOriginDirectory.Emplace(
-        originDirectoryFullPathOwnedView,
+    // It does not matter whether the rule container already exists or not, as long as it can be
+    // identified correctly. The new rule will be inserted into the container.
+    const auto destinationRelatedRulesContainerNode =
+        filesystemRulesByOriginDirectory.Emplace(originDirectoryFullPathOwnedView).first;
+    DebugAssert(
+        nullptr != destinationRelatedRulesContainerNode,
+        "FilesystemDirectorBuilder failed to obtain a container for a rule that is being created.");
+
+    const auto createResult = destinationRelatedRulesContainerNode->Data().EmplaceRule(
         *nameEmplaceResult.first,
         originDirectoryFullPathOwnedView,
         targetDirectoryFullPathOwnedView,
         std::move(filePatterns),
         redirectMode);
-    DebugAssert(
-        createResult.second,
-        "FilesystemDirectorBuilder consistency check failed due to unsuccessful creation of a supposedly-unique filesystem rule.");
+    if (false == createResult.second)
+    {
+      DebugAssert(
+          nullptr == createResult.first,
+          "FilesystemDirectorBuilder consistency check failed due to unsuccessful emplacement of a supposedly-unique filesystem rule keyed by name and file pattern count.");
+      return Strings::FormatString(
+          L"Error while creating filesystem rule \"%s\": Constraint violation: Exceeded the limit of %u filesystem rules with the same origin directory.",
+          nameEmplaceResult.first->c_str(),
+          kMaxFilesystemRulesPerOriginDirectory);
+    }
 
-    const FilesystemRule* const newRule = &createResult.first->GetData();
+    const FilesystemRule* const newRule = createResult.first;
     filesystemRulesByName.emplace(newRule->GetName(), newRule);
 
     return newRule;
@@ -405,7 +419,7 @@ namespace Pathwinder
   {
     using TFilesystemRulePrefixTreeByReference = PrefixTree<
         TFilesystemRulePrefixTree::TChar,
-        const TFilesystemRulePrefixTree::TData*,
+        const FilesystemRule*,
         TFilesystemRulePrefixTree::THash,
         TFilesystemRulePrefixTree::TEquals>;
 

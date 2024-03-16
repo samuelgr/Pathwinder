@@ -367,14 +367,10 @@ namespace PathwinderTest
     TEST_ASSERT(nullptr != director.FindRuleByName(L"1"));
     TEST_ASSERT(director.FindRuleByName(L"1")->GetName() == L"1");
     TEST_ASSERT(director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
-    TEST_ASSERT(
-        director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1"));
 
     TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
     TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
     TEST_ASSERT(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2");
-    TEST_ASSERT(
-        director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2"));
   }
 
   // Verifies that the filesystem director build process completes successfully where rules have
@@ -496,14 +492,10 @@ namespace PathwinderTest
     TEST_ASSERT(nullptr != director.FindRuleByName(L"1"));
     TEST_ASSERT(director.FindRuleByName(L"1")->GetName() == L"1");
     TEST_ASSERT(director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
-    TEST_ASSERT(
-        director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1"));
 
     TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
     TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
     TEST_ASSERT(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2");
-    TEST_ASSERT(
-        director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2"));
   }
 
   // Verifies that a filesystem director object can be built from a configuration file in the
@@ -536,14 +528,10 @@ namespace PathwinderTest
     TEST_ASSERT(nullptr != director.FindRuleByName(L"1"));
     TEST_ASSERT(director.FindRuleByName(L"1")->GetName() == L"1");
     TEST_ASSERT(director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
-    TEST_ASSERT(
-        director.FindRuleByName(L"1") == director.FindRuleByOriginDirectory(L"C:\\OriginDir1"));
 
     TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
     TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
     TEST_ASSERT(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2");
-    TEST_ASSERT(
-        director.FindRuleByName(L"2") == director.FindRuleByOriginDirectory(L"E:\\OriginDir2"));
   }
 
   // Verifies that the filesystem director build process fails when the origin directory's parent

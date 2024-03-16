@@ -46,12 +46,17 @@ namespace PathwinderTest
 
     for (auto& filesystemRulePair : filesystemRules)
     {
-      const FilesystemRule* const newRule =
-          &filesystemRulesByOriginDirectory
-               .Insert(
-                   filesystemRulePair.second.GetOriginDirectoryFullPath(),
-                   std::move(filesystemRulePair.second))
-               .first->GetData();
+      const auto destinationRelatedRulesContainerNode =
+          filesystemRulesByOriginDirectory
+              .Emplace(filesystemRulePair.second.GetOriginDirectoryFullPath())
+              .first;
+      TEST_ASSERT(nullptr != destinationRelatedRulesContainerNode);
+
+      const auto createResult = destinationRelatedRulesContainerNode->Data().InsertRule(
+          std::move(filesystemRulePair.second));
+      TEST_ASSERT(true == createResult.second);
+
+      const FilesystemRule* const newRule = createResult.first;
       filesystemRulesByName.emplace(newRule->GetName(), newRule);
     }
 
@@ -83,7 +88,7 @@ namespace PathwinderTest
 
   // Verifies that a filesystem rule container correctly identifies rules that match file patterns.
   // In this case all file patterns are totally disjoint.
-  TEST_CASE(FilesystemRuleContainer_IdentifyRuleMatchingFilename)
+  TEST_CASE(RelatedFilesystemRuleContainer_IdentifyRuleMatchingFilename)
   {
     const FilesystemRule rules[] = {
         FilesystemRule(
@@ -96,9 +101,9 @@ namespace PathwinderTest
             L"EXE", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.exe"}),
     };
 
-    FilesystemRuleContainer<64> ruleContainer;
+    RelatedFilesystemRuleContainer<64> ruleContainer;
     for (const auto& rule : rules)
-      TEST_ASSERT(true == ruleContainer.InsertRule(rule));
+      TEST_ASSERT(true == ruleContainer.InsertRule(rule).second);
 
     constexpr struct
     {
@@ -133,7 +138,7 @@ namespace PathwinderTest
   // Verifies that a filesystem rule container correctly orders filesystem rules based on the
   // documented ordering mechanism of descending by number of file patterns and then ascending by
   // rule name.
-  TEST_CASE(FilesystemRuleContainer_RuleOrder)
+  TEST_CASE(RelatedFilesystemRuleContainer_RuleOrder)
   {
     const FilesystemRule rules[] = {
         // These rules all have three file patterns.
@@ -172,11 +177,9 @@ namespace PathwinderTest
         // This rule has no file patterns.
         FilesystemRule(L"A", std::wstring_view(), std::wstring_view())};
 
-    FilesystemRuleContainer<64> ruleContainer;
+    RelatedFilesystemRuleContainer<64> ruleContainer;
     for (const auto& rule : rules)
-      TEST_ASSERT(true == ruleContainer.InsertRule(rule));
-
-    ruleContainer.SortRules();
+      TEST_ASSERT(true == ruleContainer.InsertRule(rule).second);
 
     // Filesystem rules are expected to be ordered first by number of file patterns in descending
     // order and second by rule name. So more file patterns means earlier in the order.
@@ -190,7 +193,7 @@ namespace PathwinderTest
 
   // Verifies that a filesystem rule container rejects filesystem rules if the capacity of the
   // container has been reached.
-  TEST_CASE(FilesystemRuleContainer_EnforceCapacity)
+  TEST_CASE(RelatedFilesystemRuleContainer_EnforceCapacity)
   {
     // These rules will all fit into the container.
     const FilesystemRule rulesThatWillFit[] = {
@@ -205,11 +208,11 @@ namespace PathwinderTest
     const FilesystemRule rulesThatWillNotFit[] = {
         FilesystemRule(L"A", std::wstring_view(), std::wstring_view())};
 
-    FilesystemRuleContainer<_countof(rulesThatWillFit)> ruleContainer;
+    RelatedFilesystemRuleContainer<_countof(rulesThatWillFit)> ruleContainer;
     for (const auto& rule : rulesThatWillFit)
-      TEST_ASSERT(true == ruleContainer.InsertRule(rule));
+      TEST_ASSERT(true == ruleContainer.InsertRule(rule).second);
     for (const auto& rule : rulesThatWillNotFit)
-      TEST_ASSERT(false == ruleContainer.InsertRule(rule));
+      TEST_ASSERT(false == ruleContainer.InsertRule(rule).second);
 
     const std::set<std::wstring_view> expectedRules = {L"B1", L"C1", L"D1"};
     std::set<std::wstring_view> actualRules;
