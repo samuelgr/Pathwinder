@@ -65,6 +65,22 @@ namespace Pathwinder
       return filesystemRules;
     }
 
+    /// Provides read-only access to any single rule held by this object. Intended for obtaining
+    /// access to whatever property is shared by all rules held in this container such that they are
+    /// considered "related" to one another in some way.
+    /// @return Read-only reference to a single contained rule.
+    inline const FilesystemRule& AnyRule(void) const
+    {
+      return *filesystemRules.cbegin();
+    }
+
+    /// Retrieves and returns the number of rules contained in this object.
+    /// @return Number of rules contained in this object.
+    inline unsigned int CountOfRules(void) const
+    {
+      return static_cast<unsigned int>(filesystemRules.size());
+    }
+
     /// Attempts to insert a filesystem rule into this container by constructing it in place.
     /// Insertion will fail if this container is already full, in which case the pointer returned
     /// will be `nullptr`.
@@ -435,13 +451,15 @@ namespace Pathwinder
       return filesystemRulesByOriginDirectory.HasPathForPrefix(absoluteFilePathTrimmed);
     }
 
-    /// Determines which rule from among those held by this object should be used for a
-    /// particular input path. Primarily intended for internal use but exposed for tests.
-    /// @param [in] absolutePath Absolute path for which to search for a rule for possible
+    /// Determines which rules from among those held by this object should be used for a
+    /// particular input path. Does not check file patterns, only checks based on matching origin
+    /// directory hierarchy. Primarily intended for internal use but exposed for tests.
+    /// @param [in] absolutePath Absolute path for which to search for rules for possible
     /// redirection.
     /// @return Pointer to the rule object that should be used with the specified path, or
     /// `nullptr` if no rule is applicable.
-    const FilesystemRule* SelectRuleForPath(std::wstring_view absolutePath) const;
+    const RelatedFilesystemRuleContainer<kMaxFilesystemRulesPerOriginDirectory>* SelectRulesForPath(
+        std::wstring_view absolutePath) const;
 
   private:
 

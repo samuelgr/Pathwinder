@@ -555,13 +555,5 @@ namespace Pathwinder
       /// Number of delimiters.
       const unsigned int numDelimiters;
     };
-
-    /// Special-purpose tokenization class for certain lists of strings used throughout Windows
-    /// APIs. These lists place multiple wide-character strings into a single buffer and delimits
-    /// them using a single null character, with the end of the list being identified by two
-    /// consecutive null characters. Intended to be constructed directly within a range-based loop
-    /// to provide simple iteration over all the individual list items in a null-delimited list of
-    /// strings.
-
   } // namespace Strings
 } // namespace Pathwinder

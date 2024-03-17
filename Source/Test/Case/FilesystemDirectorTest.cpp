@@ -64,26 +64,46 @@ namespace PathwinderTest
         std::move(filesystemRulesByOriginDirectory), std::move(filesystemRulesByName));
   }
 
-  /// Convenience helper for evaluating an expected outcome of a rule not being present.
-  /// Simply compares the pointer to `nullptr`.
-  /// @param [in] rule Rule pointer to check.
+  /// Convenience helper for evaluating an expected outcome of a container of rules not being
+  /// present. Simply compares the pointer to `nullptr`.
+  /// @param [in] rule Rule container pointer to check.
   /// @return `true` if the pointer is `nullptr`, `false` otherwise.
-  static bool RuleIsNotPresent(const FilesystemRule* rule)
+  static bool RulesAreNotPresent(
+      const RelatedFilesystemRuleContainer<kMaxFilesystemRulesPerOriginDirectory>* rules)
   {
-    return (nullptr == rule);
+    return (nullptr == rules);
   }
 
-  /// Convenience helper for evaluating an expected outcome of a rule being present and having a
-  /// specific name.
-  /// @param [in] name Name that the rule is expected to have.
-  /// @param [in] rule Rule pointer to check.
-  /// @return `true` if the rule pointer is not `nullptr` and the associated rule has the correct
-  /// name, `false` otherwise.
-  static bool RuleIsPresentAndNamed(std::wstring_view name, const FilesystemRule* rule)
+  /// Convenience helper for evaluating an expected outcome of a rule container being present and
+  /// having a specific set of named rules within it.
+  /// @param [in] rules Rule container pointer to check.
+  /// @param [in] names Names that the contained rules is expected to have.
+  /// @return `true` if the rule pointer is not `nullptr` and the contained rules have the correct
+  /// names, `false` otherwise.
+  static bool RulesArePresentAndNamed(
+      std::set<std::wstring_view>&& names,
+      const RelatedFilesystemRuleContainer<kMaxFilesystemRulesPerOriginDirectory>* rules)
   {
-    if (nullptr == rule) return false;
+    if (nullptr == rules) return false;
+    if (rules->AllRules().size() != names.size()) return false;
 
-    return (rule->GetName() == name);
+    for (const auto& rule : rules->AllRules())
+      if (false == names.contains(rule.GetName())) return false;
+
+    return true;
+  }
+
+  /// Convenience helper for evaluating an expected outcome of a rule container being present and
+  /// having a single specific named rule within it.
+  /// @param [in] rules Rule container pointer to check.
+  /// @param [in] name Name that the contained rule is expected to have.
+  /// @return `true` if the rule pointer is not `nullptr` and the contained rule has the correct
+  /// name, `false` otherwise.
+  static inline bool RuleIsPresentAndNamed(
+      std::wstring_view name,
+      const RelatedFilesystemRuleContainer<kMaxFilesystemRulesPerOriginDirectory>* rules)
+  {
+    return RulesArePresentAndNamed({name}, rules);
   }
 
   // Verifies that a filesystem rule container correctly identifies rules that match file patterns.
@@ -224,7 +244,7 @@ namespace PathwinderTest
   // Creates a filesystem director with a few non-overlapping rules and queries it with a few file
   // inputs. Verifies that each time the correct rule is chosen or, if the file path does not
   // match any rule, no rule is chosen.
-  TEST_CASE(FilesystemDirector_SelectRuleForPath_Nominal)
+  TEST_CASE(FilesystemDirector_SelectRulesForPath_Nominal)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
         {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")},
@@ -232,20 +252,21 @@ namespace PathwinderTest
         {L"3", FilesystemRule(L"3", L"C:\\Origin3", L"C:\\Target3")},
     }));
 
-    TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForPath(L"C:\\Origin1\\file1.txt")));
+    TEST_ASSERT(
+        RuleIsPresentAndNamed(L"1", director.SelectRulesForPath(L"C:\\Origin1\\file1.txt")));
     TEST_ASSERT(RuleIsPresentAndNamed(
-        L"2", director.SelectRuleForPath(L"C:\\Origin2\\Subdir2\\file2.txt")));
+        L"2", director.SelectRulesForPath(L"C:\\Origin2\\Subdir2\\file2.txt")));
     TEST_ASSERT(RuleIsPresentAndNamed(
-        L"3", director.SelectRuleForPath(L"C:\\Origin3\\Subdir3\\Subdir3_2\\file3.txt")));
-    TEST_ASSERT(RuleIsNotPresent(
-        director.SelectRuleForPath(L"C:\\Origin4\\Subdir4\\Subdir4_2\\Subdir4_3\\file4.txt")));
+        L"3", director.SelectRulesForPath(L"C:\\Origin3\\Subdir3\\Subdir3_2\\file3.txt")));
+    TEST_ASSERT(RulesAreNotPresent(
+        director.SelectRulesForPath(L"C:\\Origin4\\Subdir4\\Subdir4_2\\Subdir4_3\\file4.txt")));
   }
 
   // Creates a filesystem director with a few non-overlapping rules and queries it with a few file
   // inputs. Verifies that each time the correct rule is chosen or, if the file path does not
   // match any rule, no rule is chosen. This variation exercises case insensitivity by varying the
   // case between rule creation and redirection query.
-  TEST_CASE(FilesystemDirector_SelectRuleForPath_CaseInsensitive)
+  TEST_CASE(FilesystemDirector_SelectRulesForPath_CaseInsensitive)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
         {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")},
@@ -253,18 +274,19 @@ namespace PathwinderTest
         {L"3", FilesystemRule(L"3", L"C:\\Origin3", L"C:\\Target3")},
     }));
 
-    TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForPath(L"C:\\ORIGIN1\\file1.txt")));
+    TEST_ASSERT(
+        RuleIsPresentAndNamed(L"1", director.SelectRulesForPath(L"C:\\ORIGIN1\\file1.txt")));
     TEST_ASSERT(RuleIsPresentAndNamed(
-        L"2", director.SelectRuleForPath(L"C:\\origin2\\SubDir2\\file2.txt")));
+        L"2", director.SelectRulesForPath(L"C:\\origin2\\SubDir2\\file2.txt")));
     TEST_ASSERT(RuleIsPresentAndNamed(
-        L"3", director.SelectRuleForPath(L"C:\\ORiGiN3\\SubdIR3\\SubdIR3_2\\file3.txt")));
-    TEST_ASSERT(RuleIsNotPresent(
-        director.SelectRuleForPath(L"C:\\OrigIN4\\SUBdir4\\SUBdir4_2\\SUBdir4_3\\file4.txt")));
+        L"3", director.SelectRulesForPath(L"C:\\ORiGiN3\\SubdIR3\\SubdIR3_2\\file3.txt")));
+    TEST_ASSERT(RulesAreNotPresent(
+        director.SelectRulesForPath(L"C:\\OrigIN4\\SUBdir4\\SUBdir4_2\\SUBdir4_3\\file4.txt")));
   }
 
   // Creates a filesystem with a few overlapping rules and queries it with a few file inputs.
   // Verifies that the most specific rule is always chosen.
-  TEST_CASE(FilesystemDirector_SelectRuleForPath_ChooseMostSpecific)
+  TEST_CASE(FilesystemDirector_SelectRulesForPath_ChooseMostSpecific)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
         {L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")},
@@ -272,16 +294,18 @@ namespace PathwinderTest
         {L"3", FilesystemRule(L"3", L"C:\\Origin1\\Origin2\\Origin3", L"C:\\Target3")},
     }));
 
-    TEST_ASSERT(RuleIsPresentAndNamed(L"1", director.SelectRuleForPath(L"C:\\Origin1\\file1.txt")));
+    TEST_ASSERT(
+        RuleIsPresentAndNamed(L"1", director.SelectRulesForPath(L"C:\\Origin1\\file1.txt")));
     TEST_ASSERT(RuleIsPresentAndNamed(
-        L"2", director.SelectRuleForPath(L"C:\\Origin1\\Origin2\\file2.txt")));
+        L"2", director.SelectRulesForPath(L"C:\\Origin1\\Origin2\\file2.txt")));
     TEST_ASSERT(RuleIsPresentAndNamed(
-        L"3", director.SelectRuleForPath(L"C:\\Origin1\\Origin2\\Origin3\\file3.txt")));
+        L"3", director.SelectRulesForPath(L"C:\\Origin1\\Origin2\\Origin3\\file3.txt")));
     TEST_ASSERT(RuleIsPresentAndNamed(
-        L"2", director.SelectRuleForPath(L"C:\\Origin1\\Origin2\\AnotherDirectory\\somefile.txt")));
+        L"2",
+        director.SelectRulesForPath(L"C:\\Origin1\\Origin2\\AnotherDirectory\\somefile.txt")));
     TEST_ASSERT(RuleIsPresentAndNamed(
         L"1",
-        director.SelectRuleForPath(
+        director.SelectRulesForPath(
             L"C:\\Origin1\\AnotherPathway\\SomeDirectory\\Subdir\\logfile.log")));
   }
 
@@ -335,6 +359,39 @@ namespace PathwinderTest
          FileOperationInstruction::SimpleRedirectTo(
              L"C:\\Target3\\Subdir3\\Subdir3B\\Subdir3C\\file3.txt",
              EAssociateNameWithHandle::Unredirected)}};
+
+    for (const auto& testRecord : kTestInputsAndExpectedOutputs)
+    {
+      const std::wstring_view testInput = testRecord.first;
+      const auto& expectedOutput = testRecord.second;
+
+      auto actualOutput = director.GetInstructionForFileOperation(
+          testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
+      TEST_ASSERT(actualOutput == expectedOutput);
+    }
+  }
+
+  // Creates a filesystem director with two rules having the same origin directory and queries with
+  // a few file name inputs. Verifies that each time the resulting redirected path is correct.
+  TEST_CASE(FilesystemDirector_GetInstructionForFileOperation_MultipleRulesSameOriginDirectory)
+  {
+    MockFilesystemOperations mockFilesystem;
+
+    const FilesystemDirector director(MakeFilesystemDirector(
+        {{L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\TargetForTxt", {L"*.txt"})},
+         {L"2", FilesystemRule(L"2", L"C:\\Origin", L"C:\\TargetForBin", {L"*.bin"})},
+         {L"3", FilesystemRule(L"3", L"C:\\Origin", L"C:\\TargetForExe", {L"*.exe"})}}));
+
+    const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
+        {L"C:\\Origin\\file1.txt",
+         FileOperationInstruction::SimpleRedirectTo(
+             L"C:\\TargetForTxt\\file1.txt", EAssociateNameWithHandle::Unredirected)},
+        {L"C:\\Origin\\file2.bin",
+         FileOperationInstruction::SimpleRedirectTo(
+             L"C:\\TargetForBin\\file2.bin", EAssociateNameWithHandle::Unredirected)},
+        {L"C:\\Origin\\file3.exe",
+         FileOperationInstruction::SimpleRedirectTo(
+             L"C:\\TargetForExe\\file3.exe", EAssociateNameWithHandle::Unredirected)}};
 
     for (const auto& testRecord : kTestInputsAndExpectedOutputs)
     {

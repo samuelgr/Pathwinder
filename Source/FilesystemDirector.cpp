@@ -27,7 +27,8 @@
 
 namespace Pathwinder
 {
-  const FilesystemRule* FilesystemDirector::SelectRuleForPath(std::wstring_view absolutePath) const
+  const RelatedFilesystemRuleContainer<kMaxFilesystemRulesPerOriginDirectory>*
+      FilesystemDirector::SelectRulesForPath(std::wstring_view absolutePath) const
   {
     // It is possible that multiple rules all have a prefix that matches the directory part of
     // the full file path. We want to pick the most specific one to apply, meaning it has the
@@ -36,12 +37,10 @@ namespace Pathwinder
     // "C:\Dir1\Dir2\textfile.txt" would need to use "C:\Dir1\Dir2" even though technically both
     // rules do match.
 
-
-
     auto ruleNode = filesystemRulesByOriginDirectory.LongestMatchingPrefix(absolutePath);
     if (nullptr == ruleNode) return nullptr;
 
-    return &(*ruleNode->GetData().AllRules().cbegin());
+    return &ruleNode->GetData();
   }
 
   DirectoryEnumerationInstruction FilesystemDirector::GetInstructionForDirectoryEnumeration(
@@ -93,7 +92,7 @@ namespace Pathwinder
           unredirectedPath.substr(unredirectedPathWindowsNamespacePrefix.length());
 
       const FilesystemRule* directoryEnumerationRedirectRule =
-          SelectRuleForPath(unredirectedPathTrimmedForQuery);
+          &(*SelectRulesForPath(unredirectedPathTrimmedForQuery)->AllRules().cbegin());
       if (nullptr == directoryEnumerationRedirectRule)
       {
         Message::OutputFormatted(
@@ -345,8 +344,10 @@ namespace Pathwinder
       return FileOperationInstruction::NoRedirectionOrInterception();
     }
 
-    const FilesystemRule* const selectedRule = SelectRuleForPath(absoluteFilePathTrimmedForQuery);
-    if (nullptr == selectedRule)
+    const auto selectedRuleContainer = SelectRulesForPath(absoluteFilePathTrimmedForQuery);
+    const FilesystemRule* selectedRule = nullptr;
+
+    if (nullptr == selectedRuleContainer)
     {
       Message::OutputFormatted(
           Message::ESeverity::SuperDebug,
@@ -379,11 +380,14 @@ namespace Pathwinder
     std::optional<TemporaryString> maybeRedirectedFilePath;
 
     if (EDirectoryCompareResult::Equal ==
-        selectedRule->DirectoryCompareWithOrigin(absoluteFilePathTrimmedForQuery))
+        selectedRuleContainer->AnyRule().DirectoryCompareWithOrigin(
+            absoluteFilePathTrimmedForQuery))
     {
-      // If the input path is exactly equal to the origin directory of the filesystem rule,
-      // then the entire input path is one big directory path, and the file part does not
-      // exist.
+      // If the input path is exactly equal to the origin directory for one or more filesystem
+      // rules, then the entire input path is one big directory path, and the file part does not
+      // exist. Redirection can occur to any target directory.
+      selectedRule = &selectedRuleContainer->AnyRule();
+
       unredirectedPathDirectoryPart = absoluteFilePathTrimmedForQuery;
       unredirectedPathDirectoryPartWithWindowsNamespacePrefix = absoluteFilePath.substr(
           0, windowsNamespacePrefix.length() + absoluteFilePathTrimmedForQuery.length());
@@ -397,20 +401,36 @@ namespace Pathwinder
       {
         Message::OutputFormatted(
             Message::ESeverity::Error,
-            L"File operation redirection query for path \"%.*s\" did not match rule \"%s\" due to an internal error.",
+            L"File operation redirection query for path \"%.*s\" did not match rule \"%.*s\" due to an internal error.",
             static_cast<int>(absoluteFilePath.length()),
             absoluteFilePath.data(),
+            static_cast<int>(selectedRule->GetName().length()),
             selectedRule->GetName().data());
         return FileOperationInstruction::NoRedirectionOrInterception();
       }
 
-      Message::OutputFormatted(
-          Message::ESeverity::Info,
-          L"File operation redirection query for path \"%.*s\" is for the origin directory of rule \"%s\" and was redirected to \"%s\".",
-          static_cast<int>(absoluteFilePath.length()),
-          absoluteFilePath.data(),
-          selectedRule->GetName().data(),
-          maybeRedirectedFilePath->AsCString());
+      if (selectedRuleContainer->CountOfRules() > 1)
+      {
+        Message::OutputFormatted(
+            Message::ESeverity::Info,
+            L"File operation redirection query for path \"%.*s\" is for the origin directory of multiple rules and was redirected to \"%s\" using arbitrarily-chosen rule \"%.*s\".",
+            static_cast<int>(absoluteFilePath.length()),
+            absoluteFilePath.data(),
+            maybeRedirectedFilePath->AsCString(),
+            static_cast<int>(selectedRule->GetName().length()),
+            selectedRule->GetName().data());
+      }
+      else
+      {
+        Message::OutputFormatted(
+            Message::ESeverity::Info,
+            L"File operation redirection query for path \"%.*s\" is for the origin directory of rule \"%.*s\" and was redirected to \"%s\".",
+            static_cast<int>(absoluteFilePath.length()),
+            absoluteFilePath.data(),
+            static_cast<int>(selectedRule->GetName().length()),
+            selectedRule->GetName().data(),
+            maybeRedirectedFilePath->AsCString());
+      }
     }
     else
     {
@@ -421,19 +441,23 @@ namespace Pathwinder
           absoluteFilePath.substr(0, windowsNamespacePrefix.length() + lastSeparatorPos);
       unredirectedPathFilePart = absoluteFilePathTrimmedForQuery.substr(1 + lastSeparatorPos);
 
-      maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(
-          unredirectedPathDirectoryPart,
-          unredirectedPathFilePart,
-          windowsNamespacePrefix,
-          extraSuffix);
+      selectedRule = selectedRuleContainer->RuleMatchingFileName(unredirectedPathFilePart);
+      if (nullptr != selectedRule)
+      {
+        maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(
+            unredirectedPathDirectoryPart,
+            unredirectedPathFilePart,
+            windowsNamespacePrefix,
+            extraSuffix);
+      }
+
       if (false == maybeRedirectedFilePath.has_value())
       {
         Message::OutputFormatted(
             Message::ESeverity::Info,
-            L"File operation redirection query for path \"%.*s\" did not match rule \"%s\" because a file pattern put it out of the rule's scope.",
+            L"File operation redirection query for path \"%.*s\" did not match any rules because it does not satisfy any file patterns.",
             static_cast<int>(absoluteFilePath.length()),
-            absoluteFilePath.data(),
-            selectedRule->GetName().data());
+            absoluteFilePath.data());
         return FileOperationInstruction::NoRedirectionOrInterception();
       }
 
@@ -445,6 +469,8 @@ namespace Pathwinder
           selectedRule->GetName().data(),
           maybeRedirectedFilePath->AsCString());
     }
+
+    DebugAssert(nullptr != selectedRule, "A rule was selected and used for redirection but it is null.");
 
     std::wstring_view redirectedFilePath = maybeRedirectedFilePath->AsStringView();
 
