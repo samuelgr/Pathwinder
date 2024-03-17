@@ -270,8 +270,10 @@ namespace Pathwinder
     // For each of the origin and target directories:
     // 1. Resolve any embedded references.
     // 2. Check for any invalid characters.
-    // 3. Verify that the resulting directory is not already in use as an origin or target
-    // directory for another filesystem rule.
+    // 3. Verify that constraints are satisfied. Origin directories cannot already be in use as the
+    // target directory by another rule, but multiple rules are allowed to have the same origin
+    // directory. Target directories cannot be in use as an origin or a target directory by another
+    // rule.
     // 4. Verify that the resulting directory is not a filesystem root (i.e. it has a parent
     // directory). If all operations succeed then the filesystem rule object can be created.
 
@@ -299,10 +301,6 @@ namespace Pathwinder
           L"Error while creating filesystem rule \"%s\": Origin directory: Failed to resolve full path: %s",
           ruleName.c_str(),
           Strings::SystemErrorCodeString(GetLastError()).AsCString());
-    if (true == HasOriginDirectory(originDirectoryFullPath))
-      return Strings::FormatString(
-          L"Error while creating filesystem rule \"%s\": Constraint violation: Origin directory is already in use as an origin directory by another rule.",
-          ruleName.c_str());
     if (true == HasTargetDirectory(originDirectoryFullPath))
       return Strings::FormatString(
           L"Error while creating filesystem rule \"%s\": Constraint violation: Origin directory is already in use as a target directory by another rule.",
@@ -335,6 +333,10 @@ namespace Pathwinder
     if (true == HasOriginDirectory(targetDirectoryFullPath))
       return Strings::FormatString(
           L"Error while creating filesystem rule \"%s\": Constraint violation: Target directory is already in use as an origin directory by another rule.",
+          ruleName.c_str());
+    if (true == HasTargetDirectory(targetDirectoryFullPath))
+      return Strings::FormatString(
+          L"Error while creating filesystem rule \"%s\": Constraint violation: Target directory is already in use as a target directory by another rule.",
           ruleName.c_str());
 
     const std::wstring_view originDirectoryFullPathOwnedView =
@@ -452,22 +454,9 @@ namespace Pathwinder
 
       // Both origin and target directories are added to a prefix index containing all directories.
       // This is done to implement the check for constraint (3). Directory uniqueness should already
-      // have been verified at filesystem rule creation time, so it is an internal error indicative
-      // of a bug if those checks passed but there is still some non-uniqueness here.
-      if (false ==
-          allDirectories.Insert(filesystemRule.GetOriginDirectoryFullPath(), &filesystemRule)
-              .second)
-        return Strings::FormatString(
-            L"Error while building a filesystem director configuration: Filesystem rule \"%.*s\": Internal error: Origin directory conflicts with another rule, but this should have been caught already.",
-            static_cast<int>(filesystemRuleRecord.first.length()),
-            filesystemRuleRecord.first.data());
-      if (false ==
-          allDirectories.Insert(filesystemRule.GetTargetDirectoryFullPath(), &filesystemRule)
-              .second)
-        return Strings::FormatString(
-            L"Error while building a filesystem director configuration: Filesystem rule \"%.*s\": Internal error: Target directory conflicts with another rule, but this should have been caught already.",
-            static_cast<int>(filesystemRuleRecord.first.length()),
-            filesystemRuleRecord.first.data());
+      // have been verified at filesystem rule creation time.
+      allDirectories.Insert(filesystemRule.GetOriginDirectoryFullPath(), &filesystemRule);
+      allDirectories.Insert(filesystemRule.GetTargetDirectoryFullPath(), &filesystemRule);
     }
 
     // This loop iterates over all rules one more time and checks all the target directories for

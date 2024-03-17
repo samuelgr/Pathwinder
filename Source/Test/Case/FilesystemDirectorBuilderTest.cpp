@@ -151,6 +151,15 @@ namespace PathwinderTest
         directorBuilder.AddRule(L"3", L"C:\\Level1\\Level2\\Level3", L"C:\\TargetDir3").HasValue());
   }
 
+  // Verifies that rule creation succeeds if the origin directory is the same as another rule's
+  // origin directory.
+  TEST_CASE(FilesystemDirectorBuilder_AddRule_Success_OverlappingOrigin)
+  {
+    FilesystemDirectorBuilder directorBuilder;
+    TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir", L"C:\\TargetDir1").HasValue());
+    TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\OriginDir", L"C:\\TargetDir2").HasValue());
+  }
+
   // Verifies that rule creation fails when multiple rules have the same name.
   TEST_CASE(FilesystemDirectorBuilder_AddRule_Failure_DuplicateRuleName)
   {
@@ -177,30 +186,9 @@ namespace PathwinderTest
     }
   }
 
-  // Verifies that rule creation fails if the origin directory is the same as another rule's
-  // origin or target directory.
-  TEST_CASE(FilesystemDirectorBuilder_AddRule_Failure_OverlappingOrigin)
-  {
-    FilesystemDirectorBuilder directorBuilder;
-    TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir", L"C:\\TargetDir1").HasValue());
-    TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\OriginDir", L"C:\\TargetDir2").HasError());
-    TEST_ASSERT(directorBuilder.AddRule(L"3", L"C:\\OriginDir3", L"C:\\OriginDir").HasError());
-  }
-
-  // Verifies that rule creation fails if the origin directory is the same as another rule's
-  // origin or target directory. This variation exercises case insensitivity by changing the case
-  // of the origin directory used in various situations.
-  TEST_CASE(FilesystemDirectorBuilder_AddRule_Failure_OverlappingOriginDifferentCase)
-  {
-    FilesystemDirectorBuilder directorBuilder;
-    TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir", L"C:\\TargetDir1").HasValue());
-    TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\ORIGINDIR", L"C:\\TargetDir2").HasError());
-    TEST_ASSERT(directorBuilder.AddRule(L"3", L"C:\\OriginDir3", L"C:\\origindir").HasError());
-  }
-
   // Verifies that rule creation fails if the target directory is the same as another rule's
   // origin directory.
-  TEST_CASE(FilesystemDirectorBuilder_AddRule_Failure_OverlappingTarget)
+  TEST_CASE(FilesystemDirectorBuilder_AddRule_Failure_OverlappingTargetWithOrigin)
   {
     FilesystemDirectorBuilder directorBuilder;
     TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir").HasValue());
@@ -208,13 +196,12 @@ namespace PathwinderTest
   }
 
   // Verifies that rule creation fails if the target directory is the same as another rule's
-  // origin directory. This variation exercises case insensitivy by changing the case of the
-  // overlapping target directory.
-  TEST_CASE(FilesystemDirectorBuilder_AddRule_Failure_OverlappingTargetDifferentCase)
+  // target directory.
+  TEST_CASE(FilesystemDirectorBuilder_AddRule_Failure_OverlappingTargetWithTarget)
   {
     FilesystemDirectorBuilder directorBuilder;
     TEST_ASSERT(directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir").HasValue());
-    TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\OriginDir2", L"C:\\ORIGINDIR1").HasError());
+    TEST_ASSERT(directorBuilder.AddRule(L"2", L"C:\\OriginDir2", L"C:\\TargetDir").HasError());
   }
 
   // Verifies the nominal situation of creating rules that do not overlap and contain no file
@@ -371,6 +358,39 @@ namespace PathwinderTest
     TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
     TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
     TEST_ASSERT(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"E:\\OriginDir2");
+  }
+
+  // Verifies that the filesystem director build process completes successfully with multiple
+  // filesystem rules all using the same origin directory.
+  TEST_CASE(FilesystemDirectorBuilder_Build_Success_MultipleRulesSameOriginDirectory)
+  {
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(L"C:\\OriginDir1");
+
+    FilesystemDirectorBuilder directorBuilder;
+    TEST_ASSERT(
+        directorBuilder.AddRule(L"1", L"C:\\OriginDir1", L"C:\\TargetDir", {L"*.txt"}).HasValue());
+    TEST_ASSERT(
+        directorBuilder.AddRule(L"2", L"C:\\OriginDir1", L"E:\\TargetDir2", {L"*.bin"}).HasValue());
+
+    auto buildResult = directorBuilder.Build();
+    TEST_ASSERT(buildResult.HasValue());
+
+    FilesystemDirector director = std::move(buildResult.Value());
+
+    TEST_ASSERT(nullptr != director.FindRuleByName(L"1"));
+    TEST_ASSERT(director.FindRuleByName(L"1")->GetName() == L"1");
+    TEST_ASSERT(director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
+    TEST_ASSERT(1 == director.FindRuleByName(L"1")->GetFilePatterns().size());
+    TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(
+        L"*.txt", director.FindRuleByName(L"1")->GetFilePatterns()[0]));
+
+    TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
+    TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
+    TEST_ASSERT(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
+    TEST_ASSERT(1 == director.FindRuleByName(L"2")->GetFilePatterns().size());
+    TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(
+        L"*.bin", director.FindRuleByName(L"2")->GetFilePatterns()[0]));
   }
 
   // Verifies that the filesystem director build process completes successfully where rules have

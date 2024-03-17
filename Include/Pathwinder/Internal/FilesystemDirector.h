@@ -138,6 +138,9 @@ namespace Pathwinder
   /// each filesystem rule that has the same origin directory as the directory being enumerated.
   inline constexpr unsigned int kMaxFilesystemRulesPerOriginDirectory =
       DirectoryEnumerationInstruction::kMaxMergedDirectoryEnumerations - 1;
+  static_assert(
+      kMaxFilesystemRulesPerOriginDirectory >= 2,
+      "At least 2 filesystem rules per origin directory must be supported.");
 
   /// Type alias for holding owned strings for deduplication and organization. Contained strings are
   /// compared case-insensitively.

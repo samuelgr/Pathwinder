@@ -138,7 +138,7 @@ namespace Pathwinder
     /// both the original requested directory and the target directory of a filesystem rule. Values
     /// above 2 allow for multiple filesystem rules to have the contents of their target directories
     /// merged into the same output.
-    static constexpr unsigned int kMaxMergedDirectoryEnumerations = 2;
+    static constexpr unsigned int kMaxMergedDirectoryEnumerations = 5;
     static_assert(
         kMaxMergedDirectoryEnumerations >= 2,
         "At least two directory enumerations must be able to be merged together, one for the original requested directory and one for the target of a filesystem rule.");
