@@ -15,9 +15,9 @@
 #include <cstdint>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 #include "ApiBitSet.h"
-#include "ArrayList.h"
 #include "FilesystemRule.h"
 #include "TemporaryBuffer.h"
 
@@ -130,18 +130,6 @@ namespace Pathwinder
   class DirectoryEnumerationInstruction
   {
   public:
-
-    /// Maximum number of individual directory enumerations that can be merged together into the
-    /// output of an application-requested directory enumeration operation. This value determines
-    /// the sizes of various internal data structures, and increasing it adds overhead to the
-    /// execution of directory enumeration operations. Must be at least 2because this allows for
-    /// both the original requested directory and the target directory of a filesystem rule. Values
-    /// above 2 allow for multiple filesystem rules to have the contents of their target directories
-    /// merged into the same output.
-    static constexpr unsigned int kMaxMergedDirectoryEnumerations = 5;
-    static_assert(
-        kMaxMergedDirectoryEnumerations >= 2,
-        "At least two directory enumerations must be able to be merged together, one for the original requested directory and one for the target of a filesystem rule.");
 
     /// Holds the information needed to describe how to enumerate a single directory as part of
     /// a larger directory enumeration operation. Immutable once constructed.
@@ -336,8 +324,7 @@ namespace Pathwinder
 
     /// Type alias for holding instructions for individual directory enumerations that need to be
     /// merged together as part of an application-requested directory enumeration operation.
-    using TDirectoriesToEnumerate =
-        ArrayList<SingleDirectoryEnumeration, kMaxMergedDirectoryEnumerations>;
+    using TDirectoriesToEnumerate = std::vector<SingleDirectoryEnumeration>;
 
     /// Type alias for holding individual directory name insertions that need to be merged into the
     /// result of an application-requested directory enumeration operation.

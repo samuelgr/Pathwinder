@@ -905,7 +905,7 @@ namespace PathwinderTest
         directoryHandle, std::wstring(kTestDirectory), std::wstring(kTestDirectory));
     openHandleStore.AssociateDirectoryEnumerationState(
         directoryHandle,
-        std::make_unique<MergedFileInformationQueue>(MergedFileInformationQueue::Create({
+        std::make_unique<MergedFileInformationQueue>(MergedFileInformationQueue::Create<3>({
             std::make_unique<MockDirectoryOperationQueue>(
                 fileNameStructLayout,
                 MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),

@@ -15,7 +15,6 @@
 #include <cstdint>
 #include <map>
 #include <optional>
-#include <set>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -27,137 +26,6 @@
 
 namespace Pathwinder
 {
-  /// Holds multiple filesystem rules together in a container such that they can be organized by
-  /// some property they have in common and queried conveniently by file pattern.
-  /// @tparam kMaxRuleCount Maximum number of rules that can be contained in this container type.
-  template <const unsigned int kMaxRuleCount> class RelatedFilesystemRuleContainer
-  {
-  public:
-
-    /// Comparator function object type for establishing the ordering of filesystem rules. If the
-    /// number of file patterns is the same, then filesystem rules are ordered by name. Otherwise,
-    /// the filesystem rules are ordered in descending order by number of file patterns. That way, 0
-    /// file patterns is guaranteed to be at the end of the ordering, so that filesystem rules with
-    /// no file patterns can act as a "catch-all" default, whereas more specific rules are given
-    /// have precedence.
-    struct OrderedFilesystemRuleLessThanComparator
-    {
-      inline bool operator()(const FilesystemRule& lhs, const FilesystemRule& rhs) const
-      {
-        if (lhs.GetFilePatterns().size() == rhs.GetFilePatterns().size())
-          return (Strings::CompareCaseInsensitive(lhs.GetName(), rhs.GetName()) < 0);
-        return (lhs.GetFilePatterns().size() > rhs.GetFilePatterns().size());
-      }
-    };
-
-    /// Type alias for the internal container type that holds the filesystem rules themselves.
-    using TFilesystemRules = std::set<FilesystemRule, OrderedFilesystemRuleLessThanComparator>;
-
-    RelatedFilesystemRuleContainer(void) = default;
-
-    bool operator==(const RelatedFilesystemRuleContainer& other) const = default;
-
-    /// Provides read-only access to the rules held by this object. Intended for iterating in a
-    /// loop over all of them.
-    /// @return Read-only reference to the underlying container.
-    inline const TFilesystemRules& AllRules(void) const
-    {
-      return filesystemRules;
-    }
-
-    /// Provides read-only access to any single rule held by this object. Intended for obtaining
-    /// access to whatever property is shared by all rules held in this container such that they are
-    /// considered "related" to one another in some way.
-    /// @return Read-only reference to a single contained rule.
-    inline const FilesystemRule& AnyRule(void) const
-    {
-      return *filesystemRules.cbegin();
-    }
-
-    /// Retrieves and returns the number of rules contained in this object.
-    /// @return Number of rules contained in this object.
-    inline unsigned int CountOfRules(void) const
-    {
-      return static_cast<unsigned int>(filesystemRules.size());
-    }
-
-    /// Attempts to insert a filesystem rule into this container by constructing it in place.
-    /// Insertion will fail if this container is already full, in which case the pointer returned
-    /// will be `nullptr`.
-    /// @param [in] ruleToInsert Rule to be inserted.
-    /// @return Pair containing a pointer to the newly-constructed rule if a new rule was created
-    /// and `true` if the insertion was successful, `false` otherwise.
-    template <typename... Args> inline std::pair<const FilesystemRule*, bool> EmplaceRule(
-        Args&&... args)
-    {
-      if (kMaxRuleCount == static_cast<unsigned int>(filesystemRules.size()))
-        return std::make_pair(nullptr, false);
-      auto emplaceResult = filesystemRules.emplace(std::forward<Args>(args)...);
-      return std::make_pair(&(*emplaceResult.first), emplaceResult.second);
-    }
-
-    /// Attempts to insert a filesystem rule into this container using copy semantics. Insertion
-    /// will fail if this container is already full, in which case the pointer returned
-    /// will be `nullptr`.
-    /// @param [in] ruleToInsert Rule to be inserted.
-    /// @return Pair containing a pointer to the newly-inserted rule if a new rule was inserted
-    /// and `true` if the insertion was successful, `false` otherwise.
-    std::pair<const FilesystemRule*, bool> InsertRule(const FilesystemRule& ruleToInsert)
-    {
-      return EmplaceRule(ruleToInsert);
-    }
-
-    /// Attempts to insert a filesystem rule into this container using move semantics. Insertion
-    /// will fail if this container is already full, in which case the pointer returned
-    /// will be `nullptr`.
-    /// @param [in] ruleToInsert Rule to be inserted.
-    /// @return Pair containing a pointer to the newly-inserted rule if a new rule was inserted
-    /// and `true` if the insertion was successful, `false` otherwise.
-    std::pair<const FilesystemRule*, bool> InsertRule(FilesystemRule&& ruleToInsert)
-    {
-      return EmplaceRule(std::move(ruleToInsert));
-    }
-
-    /// Determines if the specified filename matches any of the file patterns associated with
-    /// any of the rules held by this object. Input filename must not contain any backslash
-    /// separators, as it is intended to represent a file within a directory rather than a path.
-    /// @param [in] candidateFileName File name to check for matches with any file pattern.
-    /// @return `true` if any file pattern produces a match, `false` otherwise.
-    inline bool HasRuleMatchingFileName(std::wstring_view candidateFileName) const
-    {
-      return (nullptr != RuleMatchingFileName(candidateFileName));
-    }
-
-    /// Identifies the first filesystem rule found such that the specified filename matches any of
-    /// the file patterns associated with that rule. Input filename must not contain any backslash
-    /// separators, as it is intended to represent a file within a directory rather than a path.
-    /// @param [in] candidateFileName File name to check for matches with any file pattern.
-    /// @return Pointer to the first rule that matches, or `nullptr` if none exist.
-    inline const FilesystemRule* RuleMatchingFileName(std::wstring_view candidateFileName) const
-    {
-      for (const auto& filesystemRule : filesystemRules)
-        if (filesystemRule.FileNameMatchesAnyPattern(candidateFileName)) return &filesystemRule;
-
-      return nullptr;
-    }
-
-  private:
-
-    /// Storage for all filesystem rule objects owned by this container.
-    TFilesystemRules filesystemRules;
-  };
-
-  /// Maximum number of filesystem rules that can have the same origin directory. Providing each
-  /// filesystem rule with different file patterns enables differently-named files to be redirected
-  /// to different locations. The value is constrained by how many underlying directory enumerations
-  /// are allowed to be merged together, because one such underlying enumeration may be required for
-  /// each filesystem rule that has the same origin directory as the directory being enumerated.
-  inline constexpr unsigned int kMaxFilesystemRulesPerOriginDirectory =
-      DirectoryEnumerationInstruction::kMaxMergedDirectoryEnumerations - 1;
-  static_assert(
-      kMaxFilesystemRulesPerOriginDirectory >= 2,
-      "At least 2 filesystem rules per origin directory must be supported.");
-
   /// Type alias for holding owned strings for deduplication and organization. Contained strings are
   /// compared case-insensitively.
   using TCaseInsensitiveStringSet = std::unordered_set<
@@ -172,7 +40,7 @@ namespace Pathwinder
   /// Type alias for holding an index that can identify filesystem rules by directory prefix.
   using TFilesystemRulePrefixTree = PrefixTree<
       wchar_t,
-      RelatedFilesystemRuleContainer<kMaxFilesystemRulesPerOriginDirectory>,
+      RelatedFilesystemRuleContainer,
       Strings::CaseInsensitiveHasher<wchar_t>,
       Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
 
@@ -458,8 +326,7 @@ namespace Pathwinder
     /// redirection.
     /// @return Pointer to the rule object that should be used with the specified path, or
     /// `nullptr` if no rule is applicable.
-    const RelatedFilesystemRuleContainer<kMaxFilesystemRulesPerOriginDirectory>* SelectRulesForPath(
-        std::wstring_view absolutePath) const;
+    const RelatedFilesystemRuleContainer* SelectRulesForPath(std::wstring_view absolutePath) const;
 
   private:
 

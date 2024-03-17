@@ -587,29 +587,21 @@ namespace Pathwinder
 
       for (const auto& singleDirectoryEnumeration : instruction.GetDirectoriesToEnumerate())
       {
-        DebugAssert(
-            createdQueues.Size() < createdQueues.Capacity(),
-            "Too many directory operation queues are being created.");
-
         std::wstring_view enumerationPath = singleDirectoryEnumeration.SelectDirectoryPath(
             handleAssociatedPath, handleRealOpenedPath);
         DebugAssert(false == enumerationPath.empty(), "Empty directory enumeration path.");
 
-        createdQueues.PushBack(std::make_unique<EnumerationQueue>(
+        createdQueues.push_back(std::make_unique<EnumerationQueue>(
             singleDirectoryEnumeration, enumerationPath, fileInformationClass, queryFilePattern));
       }
 
       if (true == instruction.HasDirectoryNamesToInsert())
       {
-        DebugAssert(
-            createdQueues.Size() < createdQueues.Capacity(),
-            "Too many directory operation queues are being created.");
-
-        createdQueues.PushBack(std::make_unique<NameInsertionQueue>(
+        createdQueues.push_back(std::make_unique<NameInsertionQueue>(
             instruction.ExtractDirectoryNamesToInsert(), fileInformationClass, queryFilePattern));
       }
 
-      switch (createdQueues.Size())
+      switch (createdQueues.size())
       {
         case 0:
           return nullptr;

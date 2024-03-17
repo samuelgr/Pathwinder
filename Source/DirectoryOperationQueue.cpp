@@ -138,20 +138,6 @@ namespace Pathwinder
     SelectFrontElementSourceQueueInternal();
   }
 
-  MergedFileInformationQueue MergedFileInformationQueue::Create(
-      std::array<std::unique_ptr<IDirectoryOperationQueue>, kNumQueuesToMerge>&& underlyingQueues)
-  {
-    MergedFileInformationQueue::TQueuesToMerge queuesToMerge;
-
-    for (auto& underlyingQueue : underlyingQueues)
-    {
-      if (nullptr == underlyingQueue) continue;
-      queuesToMerge.PushBack(std::move(underlyingQueue));
-    }
-
-    return MergedFileInformationQueue(std::move(queuesToMerge));
-  }
-
   void EnumerationQueue::AdvanceQueueContentsInternal(
       ULONG queryFlags, std::wstring_view filePattern)
   {

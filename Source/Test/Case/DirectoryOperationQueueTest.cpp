@@ -624,7 +624,7 @@ namespace PathwinderTest
       combinedFileNamesSorted.insert(filename);
 
     MergedFileInformationQueue mergedQueue =
-        MergedFileInformationQueue::Create({std::move(firstQueue), std::move(secondQueue)});
+        MergedFileInformationQueue::Create<2>({std::move(firstQueue), std::move(secondQueue)});
 
     for (const auto& fileName : combinedFileNamesSorted)
     {
@@ -671,7 +671,7 @@ namespace PathwinderTest
       combinedFileNamesSorted.insert(filename);
 
     MergedFileInformationQueue mergedQueue =
-        MergedFileInformationQueue::Create({std::move(firstQueue), std::move(secondQueue)});
+        MergedFileInformationQueue::Create<2>({std::move(firstQueue), std::move(secondQueue)});
 
     for (const auto& fileName : combinedFileNamesSorted)
     {
@@ -709,7 +709,7 @@ namespace PathwinderTest
       combinedFileNamesSorted.insert(filename);
 
     MergedFileInformationQueue mergedQueue =
-        MergedFileInformationQueue::Create({std::move(firstQueue), std::move(secondQueue)});
+        MergedFileInformationQueue::Create<2>({std::move(firstQueue), std::move(secondQueue)});
 
     for (size_t i = 0; i < combinedFileNamesSorted.size() - 2; ++i)
     {
@@ -806,7 +806,7 @@ namespace PathwinderTest
         kFirstFilePattern);
 
     MergedFileInformationQueue mergedQueue =
-        MergedFileInformationQueue::Create({std::move(firstQueue), std::move(secondQueue)});
+        MergedFileInformationQueue::Create<2>({std::move(firstQueue), std::move(secondQueue)});
 
     for (auto fileName : kFirstFilePatternMatchesInSortedOrder)
     {
@@ -842,7 +842,7 @@ namespace PathwinderTest
 
     for (const auto& enumerationStatusRecord : kEnumerationStatusRecords)
     {
-      MergedFileInformationQueue mergedQueue = MergedFileInformationQueue::Create(
+      MergedFileInformationQueue mergedQueue = MergedFileInformationQueue::Create<2>(
           {std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.first),
            std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)});
 
@@ -863,7 +863,7 @@ namespace PathwinderTest
 
     for (const auto& enumerationStatusRecord : kEnumerationStatusRecords)
     {
-      MergedFileInformationQueue mergedQueue = MergedFileInformationQueue::Create(
+      MergedFileInformationQueue mergedQueue = MergedFileInformationQueue::Create<2>(
           {std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.first),
            std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)});
 
@@ -888,7 +888,7 @@ namespace PathwinderTest
 
     for (const auto& enumerationStatusRecord : kEnumerationStatusRecords)
     {
-      MergedFileInformationQueue mergedQueue = MergedFileInformationQueue::Create(
+      MergedFileInformationQueue mergedQueue = MergedFileInformationQueue::Create<2>(
           {std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.first),
            std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)});
 

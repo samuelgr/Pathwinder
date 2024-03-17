@@ -27,8 +27,8 @@
 
 namespace Pathwinder
 {
-  const RelatedFilesystemRuleContainer<kMaxFilesystemRulesPerOriginDirectory>*
-      FilesystemDirector::SelectRulesForPath(std::wstring_view absolutePath) const
+  const RelatedFilesystemRuleContainer* FilesystemDirector::SelectRulesForPath(
+      std::wstring_view absolutePath) const
   {
     // It is possible that multiple rules all have a prefix that matches the directory part of
     // the full file path. We want to pick the most specific one to apply, meaning it has the
@@ -470,7 +470,8 @@ namespace Pathwinder
           maybeRedirectedFilePath->AsCString());
     }
 
-    DebugAssert(nullptr != selectedRule, "A rule was selected and used for redirection but it is null.");
+    DebugAssert(
+        nullptr != selectedRule, "A rule was selected and used for redirection but it is null.");
 
     std::wstring_view redirectedFilePath = maybeRedirectedFilePath->AsStringView();
 

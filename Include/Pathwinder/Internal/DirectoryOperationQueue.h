@@ -13,9 +13,9 @@
 #include <array>
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include "ApiWindows.h"
-#include "ArrayList.h"
 #include "FileInformationStruct.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemRule.h"
@@ -274,16 +274,10 @@ namespace Pathwinder
   {
   public:
 
-    /// Maximum number of queues allowed to be merged as part of a directory enumeration
-    /// operation. One queue is allowed for name insertion, and the remainder are allowed to be
-    /// underlying directory enumerations.
-    static constexpr unsigned int kNumQueuesToMerge =
-        DirectoryEnumerationInstruction::kMaxMergedDirectoryEnumerations + 1;
-
     /// Type alias for holding owned interface pointers to all of the underlying queues whose
     /// enumeration outputs should be merged together into a single overall directory enumeration
     /// output provided back to the requesting application.
-    using TQueuesToMerge = ArrayList<std::unique_ptr<IDirectoryOperationQueue>, kNumQueuesToMerge>;
+    using TQueuesToMerge = std::vector<std::unique_ptr<IDirectoryOperationQueue>>;
 
     MergedFileInformationQueue(TQueuesToMerge&& queuesToMerge);
 
@@ -293,9 +287,19 @@ namespace Pathwinder
     /// @param [in] underlyingQueues Array of underlying queues. Elements that are `nullptr` are
     /// skipped.
     /// @return Newly-constructed merged file information queue object.
-    static MergedFileInformationQueue Create(
-        std::array<std::unique_ptr<IDirectoryOperationQueue>, kNumQueuesToMerge>&&
-            underlyingQueues);
+    template <size_t N> static MergedFileInformationQueue Create(
+        std::array<std::unique_ptr<IDirectoryOperationQueue>, N>&& underlyingQueues)
+    {
+      MergedFileInformationQueue::TQueuesToMerge queuesToMerge;
+
+      for (auto& underlyingQueue : underlyingQueues)
+      {
+        if (nullptr == underlyingQueue) continue;
+        queuesToMerge.push_back(std::move(underlyingQueue));
+      }
+
+      return MergedFileInformationQueue(std::move(queuesToMerge));
+    }
 
     /// Retrieves and returns a pointer to the underlying queue at the specified index.
     /// Intended for tests. Provides read-only access.
@@ -304,7 +308,7 @@ namespace Pathwinder
     inline const IDirectoryOperationQueue* GetUnderlyingQueue(unsigned int index) const
     {
       DebugAssert(
-          static_cast<size_t>(index) < queuesToMerge.Size(),
+          static_cast<size_t>(index) < queuesToMerge.size(),
           "Underlying queue index is out of bounds.");
       return queuesToMerge[index].get();
     }
@@ -313,7 +317,7 @@ namespace Pathwinder
     /// @return Number of contained underlying queues.
     inline unsigned int GetUnderlyingQueueCount(void) const
     {
-      return queuesToMerge.Size();
+      return static_cast<unsigned int>(queuesToMerge.size());
     }
 
     // IDirectoryOperationQueue
