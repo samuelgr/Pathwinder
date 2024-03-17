@@ -262,7 +262,9 @@ namespace Pathwinder
         {
           if (true == childItem.second.HasData())
           {
-            const FilesystemRule& childRule = *childItem.second.GetData().AllRules().cbegin();
+            // Since all of the rules in the container have the same origin directory it does not
+            // matter which specific rule is used for name insertion.
+            const FilesystemRule& childRule = childItem.second.GetData().AnyRule();
 
             // Insertion of a rule's origin directory into the enumeration results
             // requires that two things be true: (1) Origin directory base name matches
