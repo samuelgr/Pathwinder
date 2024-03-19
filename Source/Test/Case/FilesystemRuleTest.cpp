@@ -19,11 +19,67 @@
 #include <string_view>
 #include <vector>
 
+#include "Strings.h"
 #include "TemporaryBuffer.h"
 
 namespace PathwinderTest
 {
   using namespace ::Pathwinder;
+
+  // Verifies that a filesystem rule can be created with file patterns and that those file patterns
+  // are properly made available once it is created.
+  TEST_CASE(FilesystemRule_GetFilePatterns_Nominal)
+  {
+    const std::vector<std::wstring> testFilePatterns = {L"*.bin", L"*.txt", L"*.log"};
+
+    const FilesystemRule testRule(
+        L"", L"C:\\Origin", L"C:\\Target", std::vector<std::wstring>(testFilePatterns));
+
+    const std::vector<std::wstring>& expectedFilePatterns = testFilePatterns;
+    const std::vector<std::wstring>& actualFilePatterns = testRule.GetFilePatterns();
+
+    TEST_ASSERT(actualFilePatterns.size() == expectedFilePatterns.size());
+    for (size_t i = 0; i < expectedFilePatterns.size(); ++i)
+      TEST_ASSERT(
+          Strings::EqualsCaseInsensitive<wchar_t>(actualFilePatterns[i], expectedFilePatterns[i]));
+  }
+
+  // Verifies that a filesystem rule can be created without file patterns and that the lack of file
+  // patterns is properly made available once it is created.
+  TEST_CASE(FilesystemRule_GetFilePatterns_NoneDefined)
+  {
+    const FilesystemRule testRule(L"", L"C:\\Origin", L"C:\\Target", {});
+
+    const std::vector<std::wstring>& expectedFilePatterns = {};
+    const std::vector<std::wstring>& actualFilePatterns = testRule.GetFilePatterns();
+
+    TEST_ASSERT(actualFilePatterns.size() == expectedFilePatterns.size());
+    for (size_t i = 0; i < expectedFilePatterns.size(); ++i)
+      TEST_ASSERT(
+          Strings::EqualsCaseInsensitive<wchar_t>(actualFilePatterns[i], expectedFilePatterns[i]));
+  }
+
+  // Verifies that a filesystem rule can be created with file patterns whereby they are equivalent
+  // to matching all possible filenames. Once created, the filesystem rule should have no file
+  // patterns defined.
+  TEST_CASE(FilesystemRule_GetFilePatterns_EquivalentToNoneDefined)
+  {
+    constexpr std::wstring_view kTestFilePatternsToTryOneByOne[] = {L"", L"*", L"**", L"***"};
+
+    for (const auto testFilePatternInput : kTestFilePatternsToTryOneByOne)
+    {
+      const FilesystemRule testRule(
+          L"", L"C:\\Origin", L"C:\\Target", {std::wstring(testFilePatternInput)});
+
+      const std::vector<std::wstring>& expectedFilePatterns = {};
+      const std::vector<std::wstring>& actualFilePatterns = testRule.GetFilePatterns();
+
+      TEST_ASSERT(actualFilePatterns.size() == expectedFilePatterns.size());
+      for (size_t i = 0; i < expectedFilePatterns.size(); ++i)
+        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(
+            actualFilePatterns[i], expectedFilePatterns[i]));
+    }
+  }
 
   // Verifies that origin and target directory strings are parsed correctly into origin and target
   // full paths and names.

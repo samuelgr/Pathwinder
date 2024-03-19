@@ -80,6 +80,15 @@ namespace Pathwinder
     return EDirectoryCompareResult::Unrelated;
   }
 
+  /// Determines if a file pattern consists exclusively of wildcard characters such that it matches
+  /// all possible filenames.
+  /// @param [in] filePattern File pattern to check.
+  /// @return `true` if the file pattern matches everything, `false` otherwise.
+  static inline bool FilePatternMatchesEverything(std::wstring_view filePattern)
+  {
+    return (filePattern.find_first_not_of(L'*') == std::wstring_view::npos);
+  }
+
   /// Determines the position of the final separator character in a filesystem path.
   /// @param [in] path Path for which the final separator position is desired.
   /// @return Index of the final separator character, or -1 if no final separator character
@@ -209,16 +218,23 @@ namespace Pathwinder
         targetDirectorySeparator(FinalSeparatorPosition(targetDirectoryFullPath)),
         originDirectoryFullPath(originDirectoryFullPath),
         targetDirectoryFullPath(targetDirectoryFullPath),
-        filePatterns(std::move(filePatterns))
+        filePatterns()
   {
     // The specific implementation used for comparing file names to file patterns requires that
     // all pattern strings be uppercase. Comparisons remain case-insensitive. This is just a
     // documented implementation detail of the comparison function itself.
-    for (auto& filePattern : this->filePatterns)
+    for (auto& filePattern : filePatterns)
     {
+      // If any individual file pattern is universal and matches every possible filename then the
+      // filesystem rule itself matches every possible filename and hence is equivalent to not
+      // having any file patterns defined at all.
+      if (true == FilePatternMatchesEverything(filePattern)) return;
+
       for (size_t i = 0; i < filePattern.size(); ++i)
         filePattern[i] = std::towupper(filePattern[i]);
     }
+
+    this->filePatterns = std::move(filePatterns);
   }
 
   EDirectoryCompareResult FilesystemRule::DirectoryCompareWithOrigin(
