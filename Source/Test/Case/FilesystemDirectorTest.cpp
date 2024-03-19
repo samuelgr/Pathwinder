@@ -971,6 +971,34 @@ namespace PathwinderTest
     TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
   }
 
+  // Creates a filesystem director with a single filesystem rule and opens the parent of the rule's
+  // origin directory for enumeration. Verifies that the rule's origin directory will be inserted
+  // into the output.
+  TEST_CASE(
+      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateParentOfMultiRuleOriginDirectory)
+  {
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(L"C:\\Origin");
+    mockFilesystem.AddDirectory(L"C:\\Target1");
+
+    const FilesystemDirector director(MakeFilesystemDirector({
+        {L"1", FilesystemRule(L"1", L"C:\\Origin\\Subdir", L"C:\\Target1")},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin\\Subdir", L"C:\\Target2")},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin\\Subdir", L"C:\\Target3")},
+    }));
+
+    constexpr std::wstring_view associatedPath = L"C:\\Origin";
+    constexpr std::wstring_view realOpenedPath = L"C:\\Origin";
+
+    const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction =
+        DirectoryEnumerationInstruction::InsertRuleOriginDirectoryNames(
+            {*director.FindRuleByName(L"1")});
+    const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
+        director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+    TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+  }
+
   // Creates a filesystem director and requests an instruction for directory enumeration with a
   // directory that is totally outside the scope of any filesystem rules. The instruction is
   // expected to indicate that the request should be passed through to the system without
