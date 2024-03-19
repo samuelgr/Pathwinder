@@ -27,6 +27,29 @@
 
 namespace Pathwinder
 {
+  /// Identify the rule from within the container that was responsible for performing a redirection
+  /// from a path on that rule's origin side to the specified redirected path, which would be on the
+  /// rule's target sidde.
+  /// @param rules Container of rules to search.
+  /// @param redirectedPath Path that resulted from doing a redirection using that filesystem rule.
+  /// @return Rule that did the redirection, or `nullptr` if no such rule exists.
+  static const FilesystemRule* IdentifyRuleThatPerformedRedirection(
+      const RelatedFilesystemRuleContainer& rules, std::wstring_view redirectedPath)
+  {
+    for (const auto& rule : rules.AllRules())
+    {
+      switch (rule.DirectoryCompareWithTarget(redirectedPath))
+      {
+        case EDirectoryCompareResult::Equal:
+        case EDirectoryCompareResult::CandidateIsChild:
+        case EDirectoryCompareResult::CandidateIsDescendant:
+          return &rule;
+      }
+    }
+
+    return nullptr;
+  }
+
   /// Selects a rule to use for determining which real directory to query for enumeration data
   /// during a name insertion.
   /// @param [in] possibleRules Container of possible rules from which to select.
@@ -114,9 +137,9 @@ namespace Pathwinder
       const std::wstring_view unredirectedPathTrimmedForQuery =
           unredirectedPath.substr(unredirectedPathWindowsNamespacePrefix.length());
 
-      const FilesystemRule* directoryEnumerationRedirectRule =
-          &(*SelectRulesForPath(unredirectedPathTrimmedForQuery)->AllRules().cbegin());
-      if (nullptr == directoryEnumerationRedirectRule)
+      const RelatedFilesystemRuleContainer* directoryEnumerationRules =
+          SelectRulesForPath(unredirectedPathTrimmedForQuery);
+      if (nullptr == directoryEnumerationRules)
       {
         Message::OutputFormatted(
             Message::ESeverity::Error,
@@ -126,128 +149,194 @@ namespace Pathwinder
         return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
       }
 
-      DebugAssert(
-          EDirectoryCompareResult::Unrelated !=
-              directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(
-                  unredirectedPathTrimmedForQuery),
-          "Origin directory must be somehow related to the unredirected path.");
-      DebugAssert(
-          EDirectoryCompareResult::Unrelated !=
-              directoryEnumerationRedirectRule->DirectoryCompareWithTarget(
-                  redirectedPathTrimmedForQuery),
-          "Target directory must be somehow related to the redirected path.");
-
       // TODO: Branch here based on whether or not directory compare with origin is equal. If so,
       // iterate over all of the filesystem rules and, for each one, look at its redirection mode
       // and then from there figure out how to proceed. Add each rule to a list of directories to be
       // enumerated and also, depending on the mode, potentially an "invert match" list for the
       // original directory's enumeration queue.
+      //
+      // There are two possible cases.
+      // (1) Enumerated directory is EQUAL to the origin directory of the identified node.
+      // (2) Enumerated directory is a DESCENDENT of the origin directory of the identified node.
+      //
+      // In case 1, we need to iterate. For each filesystem rule:
+      // - If it uses any OVERLAY mode, then...
+      //   > Enumerate matching files from its target directory
+      // - If it uses SIMPLE mode, then...
+      //   > Enumerate matching files from its target directory
+      //   > Note to EXCLUDE matching files from the real opened path enumeration
+      // - In both of the above branches...
+      //   > Enumerate the entire contents of the real opened path (origin side) EXCLUDING whatever
+      //     was previously marked for exclusion (via SIMPLE mode rules).
+      //
+      // In case 2, then some sort of redirection already happened, so we just need to:
+      // - Identify the filesystem rule that actually did the original redirection
+      // - If that filesystem rule uses any OVERLAY mode, then...
+      //   > Enumerate all matching contents of the real opened path (target side)
+      //   > Enumerate the entire contents of the associated path (origin side)
+      // - If that filesystem uses SIMPLE mode, then...
+      //   > Enumerate the entire contents of the real opened path
 
-      if (ERedirectMode::Overlay == directoryEnumerationRedirectRule->GetRedirectMode())
+      switch (directoryEnumerationRules->AnyRule().DirectoryCompareWithOrigin(
+          unredirectedPathTrimmedForQuery))
       {
-        // In overlay mode, the target-side contents that are in the filesystem rule scope
-        // are always enumerated and merged with the origin-side contents. If the
-        // unredirected directory path is the rule's origin directory then only the contents
-        // of the redirected directory path that matches the file pattern can be included.
-        // Otherwise the unredirected directory path is a descendent, and it is known that
-        // the directory is in scope due to a path component matching the rule's file
-        // pattern, so the entire directory should be included.
+        case EDirectoryCompareResult::Equal:
+          do
+          {
+            // The directory being enumerated is exactly equal to the selected rules' origin
+            // directory. All of the selected rules need to be consulted, and each can generate a
+            // separate target-side enumeration that needs to be merged into the enumeration output
+            // provided back to the requesting application. This is the more complicated case
+            // because it involves iterating over all of the rules. Behavior per rule will also
+            // differ based on its configured redirection mode.
 
-        Message::OutputFormatted(
-            Message::ESeverity::Info,
-            L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will overlay the contents of \"%.*s\".",
-            static_cast<int>(unredirectedPath.length()),
-            unredirectedPath.data(),
-            static_cast<int>(directoryEnumerationRedirectRule->GetName().length()),
-            directoryEnumerationRedirectRule->GetName().data(),
-            static_cast<int>(redirectedPath.length()),
-            redirectedPath.data());
-        if (EDirectoryCompareResult::Equal ==
-            directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(
-                unredirectedPathTrimmedForQuery))
-        {
-          directoriesToEnumerate = {
-              DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                  IncludeOnlyMatchingFilenames(
-                      EDirectoryPathSource::RealOpenedPath, *directoryEnumerationRedirectRule),
-              DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                  EDirectoryPathSource::AssociatedPath)};
-        }
-        else
-        {
-          directoriesToEnumerate = {
-              DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                  EDirectoryPathSource::RealOpenedPath),
-              DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                  EDirectoryPathSource::AssociatedPath)};
-        }
-      }
-      else if (
-          (false == directoryEnumerationRedirectRule->HasFilePatterns()) ||
-          (EDirectoryCompareResult::Equal !=
-           directoryEnumerationRedirectRule->DirectoryCompareWithOrigin(
-               unredirectedPathTrimmedForQuery)))
-      {
-        // This is a simplification for two potential common cases:
-        // (1) Filesystem rule that did the redirection does not actually define any file
-        // patterns and hence matches all files. (2) Unredirected directory path is not the
-        // rule's origin directory but rather a descendant of it. (It cannot be an ancestor
-        // because then rule selection would not have chosen the rule.) In both of these
-        // cases the easiest thing to do is just to enumerate the contents of the target
-        // side directory directly without worrying about file patterns. Because the
-        // directory handle is already open for the target side directory, there is no need
-        // to do any further enumeration processing.
+            // TODO
+            // Iteration part needs to be implemented. This is just the old code slightly
+            // reorganized.
 
-        // For case 1, normally if the directory being queried is the rule's origin
-        // directory, it would be necessary to merge in-scope target directory files with
-        // out-of-scope origin directory files. However, because the rule does not have any
-        // file patterns, all files in the target directory are in scope and none of the
-        // files in the origin directory are out of scope. Performing two separate
-        // enumerations and subsequently comparing the results with file patterns are
-        // therefore redundant and can be skipped.
+            auto directoryEnumerationRedirectRule = &directoryEnumerationRules->AnyRule();
 
-        // For case 2, the directory being queried is a descendant of the rule's origin
-        // directory. As an example, suppose that a rule defines an origin directory of
-        // C:\ASDF\GHJ. If the directory being enumerated is C:\ASDF\GHJ\KL\QWERTY, then
-        // "KL" needs to be checked against the rule's file patterns. Since it is known that
-        // a redirection already occurred, it is also known that "KL" matches the rule's
-        // file patterns, so no additional checks are needed to verify that fact.
+            switch (directoryEnumerationRedirectRule->GetRedirectMode())
+            {
+              case ERedirectMode::Simple:
+                if (directoryEnumerationRedirectRule->HasFilePatterns())
+                {
+                  directoriesToEnumerate = {
+                      DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                          IncludeOnlyMatchingFilenames(
+                              EDirectoryPathSource::RealOpenedPath,
+                              *directoryEnumerationRedirectRule),
+                      DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                          IncludeAllExceptMatchingFilenames(
+                              EDirectoryPathSource::AssociatedPath,
+                              *directoryEnumerationRedirectRule)};
+                }
+                else
+                {
+                  directoriesToEnumerate = {
+                      DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                          IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath)};
+                }
+                break;
 
-        Message::OutputFormatted(
-            Message::ESeverity::Info,
-            L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will instead enumerate \"%.*s\".",
-            static_cast<int>(unredirectedPath.length()),
-            unredirectedPath.data(),
-            static_cast<int>(directoryEnumerationRedirectRule->GetName().length()),
-            directoryEnumerationRedirectRule->GetName().data(),
-            static_cast<int>(redirectedPath.length()),
-            redirectedPath.data());
-        directoriesToEnumerate = {
-            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                EDirectoryPathSource::RealOpenedPath)};
-      }
-      else
-      {
-        // If the filesystem rule has one or more file patterns defined then the case is
-        // more general. On the target side it is necessary to enumerate whatever files are
-        // present that match the rule's file patterns. On the origin side it is necessary
-        // to enumerate whatever files are present that do not match the rule's file
-        // patterns and hence are beyond the rule's scope.
+              case ERedirectMode::Overlay:
+              case ERedirectMode::OverlayCopyOnWrite:
+                directoriesToEnumerate = {
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                        IncludeOnlyMatchingFilenames(
+                            EDirectoryPathSource::RealOpenedPath,
+                            *directoryEnumerationRedirectRule),
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                        IncludeAllFilenames(EDirectoryPathSource::AssociatedPath)};
+                break;
 
-        Message::OutputFormatted(
-            Message::ESeverity::Info,
-            L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will merge out-of-scope files in the origin hierarchy with in-scope files in the target hierarchy.",
-            static_cast<int>(unredirectedPath.length()),
-            unredirectedPath.data(),
-            static_cast<int>(directoryEnumerationRedirectRule->GetName().length()),
-            directoryEnumerationRedirectRule->GetName().data());
-        directoriesToEnumerate = {
-            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                IncludeOnlyMatchingFilenames(
-                    EDirectoryPathSource::RealOpenedPath, *directoryEnumerationRedirectRule),
-            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                IncludeAllExceptMatchingFilenames(
-                    EDirectoryPathSource::AssociatedPath, *directoryEnumerationRedirectRule)};
+              default:
+                Message::OutputFormatted(
+                    Message::ESeverity::Error,
+                    L"Directory enumeration query for path \"%.*s\" matched rule \"%.*s\" but failed because of an invalid redirection mode due to an internal error.",
+                    static_cast<int>(associatedPath.length()),
+                    associatedPath.data(),
+                    static_cast<int>(directoryEnumerationRedirectRule->GetName().length()),
+                    directoryEnumerationRedirectRule->GetName().data());
+                return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+                break;
+            }
+          }
+          while (false);
+          break;
+
+        case EDirectoryCompareResult::CandidateIsChild:
+        case EDirectoryCompareResult::CandidateIsDescendant:
+
+          // The directory being enumerated is a descendant of the selected rules' origin directory,
+          // and one of the rules in the container previously resulted in a redirection. This is
+          // actually a relatively simple case because we only need to interact with a single rule,
+          // the one that did the original redirection, and ignore the rest of them.
+
+          do
+          {
+            const FilesystemRule* originalRedirectRule = IdentifyRuleThatPerformedRedirection(
+                *directoryEnumerationRules, redirectedPathTrimmedForQuery);
+            if (nullptr == originalRedirectRule)
+            {
+              Message::OutputFormatted(
+                  Message::ESeverity::Error,
+                  L"Directory enumeration query for path \"%.*s\" matched rules but failed because the original rule could not be identified due to an internal error.",
+                  static_cast<int>(associatedPath.length()),
+                  associatedPath.data());
+              return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+            }
+
+            switch (originalRedirectRule->GetRedirectMode())
+            {
+              case ERedirectMode::Simple:
+
+                // In simple mode, the target-side contents that are in the filesystem rule scope
+                // replace the contents of any contents on the origin side that are also in the
+                // filesystem rule scope based on file patterns. Here, it is already known that the
+                // directory being enumerated is somehow in scope, so the target-side directory
+                // contents completely replace any origin-side directory contents.
+
+                Message::OutputFormatted(
+                    Message::ESeverity::Debug,
+                    L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will instead enumerate \"%.*s\".",
+                    static_cast<int>(unredirectedPath.length()),
+                    unredirectedPath.data(),
+                    static_cast<int>(originalRedirectRule->GetName().length()),
+                    originalRedirectRule->GetName().data(),
+                    static_cast<int>(redirectedPath.length()),
+                    redirectedPath.data());
+                directoriesToEnumerate = {
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                        IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath)};
+                break;
+
+              case ERedirectMode::Overlay:
+              case ERedirectMode::OverlayCopyOnWrite:
+
+                // In overlay mode, the target-side contents that are in the filesystem rule scope
+                // are always enumerated and merged with the origin-side contents regardless of
+                // scope in the latter case. Here, it is already known that the directory being
+                // enumerated is somehow in scope, so the target-side directory contents are merged
+                // with any origin-side directory contents.
+
+                Message::OutputFormatted(
+                    Message::ESeverity::Debug,
+                    L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will overlay the contents of \"%.*s\".",
+                    static_cast<int>(unredirectedPath.length()),
+                    unredirectedPath.data(),
+                    static_cast<int>(originalRedirectRule->GetName().length()),
+                    originalRedirectRule->GetName().data(),
+                    static_cast<int>(redirectedPath.length()),
+                    redirectedPath.data());
+                directoriesToEnumerate = {
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                        IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath),
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                        IncludeAllFilenames(EDirectoryPathSource::AssociatedPath)};
+                break;
+
+              default:
+                Message::OutputFormatted(
+                    Message::ESeverity::Error,
+                    L"Directory enumeration query for path \"%.*s\" matched rule \"%.*s\" but failed because of an invalid redirection mode due to an internal error.",
+                    static_cast<int>(associatedPath.length()),
+                    associatedPath.data(),
+                    static_cast<int>(originalRedirectRule->GetName().length()),
+                    originalRedirectRule->GetName().data());
+                return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+            }
+          }
+          while (false);
+          break;
+
+        default:
+          Message::OutputFormatted(
+              Message::ESeverity::Error,
+              L"Directory enumeration query for path \"%.*s\" matched rules but failed a directory hierarchy consistency check due to an internal error.",
+              static_cast<int>(associatedPath.length()),
+              associatedPath.data());
+          return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
       }
     }
     else

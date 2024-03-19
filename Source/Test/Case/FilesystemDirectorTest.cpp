@@ -877,6 +877,28 @@ namespace PathwinderTest
   }
 
   // Creates a filesystem director with a single filesystem rule with no file patterns.
+  // Requests a directory enumeration instruction for a child of the origin directory and
+  // verifies that it correctly indicates to enumerate the target-side redirected directory
+  // without any further processing.
+  TEST_CASE(
+      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateChildOfOriginDirectory)
+  {
+    const FilesystemDirector director(MakeFilesystemDirector({
+        {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target")},
+    }));
+
+    constexpr std::wstring_view associatedPath = L"C:\\Origin\\Subdir123";
+    constexpr std::wstring_view realOpenedPath = L"C:\\Target\\Subdir123";
+
+    const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction =
+        DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+    const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
+        director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+    TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+  }
+
+  // Creates a filesystem director with a single filesystem rule with no file patterns.
   // Requests a directory enumeration instruction for a descendant of the origin directory and
   // verifies that it correctly indicates to enumerate the target-side redirected directory
   // without any further processing.
