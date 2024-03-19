@@ -667,7 +667,7 @@ namespace PathwinderTest
     }
   }
 
-  // Creates a filesystem directory with a single filesystem rule without file patterns.
+  // Creates a filesystem director with a single filesystem rule without file patterns.
   // Requests a directory enumeration instruction and verifies that it correctly indicates to
   // enumerate the target directory without any further processing.
   TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectory)
@@ -687,7 +687,7 @@ namespace PathwinderTest
     TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
   }
 
-  // Creates a filesystem directory with a single filesystem rule without file patterns.
+  // Creates a filesystem director with a single filesystem rule without file patterns.
   // Requests a directory enumeration instruction such that the rule is configured for overlay
   // mode and verifies that it correctly merges the target and origin directory contents.
   TEST_CASE(
@@ -713,7 +713,7 @@ namespace PathwinderTest
     TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
   }
 
-  // Creates a filesystem directory with a single filesystem rule with file patterns.
+  // Creates a filesystem director with a single filesystem rule with file patterns.
   // Requests a directory enumeration instruction and verifies that it correctly indicates to
   // merge in-scope target directory contents with out-of-scope origin directory contents.
   TEST_CASE(
@@ -740,7 +740,7 @@ namespace PathwinderTest
     TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
   }
 
-  // Creates a filesystem directory with three filesystem rules, two of which have origin
+  // Creates a filesystem director with three filesystem rules, two of which have origin
   // directories that are direct children of the third. Requests a directory enumeration
   // instruction and verifies that it correcly inserts both origin directories into the
   // enumeration result.
@@ -767,8 +767,9 @@ namespace PathwinderTest
     TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
   }
 
+  // Creates
   TEST_CASE(
-      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithMultipleChildRules)
+      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithSingleMultiRuleChild)
   {
     MockFilesystemOperations mockFilesystem;
     mockFilesystem.AddDirectory(L"C:\\TargetD");
@@ -797,7 +798,7 @@ namespace PathwinderTest
     TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
   }
 
-  // Creates a filesystem directory with multiple filesystem rules, one of which has a top-level
+  // Creates a filesystem director with multiple filesystem rules, one of which has a top-level
   // origin directory and the others of which have origin directories that are a direct child of
   // the top-level origin directory. All target directories also exist in the filesystem. Requests
   // a directory enumeration instruction and verifies that it correcly inserts all of the direct
@@ -839,7 +840,7 @@ namespace PathwinderTest
     TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
   }
 
-  // Creates a filesystem directory with three filesystem rules, two of which have origin
+  // Creates a filesystem director with three filesystem rules, two of which have origin
   // directories that are direct children of the third. Of those two, one has a target directory
   // that exists and the other does not. All three rules have file patterns, although this only
   // matters for the top-level rule with the children. Requests a directory enumeration
@@ -875,7 +876,7 @@ namespace PathwinderTest
     TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
   }
 
-  // Creates a filesystem directory with a single filesystem rule with no file patterns.
+  // Creates a filesystem director with a single filesystem rule with no file patterns.
   // Requests a directory enumeration instruction for a descendant of the origin directory and
   // verifies that it correctly indicates to enumerate the target-side redirected directory
   // without any further processing.
@@ -897,7 +898,7 @@ namespace PathwinderTest
     TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
   }
 
-  // Creates a filesystem directory with a single filesystem rule without file patterns.
+  // Creates a filesystem director with a single filesystem rule without file patterns.
   // Requests a directory enumeration instruction for a descendant of the origin directory in
   // overlay mode and verifies that it correctly indicates to enumerate both target-side and
   // origin-side directories.
@@ -923,7 +924,7 @@ namespace PathwinderTest
     TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
   }
 
-  // Creates a filesystem directory with a single filesystem rule with file patterns.
+  // Creates a filesystem director with a single filesystem rule with file patterns.
   // Requests a directory enumeration instruction for a descendant of the origin directory, which
   // is also within its scope, and verifies that it correctly indicates to enumerate the
   // target-side redirected directory without any further processing.
@@ -945,7 +946,32 @@ namespace PathwinderTest
     TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
   }
 
-  // Creates a filesystem directory and requests an instruction for directory enumeration with a
+  // Creates a filesystem director with a single filesystem rule and opens the parent of the rule's
+  // origin directory for enumeration. Verifies that the rule's origin directory will be inserted
+  // into the output.
+  TEST_CASE(
+      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateParentOfOriginDirectory)
+  {
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(L"C:\\Origin");
+
+    const FilesystemDirector director(MakeFilesystemDirector({
+        {L"1", FilesystemRule(L"1", L"C:\\Origin\\Subdir", L"C:\\Target")},
+    }));
+
+    constexpr std::wstring_view associatedPath = L"C:\\Origin";
+    constexpr std::wstring_view realOpenedPath = L"C:\\Origin";
+
+    const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction =
+        DirectoryEnumerationInstruction::InsertRuleOriginDirectoryNames(
+            {*director.FindRuleByName(L"1")});
+    const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
+        director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+    TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+  }
+
+  // Creates a filesystem director and requests an instruction for directory enumeration with a
   // directory that is totally outside the scope of any filesystem rules. The instruction is
   // expected to indicate that the request should be passed through to the system without
   // modification.
