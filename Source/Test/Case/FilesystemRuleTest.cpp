@@ -38,6 +38,7 @@ namespace PathwinderTest
     const std::vector<std::wstring>& expectedFilePatterns = testFilePatterns;
     const std::vector<std::wstring>& actualFilePatterns = testRule.GetFilePatterns();
 
+    TEST_ASSERT(true == testRule.HasFilePatterns());
     TEST_ASSERT(actualFilePatterns.size() == expectedFilePatterns.size());
     for (size_t i = 0; i < expectedFilePatterns.size(); ++i)
       TEST_ASSERT(
@@ -53,6 +54,7 @@ namespace PathwinderTest
     const std::vector<std::wstring>& expectedFilePatterns = {};
     const std::vector<std::wstring>& actualFilePatterns = testRule.GetFilePatterns();
 
+    TEST_ASSERT(false == testRule.HasFilePatterns());
     TEST_ASSERT(actualFilePatterns.size() == expectedFilePatterns.size());
     for (size_t i = 0; i < expectedFilePatterns.size(); ++i)
       TEST_ASSERT(
@@ -74,6 +76,7 @@ namespace PathwinderTest
       const std::vector<std::wstring>& expectedFilePatterns = {};
       const std::vector<std::wstring>& actualFilePatterns = testRule.GetFilePatterns();
 
+      TEST_ASSERT(false == testRule.HasFilePatterns());
       TEST_ASSERT(actualFilePatterns.size() == expectedFilePatterns.size());
       for (size_t i = 0; i < expectedFilePatterns.size(); ++i)
         TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(
