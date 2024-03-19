@@ -27,6 +27,29 @@
 
 namespace Pathwinder
 {
+  /// Selects a rule to use for determining which real directory to query for enumeration data
+  /// during a name insertion.
+  /// @param [in] possibleRules Container of possible rules from which to select.
+  /// @return Reference to the rule that was selected.
+  static const FilesystemRule& SelectRuleForDirectoryNameInsertionSource(
+      const RelatedFilesystemRuleContainer& possibleRules)
+  {
+    for (const auto& possibleRule : possibleRules.AllRules())
+    {
+      // All rules in the container have the same origin directory, by design. However, they all
+      // have different target directories, and which rule to use to get directory information
+      // depends on which target directories exist. The first rule in the container whose target
+      // directory exists in the filesystem as a directory is chosen.
+      if (FilesystemOperations::IsDirectory(possibleRule.GetTargetDirectoryFullPath()))
+        return possibleRule;
+    }
+
+    // If no rules have target directories that really exist then it does not matter which rule is
+    // selected. The name insertion will not take place because the underlying query to the rule's
+    // target directory will fail.
+    return possibleRules.AnyRule();
+  }
+
   const RelatedFilesystemRuleContainer* FilesystemDirector::SelectRulesForPath(
       std::wstring_view absolutePath) const
   {
@@ -113,6 +136,12 @@ namespace Pathwinder
               directoryEnumerationRedirectRule->DirectoryCompareWithTarget(
                   redirectedPathTrimmedForQuery),
           "Target directory must be somehow related to the redirected path.");
+
+      // TODO: Branch here based on whether or not directory compare with origin is equal. If so,
+      // iterate over all of the filesystem rules and, for each one, look at its redirection mode
+      // and then from there figure out how to proceed. Add each rule to a list of directories to be
+      // enumerated and also, depending on the mode, potentially an "invert match" list for the
+      // original directory's enumeration queue.
 
       if (ERedirectMode::Overlay == directoryEnumerationRedirectRule->GetRedirectMode())
       {
@@ -262,9 +291,8 @@ namespace Pathwinder
         {
           if (true == childItem.second.HasData())
           {
-            // Since all of the rules in the container have the same origin directory it does not
-            // matter which specific rule is used for name insertion.
-            const FilesystemRule& childRule = childItem.second.GetData().AnyRule();
+            const FilesystemRule& childRule =
+                SelectRuleForDirectoryNameInsertionSource(childItem.second.GetData());
 
             // Insertion of a rule's origin directory into the enumeration results
             // requires that two things be true: (1) Origin directory base name matches

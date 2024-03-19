@@ -747,6 +747,8 @@ namespace PathwinderTest
   TEST_CASE(
       FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithChildRules)
   {
+    MockFilesystemOperations mockFilesystem;
+
     const FilesystemDirector director(MakeFilesystemDirector({
         {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target")},
         {L"2", FilesystemRule(L"2", L"C:\\Origin\\SubA", L"C:\\TargetA")},
@@ -765,6 +767,36 @@ namespace PathwinderTest
     TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
   }
 
+  TEST_CASE(
+      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithMultipleChildRules)
+  {
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(L"C:\\TargetD");
+
+    const FilesystemDirector director(MakeFilesystemDirector({
+        {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target")},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin\\Subdir", L"C:\\TargetA")},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin\\Subdir", L"C:\\TargetB")},
+        {L"4", FilesystemRule(L"4", L"C:\\Origin\\Subdir", L"C:\\TargetC")},
+        {L"5", FilesystemRule(L"5", L"C:\\Origin\\Subdir", L"C:\\TargetD")},
+        {L"6", FilesystemRule(L"6", L"C:\\Origin\\Subdir", L"C:\\TargetE")},
+        {L"7", FilesystemRule(L"7", L"C:\\Origin\\Subdir", L"C:\\TargetF")},
+    }));
+
+    constexpr std::wstring_view associatedPath = L"C:\\Origin";
+    constexpr std::wstring_view realOpenedPath = L"C:\\Target";
+
+    // The target directory for rule "5" exists in the filesystem and so that is the rule that
+    // should be selected. No other target directory exists.
+    const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction =
+        DirectoryEnumerationInstruction::InsertRuleOriginDirectoryNames(
+            {*director.FindRuleByName(L"5")});
+    const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
+        director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+    TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+  }
+
   // Creates a filesystem directory with multiple filesystem rules, one of which has a top-level
   // origin directory and the others of which have origin directories that are a direct child of
   // the top-level origin directory. All target directories also exist in the filesystem. Requests
@@ -774,6 +806,8 @@ namespace PathwinderTest
   TEST_CASE(
       FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithMultipleSortedChildRules)
   {
+    MockFilesystemOperations mockFilesystem;
+
     // Rule names are random and totally unordered strings to make sure that rule name is not
     // used for sorting. Rules are inserted in arbitrary order with origin directories also
     // out-of-order. The sorting should be on the basis of the "SubX..." part of the origin
@@ -815,6 +849,8 @@ namespace PathwinderTest
   TEST_CASE(
       FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryWithFilePatternAndChildRules)
   {
+    MockFilesystemOperations mockFilesystem;
+
     const FilesystemDirector director(MakeFilesystemDirector({
         {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target", {L"*.txt", L"*.rtf"})},
         {L"2", FilesystemRule(L"2", L"C:\\Origin\\SubA", L"C:\\TargetA", {L"*.exe"})},
