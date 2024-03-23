@@ -443,8 +443,9 @@ namespace PathwinderTest
   }
 
   // Verifies that a filesystem rule container correctly identifies rules that match file patterns.
-  // In this case all file patterns are totally disjoint.
-  TEST_CASE(RelatedFilesystemRuleContainer_IdentifyRuleMatchingFilename)
+  // In this case all file patterns are totally disjoint, and no query selection enumerators are
+  // used to select or eliminate rules from inclusion in the queries.
+  TEST_CASE(RelatedFilesystemRuleContainer_IdentifyRuleMatchingFilename_Nominal)
   {
     const FilesystemRule rules[] = {
         FilesystemRule(
@@ -487,6 +488,86 @@ namespace PathwinderTest
         TEST_ASSERT(
             ruleContainer.RuleMatchingFileName(testRecord.inputFileName)->GetName() ==
             testRecord.expectedRuleName);
+      }
+    }
+  }
+
+  // Verifies that a filesystem rule container correctly identifies rules that match file patterns.
+  // In this case all file patterns are totally disjoint, and rules are selected or rejected from
+  // inclusion in the query by their redirection mode.
+  TEST_CASE(
+      RelatedFilesystemRuleContainer_IdentifyRuleMatchingFilename_WithQueryRuleSelectionModeFilter)
+  {
+    constexpr EQueryRuleSelectionMode kQueryRuleSelectionMode =
+        EQueryRuleSelectionMode::RedirectModeSimpleOnly;
+
+    const FilesystemRule rules[] = {
+        FilesystemRule(
+            L"TXT",
+            std::wstring_view(),
+            std::wstring_view(),
+            std::vector<std::wstring>{L"*.txt"},
+            ERedirectMode::Simple),
+        FilesystemRule(
+            L"BIN",
+            std::wstring_view(),
+            std::wstring_view(),
+            std::vector<std::wstring>{L"*.bin"},
+            ERedirectMode::Overlay),
+        FilesystemRule(
+            L"LOG",
+            std::wstring_view(),
+            std::wstring_view(),
+            std::vector<std::wstring>{L"*.log"},
+            ERedirectMode::Simple),
+        FilesystemRule(
+            L"EXE",
+            std::wstring_view(),
+            std::wstring_view(),
+            std::vector<std::wstring>{L"*.exe"},
+            ERedirectMode::Overlay),
+    };
+
+    RelatedFilesystemRuleContainer ruleContainer;
+    for (const auto& rule : rules)
+      TEST_ASSERT(true == ruleContainer.InsertRule(rule).second);
+
+    constexpr struct
+    {
+      std::wstring_view inputFileName;
+      std::wstring_view expectedRuleName;
+    } kTestRecords[] = {
+        {.inputFileName = L"file1.TXT", .expectedRuleName = L"TXT"},
+        {.inputFileName = L"File2.txt", .expectedRuleName = L"TXT"},
+        {.inputFileName = L"log file.Log", .expectedRuleName = L"LOG"},
+        {.inputFileName = L"app.exe", .expectedRuleName = L""},
+        {.inputFileName = L"binfile_1234.bin", .expectedRuleName = L""},
+        {.inputFileName = L"document.docx", .expectedRuleName = L""}};
+
+    for (const auto& testRecord : kTestRecords)
+    {
+      if (true == testRecord.expectedRuleName.empty())
+      {
+        TEST_ASSERT(
+            false ==
+            ruleContainer.HasRuleMatchingFileName(
+                testRecord.inputFileName, kQueryRuleSelectionMode));
+        TEST_ASSERT(
+            nullptr ==
+            ruleContainer.RuleMatchingFileName(testRecord.inputFileName, kQueryRuleSelectionMode));
+      }
+      else
+      {
+        TEST_ASSERT(
+            true ==
+            ruleContainer.HasRuleMatchingFileName(
+                testRecord.inputFileName, kQueryRuleSelectionMode));
+        TEST_ASSERT(
+            nullptr !=
+            ruleContainer.RuleMatchingFileName(testRecord.inputFileName, kQueryRuleSelectionMode));
+        TEST_ASSERT(
+            ruleContainer.RuleMatchingFileName(testRecord.inputFileName, kQueryRuleSelectionMode)
+                ->GetName() == testRecord.expectedRuleName);
       }
     }
   }

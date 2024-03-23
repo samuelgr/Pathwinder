@@ -63,12 +63,10 @@ namespace Pathwinder
     Count
   };
 
-  /// Possible ways of obtaining a directory path from an open handle, typically useful for
-  /// determining which directory to enumerate. Directory enumeration operations are requested
-  /// using an open directory handle, which would have been subject to file operation redirection.
-  /// Therefore the possible valid sources of a directory path include the path associated
-  /// internally with the handle and the path actually submitted to the system and used to open
-  /// the handle.
+  /// Possible ways of obtaining a directory path to enumerate. Directory enumeration operations are
+  /// requested using an open directory handle, which would have been subject to file operation
+  /// redirection, and optionally subject to the influence of one or more filesystem rules that act
+  /// as a source of filename matching via their file patterns.
   enum class EDirectoryPathSource : uint8_t
   {
     /// No directory path source. Indicates that no directory should be enumerated.
@@ -79,6 +77,12 @@ namespace Pathwinder
 
     /// Path actually submitted to the system call used to open the handle.
     RealOpenedPath,
+
+    /// Origin directory associated with the file pattern source.
+    FilePatternSourceOriginDirectory,
+
+    /// Target directory associated with the file pattern source.
+    FilePatternSourceTargetDirectory,
 
     /// Not used as a value. Identifies the number of enumerators present in this enumeration.
     Count
@@ -138,23 +142,15 @@ namespace Pathwinder
     public:
 
       inline SingleDirectoryEnumeration(void)
-          : filePatternSource(nullptr),
-            invertFilePatternMatches(false),
+          : filePatternSource(),
+            filePatternMatchConfig(),
             directoryPathSource(EDirectoryPathSource::None)
       {}
 
-      /// Not intended to be invoked externally. Objects should typically be created using
-      /// either the default constructor or one of the supplied factory methods.
-      inline SingleDirectoryEnumeration(
-          EDirectoryPathSource directoryPathSource,
-          const FilesystemRule* filePatternSource,
-          bool invertFilePatternMatches)
-          : directoryPathSource(directoryPathSource),
-            filePatternSource(filePatternSource),
-            invertFilePatternMatches(invertFilePatternMatches)
-      {}
-
-      bool operator==(const SingleDirectoryEnumeration& other) const = default;
+      inline bool operator==(const SingleDirectoryEnumeration& other) const
+      {
+        return true;
+      }
 
       /// Creates an instance of this class that unconditionally includes all filenames.
       /// @param [in] directoryPathSource Enumerator that describes how to obtain the absolute
@@ -165,7 +161,7 @@ namespace Pathwinder
       static inline SingleDirectoryEnumeration IncludeAllFilenames(
           EDirectoryPathSource directoryPathSource)
       {
-        return SingleDirectoryEnumeration(directoryPathSource, nullptr, false);
+        return SingleDirectoryEnumeration(directoryPathSource);
       }
 
       /// Creates an instance of this class that includes only those filenames that match one
@@ -181,7 +177,28 @@ namespace Pathwinder
       static inline SingleDirectoryEnumeration IncludeOnlyMatchingFilenames(
           EDirectoryPathSource directoryPathSource, const FilesystemRule& filePatternSource)
       {
-        return SingleDirectoryEnumeration(directoryPathSource, &filePatternSource, false);
+        return SingleDirectoryEnumeration(directoryPathSource, filePatternSource, false);
+      }
+
+      /// Creates an instance of this class that includes only those filenames that match one
+      /// of the file patterns associated with any of the specified rules.
+      /// @param [in] directoryPathSource Enumerator that describes how to obtain the absolute
+      /// path of the directory to be enumerated.
+      /// @param [in] filePatternSource Filesystem rule container used to determine whether or not a
+      /// filename should be included in the enumeration result.
+      /// @param [in] queryRuleSelectionMode Filtering mode for determining which rules in the
+      /// container should be checked. By default, all rules are checked.
+      /// @return Instance of this class that represents an enumeration to be done and will
+      /// return `true` when the #ShouldIncludeInDirectoryEnumeration method is invoked only
+      /// for those filenames that match a file pattern associated with the specified rule and
+      /// `false` otherwise.
+      static inline SingleDirectoryEnumeration IncludeOnlyMatchingFilenames(
+          EDirectoryPathSource directoryPathSource,
+          const RelatedFilesystemRuleContainer& filePatternSource,
+          EQueryRuleSelectionMode queryRuleSelectionMode = EQueryRuleSelectionMode::All)
+      {
+        return SingleDirectoryEnumeration(
+            directoryPathSource, filePatternSource, false, queryRuleSelectionMode);
       }
 
       /// Creates an instance of this class that includes only those filenames that do not
@@ -197,7 +214,28 @@ namespace Pathwinder
       static inline SingleDirectoryEnumeration IncludeAllExceptMatchingFilenames(
           EDirectoryPathSource directoryPathSource, const FilesystemRule& filePatternSource)
       {
-        return SingleDirectoryEnumeration(directoryPathSource, &filePatternSource, true);
+        return SingleDirectoryEnumeration(directoryPathSource, filePatternSource, true);
+      }
+
+      /// Creates an instance of this class that includes only those filenames that do not match any
+      /// of the file patterns associated with any of the specified rules.
+      /// @param [in] directoryPathSource Enumerator that describes how to obtain the absolute
+      /// path of the directory to be enumerated.
+      /// @param [in] filePatternSource Filesystem rule container used to determine whether or not a
+      /// filename should be included in the enumeration result.
+      /// @param [in] queryRuleSelectionMode Filtering mode for determining which rules in the
+      /// container should be checked. By default, all rules are checked.
+      /// @return Instance of this class that represents an enumeration to be done and will
+      /// return `true` when the #ShouldIncludeInDirectoryEnumeration method is invoked only
+      /// for those filenames that match a file pattern associated with the specified rule and
+      /// `false` otherwise.
+      static inline SingleDirectoryEnumeration IncludeAllExceptMatchingFilenames(
+          EDirectoryPathSource directoryPathSource,
+          const RelatedFilesystemRuleContainer& filePatternSource,
+          EQueryRuleSelectionMode queryRuleSelectionMode = EQueryRuleSelectionMode::All)
+      {
+        return SingleDirectoryEnumeration(
+            directoryPathSource, filePatternSource, true, queryRuleSelectionMode);
       }
 
       /// Retrieves and returns the enumerator that identifies the directory path source for
@@ -227,6 +265,20 @@ namespace Pathwinder
           case EDirectoryPathSource::RealOpenedPath:
             return realOpenedPath;
 
+          case EDirectoryPathSource::FilePatternSourceOriginDirectory:
+            DebugAssert(
+                (false == filePatternMatchConfig.containsMultipleRules) &&
+                    (nullptr != filePatternSource.singleRule),
+                "Attempting to use a filesystem rule as a directory path source without a singular filesystem rule present.");
+            return filePatternSource.singleRule->GetOriginDirectoryFullPath();
+
+          case EDirectoryPathSource::FilePatternSourceTargetDirectory:
+            DebugAssert(
+                (false == filePatternMatchConfig.containsMultipleRules) &&
+                    (nullptr != filePatternSource.singleRule),
+                "Attempting to use a filesystem rule as a directory path source without a singular filesystem rule present.");
+            return filePatternSource.singleRule->GetTargetDirectoryFullPath();
+
           default:
             return std::wstring_view();
         }
@@ -242,19 +294,84 @@ namespace Pathwinder
       /// otherwise.
       inline bool ShouldIncludeInDirectoryEnumeration(std::wstring_view filename) const
       {
-        if (nullptr == filePatternSource) return true;
-        return (filePatternSource->FileNameMatchesAnyPattern(filename) != invertFilePatternMatches);
+        if (true == filePatternMatchConfig.containsMultipleRules)
+        {
+          if (nullptr == filePatternSource.multipleRules) return true;
+          return (
+              filePatternSource.multipleRules->HasRuleMatchingFileName(
+                  filename, filePatternMatchConfig.multiRuleSelectionMode) !=
+              filePatternMatchConfig.invertMatches);
+        }
+        else
+        {
+          if (nullptr == filePatternSource.singleRule) return true;
+          return (
+              filePatternSource.singleRule->FileNameMatchesAnyPattern(filename) !=
+              filePatternMatchConfig.invertMatches);
+        }
       }
 
     private:
 
-      /// Filesystem rule to query for a file pattern match.
-      /// If `nullptr` then everything is presumed to match.
-      const FilesystemRule* filePatternSource;
+      /// Holds a pointer to the object used to check for a match with file patterns when
+      /// enumerating directory contents. Used to determine if a particular filename should be
+      /// included or excluded.
+      union UFilePatternSource
+      {
+        /// Pointer to the single filesystem rule whose file patterns should be consulted, if only
+        /// a single filesystem rule is present.
+        const FilesystemRule* singleRule;
+
+        /// Pointer to a container of multiple filesystem rules whose file patterns should be
+        /// consulted, if multiple filesystem rules are present.
+        const RelatedFilesystemRuleContainer* multipleRules;
+
+        inline bool operator==(const UFilePatternSource& other) const
+        {
+          return (singleRule == other.singleRule);
+        }
+      };
+
+      inline SingleDirectoryEnumeration(EDirectoryPathSource directoryPathSource)
+          : directoryPathSource(directoryPathSource), filePatternSource(), filePatternMatchConfig()
+      {}
+
+      inline SingleDirectoryEnumeration(
+          EDirectoryPathSource directoryPathSource,
+          const FilesystemRule& filePatternSource,
+          bool invertFilePatternMatches)
+          : directoryPathSource(directoryPathSource),
+            filePatternSource({.singleRule = &filePatternSource}),
+            filePatternMatchConfig({.invertMatches = invertFilePatternMatches})
+      {}
+
+      inline SingleDirectoryEnumeration(
+          EDirectoryPathSource directoryPathSource,
+          const RelatedFilesystemRuleContainer& filePatternSource,
+          bool invertFilePatternMatches,
+          EQueryRuleSelectionMode queryRuleSelectionMode)
+          : directoryPathSource(directoryPathSource),
+            filePatternSource({.multipleRules = &filePatternSource}),
+            filePatternMatchConfig(
+                {.invertMatches = invertFilePatternMatches,
+                 .containsMultipleRules = true,
+                 .multiRuleSelectionMode = queryRuleSelectionMode})
+      {}
+
+      /// File pattern source object, if any is present.
+      UFilePatternSource filePatternSource;
 
       /// Whether or not the match result should be inverted.
       /// Only meaningful if the source filesystem rule is present.
-      bool invertFilePatternMatches;
+      struct
+      {
+        bool invertMatches : 1;
+        bool containsMultipleRules : 1;
+        EQueryRuleSelectionMode multiRuleSelectionMode : 6;
+      } filePatternMatchConfig;
+
+      static_assert(
+          1 == sizeof(filePatternMatchConfig), "Data structure size constraint violation.");
 
       /// Enumerator to specify how to obtain the path of the directory to be enumerated.
       EDirectoryPathSource directoryPathSource;
@@ -326,8 +443,8 @@ namespace Pathwinder
     /// merged together as part of an application-requested directory enumeration operation.
     using TDirectoriesToEnumerate = std::vector<SingleDirectoryEnumeration>;
 
-    /// Type alias for holding individual directory name insertions that need to be merged into the
-    /// result of an application-requested directory enumeration operation.
+    /// Type alias for holding individual directory name insertions that need to be merged into
+    /// the result of an application-requested directory enumeration operation.
     using TDirectoryNamesToInsert = TemporaryVector<SingleDirectoryNameInsertion>;
 
     inline DirectoryEnumerationInstruction(
@@ -669,10 +786,10 @@ namespace Pathwinder
       sizeof(DirectoryEnumerationInstruction::SingleDirectoryEnumeration) <= 16,
       "Data structure size constraint violation.");
   static_assert(
-      sizeof(DirectoryEnumerationInstruction::SingleDirectoryNameInsertion) <= 16,
+      sizeof(DirectoryEnumerationInstruction::SingleDirectoryNameInsertion) <= 8,
       "Data structure size constraint violation.");
   static_assert(
-      sizeof(DirectoryEnumerationInstruction) <= 128, "Data structure size constraint violation.");
+      sizeof(DirectoryEnumerationInstruction) <= 64, "Data structure size constraint violation.");
   static_assert(
       sizeof(FileOperationInstruction) <= 64, "Data structure size constraint violation.");
 #else
@@ -680,10 +797,10 @@ namespace Pathwinder
       sizeof(DirectoryEnumerationInstruction::SingleDirectoryEnumeration) <= 8,
       "Data structure size constraint violation.");
   static_assert(
-      sizeof(DirectoryEnumerationInstruction::SingleDirectoryNameInsertion) <= 8,
+      sizeof(DirectoryEnumerationInstruction::SingleDirectoryNameInsertion) <= 4,
       "Data structure size constraint violation.");
   static_assert(
-      sizeof(DirectoryEnumerationInstruction) <= 64, "Data structure size constraint violation.");
+      sizeof(DirectoryEnumerationInstruction) <= 32, "Data structure size constraint violation.");
   static_assert(
       sizeof(FileOperationInstruction) <= 32, "Data structure size constraint violation.");
 #endif

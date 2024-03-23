@@ -99,19 +99,27 @@ namespace Pathwinder
     // implementation of another method for redirecting file operations. If this method is
     // queried for a directory enumeration, then that means a previous file operation resulted
     // in a directory handle being opened using either an unredirected or a redirected path and
-    // associated with an unredirected path. There are three parts to a complete directory
-    // enumeration operation: (1) Enumerate the contents of the redirected directory path,
-    // potentially subject to file pattern matching with a filesystem rule. This captures all of
-    // the files in scope of the filesystem rule that exist on the target side. (2) Enumerate
-    // the contents of the unredirected directory path, for anything that exists on the origin
-    // side but is beyond the scope of the filesystem rule. (3) Insert specific subdirectories
-    // into the enumeration results provided back to the application. This captures filesystem
-    // rules whose origin directories do not actually exist in the real filesystem on the origin
-    // side. Parts 1 and 2 are only interesting if a redirection took place. Otherwise there is
-    // no reason to merge directory contents on the origin side with directory contents on the
-    // target side. Part 3 is always potentially interesting. Whether or not a redirection took
-    // place, the path being queried for directory enumeration may have filesystem rule origin
-    // directories as direct children, and these would potentially need to be enumerated.
+    // associated with an unredirected path.
+    //
+    // There are three parts to a complete directory enumeration operation:
+    //
+    // (1) Enumerate the contents of one or more redirected directory paths, potentially subject to
+    // file pattern matching with associated filesystem rules. This captures all of the files that
+    // exist on the target side of any applicable filesystem rules. There may be more than one
+    // filesystem rule when the enumeration is for an origin directory.
+    //
+    // (2) Enumerate the contents of the unredirected directory path, for
+    // anything that exists on the origin side but is beyond the scope of the filesystem rule.
+    //
+    // (3) Insert specific subdirectories into the enumeration results provided back to the
+    // application. This captures filesystem rules whose origin directories do not actually exist in
+    // the real filesystem on the origin side.
+    //
+    // Parts 1 and 2 are only interesting if a redirection took place. Otherwise there is no reason
+    // to merge directory contents on the origin side with directory contents on the target side.
+    // Part 3 is always potentially interesting. Whether or not a redirection took place, the path
+    // being queried for directory enumeration may have filesystem rule origin directories as direct
+    // children, and these would potentially need to be enumerated.
 
     DirectoryEnumerationInstruction::TDirectoriesToEnumerate directoriesToEnumerate;
     if (associatedPath != realOpenedPath)
@@ -149,97 +157,84 @@ namespace Pathwinder
         return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
       }
 
-      // TODO: Branch here based on whether or not directory compare with origin is equal. If so,
-      // iterate over all of the filesystem rules and, for each one, look at its redirection mode
-      // and then from there figure out how to proceed. Add each rule to a list of directories to be
-      // enumerated and also, depending on the mode, potentially an "invert match" list for the
-      // original directory's enumeration queue.
-      //
-      // There are two possible cases.
-      // (1) Enumerated directory is EQUAL to the origin directory of the identified node.
-      // (2) Enumerated directory is a DESCENDENT of the origin directory of the identified node.
-      //
-      // In case 1, we need to iterate. For each filesystem rule:
-      // - If it uses any OVERLAY mode, then...
-      //   > Enumerate matching files from its target directory
-      // - If it uses SIMPLE mode, then...
-      //   > Enumerate matching files from its target directory
-      //   > Note to EXCLUDE matching files from the real opened path enumeration
-      // - In both of the above branches...
-      //   > Enumerate the entire contents of the real opened path (origin side) EXCLUDING whatever
-      //     was previously marked for exclusion (via SIMPLE mode rules).
-      //
-      // In case 2, then some sort of redirection already happened, so we just need to:
-      // - Identify the filesystem rule that actually did the original redirection
-      // - If that filesystem rule uses any OVERLAY mode, then...
-      //   > Enumerate all matching contents of the real opened path (target side)
-      //   > Enumerate the entire contents of the associated path (origin side)
-      // - If that filesystem uses SIMPLE mode, then...
-      //   > Enumerate the entire contents of the real opened path
+      const FilesystemRule* originalRedirectRule = IdentifyRuleThatPerformedRedirection(
+          *directoryEnumerationRules, redirectedPathTrimmedForQuery);
+      if (nullptr == originalRedirectRule)
+      {
+        Message::OutputFormatted(
+            Message::ESeverity::Error,
+            L"Directory enumeration query for path \"%.*s\" matched rules but failed because the original rule could not be identified due to an internal error.",
+            static_cast<int>(associatedPath.length()),
+            associatedPath.data());
+        return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+      }
 
       switch (directoryEnumerationRules->AnyRule().DirectoryCompareWithOrigin(
           unredirectedPathTrimmedForQuery))
       {
         case EDirectoryCompareResult::Equal:
+
+          // The directory being enumerated is exactly equal to the selected rules' origin
+          // directory. All of the selected rules need to be consulted, and each can generate a
+          // separate target-side enumeration that needs to be merged into the enumeration output
+          // provided back to the requesting application.
+
           do
           {
-            // The directory being enumerated is exactly equal to the selected rules' origin
-            // directory. All of the selected rules need to be consulted, and each can generate a
-            // separate target-side enumeration that needs to be merged into the enumeration output
-            // provided back to the requesting application. This is the more complicated case
-            // because it involves iterating over all of the rules. Behavior per rule will also
-            // differ based on its configured redirection mode.
+            // It is possible that a filesystem rule will completely and unconditionally replace the
+            // entire contents of the origin side directory. In that situation, there is no need to
+            // add a separate enumeration just for the origin directory's real contents.
+            bool originSideContentsCompletelyReplaced = false;
 
-            // TODO
-            // Iteration part needs to be implemented. This is just the old code slightly
-            // reorganized.
-
-            auto directoryEnumerationRedirectRule = &directoryEnumerationRules->AnyRule();
-
-            switch (directoryEnumerationRedirectRule->GetRedirectMode())
+            for (const auto& directoryEnumerationRule : directoryEnumerationRules->AllRules())
             {
-              case ERedirectMode::Simple:
-                if (directoryEnumerationRedirectRule->HasFilePatterns())
+              // A simplification is available for the same rule that was used for the original
+              // redirection. In that case, the file handle's real opened path can be used instead
+              // of relying on the filesystem rule's origin or target directories. Depending on
+              // whether or not the rule has any file patterns, some of the enumeration checks can
+              // be skipped. The expected most common case is one rule per origin directory, so this
+              // simplification is likely to be applied almost always.
+              if (&directoryEnumerationRule == originalRedirectRule)
+              {
+                if (true == directoryEnumerationRule.HasFilePatterns())
                 {
-                  directoriesToEnumerate = {
+                  directoriesToEnumerate.emplace_back(
                       DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                           IncludeOnlyMatchingFilenames(
-                              EDirectoryPathSource::RealOpenedPath,
-                              *directoryEnumerationRedirectRule),
-                      DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                          IncludeAllExceptMatchingFilenames(
-                              EDirectoryPathSource::AssociatedPath,
-                              *directoryEnumerationRedirectRule)};
+                              EDirectoryPathSource::RealOpenedPath, directoryEnumerationRule));
                 }
                 else
                 {
-                  directoriesToEnumerate = {
+                  directoriesToEnumerate.emplace_back(
                       DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                          IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath)};
+                          IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath));
                 }
-                break;
-
-              case ERedirectMode::Overlay:
-              case ERedirectMode::OverlayCopyOnWrite:
-                directoriesToEnumerate = {
+              }
+              else
+              {
+                // If the filesystem rule is a different one that has the same origin directory then
+                // regardless of whether or not it has any file patterns the rule is still needed as
+                // a source of information for which directory to enumerate.
+                directoriesToEnumerate.emplace_back(
                     DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                         IncludeOnlyMatchingFilenames(
-                            EDirectoryPathSource::RealOpenedPath,
-                            *directoryEnumerationRedirectRule),
-                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                        IncludeAllFilenames(EDirectoryPathSource::AssociatedPath)};
-                break;
+                            EDirectoryPathSource::FilePatternSourceTargetDirectory,
+                            directoryEnumerationRule));
+              }
 
-              default:
-                Message::OutputFormatted(
-                    Message::ESeverity::Error,
-                    L"Directory enumeration query for path \"%.*s\" matched rule \"%.*s\" but failed because of an invalid redirection mode due to an internal error.",
-                    static_cast<int>(associatedPath.length()),
-                    associatedPath.data(),
-                    static_cast<int>(directoryEnumerationRedirectRule->GetName().length()),
-                    directoryEnumerationRedirectRule->GetName().data());
-                return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
-                break;
+              if ((ERedirectMode::Simple == directoryEnumerationRule.GetRedirectMode()) &&
+                  (false == directoryEnumerationRule.HasFilePatterns()))
+                originSideContentsCompletelyReplaced = true;
+            }
+
+            if (false == originSideContentsCompletelyReplaced)
+            {
+              directoriesToEnumerate.emplace_back(
+                  DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                      IncludeAllExceptMatchingFilenames(
+                          EDirectoryPathSource::AssociatedPath,
+                          *directoryEnumerationRules,
+                          EQueryRuleSelectionMode::RedirectModeSimpleOnly));
             }
           }
           while (false);
@@ -255,18 +250,6 @@ namespace Pathwinder
 
           do
           {
-            const FilesystemRule* originalRedirectRule = IdentifyRuleThatPerformedRedirection(
-                *directoryEnumerationRules, redirectedPathTrimmedForQuery);
-            if (nullptr == originalRedirectRule)
-            {
-              Message::OutputFormatted(
-                  Message::ESeverity::Error,
-                  L"Directory enumeration query for path \"%.*s\" matched rules but failed because the original rule could not be identified due to an internal error.",
-                  static_cast<int>(associatedPath.length()),
-                  associatedPath.data());
-              return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
-            }
-
             switch (originalRedirectRule->GetRedirectMode())
             {
               case ERedirectMode::Simple:
