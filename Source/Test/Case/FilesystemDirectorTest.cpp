@@ -670,7 +670,8 @@ namespace PathwinderTest
   // Creates a filesystem director with a single filesystem rule without file patterns.
   // Requests a directory enumeration instruction and verifies that it correctly indicates to
   // enumerate the target directory without any further processing.
-  TEST_CASE(FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectory)
+  TEST_CASE(
+      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectory_Nominal)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
         {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target")},
@@ -681,6 +682,126 @@ namespace PathwinderTest
 
     const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction =
         DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+    const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
+        director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+    TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+  }
+
+  // Creates a filesystem director with multiple filesystem rules all with the same origin
+  // directory. Requests a directory enumeration instruction and verifies that it correctly
+  // indicates to merge all of the appropriately-matched target directory contents. One of the
+  // filesystem rules has no file patterns, and all of them use Simple redirection mode, so the
+  // origin directory itself should not be enumerated. Whichever rule has its target directory as
+  // the real opened path is the one whose enumeration is simplified to use the real opened path
+  // instead of the target directory.
+  TEST_CASE(
+      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryMultiRuleAllSimple)
+  {
+    const FilesystemDirector director(MakeFilesystemDirector({
+        {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target1", {L"*.pdf"})},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin", L"C:\\Target2", {L"*.txt"})},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin", L"C:\\Target3")},
+    }));
+
+    constexpr std::wstring_view associatedPath = L"C:\\Origin";
+    constexpr std::wstring_view realOpenedPath = L"C:\\Target1";
+
+    const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction =
+        DirectoryEnumerationInstruction::EnumerateDirectories(
+            {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                 IncludeOnlyMatchingFilenames(
+                     EDirectoryPathSource::RealOpenedPath, *director.FindRuleByName(L"1")),
+             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                 IncludeOnlyMatchingFilenames(
+                     EDirectoryPathSource::FilePatternSourceTargetDirectory,
+                     *director.FindRuleByName(L"2")),
+             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                 IncludeOnlyMatchingFilenames(
+                     EDirectoryPathSource::FilePatternSourceTargetDirectory,
+                     *director.FindRuleByName(L"3"))});
+    const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
+        director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+    TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+  }
+
+  // Creates a filesystem director with multiple filesystem rules all with the same origin
+  // directory. Requests a directory enumeration instruction and verifies that it correctly
+  // indicates to merge all of the appropriately-matched target directory contents. All of the rules
+  // have file patterns, so the origin side directory needs to be enumerated as well. Whichever rule
+  // has its target directory as the real opened path is the one whose enumeration is simplified to
+  // use the real opened path instead of the target directory.
+  TEST_CASE(
+      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryMultiRuleAllSimpleWithFilePatterns)
+  {
+    const FilesystemDirector director(MakeFilesystemDirector({
+        {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target1", {L"*.pdf"})},
+        {L"2", FilesystemRule(L"2", L"C:\\Origin", L"C:\\Target2", {L"*.txt"})},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin", L"C:\\Target3", {L"*.log"})},
+    }));
+
+    constexpr std::wstring_view associatedPath = L"C:\\Origin";
+    constexpr std::wstring_view realOpenedPath = L"C:\\Target2";
+
+    const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction =
+        DirectoryEnumerationInstruction::EnumerateDirectories(
+            {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                 IncludeOnlyMatchingFilenames(
+                     EDirectoryPathSource::FilePatternSourceTargetDirectory,
+                     *director.FindRuleByName(L"1")),
+             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                 IncludeOnlyMatchingFilenames(
+                     EDirectoryPathSource::RealOpenedPath, *director.FindRuleByName(L"2")),
+             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                 IncludeOnlyMatchingFilenames(
+                     EDirectoryPathSource::FilePatternSourceTargetDirectory,
+                     *director.FindRuleByName(L"3")),
+             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                 IncludeAllExceptMatchingFilenames(
+                     EDirectoryPathSource::AssociatedPath,
+                     *director.SelectRulesForPath(L"C:\\Origin"),
+                     EQueryRuleSelectionMode::RedirectModeSimpleOnly)});
+    const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
+        director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
+
+    TEST_ASSERT(actualDirectoryEnumerationInstruction == expectedDirectoryEnumerationInstruction);
+  }
+
+  // Creates a filesystem director with multiple filesystem rules all with the same origin
+  // directory. Requests a directory enumeration instruction and verifies that it correctly
+  // indicates to merge all of the appropriately-matched target directory contents. File patterns
+  // vary, but all of the rules use overlay mode, so the final enumeration needs to be on the origin
+  // side. The rule without a file pattern is also the one that originally did the redirection, so
+  // its entry in the directory enumeration instruction can be simplified somewhat.
+  TEST_CASE(
+      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryMultiRuleAllOverlay)
+  {
+    const FilesystemDirector director(MakeFilesystemDirector({
+        {L"1",
+         FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target1", {L"*.pdf"}, ERedirectMode::Overlay)},
+        {L"2",
+         FilesystemRule(L"2", L"C:\\Origin", L"C:\\Target2", {L"*.exe"}, ERedirectMode::Overlay)},
+        {L"3", FilesystemRule(L"3", L"C:\\Origin", L"C:\\Target3", {}, ERedirectMode::Overlay)},
+    }));
+
+    constexpr std::wstring_view associatedPath = L"C:\\Origin";
+    constexpr std::wstring_view realOpenedPath = L"C:\\Target3";
+
+    const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction =
+        DirectoryEnumerationInstruction::EnumerateDirectories(
+            {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                 IncludeOnlyMatchingFilenames(
+                     EDirectoryPathSource::FilePatternSourceTargetDirectory,
+                     *director.FindRuleByName(L"1")),
+             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                 IncludeOnlyMatchingFilenames(
+                     EDirectoryPathSource::FilePatternSourceTargetDirectory,
+                     *director.FindRuleByName(L"2")),
+             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
+                 EDirectoryPathSource::RealOpenedPath),
+             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
+                 EDirectoryPathSource::AssociatedPath)});
     const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
         director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
@@ -702,9 +823,8 @@ namespace PathwinderTest
 
     const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction =
         DirectoryEnumerationInstruction::EnumerateDirectories(
-            {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                 IncludeOnlyMatchingFilenames(
-                     EDirectoryPathSource::RealOpenedPath, *director.FindRuleByName(L"1")),
+            {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
+                 EDirectoryPathSource::RealOpenedPath),
              DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
                  EDirectoryPathSource::AssociatedPath)});
     const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =

@@ -181,9 +181,10 @@ namespace Pathwinder
 
           do
           {
-            // It is possible that a filesystem rule will completely and unconditionally replace the
-            // entire contents of the origin side directory. In that situation, there is no need to
-            // add a separate enumeration just for the origin directory's real contents.
+            // Simple overlay mode rules can either partially or completely replace the contents of
+            // the origin side, depending on whether or not they have any filesystem rules
+            // associated with them.
+            bool originSideContentsPartiallyReplaced = false;
             bool originSideContentsCompletelyReplaced = false;
 
             for (const auto& directoryEnumerationRule : directoryEnumerationRules->AllRules())
@@ -222,19 +223,72 @@ namespace Pathwinder
                             directoryEnumerationRule));
               }
 
-              if ((ERedirectMode::Simple == directoryEnumerationRule.GetRedirectMode()) &&
-                  (false == directoryEnumerationRule.HasFilePatterns()))
-                originSideContentsCompletelyReplaced = true;
+              Message::OutputFormatted(
+                  Message::ESeverity::Debug,
+                  L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will include in-scope contents of \"%.*s\" in the output.",
+                  static_cast<int>(unredirectedPath.length()),
+                  unredirectedPath.data(),
+                  static_cast<int>(directoryEnumerationRule.GetName().length()),
+                  directoryEnumerationRule.GetName().data(),
+                  static_cast<int>(directoryEnumerationRule.GetTargetDirectoryFullPath().length()),
+                  directoryEnumerationRule.GetTargetDirectoryFullPath().data());
+
+              if (ERedirectMode::Simple == directoryEnumerationRule.GetRedirectMode())
+              {
+                originSideContentsPartiallyReplaced = true;
+
+                if (false == directoryEnumerationRule.HasFilePatterns())
+                  originSideContentsCompletelyReplaced = true;
+              }
             }
 
             if (false == originSideContentsCompletelyReplaced)
             {
-              directoriesToEnumerate.emplace_back(
-                  DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                      IncludeAllExceptMatchingFilenames(
-                          EDirectoryPathSource::AssociatedPath,
-                          *directoryEnumerationRules,
-                          EQueryRuleSelectionMode::RedirectModeSimpleOnly));
+              // Inside this block is a series of potential simplifications for the directory
+              // enumeration instruction that is generated to enumerate the real contents of the
+              // origin side directory, if necessary. The purpose of all these instructions is the
+              // same, but some forms are simpler to represent and execute than others.
+
+              if (true == originSideContentsPartiallyReplaced)
+              {
+                // If any rule uses Simple as its redirection mode then it could hide real files on
+                // the origin side. To implement that, the enumeration process needs to verify an
+                // inverted match with those rules' file patterns. It is simpler to represent and
+                // execute a single-rule instruction, and that is also the most common expected
+                // case.
+
+                if (1 == directoryEnumerationRules->CountOfRules())
+                {
+                  directoriesToEnumerate.emplace_back(
+                      DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                          IncludeAllExceptMatchingFilenames(
+                              EDirectoryPathSource::AssociatedPath, *originalRedirectRule));
+                }
+                else
+                {
+                  directoriesToEnumerate.emplace_back(
+                      DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                          IncludeAllExceptMatchingFilenames(
+                              EDirectoryPathSource::AssociatedPath,
+                              *directoryEnumerationRules,
+                              EQueryRuleSelectionMode::RedirectModeSimpleOnly));
+                }
+              }
+              else
+              {
+                // No rules with Simple as their redirection modes means no need to check for any
+                // file pattern matches. This is a simpler case to represent and execute.
+
+                directoriesToEnumerate.emplace_back(
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                        IncludeAllFilenames(EDirectoryPathSource::AssociatedPath));
+              }
+
+              Message::OutputFormatted(
+                  Message::ESeverity::Debug,
+                  L"Directory enumeration query for path \"%.*s\" will additionally include in the output any contents of the original query path not hidden or already enumerated by matching filesystem rules.",
+                  static_cast<int>(unredirectedPath.length()),
+                  unredirectedPath.data());
             }
           }
           while (false);

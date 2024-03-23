@@ -147,10 +147,7 @@ namespace Pathwinder
             directoryPathSource(EDirectoryPathSource::None)
       {}
 
-      inline bool operator==(const SingleDirectoryEnumeration& other) const
-      {
-        return true;
-      }
+      bool operator==(const SingleDirectoryEnumeration& other) const = default;
 
       /// Creates an instance of this class that unconditionally includes all filenames.
       /// @param [in] directoryPathSource Enumerator that describes how to obtain the absolute
@@ -332,6 +329,27 @@ namespace Pathwinder
         }
       };
 
+      /// Holds configuration settings for how to check the file pattern source for file pattern
+      /// matches when enumerating the present directory.
+      struct SFilePatternMatchConfig
+      {
+        /// Whether or not matches should be inverted.
+        bool invertMatches : 1;
+
+        /// Whether or not the file pattern source contains multiple rules.
+        bool containsMultipleRules : 1;
+
+        /// If the file pattern source contains multiple rules, how to choose the correct rules to
+        /// use when querying for a file pattern match.
+        EQueryRuleSelectionMode multiRuleSelectionMode : 6;
+
+        bool operator==(const SFilePatternMatchConfig& other) const = default;
+      };
+
+      static_assert(sizeof(void*) == sizeof(UFilePatternSource));
+      static_assert(
+          1 == sizeof(SFilePatternMatchConfig), "Data structure size constraint violation.");
+
       inline SingleDirectoryEnumeration(EDirectoryPathSource directoryPathSource)
           : directoryPathSource(directoryPathSource), filePatternSource(), filePatternMatchConfig()
       {}
@@ -361,14 +379,9 @@ namespace Pathwinder
       /// File pattern source object, if any is present.
       UFilePatternSource filePatternSource;
 
-      /// Whether or not the match result should be inverted.
-      /// Only meaningful if the source filesystem rule is present.
-      struct
-      {
-        bool invertMatches : 1;
-        bool containsMultipleRules : 1;
-        EQueryRuleSelectionMode multiRuleSelectionMode : 6;
-      } filePatternMatchConfig;
+      /// Configuration settings for how to consult the file pattern source object for matches
+      /// during enumeration.
+      SFilePatternMatchConfig filePatternMatchConfig;
 
       static_assert(
           1 == sizeof(filePatternMatchConfig), "Data structure size constraint violation.");
