@@ -66,18 +66,6 @@ namespace Pathwinder
         sizeof(SVersionInfo) == ((4 * sizeof(uint16_t)) + sizeof(std::wstring_view)),
         "Version information structure size constraint violation.");
 
-    /// Configuration data parsed from a configuration file.
-    struct SConfigurationData
-    {
-      /// Whether or not "dry run" mode is enabled. If so, redirection queries are logged but
-      /// not actuated.
-      bool isDryRunMode;
-    };
-
-    /// Retrieves the configuration data after being parsed from a configuration file.
-    /// @return Read-only configuration object reference.
-    const SConfigurationData& GetConfigurationData(void);
-
     /// Retrieves a pseudohandle to the current process.
     /// @return Current process pseudohandle.
     HANDLE GetCurrentProcessHandle(void);

@@ -40,7 +40,6 @@ namespace PathwinderTest
         {{L"",
           {
               {L"LogLevel", 4},
-              {L"DryRun", false},
           }}});
 
     TestConfigurationFileRead(configurationData);

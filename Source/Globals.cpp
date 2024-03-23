@@ -153,29 +153,6 @@ namespace Pathwinder
       }
     }
 
-    /// Holds and returns a mutable reference to the parsed configuration data object.
-    /// @return Mutable reference to parsed configuration data.
-    static SConfigurationData& MutableParsedConfigurationData(void)
-    {
-      static SConfigurationData configData;
-      return configData;
-    }
-
-    /// Generates and returns a parsed configuration data structure given the configuration data
-    /// object read from a configuration file.
-    /// @param [in] configData Read-only reference to a configuration data object.
-    /// @return Resulting parsed configuration data structure.
-    static SConfigurationData ParseConfigurationData(
-        const Configuration::ConfigurationData& configData)
-    {
-      return {
-          .isDryRunMode =
-              configData
-                  .GetFirstBooleanValue(
-                      Configuration::kSectionNameGlobal, Strings::kStrConfigurationSettingDryRun)
-                  .value_or(false)};
-    }
-
     /// Reads configuration data from the configuration file and returns the resulting
     /// configuration data object. Enables logging and outputs read errors if any are
     /// encountered.
@@ -219,16 +196,6 @@ namespace Pathwinder
     }
 #endif
 
-    const SConfigurationData& GetConfigurationData(void)
-    {
-#ifdef PATHWINDER_SKIP_CONFIG
-      static SConfigurationData fakeConfigData{};
-      return fakeConfigData;
-#else
-      return MutableParsedConfigurationData();
-#endif
-    }
-
     HANDLE GetCurrentProcessHandle(void)
     {
       return GlobalData::GetInstance().gCurrentProcessHandle;
@@ -266,17 +233,9 @@ namespace Pathwinder
     {
 #ifndef PATHWINDER_SKIP_CONFIG
       Configuration::ConfigurationData configData = ReadConfigurationFile();
-      MutableParsedConfigurationData() = ParseConfigurationData(configData);
 
       EnableLogIfConfigured(configData);
       SetResolverConfiguredDefinitions(configData);
-
-      if (true == GetConfigurationData().isDryRunMode)
-        Message::OutputFormatted(
-            Message::ESeverity::Warning,
-            L"%s is set to DRY RUN mode. All redirection queries will be logged, but no redirection will actually occur.",
-            Strings::kStrProductName.data());
-
       BuildFilesystemRules(configData);
 #endif
     }

@@ -33,8 +33,6 @@ namespace Pathwinder
           Configuration::kSectionNameGlobal,
           {
               ConfigurationFileLayoutNameAndValueType(
-                  Strings::kStrConfigurationSettingDryRun, Configuration::EValueType::Boolean),
-              ConfigurationFileLayoutNameAndValueType(
                   Strings::kStrConfigurationSettingLogLevel, Configuration::EValueType::Integer),
           }),
   };

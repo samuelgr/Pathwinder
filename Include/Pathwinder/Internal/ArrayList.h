@@ -69,7 +69,7 @@ namespace Pathwinder
       return *this;
     }
 
-    inline ArrayList& operator=(ArrayList&& other)
+    inline ArrayList& operator=(ArrayList&& other) noexcept
     {
       Clear();
 

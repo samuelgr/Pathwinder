@@ -1391,8 +1391,6 @@ namespace Pathwinder
         DirectoryEnumerationInstruction directoryEnumerationInstruction =
             instructionSourceFunc(maybeHandleData->associatedPath, maybeHandleData->realOpenedPath);
 
-        if (true == Globals::GetConfigurationData().isDryRunMode) return std::nullopt;
-
         std::unique_ptr<IDirectoryOperationQueue> directoryOperationQueueUniquePtr =
             CreateDirectoryOperationQueue(
                 directoryEnumerationInstruction,
@@ -1454,8 +1452,7 @@ namespace Pathwinder
           instructionSourceFunc);
       const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
-      if (true == Globals::GetConfigurationData().isDryRunMode ||
-          (FileOperationInstruction::NoRedirectionOrInterception() == redirectionInstruction))
+      if (FileOperationInstruction::NoRedirectionOrInterception() == redirectionInstruction)
         return underlyingSystemCallInvoker(fileHandle, objectAttributes, createDisposition);
 
       NTSTATUS preOperationResult = ExecuteExtraPreOperations(
@@ -1656,9 +1653,6 @@ namespace Pathwinder
           instructionSourceFunc);
       const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
-      if (true == Globals::GetConfigurationData().isDryRunMode)
-        return underlyingSystemCallInvoker(fileHandle, renameInformation, renameInformationLength);
-
       NTSTATUS preOperationResult = ExecuteExtraPreOperations(
           functionName, functionRequestIdentifier, operationContext.instruction);
       if (!(NT_SUCCESS(preOperationResult))) return preOperationResult;
@@ -1752,8 +1746,7 @@ namespace Pathwinder
           instructionSourceFunc);
       const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
-      if (true == Globals::GetConfigurationData().isDryRunMode ||
-          (FileOperationInstruction::NoRedirectionOrInterception() == redirectionInstruction))
+      if (FileOperationInstruction::NoRedirectionOrInterception() == redirectionInstruction)
         return underlyingSystemCallInvoker(objectAttributes);
 
       NTSTATUS preOperationResult = ExecuteExtraPreOperations(
