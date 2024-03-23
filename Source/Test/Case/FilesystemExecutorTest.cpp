@@ -1385,6 +1385,49 @@ namespace PathwinderTest
     TEST_ASSERT(actualReturnValue == expectedReturnValue);
   }
 
+  // Verifies that directory enumeration operations are passed through to the system if the
+  // directory enumeration says to pass through the query without modification.
+  TEST_CASE(FilesystemExecutor_DirectoryEnumerationPrepare_PassthroughByInstruction)
+  {
+    constexpr std::wstring_view kAssociatedPath = L"C:\\AssociatedPathDirectory";
+    constexpr std::wstring_view kRealOpenedPath = L"D:\\RealOpenedPath\\Directory";
+
+    std::array<uint8_t, 256> unusedBuffer{};
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(kAssociatedPath);
+    mockFilesystem.AddDirectory(kRealOpenedPath);
+
+    const HANDLE directoryHandle = mockFilesystem.Open(kRealOpenedPath);
+
+    OpenHandleStore openHandleStore;
+    openHandleStore.InsertHandle(
+        directoryHandle, std::wstring(kAssociatedPath), std::wstring(kRealOpenedPath));
+
+    bool instructionSourceFuncInvoked = false;
+
+    const std::optional<NTSTATUS> expectedReturnValue = std::nullopt;
+    const std::optional<NTSTATUS> actualReturnValue =
+        FilesystemExecutor::DirectoryEnumerationPrepare(
+            TestCaseName().data(),
+            kFunctionRequestIdentifier,
+            openHandleStore,
+            directoryHandle,
+            unusedBuffer.data(),
+            static_cast<ULONG>(unusedBuffer.size()),
+            SFileNamesInformation::kFileInformationClass,
+            nullptr,
+            [&instructionSourceFuncInvoked](
+                std::wstring_view, std::wstring_view) -> DirectoryEnumerationInstruction
+            {
+              instructionSourceFuncInvoked = true;
+              return DirectoryEnumerationInstruction::PassThroughUnmodifiedQuery();
+            });
+
+    TEST_ASSERT(true == instructionSourceFuncInvoked);
+    TEST_ASSERT(actualReturnValue == expectedReturnValue);
+  }
+
   // Verifies that directory enumeration operations are passed through to the system if the file
   // information class is not recognized as one that Pathwinder can intercept.
   TEST_CASE(

@@ -1410,6 +1410,13 @@ namespace Pathwinder
         maybeHandleData = openHandleStore.GetDataForHandle(fileHandle);
       }
 
+      // A `nullptr` queue, either just created or already cached, indicates that the directory
+      // enumeration operation should be passed through to the system without interception or
+      // modification.
+      const auto& handleAssociatedEnumerationQueue =
+          (*(*maybeHandleData->directoryEnumeration)).queue;
+      if (nullptr == handleAssociatedEnumerationQueue) return std::nullopt;
+
       return NtStatus::kSuccess;
     }
 
