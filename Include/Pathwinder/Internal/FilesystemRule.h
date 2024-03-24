@@ -64,7 +64,7 @@ namespace Pathwinder
     /// Only rules with Simple as the redirect mode should be included.
     RedirectModeSimpleOnly,
 
-    /// Only rules with Overlay or OverlayCopyOnWrite redirect mode should be included.
+    /// Only rules with Overlay redirect mode should be included.
     RedirectModeOverlayOnly,
 
     /// Not used as a value. Identifies the number of enumerators present in this enumeration.
@@ -84,12 +84,6 @@ namespace Pathwinder
     /// Overlay redirection mode. File operations merge the target side with the origin
     /// side, with files on the target side given priority.
     Overlay,
-
-    /// Overlay redirection mode with copy-on-write. File operations merge the target side
-    /// with the origin side, with files on the target side given priority. However, any
-    /// attempt to write to an in-scope file on the origin side causes it to be copied to
-    /// the target side before the write proceeds.
-    OverlayCopyOnWrite,
 
     /// Not used as a value. Identifies the number of enumerators present in this enumeration.
     Count
@@ -437,15 +431,7 @@ namespace Pathwinder
           return (ERedirectMode::Simple == rule.GetRedirectMode());
 
         case EQueryRuleSelectionMode::RedirectModeOverlayOnly:
-          switch (rule.GetRedirectMode())
-          {
-            case ERedirectMode::Overlay:
-            case ERedirectMode::OverlayCopyOnWrite:
-              return true;
-
-            default:
-              return false;
-          }
+          return (ERedirectMode::Overlay == rule.GetRedirectMode());
 
         default:
           return false;

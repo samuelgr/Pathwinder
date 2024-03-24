@@ -48,9 +48,7 @@ namespace Pathwinder
         Strings::CaseInsensitiveHasher<wchar_t>,
         Strings::CaseInsensitiveEqualityComparator<wchar_t>>
         kRedirectModeStrings = {
-            {L"Simple", ERedirectMode::Simple},
-            {L"Overlay", ERedirectMode::Overlay},
-            {L"OverlayCopyOnWrite", ERedirectMode::OverlayCopyOnWrite}};
+            {L"Simple", ERedirectMode::Simple}, {L"Overlay", ERedirectMode::Overlay}};
 
     if (false ==
         configSection.NameExists(Strings::kStrConfigurationSettingFilesystemRuleRedirectMode))
@@ -76,9 +74,6 @@ namespace Pathwinder
 
       case ERedirectMode::Overlay:
         return L"Overlay";
-
-      case ERedirectMode::OverlayCopyOnWrite:
-        return L"OverlayCopyOnWrite";
 
       default:
         return L"(unknown)";

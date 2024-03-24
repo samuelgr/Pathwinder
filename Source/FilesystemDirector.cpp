@@ -329,7 +329,6 @@ namespace Pathwinder
                 break;
 
               case ERedirectMode::Overlay:
-              case ERedirectMode::OverlayCopyOnWrite:
 
                 // In overlay mode, the target-side contents that are in the filesystem rule scope
                 // are always enumerated and merged with the origin-side contents regardless of
@@ -667,7 +666,6 @@ namespace Pathwinder
     switch (selectedRule->GetRedirectMode())
     {
       case ERedirectMode::Overlay:
-      case ERedirectMode::OverlayCopyOnWrite:
       {
         // In overlay redirection mode, if the application is willing to create a new
         // file, then a preference towards already-existing files needs to be set in the
