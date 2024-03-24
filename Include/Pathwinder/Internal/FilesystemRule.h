@@ -54,23 +54,6 @@ namespace Pathwinder
     Count
   };
 
-  /// Determines which filesystem rules should be checked or skipped when querying a container of
-  /// multiple related filesystem rules.
-  enum class EQueryRuleSelectionMode : uint8_t
-  {
-    /// All rules should be included.
-    All,
-
-    /// Only rules with Simple as the redirect mode should be included.
-    RedirectModeSimpleOnly,
-
-    /// Only rules with Overlay redirect mode should be included.
-    RedirectModeOverlayOnly,
-
-    /// Not used as a value. Identifies the number of enumerators present in this enumeration.
-    Count
-  };
-
   /// Enumerates the different types of redirection modes that can be configured for each
   /// filesystem rule.
   enum class ERedirectMode
@@ -385,11 +368,9 @@ namespace Pathwinder
     /// separators, as it is intended to represent a file within a directory rather than a path.
     /// @param [in] candidateFileName File name to check for matches with any file pattern.
     /// @return `true` if any file pattern produces a match, `false` otherwise.
-    inline bool HasRuleMatchingFileName(
-        std::wstring_view candidateFileName,
-        EQueryRuleSelectionMode querySelectionMode = EQueryRuleSelectionMode::All) const
+    inline bool HasRuleMatchingFileName(std::wstring_view candidateFileName) const
     {
-      return (nullptr != RuleMatchingFileName(candidateFileName, querySelectionMode));
+      return (nullptr != RuleMatchingFileName(candidateFileName));
     }
 
     /// Identifies the first filesystem rule found such that the specified filename matches any of
@@ -397,45 +378,12 @@ namespace Pathwinder
     /// separators, as it is intended to represent a file within a directory rather than a path.
     /// @param [in] candidateFileName File name to check for matches with any file pattern.
     /// @return Pointer to the first rule that matches, or `nullptr` if none exist.
-    inline const FilesystemRule* RuleMatchingFileName(
-        std::wstring_view candidateFileName,
-        EQueryRuleSelectionMode querySelectionMode = EQueryRuleSelectionMode::All) const
+    inline const FilesystemRule* RuleMatchingFileName(std::wstring_view candidateFileName) const
     {
       for (const auto& filesystemRule : filesystemRules)
-      {
-        if (false == RuleMatchesQuerySelectionMode(filesystemRule, querySelectionMode)) continue;
         if (filesystemRule.FileNameMatchesAnyPattern(candidateFileName)) return &filesystemRule;
-      }
 
       return nullptr;
-    }
-
-    /// @brief Determines if the specified filesystem rule matches the specified query selection
-    /// mode and therefore should be consulted when querying a container object.
-    /// @param [in] rule Filesystem rule to check.
-    /// @param [in] querySelectionMode Query selection mode against which to check the filesystem
-    /// rule.
-    /// @return `true` if the query selection mode includes the filesystem rule in its scope,
-    /// `false` otherwise.
-    static inline bool RuleMatchesQuerySelectionMode(
-        const FilesystemRule& rule, EQueryRuleSelectionMode querySelectionMode)
-    {
-      if (EQueryRuleSelectionMode::All == querySelectionMode) return true;
-
-      switch (querySelectionMode)
-      {
-        case EQueryRuleSelectionMode::All:
-          return true;
-
-        case EQueryRuleSelectionMode::RedirectModeSimpleOnly:
-          return (ERedirectMode::Simple == rule.GetRedirectMode());
-
-        case EQueryRuleSelectionMode::RedirectModeOverlayOnly:
-          return (ERedirectMode::Overlay == rule.GetRedirectMode());
-
-        default:
-          return false;
-      }
     }
 
   private:

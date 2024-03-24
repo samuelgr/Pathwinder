@@ -696,7 +696,7 @@ namespace PathwinderTest
   // the real opened path is the one whose enumeration is simplified to use the real opened path
   // instead of the target directory.
   TEST_CASE(
-      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryMultiRuleAllSimple)
+      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectory_NoOriginSideEnumeration)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
         {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target1", {L"*.pdf"})},
@@ -733,7 +733,7 @@ namespace PathwinderTest
   // has its target directory as the real opened path is the one whose enumeration is simplified to
   // use the real opened path instead of the target directory.
   TEST_CASE(
-      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryMultiRuleAllSimpleWithFilePatterns)
+      FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectory_WithOriginSideEnumeration)
   {
     const FilesystemDirector director(MakeFilesystemDirector({
         {L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target1", {L"*.pdf"})},
@@ -761,7 +761,7 @@ namespace PathwinderTest
                  IncludeAllExceptMatchingFilenames(
                      EDirectoryPathSource::AssociatedPath,
                      *director.SelectRulesForPath(L"C:\\Origin"),
-                     EQueryRuleSelectionMode::RedirectModeSimpleOnly)});
+                     EFilePatternMatchCondition::MatchByRedirectModeInvertOverlay)});
     const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
         director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 

@@ -181,11 +181,9 @@ namespace Pathwinder
 
           do
           {
-            // Simple overlay mode rules can either partially or completely replace the contents of
-            // the origin side, depending on whether or not they have any filesystem rules
-            // associated with them.
-            bool originSideContentsPartiallyReplaced = false;
-            bool originSideContentsCompletelyReplaced = false;
+            int numSimpleRedirectModeRules = 0;
+            int numOverlayRedirectModeRules = 0;
+            bool containsSimpleRedirectModeRuleWithNoFilePatterns = false;
 
             for (const auto& directoryEnumerationRule : directoryEnumerationRules->AllRules())
             {
@@ -233,14 +231,33 @@ namespace Pathwinder
                   static_cast<int>(directoryEnumerationRule.GetTargetDirectoryFullPath().length()),
                   directoryEnumerationRule.GetTargetDirectoryFullPath().data());
 
-              if (ERedirectMode::Simple == directoryEnumerationRule.GetRedirectMode())
+              switch (directoryEnumerationRule.GetRedirectMode())
               {
-                originSideContentsPartiallyReplaced = true;
+                case ERedirectMode::Simple:
+                  numSimpleRedirectModeRules += 1;
+                  if (false == directoryEnumerationRule.HasFilePatterns())
+                    containsSimpleRedirectModeRuleWithNoFilePatterns = true;
+                  break;
 
-                if (false == directoryEnumerationRule.HasFilePatterns())
-                  originSideContentsCompletelyReplaced = true;
+                case ERedirectMode::Overlay:
+                  numOverlayRedirectModeRules += 1;
+                  break;
+
+                default:
+                  break;
               }
             }
+
+            // None of the files on the origin side will show up in the enumeration output if all of
+            // the filesystem rules use Simple as their redirection mode and at least one of them
+            // has no file patterns and hence matches all files.
+            const bool originSideContentsCompletelyReplaced =
+                ((0 == numOverlayRedirectModeRules) &&
+                 containsSimpleRedirectModeRuleWithNoFilePatterns);
+
+            // If any rule uses Simple as its redirection mode then it could hide real files on
+            // the origin side.
+            const bool originSideContentsPartiallyReplaced = (0 < numSimpleRedirectModeRules);
 
             if (false == originSideContentsCompletelyReplaced)
             {
@@ -251,14 +268,18 @@ namespace Pathwinder
 
               if (true == originSideContentsPartiallyReplaced)
               {
-                // If any rule uses Simple as its redirection mode then it could hide real files on
-                // the origin side. To implement that, the enumeration process needs to verify an
-                // inverted match with those rules' file patterns. It is simpler to represent and
-                // execute a single-rule instruction, and that is also the most common expected
-                // case.
+                // To implement hiding of files on the origin side, the enumeration process needs to
+                // verify an inverted match with those rules' file patterns. It is simpler to
+                // represent and execute a single-rule instruction, and that is also the most common
+                // expected case.
 
                 if (1 == directoryEnumerationRules->CountOfRules())
                 {
+                  // Some files on the origin side may need to be hiddne, but there is only one
+                  // filesystem rule to be consulted. It is already known that this filesystem rule
+                  // uses Simple redirect mode. Anything in-scope for that rule needs to be
+                  // excluded.
+
                   directoriesToEnumerate.emplace_back(
                       DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                           IncludeAllExceptMatchingFilenames(
@@ -266,17 +287,23 @@ namespace Pathwinder
                 }
                 else
                 {
+                  // Some files on the origin side may need to be hidden, and multiple rules need to
+                  // be consulted. The logic for this is not trivial. For each file, the container
+                  // needs to be queried for the first rule that matches based on file patterns. If
+                  // that rule uses Overlay mode, then the file should be shown in the enumeration
+                  // output, but if the rule uses Simple mode, then it should be hidden.
+
                   directoriesToEnumerate.emplace_back(
                       DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                           IncludeAllExceptMatchingFilenames(
                               EDirectoryPathSource::AssociatedPath,
                               *directoryEnumerationRules,
-                              EQueryRuleSelectionMode::RedirectModeSimpleOnly));
+                              EFilePatternMatchCondition::MatchByRedirectModeInvertOverlay));
                 }
               }
               else
               {
-                // No rules with Simple as their redirection modes means no need to check for any
+                // No hiding of files on the origin side means no need to check for any
                 // file pattern matches. This is a simpler case to represent and execute.
 
                 directoriesToEnumerate.emplace_back(

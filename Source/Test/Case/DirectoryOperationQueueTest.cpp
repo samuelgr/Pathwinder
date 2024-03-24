@@ -78,13 +78,10 @@ namespace PathwinderTest
   /// @return Single directory enumeration instruction that includes only those files that match
   /// the specified filesystem rule's file patterns.
   static inline DirectoryEnumerationInstruction::SingleDirectoryEnumeration
-      InstructionToIncludeMatchingFiles(
-          const RelatedFilesystemRuleContainer& filePatternSource,
-          EQueryRuleSelectionMode queryRuleSelectionMode = EQueryRuleSelectionMode::All)
+      InstructionToIncludeMatchingFiles(const RelatedFilesystemRuleContainer& filePatternSource)
   {
     return DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-        IncludeOnlyMatchingFilenames(
-            EDirectoryPathSource::None, filePatternSource, queryRuleSelectionMode);
+        IncludeOnlyMatchingFilenames(EDirectoryPathSource::None, filePatternSource);
   }
 
   /// Generates and returns a single directory enumeration instruction that includes only those
@@ -113,13 +110,10 @@ namespace PathwinderTest
   /// @return Single directory enumeration instruction that includes only those files that do not
   /// match the specified filesystem rule's file patterns.
   static inline DirectoryEnumerationInstruction::SingleDirectoryEnumeration
-      InstructionToExcludeMatchingFiles(
-          const RelatedFilesystemRuleContainer& filePatternSource,
-          EQueryRuleSelectionMode queryRuleSelectionMode = EQueryRuleSelectionMode::All)
+      InstructionToExcludeMatchingFiles(const RelatedFilesystemRuleContainer& filePatternSource)
   {
     return DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-        IncludeAllExceptMatchingFilenames(
-            EDirectoryPathSource::None, filePatternSource, queryRuleSelectionMode);
+        IncludeAllExceptMatchingFilenames(EDirectoryPathSource::None, filePatternSource);
   }
 
   // Creates a directory with a small number of files and expects that they are all enumerated.
@@ -399,63 +393,6 @@ namespace PathwinderTest
 
     EnumerationQueue enumerationQueue(
         InstructionToIncludeMatchingFiles(filePatternSource),
-        L"C:\\Directory",
-        SFileNamesInformation::kFileInformationClass);
-
-    for (auto fileName : kMatchingFileNames)
-    {
-      TEST_ASSERT(NT_SUCCESS(enumerationQueue.EnumerationStatus()));
-      TEST_ASSERT(enumerationQueue.FileNameOfFront() == fileName);
-      enumerationQueue.PopFront();
-    }
-
-    TEST_ASSERT(NtStatus::kNoMoreFiles == enumerationQueue.EnumerationStatus());
-  }
-
-  // Creates a directory with a small number of files and expects that only files that do not match
-  // the file patterns, supplied in multiple filesystem rules, are enumerated. In this case,
-  // filesystem rules exist that match all files, but only a subset are expected to be consulted
-  // based on their redirection mode.
-  TEST_CASE(EnumerationQueue_EnumerateAllExceptMultiRuleSubsetMatchingFiles)
-  {
-    constexpr std::wstring_view kDirectoryName = L"C:\\Directory";
-    constexpr std::wstring_view kMatchingFileNames[] = {
-        L"File0.log",
-        L"File1.txt",
-        L"File2.txt",
-        L"File3.txt",
-        L"File4.txt",
-        L"File5.txt",
-    };
-    constexpr std::wstring_view kNonMatchingFileNames[] = {
-        L"asdf.txt",
-        L"SomeOtherFile.bin",
-        L"Program.exe"
-        L"zZz.txt"};
-
-    MockFilesystemOperations mockFilesystem;
-    for (auto fileName : kMatchingFileNames)
-    {
-      TemporaryString fileAbsolutePath;
-      fileAbsolutePath << kDirectoryName << L'\\' << fileName;
-      mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
-    }
-    for (auto fileName : kNonMatchingFileNames)
-    {
-      TemporaryString fileAbsolutePath;
-      fileAbsolutePath << kDirectoryName << L'\\' << fileName;
-      mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
-    }
-
-    RelatedFilesystemRuleContainer filePatternSource;
-    for (auto fileName : kMatchingFileNames)
-      filePatternSource.EmplaceRule(CreateFilePatternSourceRule(fileName, ERedirectMode::Overlay));
-    for (auto fileName : kNonMatchingFileNames)
-      filePatternSource.EmplaceRule(CreateFilePatternSourceRule(fileName, ERedirectMode::Simple));
-
-    EnumerationQueue enumerationQueue(
-        InstructionToExcludeMatchingFiles(
-            filePatternSource, EQueryRuleSelectionMode::RedirectModeSimpleOnly),
         L"C:\\Directory",
         SFileNamesInformation::kFileInformationClass);
 

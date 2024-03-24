@@ -124,6 +124,7 @@
     <ClCompile Include="Source\FilesystemDirector.cpp" />
     <ClCompile Include="Source\FilesystemDirectorBuilder.cpp" />
     <ClCompile Include="Source\FilesystemExecutor.cpp" />
+    <ClCompile Include="Source\FilesystemInstruction.cpp" />
     <ClCompile Include="Source\FilesystemOperations.cpp" />
     <ClCompile Include="Source\FilesystemRule.cpp" />
     <ClCompile Include="Source\Globals.cpp" />
