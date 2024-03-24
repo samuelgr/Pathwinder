@@ -148,8 +148,17 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtDeleteFile::Hook(POBJECT_ATTRIBUTES ObjectAttributes)
 {
-  // TODO
-  return Original(ObjectAttributes);
+  return Pathwinder::FilesystemExecutor::QueryByObjectAttributes(
+      GetFunctionName(),
+      GetRequestIdentifier(),
+      OpenHandleStoreInstance(),
+      ObjectAttributes,
+      DELETE,
+      InstructionSourceForFileOperation,
+      [](POBJECT_ATTRIBUTES ObjectAttributes) -> NTSTATUS
+      {
+        return Original(ObjectAttributes);
+      });
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(
@@ -417,6 +426,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationByName::Hook(
       GetRequestIdentifier(),
       OpenHandleStoreInstance(),
       ObjectAttributes,
+      GENERIC_READ,
       InstructionSourceForFileOperation,
       [IoStatusBlock, FileInformation, Length, FileInformationClass](
           POBJECT_ATTRIBUTES ObjectAttributes) -> NTSTATUS
@@ -466,6 +476,7 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
       GetRequestIdentifier(),
       OpenHandleStoreInstance(),
       ObjectAttributes,
+      GENERIC_READ,
       InstructionSourceForFileOperation,
       [FileInformation](POBJECT_ATTRIBUTES ObjectAttributes) -> NTSTATUS
       {

@@ -205,6 +205,8 @@ namespace Pathwinder
     /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
     /// file handles known to be open. Sets the context for this call.
     /// @param [in] objectAttributes Object attributes received as input from the application.
+    /// @param [in] desiredAccess Access type requested for the query operation in question.
+    /// Typically this would be read-only for information requests.
     /// @param [in] instructionSourceFunc Function to be invoked that will retrieve a file operation
     /// instruction, given an absolute path, file access mode, and create disposition.
     /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
@@ -217,6 +219,7 @@ namespace Pathwinder
         unsigned int functionRequestIdentifier,
         OpenHandleStore& openHandleStore,
         POBJECT_ATTRIBUTES objectAttributes,
+        ACCESS_MASK desiredAccess,
         std::function<FileOperationInstruction(
             std::wstring_view absolutePath,
             FileAccessMode fileAccessMode,

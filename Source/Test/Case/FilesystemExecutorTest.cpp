@@ -4052,6 +4052,7 @@ namespace PathwinderTest
             kFunctionRequestIdentifier,
             openHandleStore,
             &objectAttributesUnredirectedPath,
+            GENERIC_READ,
             [&fileOperationInstructionToTry](
                 std::wstring_view, FileAccessMode, CreateDisposition) -> FileOperationInstruction
             {
@@ -4120,6 +4121,7 @@ namespace PathwinderTest
           kFunctionRequestIdentifier,
           openHandleStore,
           &objectAttributes,
+          GENERIC_READ,
           [kUnredirectedPath](
               std::wstring_view actualRequestedPath,
               FileAccessMode,
@@ -4190,6 +4192,7 @@ namespace PathwinderTest
           kFunctionRequestIdentifier,
           openHandleStore,
           &objectAttributesUnredirectedPath,
+          GENERIC_READ,
           [&testInputFileOperationInstruction](
               std::wstring_view actualUnredirectedPath,
               FileAccessMode,
@@ -4277,6 +4280,7 @@ namespace PathwinderTest
           kFunctionRequestIdentifier,
           openHandleStore,
           &objectAttributesUnredirectedPath,
+          GENERIC_READ,
           [kUnredirectedPath, &fileOperationInstructionToTry, &instructionSourceWasInvoked](
               std::wstring_view, FileAccessMode, CreateDisposition) -> FileOperationInstruction
           {
@@ -4327,6 +4331,7 @@ namespace PathwinderTest
         kFunctionRequestIdentifier,
         openHandleStore,
         &objectAttributesRelativePath,
+        GENERIC_READ,
         [kUnredirectedPath](
             std::wstring_view actualUnredirectedPath,
             FileAccessMode,
