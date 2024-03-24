@@ -134,6 +134,7 @@
     <ClCompile Include="Source\Test\Case\FilesystemDirectorTest.cpp" />
     <ClCompile Include="Source\Test\Case\FilesystemExecutorTest.cpp" />
     <ClCompile Include="Source\Test\Case\FilesystemRuleTest.cpp" />
+    <ClCompile Include="Source\Test\Case\IntegrationTest.cpp" />
     <ClCompile Include="Source\Test\Case\OpenHandleStoreTest.cpp" />
     <ClCompile Include="Source\Test\Case\PathwinderConfigReaderTest.cpp" />
     <ClCompile Include="Source\Test\Case\PrefixTreeTest.cpp" />

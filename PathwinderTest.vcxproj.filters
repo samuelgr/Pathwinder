@@ -114,6 +114,9 @@
     <ClCompile Include="Source\Test\Case\ThreadPoolTest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Test\Case\IntegrationTest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Include\Pathwinder\Test\Harness.h">

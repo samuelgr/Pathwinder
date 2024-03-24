@@ -125,6 +125,23 @@ namespace PathwinderTest
       AddFilesystemEntityInternal(absolutePath, EFilesystemEntityType::File, fileSizeInBytes);
     }
 
+    /// Inserts multiple files into the fake filesystem, all in the same directory.
+    /// @param [in] directoryAbsolutePath Absolute path of the directory into which files should be
+    /// inserted.
+    /// @param [in] fileNames Initializer list of file names to insert.
+    inline void AddFilesInDirectory(
+        std::wstring_view directoryAbsolutePath, std::initializer_list<std::wstring_view> fileNames)
+    {
+      Pathwinder::TemporaryString absolutePath;
+
+      for (auto& fileName : fileNames)
+      {
+        absolutePath = directoryAbsolutePath;
+        absolutePath << L'\\' << fileName;
+        AddFile(absolutePath);
+      }
+    }
+
     /// Retrieves the file pattern associated with the directory enumeration operation for the
     /// specified handle.
     /// @param [in] handle Handle for a directory being enumerated for which the file pattern is
@@ -155,6 +172,14 @@ namespace PathwinderTest
     inline void SetConfigAllowCloseInvalidHandle(bool newConfigAllowCloseInvalidHandle)
     {
       configAllowCloseInvalidHandle = newConfigAllowCloseInvalidHandle;
+    }
+
+    /// Configures this object to allow or disallow opening nonexistent files. If allowed,
+    /// attempting to do so causes `nullptr` to be returned, otherwise it triggers a test failure.
+    /// @param [in] newConfigAllowOpenNonExistentFile New value for this configuration setting.
+    inline void SetConfigAllowOpenNonExistentFile(bool newConfigAllowOpenNonExistentFile)
+    {
+      configAllowOpenNonExistentFile = newConfigAllowOpenNonExistentFile;
     }
 
     // FilesystemOperations
@@ -205,6 +230,11 @@ namespace PathwinderTest
     /// attempt to close an invalid (for example, not-previously-opened) handle. If so, doing so
     /// triggers a test failure, otherwise it triggers a normal status code being returned.
     bool configAllowCloseInvalidHandle;
+
+    /// Configuration setting that determines whether or not it is considered a test failure to
+    /// attempt to open a nonexistent file. If so, doing so triggers a test failure, otherwise it
+    /// triggers `nullptr` being returned.
+    bool configAllowOpenNonExistentFile;
 
     /// Contents of the mock filesystem. Top-level map key is an absolute directory name and value
     /// is a set of directory contents.

@@ -454,7 +454,8 @@ namespace PathwinderTest
       filePatternSource.EmplaceRule(CreateFilePatternSourceRule(fileName, ERedirectMode::Simple));
 
     EnumerationQueue enumerationQueue(
-        InstructionToExcludeMatchingFiles(filePatternSource, EQueryRuleSelectionMode::RedirectModeSimpleOnly),
+        InstructionToExcludeMatchingFiles(
+            filePatternSource, EQueryRuleSelectionMode::RedirectModeSimpleOnly),
         L"C:\\Directory",
         SFileNamesInformation::kFileInformationClass);
 

@@ -44,6 +44,7 @@ namespace PathwinderTest
 
   MockFilesystemOperations::MockFilesystemOperations(void)
       : configAllowCloseInvalidHandle(),
+        configAllowOpenNonExistentFile(),
         filesystemContents(),
         openFilesystemHandles(),
         inProgressDirectoryEnumerations(),
@@ -69,7 +70,7 @@ namespace PathwinderTest
   {
     HANDLE openResult = OpenFilesystemEntityInternal(absolutePath, ioMode);
 
-    if (nullptr == openResult)
+    if ((nullptr == openResult) && (false == configAllowOpenNonExistentFile))
       TEST_FAILED_BECAUSE(
           L"%s: Attempting to open absolute path \"%.*s\" which does not exist in the fake filesystem.",
           __FUNCTIONW__,
