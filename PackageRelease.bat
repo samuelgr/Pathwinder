@@ -23,7 +23,7 @@ set files_release=LICENSE README.md
 set files_release_build_Win32=Pathwinder.HookModule.32.dll
 set files_release_build_x64=Pathwinder.HookModule.64.dll
 
-set third_party_license=Hookshot
+set third_party_license=Hookshot XstdBitSet
 
 rem ------------------------------------------------------------------------------------------------
 
