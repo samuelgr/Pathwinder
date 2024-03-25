@@ -139,9 +139,16 @@ namespace Pathwinder
             static_cast<int>(newFilesystemRule.GetTargetDirectoryFullPath().length()),
             newFilesystemRule.GetTargetDirectoryFullPath().data());
 
-        for (const auto& filePattern : newFilesystemRule.GetFilePatterns())
-          Message::OutputFormatted(
-              Message::ESeverity::Info, L"  File pattern = \"%s\"", filePattern.c_str());
+        if (true == newFilesystemRule.HasFilePatterns())
+        {
+          for (const auto& filePattern : newFilesystemRule.GetFilePatterns())
+            Message::OutputFormatted(
+                Message::ESeverity::Info, L"  File pattern = \"%s\"", filePattern.c_str());
+        }
+        else
+        {
+          Message::Output(Message::ESeverity::Info, L"  File pattern = \"*\"");
+        }
       }
       else
       {
