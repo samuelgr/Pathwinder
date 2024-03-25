@@ -240,6 +240,98 @@ namespace Pathwinder
       return initString;
     }
 
+    /// Generates the value for kStrNetBiosHostname; see documentation of this run-time
+    /// constant for more information.
+    /// @return Corresponding run-time constant value.
+    static const std::wstring& GetNetBiosHostname(void)
+    {
+      static std::wstring initString;
+      static std::once_flag initFlag;
+
+      std::call_once(
+          initFlag,
+          []() -> void
+          {
+            TemporaryBuffer<wchar_t> buf;
+            DWORD bufsize = static_cast<DWORD>(buf.Capacity());
+
+            GetComputerNameEx(ComputerNamePhysicalNetBIOS, buf.Data(), &bufsize);
+
+            initString.assign(buf.Data());
+          });
+
+      return initString;
+    }
+
+    /// Generates the value for kStrDnsHostname; see documentation of this run-time
+    /// constant for more information.
+    /// @return Corresponding run-time constant value.
+    static const std::wstring& GetDnsHostname(void)
+    {
+      static std::wstring initString;
+      static std::once_flag initFlag;
+
+      std::call_once(
+          initFlag,
+          []() -> void
+          {
+            TemporaryBuffer<wchar_t> buf;
+            DWORD bufsize = static_cast<DWORD>(buf.Capacity());
+
+            GetComputerNameEx(ComputerNamePhysicalDnsHostname, buf.Data(), &bufsize);
+
+            initString.assign(buf.Data());
+          });
+
+      return initString;
+    }
+
+    /// Generates the value for kStrDnsDomain; see documentation of this run-time
+    /// constant for more information.
+    /// @return Corresponding run-time constant value.
+    static const std::wstring& GetDnsDomain(void)
+    {
+      static std::wstring initString;
+      static std::once_flag initFlag;
+
+      std::call_once(
+          initFlag,
+          []() -> void
+          {
+            TemporaryBuffer<wchar_t> buf;
+            DWORD bufsize = static_cast<DWORD>(buf.Capacity());
+
+            GetComputerNameEx(ComputerNamePhysicalDnsDomain, buf.Data(), &bufsize);
+
+            initString.assign(buf.Data());
+          });
+
+      return initString;
+    }
+
+    /// Generates the value for kStrDnsFullyQualified; see documentation of this run-time
+    /// constant for more information.
+    /// @return Corresponding run-time constant value.
+    static const std::wstring& GetDnsFullyQualified(void)
+    {
+      static std::wstring initString;
+      static std::once_flag initFlag;
+
+      std::call_once(
+          initFlag,
+          []() -> void
+          {
+            TemporaryBuffer<wchar_t> buf;
+            DWORD bufsize = static_cast<DWORD>(buf.Capacity());
+
+            GetComputerNameEx(ComputerNamePhysicalDnsFullyQualified, buf.Data(), &bufsize);
+
+            initString.assign(buf.Data());
+          });
+
+      return initString;
+    }
+
     /// Generates the value for kStrConfigurationFilename; see documentation of this run-time
     /// constant for more information.
     /// @return Corresponding run-time constant value.
@@ -311,6 +403,10 @@ namespace Pathwinder
     extern const std::wstring_view kStrPathwinderCompleteFilename(GetPathwinderCompleteFilename());
     extern const std::wstring_view kStrPathwinderBaseName(GetPathwinderBaseName());
     extern const std::wstring_view kStrPathwinderDirectoryName(GetPathwinderDirectoryName());
+    extern const std::wstring_view kStrNetBiosHostname(GetNetBiosHostname());
+    extern const std::wstring_view kStrDnsHostname(GetDnsHostname());
+    extern const std::wstring_view kStrDnsDomain(GetDnsDomain());
+    extern const std::wstring_view kStrDnsFullyQualified(GetDnsFullyQualified());
     extern const std::wstring_view kStrConfigurationFilename(GetConfigurationFilename());
     extern const std::wstring_view kStrLogFilename(GetLogFilename());
 

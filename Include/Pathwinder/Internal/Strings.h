@@ -103,6 +103,21 @@ namespace Pathwinder
     /// Directory name of the currently-running form of Pathwinder, without trailing backslash.
     extern const std::wstring_view kStrPathwinderDirectoryName;
 
+    /// NetBIOS hostname of the machine on which the currently-running executable is running.
+    extern const std::wstring_view kStrNetBiosHostname;
+
+    /// DNS hostname of the machine on which the currently-running executable is running. Does not
+    /// include the domain name, just the hostname.
+    extern const std::wstring_view kStrDnsHostname;
+
+    /// DNS domain of the machine on which the currently-running executable is running. Does not
+    /// include the hostname, just the domain.
+    extern const std::wstring_view kStrDnsDomain;
+
+    /// Fully-qualified DNS name of the machine on which the currently-running executable is
+    /// running. Includes both hostname and domain.
+    extern const std::wstring_view kStrDnsFullyQualified;
+
     /// Expected filename of a configuration file.
     /// Pathwinder configuration filename = (Pathwinder directory)\Pathwinder.ini
     extern const std::wstring_view kStrConfigurationFilename;

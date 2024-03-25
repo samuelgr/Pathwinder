@@ -53,7 +53,11 @@ namespace Pathwinder
           {L"ExecutableDirectoryName", Strings::kStrExecutableDirectoryName},
           {L"PathwinderCompleteFilename", Strings::kStrPathwinderCompleteFilename},
           {L"PathwinderBaseName", Strings::kStrPathwinderBaseName},
-          {L"PathwinderDirectoryName", Strings::kStrPathwinderDirectoryName}};
+          {L"PathwinderDirectoryName", Strings::kStrPathwinderDirectoryName},
+          {L"NetBiosHostname", Strings::kStrNetBiosHostname},
+          {L"DnsHostname", Strings::kStrDnsHostname},
+          {L"DnsDomain", Strings::kStrDnsDomain},
+          {L"DnsFullyQualified", Strings::kStrDnsFullyQualified}};
 
       const auto builtinStringsIter = kBuiltinStrings.find(name);
       if (kBuiltinStrings.cend() == builtinStringsIter)
