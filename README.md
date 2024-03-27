@@ -6,6 +6,28 @@ The application itself sees a completely consistent, but potentially illusionary
 
 Pathwinder is implemented as a hook module and needs to be loaded into an application using [Hookshot](https://github.com/samuelgr/Hookshot).
 
+## Differences from Filesystem Links
+
+A natural question after reading a basic description of Pathwinder's functionality is, "how is this different from something like a symbolic link?"
+
+Pathwinder *can* behave in a way that is similar to using a filesystem link, such as a symbolic link, but that is the [simplest and most basic](https://github.com/samuelgr/Pathwinder/wiki/Mechanics-of-Filesystem-Rules#Entire-Directory-Replacement) way of configuring it. Even then, Pathwinder is different:
+
+- On Windows, creating filesystem links generally requires administrative privileges. Pathwinder does not impose this requirement.
+    - Windows might demand administrative privileges when writing Pathwinder's configuration file, depending on where it is located.
+
+- Pathwinder works where filesystem links do not. Because filesystem links themselves are special objects that require support from the underlying filesystem, they are not suitable for all situations. For example, the filesystems typically used on removable storage devices like USB keys do not support filesystem links, but Pathwinder would work without issue in that setting.
+
+- Making a filesystem link is a system-wide change, visible to all applications that access it. Pathwinder, on the other hand, does not make any persistent changes to the filesystem, nor does it make any system-wide changes whatsoever. Pathwinder only redirects file operations for those applications that the end user has configured, and even then, only while they are running.
+
+Pathwinder additionally offers several features that cannot be replicated by using filesystem links alone.
+
+- A filesystem link for a directory redirects *all filesystem operations* that access that directory. This is not necessarily true for Pathwinder; it supports file patterns so that only those filenames that match the patterns are redirected.
+
+- Pathwinder supports an "overlay" mode that has the effect of merging the contents of multiple directories so they all appear to be part of the same directory.
+    - This is very similar to how an [overlay filesystem works](https://docs.kernel.org/filesystems/overlayfs.html#upper-and-lower), except that Pathwinder is not limited to merging just two directories.
+
+- Unlike filesystem links, which use a fixed origin and target path, Pathwinder determines the origin and target of redirections [dynamically and at run-time](https://github.com/samuelgr/Pathwinder/wiki/Configuration#Dynamic-Reference-Resolution).
+    - This means that, if Pathwinder is configured correctly, two different users logged into the same machine could run the same program at the exact same time and Pathwinder would be able to redirect file operations differently for each (such as to their own per-user locations).
 
 ## Getting Started
 
@@ -28,7 +50,26 @@ Pathwinder requires a configuration file be present to provide it with the rules
 
 Pathwinder will display a warning message box and automatically enable logging if it detects a configuration file error on application start-up. Consult the log file that Pathwinder places on the desktop for the details of any errors.
 
+A basic configuration file is shown below, with specific emphasis on how to create filesystem rules. Refer to the [Configuration page](https://github.com/samuelgr/Pathwinder/wiki/Configuration) for more details.
 
-## Full Documentation
+```ini
+; This section defines a filesystem rule called "MyRedirectionRule" but the actual name can be arbitrary.
+[FilesystemRule:MyRedirectionRule]
+OriginDirectory = C:\SomeDirectoryPath\Origin
+TargetDirectory = C:\SomeOtherDirectoryPath\Target
+
+; Multiple filesystem rules can exist in a configuration file.
+[FilesystemRule:AnotherRule]
+OriginDirectory = C:\AnotherRuleDirectoryPath\Origin
+TargetDirectory = C:\AnotherRuleDirectoryPath2\Target
+
+; A filesystem rule can include one or more file patterns.
+; File patterns are allowed to include wildcards '*' and '?' but they are not regular expressions.
+FilePattern = *.txt
+FilePattern = save???.sav
+FilePattern = OneSpecificFile.dat
+```
+
+## Further Reading
 
 See the [Wiki](https://github.com/samuelgr/Pathwinder/wiki) for complete documentation.
