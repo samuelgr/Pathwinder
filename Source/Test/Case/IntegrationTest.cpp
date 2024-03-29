@@ -33,6 +33,9 @@ namespace PathwinderTest
   /// invoked for testing.
   static constexpr unsigned int kFunctionRequestIdentifier = 9999;
 
+  /// Type alias for sets that hold compile-time constant filenames.
+  using TFileNameSet = std::set<std::wstring_view>;
+
   /// Uses the filesystem executor subsystem to close an open handle. If the operation fails, this
   /// function causes a test failure.
   /// @param [in] handleToClose Previously-opened handle that should be closed.
@@ -59,8 +62,9 @@ namespace PathwinderTest
   }
 
   /// Enumerates a single file and fills its file name information structure with the resulting
-  /// information. If the directory enumeration operation fails or would be sent to the system
-  /// without interception, this function causes a test failure.
+  /// information. Sends requests via the filesystem executor but can fall back to direct file
+  /// operations if no redirection is needed for the operation. If the directory enumeration
+  /// operation fails, this function causes a test failure.
   /// @param [in] directoryHandle Open handle to the directory that is being enumerated.
   /// @param [in] queryFilePattern File pattern for filtering out which files are enumerated.
   /// Corresponds to an application-requested file pattern.
@@ -84,6 +88,8 @@ namespace PathwinderTest
         Strings::NtConvertStringViewToUnicodeString(queryFilePattern);
     PUNICODE_STRING queryFilePatternUnicodeStringPtr =
         ((false == queryFilePattern.empty()) ? &queryFilePatternUnicodeString : nullptr);
+    const ULONG queryFlags =
+        ((true == restartEnumeration) ? SL_RESTART_SCAN : 0) | SL_RETURN_SINGLE_ENTRY;
 
     const std::optional<NTSTATUS> prepareResult = FilesystemExecutor::DirectoryEnumerationPrepare(
         __FUNCTIONW__,
@@ -100,28 +106,46 @@ namespace PathwinderTest
           return director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
         });
 
-    TEST_ASSERT(NtStatus::kSuccess == prepareResult);
+    TEST_ASSERT((false == prepareResult.has_value()) || (NtStatus::kSuccess == prepareResult));
 
-    IO_STATUS_BLOCK ioStatusBlock{};
+    if (false == prepareResult.has_value())
+    {
+      const NTSTATUS advanceResult = FilesystemOperations::PartialEnumerateDirectoryContents(
+          directoryHandle,
+          SFileNamesInformation::kFileInformationClass,
+          nextFileInformation.Data(),
+          nextFileInformation.CapacityBytes(),
+          queryFlags,
+          queryFilePattern);
 
-    const NTSTATUS advanceResult = FilesystemExecutor::DirectoryEnumerationAdvance(
-        __FUNCTIONW__,
-        kFunctionRequestIdentifier,
-        openHandleStore,
-        directoryHandle,
-        nullptr,
-        nullptr,
-        nullptr,
-        &ioStatusBlock,
-        nextFileInformation.Data(),
-        nextFileInformation.CapacityBytes(),
-        SFileNamesInformation::kFileInformationClass,
-        ((true == restartEnumeration) ? SL_RESTART_SCAN : 0) | SL_RETURN_SINGLE_ENTRY,
-        queryFilePatternUnicodeStringPtr);
+      nextFileInformation.UnsafeSetStructSizeBytes(
+          FileInformationStructLayout::SizeOfStructByType<SFileNamesInformation>(
+              nextFileInformation.GetFileInformationStruct()));
+      return advanceResult;
+    }
+    else
+    {
+      IO_STATUS_BLOCK ioStatusBlock{};
 
-    nextFileInformation.UnsafeSetStructSizeBytes(
-        static_cast<unsigned int>(ioStatusBlock.Information));
-    return advanceResult;
+      const NTSTATUS advanceResult = FilesystemExecutor::DirectoryEnumerationAdvance(
+          __FUNCTIONW__,
+          kFunctionRequestIdentifier,
+          openHandleStore,
+          directoryHandle,
+          nullptr,
+          nullptr,
+          nullptr,
+          &ioStatusBlock,
+          nextFileInformation.Data(),
+          nextFileInformation.CapacityBytes(),
+          SFileNamesInformation::kFileInformationClass,
+          queryFlags,
+          queryFilePatternUnicodeStringPtr);
+
+      nextFileInformation.UnsafeSetStructSizeBytes(
+          static_cast<unsigned int>(ioStatusBlock.Information));
+      return advanceResult;
+    }
   }
 
   /// Uses the filesystem executor subsystem to open a file handle for reading, including directory
@@ -190,6 +214,261 @@ namespace PathwinderTest
     return newlyOpenedFileHandle;
   }
 
+  /// Verifies that a set of files are all accessible and can be opened by directly requesting them
+  /// using their absolute paths.
+  /// @param [in] expectedFiles Filenames that are expected to be accessible.
+  /// @param [in] directoryAbsolutePath Absolute path of the directory, with no trailing backslash,
+  /// in which the files should be accessible.
+  /// @param [in] filesystemDirector Filesystem director object, created as part of the calling test
+  /// case.
+  /// @param [in, out] openHandleStore Open handle store object, created and maintained by the
+  /// calling test case and potentially updated by the filesystem executor.
+  /// @param [in, out] mockFilesystem Fake filesystem object, created and maintained by the calling
+  /// test case and potentially modified by the filesystem executor.
+  static void VerifyFilesAccessibleByAbsolutePath(
+      const TFileNameSet& expectedFiles,
+      std::wstring_view directoryAbsolutePath,
+      const FilesystemDirector& filesystemDirector,
+      OpenHandleStore& openHandleStore,
+      MockFilesystemOperations& mockFilesystem)
+  {
+    for (const auto& expectedFile : expectedFiles)
+    {
+      TemporaryString expectedFileAbsolutePath;
+      expectedFileAbsolutePath << directoryAbsolutePath << L'\\' << expectedFile;
+
+      HANDLE expectedFileHandle = OpenFileUsingFilesystemExecutor(
+          expectedFileAbsolutePath, filesystemDirector, openHandleStore, mockFilesystem);
+      CloseHandleUsingFilesystemExecutor(expectedFileHandle, openHandleStore, mockFilesystem);
+    }
+  }
+
+  /// Verifies that a specific set of files is enumerated as being present in a particular
+  /// directory.
+  /// @param [in] expectedFiles Filenames that are expected to be enumerated.
+  /// @param [in] directoryAbsolutePath Absolute path of the directory, with no trailing backslash,
+  /// that should be enumerated.
+  /// @param [in] filesystemDirector Filesystem director object, created as part of the calling test
+  /// case.
+  /// @param [in, out] openHandleStore Open handle store object, created and maintained by the
+  /// calling test case and potentially updated by the filesystem executor.
+  /// @param [in, out] mockFilesystem Fake filesystem object, created and maintained by the calling
+  /// test case and potentially modified by the filesystem executor.
+  /// @param [in] queryFilePattern File pattern to be passed to the filesystem executor to use for
+  /// filtering results when enumerating directory contents. Defaults to no file pattern, which
+  /// means to match all files.
+  static void VerifyFilesEnumeratedForDirectory(
+      const TFileNameSet& expectedFiles,
+      std::wstring_view directoryAbsolutePath,
+      const FilesystemDirector& filesystemDirector,
+      OpenHandleStore& openHandleStore,
+      MockFilesystemOperations& mockFilesystem,
+      std::wstring_view queryFilePattern = std::wstring_view())
+  {
+    HANDLE directoryHandle = OpenFileUsingFilesystemExecutor(
+        directoryAbsolutePath, filesystemDirector, openHandleStore, mockFilesystem);
+
+    BytewiseDanglingFilenameStruct<SFileNamesInformation> singleEnumeratedFileInformation;
+
+    std::set<std::wstring> actualFiles;
+    while (actualFiles.size() < expectedFiles.size())
+    {
+      const NTSTATUS enumerateResult = EnumerateOneFileUsingFilesystemExecutor(
+          directoryHandle,
+          queryFilePattern,
+          false,
+          singleEnumeratedFileInformation,
+          filesystemDirector,
+          openHandleStore);
+
+      if (NtStatus::kSuccess == enumerateResult)
+      {
+        std::wstring enumeratedFileName =
+            std::wstring(singleEnumeratedFileInformation.GetDanglingFilename());
+
+        TEST_ASSERT(true == expectedFiles.contains(enumeratedFileName));
+        TEST_ASSERT(true == actualFiles.insert(std::move(enumeratedFileName)).second);
+      }
+      else
+      {
+        TEST_ASSERT(NtStatus::kNoMoreFiles == enumerateResult);
+        break;
+      }
+    }
+
+    TEST_ASSERT(actualFiles.size() == expectedFiles.size());
+  }
+
+  /// Verifies that a directory contains exactly the specified set of files and subdirectories.
+  /// @param [in] expectedFiles Filenames that are expected to be enumerated.
+  /// @param [in] directoryAbsolutePath Absolute path of the directory, with no trailing backslash,
+  /// that should be enumerated.
+  /// @param [in] filesystemDirector Filesystem director object, created as part of the calling test
+  /// case.
+  /// @param [in, out] openHandleStore Open handle store object, created and maintained by the
+  /// calling test case and potentially updated by the filesystem executor.
+  /// @param [in, out] mockFilesystem Fake filesystem object, created and maintained by the calling
+  /// test case and potentially modified by the filesystem executor.
+  /// @param [in] queryFilePattern File pattern to be passed to the filesystem executor to use for
+  /// filtering results when enumerating directory contents. Defaults to no file pattern, which
+  /// means to match all files.
+  static void VerifyDirectoryContains(
+      const TFileNameSet& expectedFiles,
+      std::wstring_view directoryAbsolutePath,
+      const FilesystemDirector& filesystemDirector,
+      OpenHandleStore& openHandleStore,
+      MockFilesystemOperations& mockFilesystem)
+  {
+    VerifyFilesAccessibleByAbsolutePath(
+        expectedFiles, directoryAbsolutePath, filesystemDirector, openHandleStore, mockFilesystem);
+    VerifyFilesEnumeratedForDirectory(
+        expectedFiles, directoryAbsolutePath, filesystemDirector, openHandleStore, mockFilesystem);
+  }
+
+  /// Creates a filesystem director object by building it from a string representation of a
+  /// configuration file, which should contain one or more filesystem rules. Triggers a test failure
+  /// if the filesystem director fails to build.
+  /// @param configurationFileString Configuration file containing one or more filesystem rules.
+  /// @return Filesystem director object built from the configuration file string.
+  static FilesystemDirector FilesystemDirectorFromConfigurationFileString(
+      std::wstring_view configurationFileString)
+  {
+    ConfigurationData configurationData =
+        PathwinderConfigReader().ReadInMemoryConfigurationFile(configurationFileString);
+
+    FilesystemDirectorBuilder filesystemDirectorBuilder;
+    auto maybeFilesystemDirector =
+        filesystemDirectorBuilder.BuildFromConfigurationData(configurationData);
+    TEST_ASSERT(true == maybeFilesystemDirector.has_value());
+
+    return std::move(*maybeFilesystemDirector);
+  }
+
+  // Verifies correct functionality of the "OverlayWithoutFilePatterns" example provided on the
+  // Mechanics of Filesystem Rules documentation page. This uses a single overlay filesystem rule
+  // and no file patterns.
+  TEST_CASE(IntegrationTest_MechanicsOfFilesystemRulesExample_OverlayWithoutFilePatterns)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:OverlayWithoutFilePatterns]\n"
+        L"OriginDirectory = C:\\AppDir\\DataDir\n"
+        L"TargetDirectory = C:\\TargetDir\n"
+        L"RedirectMode = Overlay";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.SetConfigAllowOpenNonExistentFile(true);
+
+    mockFilesystem.AddFilesInDirectory(L"C:\\AppDir", {L"App.exe"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\AppDir\\DataDir", {L"1stOrigin.txt", L"2ndOrigin.bin"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\AppDir\\DataDir\\OriginSub", {L"OutputA.txt"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\AppDir\\DataDir\\MoreData.txt", {L"OutputB.log"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetDir", {L"3rdTarget.txt", L"4thTarget.log"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetDir\\TargetSub", {L"ContentsA.txt"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\TargetDir\\MoreData.txt", {L"OutputB.log", L"ContentsB2.bin"});
+
+    const TFileNameSet expectedContentsOfDataDir = {
+        L"1stOrigin.txt",
+        L"2ndOrigin.bin",
+        L"3rdTarget.txt",
+        L"4thTarget.log",
+        L"OriginSub",
+        L"TargetSub",
+        L"MoreData.txt"};
+
+    const TFileNameSet expectedContentsOfDataDirOriginSub = {L"OutputA.txt"};
+
+    const TFileNameSet expectedContentsOfDataDirTargetSub = {L"ContentsA.txt"};
+
+    const TFileNameSet expectedContentsOfDataDirMoreDataTxt = {L"OutputB.log", L"ContentsB2.bin"};
+
+    FilesystemDirector filesystemDirector =
+        FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
+    OpenHandleStore openHandleStore;
+
+    VerifyDirectoryContains(
+        expectedContentsOfDataDir,
+        L"C:\\AppDir\\DataDir",
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+    VerifyDirectoryContains(
+        expectedContentsOfDataDirOriginSub,
+        L"C:\\AppDir\\DataDir\\OriginSub",
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+    VerifyDirectoryContains(
+        expectedContentsOfDataDirTargetSub,
+        L"C:\\AppDir\\DataDir\\TargetSub",
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+    VerifyDirectoryContains(
+        expectedContentsOfDataDirMoreDataTxt,
+        L"C:\\AppDir\\DataDir\\MoreData.txt",
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+  }
+
+  // Verifies correct functionality of the "OverlayWithFilePatterns" example provided on the
+  // Mechanics of Filesystem Rules documentation page. This uses a single overlay filesystem rule
+  // with a file pattern.
+  TEST_CASE(IntegrationTest_MechanicsOfFilesystemRulesExample_OverlayWithFilePatterns)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:OverlayWithoutFilePatterns]\n"
+        L"OriginDirectory = C:\\AppDir\\DataDir\n"
+        L"TargetDirectory = C:\\TargetDir\n"
+        L"FilePattern = *.txt\n"
+        L"RedirectMode = Overlay";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.SetConfigAllowOpenNonExistentFile(true);
+
+    mockFilesystem.AddFilesInDirectory(L"C:\\AppDir", {L"App.exe"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\AppDir\\DataDir", {L"1stOrigin.txt", L"2ndOrigin.bin"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\AppDir\\DataDir\\OriginSub", {L"OutputA.txt"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\AppDir\\DataDir\\MoreData.txt", {L"OutputB.log"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetDir", {L"3rdTarget.txt", L"4thTarget.log"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetDir\\TargetSub", {L"ContentsA.txt"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\TargetDir\\MoreData.txt", {L"OutputB.log", L"ContentsB2.bin"});
+
+    const TFileNameSet expectedContentsOfDataDir = {
+        L"1stOrigin.txt", L"2ndOrigin.bin", L"3rdTarget.txt", L"OriginSub", L"MoreData.txt"};
+
+    const TFileNameSet expectedContentsOfDataDirOriginSub = {L"OutputA.txt"};
+
+    const TFileNameSet expectedContentsOfDataDirMoreDataTxt = {L"OutputB.log", L"ContentsB2.bin"};
+
+    FilesystemDirector filesystemDirector =
+        FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
+    OpenHandleStore openHandleStore;
+
+    VerifyDirectoryContains(
+        expectedContentsOfDataDir,
+        L"C:\\AppDir\\DataDir",
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+    VerifyDirectoryContains(
+        expectedContentsOfDataDirOriginSub,
+        L"C:\\AppDir\\DataDir\\OriginSub",
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+    VerifyDirectoryContains(
+        expectedContentsOfDataDirMoreDataTxt,
+        L"C:\\AppDir\\DataDir\\MoreData.txt",
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+  }
+
   // Checks for consistency between directory enumeration and direct file access when multiple rules
   // exist all with the same origin directory but different file patterns and redirection modes. In
   // this case, one rule is a wildcard Simple redirection mode rule, but the others are Overlay
@@ -246,15 +525,8 @@ namespace PathwinderTest
          L"OriginSide.odt",
          L"OriginSide.exe"});
 
-    ConfigurationData configurationData =
-        PathwinderConfigReader().ReadInMemoryConfigurationFile(kConfigurationFileString);
-
-    FilesystemDirectorBuilder filesystemDirectorBuilder;
-    auto maybeFilesystemDirector =
-        filesystemDirectorBuilder.BuildFromConfigurationData(configurationData);
-    TEST_ASSERT(true == maybeFilesystemDirector.has_value());
-
-    const FilesystemDirector& filesystemDirector = *maybeFilesystemDirector;
+    FilesystemDirector filesystemDirector =
+        FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
     OpenHandleStore openHandleStore;
 
     // Expected behavior when accessing C:\Origin is that these files should be accessible both by
@@ -263,7 +535,7 @@ namespace PathwinderTest
     //  - All *.odt files in C:\Target\2 and in C:\Origin
     //  - All *.txt files in C:\Target\3 and in C:\Origin
     //  - All files of other types in C:\Target\4
-    const std::set<std::wstring> expectedAccessibleFilesInOriginDirectory = {
+    const TFileNameSet expectedAccessibleFilesInOriginDirectory = {
         L"1_A.rtf",
         L"1_B.rtf",
         L"1_C.rtf",
@@ -280,54 +552,11 @@ namespace PathwinderTest
         L"4_B.bin",
         L"4_C.log"};
 
-    // This loop verifies that all of the files that should be accessible within the origin
-    // directory can be opened by accessing them directly using their absolute paths.
-    for (const auto& expectedAccessibleFile : expectedAccessibleFilesInOriginDirectory)
-    {
-      TemporaryString expectedAccessibleFileAbsolutePath;
-      expectedAccessibleFileAbsolutePath << L"C:\\Origin\\" << expectedAccessibleFile;
-
-      HANDLE expectedAccessibleFileHandle = OpenFileUsingFilesystemExecutor(
-          expectedAccessibleFileAbsolutePath, filesystemDirector, openHandleStore, mockFilesystem);
-      CloseHandleUsingFilesystemExecutor(
-          expectedAccessibleFileHandle, openHandleStore, mockFilesystem);
-    }
-
-    // The next part of the test enumerates the contents of the origin directory and verifies that
-    // all files that should be present there are correctly enumerated.
-    HANDLE originDirectoryHandle = OpenFileUsingFilesystemExecutor(
-        L"C:\\Origin", filesystemDirector, openHandleStore, mockFilesystem);
-
-    BytewiseDanglingFilenameStruct<SFileNamesInformation> singleEnumeratedFileInformation;
-
-    std::set<std::wstring> actualAccessibleFilesInOriginDirectory;
-    while (actualAccessibleFilesInOriginDirectory.size() <
-           expectedAccessibleFilesInOriginDirectory.size())
-    {
-      const NTSTATUS enumerateResult = EnumerateOneFileUsingFilesystemExecutor(
-          originDirectoryHandle,
-          std::wstring_view(),
-          false,
-          singleEnumeratedFileInformation,
-          filesystemDirector,
-          openHandleStore);
-
-      if (NtStatus::kSuccess == enumerateResult)
-      {
-        std::wstring_view enumeratedFileName =
-            singleEnumeratedFileInformation.GetDanglingFilename();
-
-        TEST_ASSERT(
-            true ==
-            actualAccessibleFilesInOriginDirectory.insert(std::wstring(enumeratedFileName)).second);
-      }
-      else
-      {
-        TEST_ASSERT(NtStatus::kNoMoreFiles == enumerateResult);
-        break;
-      }
-    }
-
-    TEST_ASSERT(actualAccessibleFilesInOriginDirectory == expectedAccessibleFilesInOriginDirectory);
+    VerifyDirectoryContains(
+        expectedAccessibleFilesInOriginDirectory,
+        L"C:\\Origin",
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
   }
 } // namespace PathwinderTest

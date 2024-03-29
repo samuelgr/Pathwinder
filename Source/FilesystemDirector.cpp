@@ -527,7 +527,6 @@ namespace Pathwinder
     }
 
     const auto selectedRuleContainer = SelectRulesForPath(absoluteFilePathTrimmedForQuery);
-    const FilesystemRule* selectedRule = nullptr;
 
     if (nullptr == selectedRuleContainer)
     {
@@ -560,6 +559,7 @@ namespace Pathwinder
     std::wstring_view unredirectedPathDirectoryPartWithWindowsNamespacePrefix;
     std::wstring_view unredirectedPathFilePart;
     std::optional<TemporaryString> maybeRedirectedFilePath;
+    const FilesystemRule* selectedRule = nullptr;
 
     if (EDirectoryCompareResult::Equal ==
         selectedRuleContainer->AnyRule().DirectoryCompareWithOrigin(
@@ -623,14 +623,23 @@ namespace Pathwinder
           absoluteFilePath.substr(0, windowsNamespacePrefix.length() + lastSeparatorPos);
       unredirectedPathFilePart = absoluteFilePathTrimmedForQuery.substr(1 + lastSeparatorPos);
 
-      selectedRule = selectedRuleContainer->RuleMatchingFileName(unredirectedPathFilePart);
-      if (nullptr != selectedRule)
+      // Rules have their own internal logic for determining which part of the path to check against
+      // file patterns, which may differ from the path split above. For example, the directory part
+      // could be a child or descendant of the origin directory. In the common case there will only
+      // be a single rule, so only one rule would ever be checked.
+      for (const auto& candidateRule : selectedRuleContainer->AllRules())
       {
-        maybeRedirectedFilePath = selectedRule->RedirectPathOriginToTarget(
+        maybeRedirectedFilePath = candidateRule.RedirectPathOriginToTarget(
             unredirectedPathDirectoryPart,
             unredirectedPathFilePart,
             windowsNamespacePrefix,
             extraSuffix);
+
+        if (true == maybeRedirectedFilePath.has_value())
+        {
+          selectedRule = &candidateRule;
+          break;
+        }
       }
 
       if (false == maybeRedirectedFilePath.has_value())
