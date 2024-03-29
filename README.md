@@ -15,7 +15,9 @@ Pathwinder *can* behave in a way that is similar to using a filesystem link, suc
 - On Windows, creating filesystem links generally requires administrative privileges. Pathwinder does not impose this requirement.
     - Windows might demand administrative privileges when writing Pathwinder's configuration file, depending on where it is located.
 
-- Pathwinder works where filesystem links do not. Because filesystem links themselves are special objects that require support from the underlying filesystem, they are not suitable for all situations. For example, the filesystems typically used on removable storage devices like USB keys do not support filesystem links, but Pathwinder would work without issue in that setting.
+- Pathwinder works where filesystem links do not. Because filesystem links themselves are special objects that require support from the underlying filesystem, they are not suitable for all situations. Pathwinder binaries and configuration files are just normal files, so Pathwinder can support situations like these without issue. For example:
+    - Cloud syncing services typically cannot properly handle filesystem links. Creating a filesystem link within a directory that syncs to the cloud normally results in either a sync error or the link's target being synced (rather than the link itself).
+    - Filesystems used on removable storage devices like USB keys typically do not support filesystem links, and attempting to create them would fail with an error.
 
 - Making a filesystem link is a system-wide change, visible to all applications that access it. Pathwinder, on the other hand, does not make any persistent changes to the filesystem, nor does it make any system-wide changes whatsoever. Pathwinder only redirects file operations for those applications that the end user has configured, and even then, only while they are running.
 
