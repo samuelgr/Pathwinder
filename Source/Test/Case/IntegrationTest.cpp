@@ -299,7 +299,10 @@ namespace PathwinderTest
     TEST_ASSERT(actualFiles.size() == expectedFiles.size());
   }
 
-  /// Verifies that a directory contains exactly the specified set of files and subdirectories.
+  /// Verifies that a directory appears to contain exactly the specified set of files and
+  /// subdirectories. Queries for the contents of the directory of interest by using the filesystem
+  /// executor and, where necessary, filesystem operations (which would in turn hit the mock
+  /// filesystem).
   /// @param [in] expectedFiles Filenames that are expected to be enumerated.
   /// @param [in] directoryAbsolutePath Absolute path of the directory, with no trailing backslash,
   /// that should be enumerated.
@@ -312,7 +315,7 @@ namespace PathwinderTest
   /// @param [in] queryFilePattern File pattern to be passed to the filesystem executor to use for
   /// filtering results when enumerating directory contents. Defaults to no file pattern, which
   /// means to match all files.
-  static void VerifyDirectoryContains(
+  static void VerifyDirectoryAppearsToContain(
       const TFileNameSet& expectedFiles,
       std::wstring_view directoryAbsolutePath,
       const FilesystemDirector& filesystemDirector,
@@ -342,6 +345,111 @@ namespace PathwinderTest
     TEST_ASSERT(true == maybeFilesystemDirector.has_value());
 
     return std::move(*maybeFilesystemDirector);
+  }
+
+  // Verifies correct functionality of the "EntireDirectoryReplacement" example provided on the
+  // Mechanics of Filesystem Rules documentation page. This uses a single simple filesystem rule
+  // and no file patterns. The starting condition is that C:\DataDir does not exist.
+  TEST_CASE(
+      IntegrationTest_MechanicsOfFilesystemRulesExample_EntireDirectoryReplacement_DataDirDoesNotExist)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:EntireDirectoryReplacement]\n"
+        L"OriginDirectory = C:\\AppDir\\DataDir\n"
+        L"TargetDirectory = C:\\TargetDir\n"
+        L"RedirectMode = Simple";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.SetConfigAllowOpenNonExistentFile(true);
+
+    mockFilesystem.AddFilesInDirectory(L"C:\\AppDir", {L"App.exe"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetDir", {L"TextFile.txt", L"Output.log"});
+    mockFilesystem.AddDirectory(L"C:\\TargetDir\\TargetSub");
+
+    const TFileNameSet expectedContentsOfDataDir = {L"TextFile.txt", L"Output.log", L"TargetSub"};
+
+    FilesystemDirector filesystemDirector =
+        FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
+    OpenHandleStore openHandleStore;
+
+    VerifyDirectoryAppearsToContain(
+        expectedContentsOfDataDir,
+        L"C:\\AppDir\\DataDir",
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+  }
+
+  // Verifies correct functionality of the "EntireDirectoryReplacement" example provided on the
+  // Mechanics of Filesystem Rules documentation page. This uses a single simple filesystem rule
+  // and no file patterns. The starting condition is that C:\DataDir exists but is empty.
+  TEST_CASE(
+      IntegrationTest_MechanicsOfFilesystemRulesExample_EntireDirectoryReplacement_DataDirIsEmpty)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:EntireDirectoryReplacement]\n"
+        L"OriginDirectory = C:\\AppDir\\DataDir\n"
+        L"TargetDirectory = C:\\TargetDir\n"
+        L"RedirectMode = Simple";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.SetConfigAllowOpenNonExistentFile(true);
+
+    mockFilesystem.AddFilesInDirectory(L"C:\\AppDir", {L"App.exe"});
+    mockFilesystem.AddDirectory(L"C:\\AppData\\DataDir");
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetDir", {L"TextFile.txt", L"Output.log"});
+    mockFilesystem.AddDirectory(L"C:\\TargetDir\\TargetSub");
+
+    const TFileNameSet expectedContentsOfDataDir = {L"TextFile.txt", L"Output.log", L"TargetSub"};
+
+    FilesystemDirector filesystemDirector =
+        FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
+    OpenHandleStore openHandleStore;
+
+    VerifyDirectoryAppearsToContain(
+        expectedContentsOfDataDir,
+        L"C:\\AppDir\\DataDir",
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+  }
+
+  // Verifies correct functionality of the "EntireDirectoryReplacement" example provided on the
+  // Mechanics of Filesystem Rules documentation page. This uses a single simple filesystem rule
+  // and no file patterns. The starting condition is that C:\DataDir exists and contains files and
+  // subdirectories.
+  TEST_CASE(
+      IntegrationTest_MechanicsOfFilesystemRulesExample_EntireDirectoryReplacement_DataDirIsNotEmpty)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:EntireDirectoryReplacement]\n"
+        L"OriginDirectory = C:\\AppDir\\DataDir\n"
+        L"TargetDirectory = C:\\TargetDir\n"
+        L"RedirectMode = Simple";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.SetConfigAllowOpenNonExistentFile(true);
+
+    mockFilesystem.AddFilesInDirectory(L"C:\\AppDir", {L"App.exe"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\AppDir\\DataDir", {L"DataFile1.dat", L"DataFile2.dat"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\AppDir\\DataDir\\DataSubdir", {L"DataSubFile.dat.dat"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetDir", {L"TextFile.txt", L"Output.log"});
+    mockFilesystem.AddDirectory(L"C:\\TargetDir\\TargetSub");
+
+    const TFileNameSet expectedContentsOfDataDir = {L"TextFile.txt", L"Output.log", L"TargetSub"};
+
+    FilesystemDirector filesystemDirector =
+        FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
+    OpenHandleStore openHandleStore;
+
+    VerifyDirectoryAppearsToContain(
+        expectedContentsOfDataDir,
+        L"C:\\AppDir\\DataDir",
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
   }
 
   // Verifies correct functionality of the "OverlayWithoutFilePatterns" example provided on the
@@ -387,25 +495,25 @@ namespace PathwinderTest
         FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
     OpenHandleStore openHandleStore;
 
-    VerifyDirectoryContains(
+    VerifyDirectoryAppearsToContain(
         expectedContentsOfDataDir,
         L"C:\\AppDir\\DataDir",
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
-    VerifyDirectoryContains(
+    VerifyDirectoryAppearsToContain(
         expectedContentsOfDataDirOriginSub,
         L"C:\\AppDir\\DataDir\\OriginSub",
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
-    VerifyDirectoryContains(
+    VerifyDirectoryAppearsToContain(
         expectedContentsOfDataDirTargetSub,
         L"C:\\AppDir\\DataDir\\TargetSub",
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
-    VerifyDirectoryContains(
+    VerifyDirectoryAppearsToContain(
         expectedContentsOfDataDirMoreDataTxt,
         L"C:\\AppDir\\DataDir\\MoreData.txt",
         filesystemDirector,
@@ -449,19 +557,19 @@ namespace PathwinderTest
         FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
     OpenHandleStore openHandleStore;
 
-    VerifyDirectoryContains(
+    VerifyDirectoryAppearsToContain(
         expectedContentsOfDataDir,
         L"C:\\AppDir\\DataDir",
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
-    VerifyDirectoryContains(
+    VerifyDirectoryAppearsToContain(
         expectedContentsOfDataDirOriginSub,
         L"C:\\AppDir\\DataDir\\OriginSub",
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
-    VerifyDirectoryContains(
+    VerifyDirectoryAppearsToContain(
         expectedContentsOfDataDirMoreDataTxt,
         L"C:\\AppDir\\DataDir\\MoreData.txt",
         filesystemDirector,
@@ -552,7 +660,7 @@ namespace PathwinderTest
         L"4_B.bin",
         L"4_C.log"};
 
-    VerifyDirectoryContains(
+    VerifyDirectoryAppearsToContain(
         expectedAccessibleFilesInOriginDirectory,
         L"C:\\Origin",
         filesystemDirector,
