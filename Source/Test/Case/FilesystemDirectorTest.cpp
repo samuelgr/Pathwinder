@@ -235,7 +235,8 @@ namespace PathwinderTest
 
   // Creates a filesystem director with two rules having the same origin directory and queries with
   // a few file name inputs. Verifies that each time the resulting redirected path is correct.
-  TEST_CASE(FilesystemDirector_GetInstructionForFileOperation_MultipleRulesSameOriginDirectory)
+  TEST_CASE(
+      FilesystemDirector_GetInstructionForFileOperation_MultipleRulesSameOriginDirectory_QueryForContentsOnly)
   {
     MockFilesystemOperations mockFilesystem;
 
@@ -254,6 +255,46 @@ namespace PathwinderTest
         {L"C:\\Origin\\file3.exe",
          FileOperationInstruction::SimpleRedirectTo(
              L"C:\\TargetForExe\\file3.exe", EAssociateNameWithHandle::Unredirected)}};
+
+    for (const auto& testRecord : kTestInputsAndExpectedOutputs)
+    {
+      const std::wstring_view testInput = testRecord.first;
+      const auto& expectedOutput = testRecord.second;
+
+      auto actualOutput = director.GetInstructionForFileOperation(
+          testInput, FileAccessMode::ReadOnly(), CreateDisposition::OpenExistingFile());
+      TEST_ASSERT(actualOutput == expectedOutput);
+    }
+  }
+
+  // Creates a filesystem director with two rules having the same origin directory and queries with
+  // a few file name inputs that target subdirectories of the origin directory. Verifies that each
+  // time the resulting redirected path is correct. This test case exercises the filesystem director
+  // behavior that only the immediate content of the origin directory is compared with file
+  // patterns. Here, even though the filename at the end of the path does not match any of the file
+  // patterns, the name of the subdirectory that is the immediate child of the origin directory does
+  // match and hence a redirection is warranted in all cases.
+  TEST_CASE(
+      FilesystemDirector_GetInstructionForFileOperation_MultipleRulesSameOriginDirectory_QueryForSubdirectories)
+  {
+    MockFilesystemOperations mockFilesystem;
+
+    const FilesystemDirector director(MakeFilesystemDirector(
+        {{L"1", FilesystemRule(L"1", L"C:\\Origin", L"C:\\TargetForTxt", {L"*.txt"})},
+         {L"2", FilesystemRule(L"2", L"C:\\Origin", L"C:\\TargetForBin", {L"*.bin"})},
+         {L"3", FilesystemRule(L"3", L"C:\\Origin", L"C:\\TargetForExe", {L"*.exe"})}}));
+
+    const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
+        {L"C:\\Origin\\SubDir.txt\\file1",
+         FileOperationInstruction::SimpleRedirectTo(
+             L"C:\\TargetForTxt\\SubDir.txt\\file1", EAssociateNameWithHandle::Unredirected)},
+        {L"C:\\Origin\\SubDir.bin\\file2",
+         FileOperationInstruction::SimpleRedirectTo(
+             L"C:\\TargetForBin\\SubDir.bin\\file2", EAssociateNameWithHandle::Unredirected)},
+        {L"C:\\Origin\\SubDir.exe\\AnotherSubDir\\file3",
+         FileOperationInstruction::SimpleRedirectTo(
+             L"C:\\TargetForExe\\SubDir.exe\\AnotherSubDir\\file3",
+             EAssociateNameWithHandle::Unredirected)}};
 
     for (const auto& testRecord : kTestInputsAndExpectedOutputs)
     {
