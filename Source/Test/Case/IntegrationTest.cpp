@@ -183,7 +183,7 @@ namespace PathwinderTest
         &absolutePathToOpenObjectAttributes,
         0,
         FILE_OPEN,
-        0,
+        FILE_SYNCHRONOUS_IO_NONALERT,
         [&director](
             std::wstring_view absolutePath,
             FileAccessMode fileAccessMode,
@@ -214,11 +214,76 @@ namespace PathwinderTest
     return newlyOpenedFileHandle;
   }
 
+  /// Uses the filesystem executor subsystem to create a new file and add it to the mock filesystem.
+  /// @param [in] absolutePathToCreate Absolute path of the file to be opened. In order for this
+  /// function to succeed the file must exist in the fake filesystem.
+  /// @param [in] director Filesystem director object, created as part of the calling test case.
+  /// @param [in, out] openHandleStore Open handle store object, created and maintained by the
+  /// calling test case and potentially updated by the filesystem executor.
+  /// @param [in, out] mockFilesystem Fake filesystem object, created and maintained by the calling
+  /// test case and potentially modified by the filesystem executor.
+  /// @return Handle to the newly-opened file.
+  static void AddFileUsingFilesystemExecutor(
+      std::wstring_view absolutePathToCreate,
+      const FilesystemDirector& director,
+      OpenHandleStore& openHandleStore,
+      MockFilesystemOperations& mockFilesystem)
+  {
+    HANDLE newlyOpenedFileHandle = nullptr;
+
+    UNICODE_STRING absolutePathToCreateUnicodeString =
+        Strings::NtConvertStringViewToUnicodeString(absolutePathToCreate);
+    OBJECT_ATTRIBUTES absolutePathToCreateObjectAttributes = {
+        .Length = sizeof(OBJECT_ATTRIBUTES),
+        .RootDirectory = nullptr,
+        .ObjectName = &absolutePathToCreateUnicodeString};
+
+    NTSTATUS openHandleResult = FilesystemExecutor::NewFileHandle(
+        __FUNCTIONW__,
+        kFunctionRequestIdentifier,
+        openHandleStore,
+        &newlyOpenedFileHandle,
+        FILE_GENERIC_READ | FILE_GENERIC_WRITE,
+        &absolutePathToCreateObjectAttributes,
+        0,
+        FILE_CREATE,
+        FILE_SYNCHRONOUS_IO_NONALERT,
+        [&director](
+            std::wstring_view absolutePath,
+            FileAccessMode fileAccessMode,
+            CreateDisposition createDisposition) -> FileOperationInstruction
+        {
+          return director.GetInstructionForFileOperation(
+              absolutePath, fileAccessMode, createDisposition);
+        },
+        [&mockFilesystem](
+            PHANDLE fileHandle,
+            POBJECT_ATTRIBUTES objectAttributes,
+            ULONG createDisposition) -> NTSTATUS
+        {
+          std::wstring_view absolutePathToCreate =
+              Strings::NtConvertUnicodeStringToStringView(*objectAttributes->ObjectName);
+
+          mockFilesystem.AddFile(absolutePathToCreate);
+          HANDLE newlyOpenedFileHandle = mockFilesystem.Open(absolutePathToCreate);
+          if (newlyOpenedFileHandle != nullptr)
+          {
+            *fileHandle = newlyOpenedFileHandle;
+            return NtStatus::kSuccess;
+          }
+
+          return NtStatus::kObjectNameNotFound;
+        });
+
+    TEST_ASSERT(NtStatus::kSuccess == openHandleResult);
+    CloseHandleUsingFilesystemExecutor(newlyOpenedFileHandle, openHandleStore, mockFilesystem);
+  }
+
   /// Verifies that a set of files are all accessible and can be opened by directly requesting them
   /// using their absolute paths.
-  /// @param [in] expectedFiles Filenames that are expected to be accessible.
   /// @param [in] directoryAbsolutePath Absolute path of the directory, with no trailing backslash,
   /// in which the files should be accessible.
+  /// @param [in] expectedFiles Filenames that are expected to be accessible.
   /// @param [in] filesystemDirector Filesystem director object, created as part of the calling test
   /// case.
   /// @param [in, out] openHandleStore Open handle store object, created and maintained by the
@@ -226,8 +291,8 @@ namespace PathwinderTest
   /// @param [in, out] mockFilesystem Fake filesystem object, created and maintained by the calling
   /// test case and potentially modified by the filesystem executor.
   static void VerifyFilesAccessibleByAbsolutePath(
-      const TFileNameSet& expectedFiles,
       std::wstring_view directoryAbsolutePath,
+      const TFileNameSet& expectedFiles,
       const FilesystemDirector& filesystemDirector,
       OpenHandleStore& openHandleStore,
       MockFilesystemOperations& mockFilesystem)
@@ -245,9 +310,9 @@ namespace PathwinderTest
 
   /// Verifies that a specific set of files is enumerated as being present in a particular
   /// directory.
-  /// @param [in] expectedFiles Filenames that are expected to be enumerated.
   /// @param [in] directoryAbsolutePath Absolute path of the directory, with no trailing backslash,
   /// that should be enumerated.
+  /// @param [in] expectedFiles Filenames that are expected to be enumerated.
   /// @param [in] filesystemDirector Filesystem director object, created as part of the calling test
   /// case.
   /// @param [in, out] openHandleStore Open handle store object, created and maintained by the
@@ -258,8 +323,8 @@ namespace PathwinderTest
   /// filtering results when enumerating directory contents. Defaults to no file pattern, which
   /// means to match all files.
   static void VerifyFilesEnumeratedForDirectory(
-      const TFileNameSet& expectedFiles,
       std::wstring_view directoryAbsolutePath,
+      const TFileNameSet& expectedFiles,
       const FilesystemDirector& filesystemDirector,
       OpenHandleStore& openHandleStore,
       MockFilesystemOperations& mockFilesystem,
@@ -316,16 +381,16 @@ namespace PathwinderTest
   /// filtering results when enumerating directory contents. Defaults to no file pattern, which
   /// means to match all files.
   static void VerifyDirectoryAppearsToContain(
-      const TFileNameSet& expectedFiles,
       std::wstring_view directoryAbsolutePath,
+      const TFileNameSet& expectedFiles,
       const FilesystemDirector& filesystemDirector,
       OpenHandleStore& openHandleStore,
       MockFilesystemOperations& mockFilesystem)
   {
     VerifyFilesAccessibleByAbsolutePath(
-        expectedFiles, directoryAbsolutePath, filesystemDirector, openHandleStore, mockFilesystem);
+        directoryAbsolutePath, expectedFiles, filesystemDirector, openHandleStore, mockFilesystem);
     VerifyFilesEnumeratedForDirectory(
-        expectedFiles, directoryAbsolutePath, filesystemDirector, openHandleStore, mockFilesystem);
+        directoryAbsolutePath, expectedFiles, filesystemDirector, openHandleStore, mockFilesystem);
   }
 
   /// Creates a filesystem director object by building it from a string representation of a
@@ -366,15 +431,13 @@ namespace PathwinderTest
     mockFilesystem.AddFilesInDirectory(L"C:\\TargetDir", {L"TextFile.txt", L"Output.log"});
     mockFilesystem.AddDirectory(L"C:\\TargetDir\\TargetSub");
 
-    const TFileNameSet expectedContentsOfDataDir = {L"TextFile.txt", L"Output.log", L"TargetSub"};
-
     FilesystemDirector filesystemDirector =
         FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
     OpenHandleStore openHandleStore;
 
     VerifyDirectoryAppearsToContain(
-        expectedContentsOfDataDir,
         L"C:\\AppDir\\DataDir",
+        {L"TextFile.txt", L"Output.log", L"TargetSub"},
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
@@ -400,15 +463,13 @@ namespace PathwinderTest
     mockFilesystem.AddFilesInDirectory(L"C:\\TargetDir", {L"TextFile.txt", L"Output.log"});
     mockFilesystem.AddDirectory(L"C:\\TargetDir\\TargetSub");
 
-    const TFileNameSet expectedContentsOfDataDir = {L"TextFile.txt", L"Output.log", L"TargetSub"};
-
     FilesystemDirector filesystemDirector =
         FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
     OpenHandleStore openHandleStore;
 
     VerifyDirectoryAppearsToContain(
-        expectedContentsOfDataDir,
         L"C:\\AppDir\\DataDir",
+        {L"TextFile.txt", L"Output.log", L"TargetSub"},
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
@@ -438,15 +499,126 @@ namespace PathwinderTest
     mockFilesystem.AddFilesInDirectory(L"C:\\TargetDir", {L"TextFile.txt", L"Output.log"});
     mockFilesystem.AddDirectory(L"C:\\TargetDir\\TargetSub");
 
-    const TFileNameSet expectedContentsOfDataDir = {L"TextFile.txt", L"Output.log", L"TargetSub"};
+    FilesystemDirector filesystemDirector =
+        FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
+    OpenHandleStore openHandleStore;
+
+    VerifyDirectoryAppearsToContain(
+        L"C:\\AppDir\\DataDir",
+        {L"TextFile.txt", L"Output.log", L"TargetSub"},
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+  }
+
+  TEST_CASE(
+      IntegrationTest_MechanicsOfFilesystemRulesExample_PartialDirectoryReplacement_WithoutSubdirectories)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:PartialDirectoryReplacement]\n"
+        L"OriginDirectory = C:\\AppDir\\DataDir\n"
+        L"TargetDirectory = C:\\TargetDir\n"
+        L"FilePattern = *.txt\n"
+        L"RedirectMode = Simple";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.SetConfigAllowOpenNonExistentFile(true);
+
+    mockFilesystem.AddFilesInDirectory(L"C:\\AppDir", {L"App.exe"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\AppDir\\DataDir", {L"1stOrigin.txt", L"2ndOrigin.bin"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetDir", {L"3rdTarget.txt", L"4thTarget.log"});
+
+    FilesystemDirector filesystemDirector =
+        FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
+    OpenHandleStore openHandleStore;
+
+    // First part from the documented example is just the results of applying the rule. The *.txt
+    // file originally present in the origin directory is hidden, and the *.txt file in the target
+    // directory is visible.
+    VerifyDirectoryAppearsToContain(
+        L"C:\\AppDir\\DataDir",
+        {L"2ndOrigin.bin", L"3rdTarget.txt"},
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+
+    // Second part of the documented example is to create an out-of-scope file. It should be added
+    // to, and visible in, the origin directory as a real file and not present in the target
+    // directory.
+    AddFileUsingFilesystemExecutor(
+        L"C:\\AppDir\\DataDir\\Data.dat", filesystemDirector, openHandleStore, mockFilesystem);
+
+    VerifyDirectoryAppearsToContain(
+        L"C:\\AppDir\\DataDir",
+        {L"2ndOrigin.bin", L"3rdTarget.txt", L"Data.dat"},
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+
+    TEST_ASSERT(true == mockFilesystem.Exists(L"C:\\AppDir\\DataDir\\Data.dat"));
+    TEST_ASSERT(false == mockFilesystem.Exists(L"C:\\TargetDir\\Data.dat"));
+
+    // Third part of the documented example is to create an in-scope file. It should be added to the
+    // target directory and visible in the origin directory.
+    AddFileUsingFilesystemExecutor(
+        L"C:\\AppDir\\DataDir\\Output.txt", filesystemDirector, openHandleStore, mockFilesystem);
+
+    VerifyDirectoryAppearsToContain(
+        L"C:\\AppDir\\DataDir",
+        {L"2ndOrigin.bin", L"3rdTarget.txt", L"Data.dat", L"Output.txt"},
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+
+    TEST_ASSERT(false == mockFilesystem.Exists(L"C:\\AppDir\\DataDir\\Output.txt"));
+    TEST_ASSERT(true == mockFilesystem.Exists(L"C:\\TargetDir\\Output.txt"));
+  }
+
+  TEST_CASE(
+      IntegrationTest_MechanicsOfFilesystemRulesExample_PartialDirectoryReplacement_WithSubdirectories)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:PartialDirectoryReplacement]\n"
+        L"OriginDirectory = C:\\AppDir\\DataDir\n"
+        L"TargetDirectory = C:\\TargetDir\n"
+        L"FilePattern = *.txt\n"
+        L"RedirectMode = Simple";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.SetConfigAllowOpenNonExistentFile(true);
+
+    mockFilesystem.AddFilesInDirectory(L"C:\\AppDir", {L"App.exe"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\AppDir\\DataDir", {L"1stOrigin.txt", L"2ndOrigin.bin"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\AppDir\\DataDir\\OriginSubA", {L"OutputA.txt"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\AppDir\\DataDir\\OriginSubB.txt", {L"OutputB.log"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetDir", {L"3rdTarget.txt", L"4thTarget.log"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetDir\\TargetSubA", {L"ContentsA.txt"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\TargetDir\\TargetSubB.txt", {L"ContentsB.txt", L"ContentsB2.bin"});
 
     FilesystemDirector filesystemDirector =
         FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
     OpenHandleStore openHandleStore;
 
     VerifyDirectoryAppearsToContain(
-        expectedContentsOfDataDir,
         L"C:\\AppDir\\DataDir",
+        {L"2ndOrigin.bin", L"3rdTarget.txt", L"OriginSubA", L"TargetSubB.txt"},
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+
+    VerifyDirectoryAppearsToContain(
+        L"C:\\AppDir\\DataDir\\OriginSubA",
+        {L"OutputA.txt"},
+        filesystemDirector,
+        openHandleStore,
+        mockFilesystem);
+
+    VerifyDirectoryAppearsToContain(
+        L"C:\\AppDir\\DataDir\\TargetSubB.txt",
+        {L"ContentsB.txt", L"ContentsB2.bin"},
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
@@ -476,46 +648,37 @@ namespace PathwinderTest
     mockFilesystem.AddFilesInDirectory(
         L"C:\\TargetDir\\MoreData.txt", {L"OutputB.log", L"ContentsB2.bin"});
 
-    const TFileNameSet expectedContentsOfDataDir = {
-        L"1stOrigin.txt",
-        L"2ndOrigin.bin",
-        L"3rdTarget.txt",
-        L"4thTarget.log",
-        L"OriginSub",
-        L"TargetSub",
-        L"MoreData.txt"};
-
-    const TFileNameSet expectedContentsOfDataDirOriginSub = {L"OutputA.txt"};
-
-    const TFileNameSet expectedContentsOfDataDirTargetSub = {L"ContentsA.txt"};
-
-    const TFileNameSet expectedContentsOfDataDirMoreDataTxt = {L"OutputB.log", L"ContentsB2.bin"};
-
     FilesystemDirector filesystemDirector =
         FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
     OpenHandleStore openHandleStore;
 
     VerifyDirectoryAppearsToContain(
-        expectedContentsOfDataDir,
         L"C:\\AppDir\\DataDir",
+        {L"1stOrigin.txt",
+         L"2ndOrigin.bin",
+         L"3rdTarget.txt",
+         L"4thTarget.log",
+         L"OriginSub",
+         L"TargetSub",
+         L"MoreData.txt"},
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
     VerifyDirectoryAppearsToContain(
-        expectedContentsOfDataDirOriginSub,
         L"C:\\AppDir\\DataDir\\OriginSub",
+        {L"OutputA.txt"},
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
     VerifyDirectoryAppearsToContain(
-        expectedContentsOfDataDirTargetSub,
         L"C:\\AppDir\\DataDir\\TargetSub",
+        {L"ContentsA.txt"},
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
     VerifyDirectoryAppearsToContain(
-        expectedContentsOfDataDirMoreDataTxt,
         L"C:\\AppDir\\DataDir\\MoreData.txt",
+        {L"OutputB.log", L"ContentsB2.bin"},
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
@@ -546,32 +709,25 @@ namespace PathwinderTest
     mockFilesystem.AddFilesInDirectory(
         L"C:\\TargetDir\\MoreData.txt", {L"OutputB.log", L"ContentsB2.bin"});
 
-    const TFileNameSet expectedContentsOfDataDir = {
-        L"1stOrigin.txt", L"2ndOrigin.bin", L"3rdTarget.txt", L"OriginSub", L"MoreData.txt"};
-
-    const TFileNameSet expectedContentsOfDataDirOriginSub = {L"OutputA.txt"};
-
-    const TFileNameSet expectedContentsOfDataDirMoreDataTxt = {L"OutputB.log", L"ContentsB2.bin"};
-
     FilesystemDirector filesystemDirector =
         FilesystemDirectorFromConfigurationFileString(kConfigurationFileString);
     OpenHandleStore openHandleStore;
 
     VerifyDirectoryAppearsToContain(
-        expectedContentsOfDataDir,
         L"C:\\AppDir\\DataDir",
+        {L"1stOrigin.txt", L"2ndOrigin.bin", L"3rdTarget.txt", L"OriginSub", L"MoreData.txt"},
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
     VerifyDirectoryAppearsToContain(
-        expectedContentsOfDataDirOriginSub,
         L"C:\\AppDir\\DataDir\\OriginSub",
+        {L"OutputA.txt"},
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
     VerifyDirectoryAppearsToContain(
-        expectedContentsOfDataDirMoreDataTxt,
         L"C:\\AppDir\\DataDir\\MoreData.txt",
+        {L"OutputB.log", L"ContentsB2.bin"},
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
@@ -643,26 +799,24 @@ namespace PathwinderTest
     //  - All *.odt files in C:\Target\2 and in C:\Origin
     //  - All *.txt files in C:\Target\3 and in C:\Origin
     //  - All files of other types in C:\Target\4
-    const TFileNameSet expectedAccessibleFilesInOriginDirectory = {
-        L"1_A.rtf",
-        L"1_B.rtf",
-        L"1_C.rtf",
-        L"OriginSide.rtf",
-        L"2_A.odt",
-        L"2_B.odt",
-        L"2_C.odt",
-        L"OriginSide.odt",
-        L"3_A.txt",
-        L"3_B.txt",
-        L"3_C.txt",
-        L"OriginSide.txt",
-        L"4_A.exe",
-        L"4_B.bin",
-        L"4_C.log"};
 
     VerifyDirectoryAppearsToContain(
-        expectedAccessibleFilesInOriginDirectory,
         L"C:\\Origin",
+        {L"1_A.rtf",
+         L"1_B.rtf",
+         L"1_C.rtf",
+         L"OriginSide.rtf",
+         L"2_A.odt",
+         L"2_B.odt",
+         L"2_C.odt",
+         L"OriginSide.odt",
+         L"3_A.txt",
+         L"3_B.txt",
+         L"3_C.txt",
+         L"OriginSide.txt",
+         L"4_A.exe",
+         L"4_B.bin",
+         L"4_C.log"},
         filesystemDirector,
         openHandleStore,
         mockFilesystem);
