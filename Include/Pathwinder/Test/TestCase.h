@@ -41,6 +41,9 @@
   }                                                                                                \
   while (0)
 
+#define TEST_ASSERT_WITH_FAILURE_MESSAGE(expr, reasonf, ...)                                       \
+  if (!(expr)) TEST_FAILED_BECAUSE(reasonf, ##__VA_ARGS__)
+
 /// Recommended way of creating test cases that execute conditionally.
 /// Requires a test case name and a condition, which evaluates to a value of type bool.
 /// If the condition ends up being false, which can be determined at runtime, the test case is

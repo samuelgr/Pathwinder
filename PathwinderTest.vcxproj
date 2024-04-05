@@ -143,6 +143,7 @@
     <ClCompile Include="Source\Test\Case\StringsTest.cpp" />
     <ClCompile Include="Source\Test\Case\ThreadPoolTest.cpp" />
     <ClCompile Include="Source\Test\Harness.cpp" />
+    <ClCompile Include="Source\Test\IntegrationTestSupport.cpp" />
     <ClCompile Include="Source\Test\MockDirectoryOperationQueue.cpp" />
     <ClCompile Include="Source\Test\MockFilesystemOperations.cpp" />
     <ClCompile Include="Source\Test\TestCase.cpp" />
@@ -177,6 +178,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\ThreadPool.h" />
     <ClInclude Include="Include\Pathwinder\Internal\ValueOrError.h" />
     <ClInclude Include="Include\Pathwinder\Test\Harness.h" />
+    <ClInclude Include="Include\Pathwinder\Test\IntegrationTestSupport.h" />
     <ClInclude Include="Include\Pathwinder\Test\MockDirectoryOperationQueue.h" />
     <ClInclude Include="Include\Pathwinder\Test\MockFilesystemOperations.h" />
     <ClInclude Include="Include\Pathwinder\Test\MockFreeFunctionContext.h" />
