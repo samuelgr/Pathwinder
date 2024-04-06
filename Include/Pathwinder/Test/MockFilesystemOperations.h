@@ -153,7 +153,7 @@ namespace PathwinderTest
     /// Retrieves the name of the filesystem entity associated with the specified handle that is
     /// already open.
     /// @param [in] handle Handle to query for the associated directory full path.
-    /// @return Full path of the directory, if it is open for enumeration.
+    /// @return Full path of the filesystem entity, if it is open.
     std::optional<std::wstring_view> GetPathFromHandle(HANDLE handle) const;
 
     /// Generates a handle and marks a file or directory in the fake filesystem as being open.

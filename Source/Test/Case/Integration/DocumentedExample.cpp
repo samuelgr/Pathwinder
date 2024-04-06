@@ -11,6 +11,7 @@
 
 #include "TestCase.h"
 
+#include <map>
 #include <set>
 #include <string_view>
 
@@ -292,5 +293,38 @@ namespace PathwinderTest
 
     VerifyDirectoryAppearsToContain(context, L"C:\\OriginSide\\Origin1", {L"File1_1.bin"});
     VerifyDirectoryAppearsToContain(context, L"C:\\OriginSide\\Origin2", {L"File2_2.txt"});
+  }
+
+  // Verifies correct functionality of the "RelatedOriginDirectories" example provided on the
+  // Mechanics of Filesystem Rules documentation page. This uses two rules with related origin
+  // directories and verifies that the rule with the deeper origin directory takes precedence.
+  TEST_CASE(DocumentedExample_MechanicsOfFilesystemRules_RelatedOriginDirectories)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:RelatedOriginDirectories1]\n"
+        L"OriginDirectory = C:\\OriginSide\\Level1\n"
+        L"TargetDirectory = C:\\TargetSide\\Dir1\n"
+        L"\n"
+        L"[FilesystemRule:RelatedOriginDirectories2]\n"
+        L"OriginDirectory = C:\\OriginSide\\Level1\\Level2\n"
+        L"TargetDirectory = C:\\TargetSide\\Dir2";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(L"C:\\OriginSide");
+
+    constexpr std::wstring_view kFilePathToAccess = L"C:\\OriginSide\\Level1\\Level2\\TextFile.txt";
+
+    // Both of these are valid redirections based on which rule takes precedence, which should be
+    // rule 2.
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetSide\\Dir1\\Level2", {L"TextFile.txt"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetSide\\Dir2", {L"TextFile.txt"});
+
+    TIntegrationTestContext context =
+        CreateIntegrationTestContext(mockFilesystem, kConfigurationFileString);
+
+    HANDLE accessedFileHandle = OpenUsingFilesystemExecutor(context, kFilePathToAccess);
+    TEST_ASSERT(
+        L"C:\\TargetSide\\Dir2\\TextFile.txt" ==
+        mockFilesystem.GetPathFromHandle(accessedFileHandle));
   }
 } // namespace PathwinderTest
