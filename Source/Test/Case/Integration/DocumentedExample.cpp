@@ -264,4 +264,33 @@ namespace PathwinderTest
     VerifyDirectoryAppearsToContain(
         context, L"C:\\AppDir\\DataDir\\MoreData.txt", {L"OutputB.log", L"ContentsB2.bin"});
   }
+
+  // Verifies correct functionality of the "UnrelatedOriginDirectories" example provided on the
+  // Mechanics of Filesystem Rules documentation page. This uses two rules with unrelated origin
+  // directories.
+  TEST_CASE(DocumentedExample_MechanicsOfFilesystemRules_UnrelatedOriginDirectories)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:UnrelatedOriginDirectories1]\n"
+        L"OriginDirectory = C:\\OriginSide\\Origin1\n"
+        L"TargetDirectory = C:\\TargetSide\\Target1\n"
+        L"\n"
+        L"[FilesystemRule:UnrelatedOriginDirectories2]\n"
+        L"OriginDirectory = C:\\OriginSide\\Origin2\n"
+        L"TargetDirectory = C:\\TargetSide\\Target2\n"
+        L"FilePattern = *.txt";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(L"C:\\OriginSide\\Origin1");
+    mockFilesystem.AddDirectory(L"C:\\OriginSide\\Origin2");
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetSide\\Target1", {L"File1_1.bin"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\TargetSide\\Target2", {L"File2_1.bin", L"File2_2.txt"});
+
+    TIntegrationTestContext context =
+        CreateIntegrationTestContext(mockFilesystem, kConfigurationFileString);
+
+    VerifyDirectoryAppearsToContain(context, L"C:\\OriginSide\\Origin1", {L"File1_1.bin"});
+    VerifyDirectoryAppearsToContain(context, L"C:\\OriginSide\\Origin2", {L"File2_2.txt"});
+  }
 } // namespace PathwinderTest
