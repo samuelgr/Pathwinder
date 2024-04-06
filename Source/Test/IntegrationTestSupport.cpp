@@ -32,6 +32,68 @@ namespace PathwinderTest
 {
   using namespace ::Pathwinder;
 
+  static void CreateUsingFilesystemExecutor(
+      TIntegrationTestContext& context, std::wstring_view absolutePathToCreate, bool isDirectory)
+  {
+    HANDLE newlyCreatedFileHandle = nullptr;
+
+    UNICODE_STRING absolutePathToCreateUnicodeString =
+        Strings::NtConvertStringViewToUnicodeString(absolutePathToCreate);
+    OBJECT_ATTRIBUTES absolutePathToCreateObjectAttributes = {
+        .Length = sizeof(OBJECT_ATTRIBUTES),
+        .RootDirectory = nullptr,
+        .ObjectName = &absolutePathToCreateUnicodeString};
+
+    NTSTATUS newFileHandleResult = FilesystemExecutor::NewFileHandle(
+        __FUNCTIONW__,
+        kFunctionRequestIdentifier,
+        context->openHandleStore,
+        &newlyCreatedFileHandle,
+        FILE_GENERIC_READ | FILE_GENERIC_WRITE,
+        &absolutePathToCreateObjectAttributes,
+        0,
+        FILE_CREATE,
+        FILE_SYNCHRONOUS_IO_NONALERT,
+        [&context](
+            std::wstring_view absolutePath,
+            FileAccessMode fileAccessMode,
+            CreateDisposition createDisposition) -> FileOperationInstruction
+        {
+          return context->filesystemDirector.GetInstructionForFileOperation(
+              absolutePath, fileAccessMode, createDisposition);
+        },
+        [&context, isDirectory](
+            PHANDLE fileHandle,
+            POBJECT_ATTRIBUTES objectAttributes,
+            ULONG createDisposition) -> NTSTATUS
+        {
+          std::wstring_view absolutePathToCreate =
+              Strings::NtConvertUnicodeStringToStringView(*objectAttributes->ObjectName);
+
+          if (true == isDirectory)
+            context->mockFilesystem.AddDirectory(absolutePathToCreate);
+          else
+            context->mockFilesystem.AddFile(absolutePathToCreate);
+
+          HANDLE newlyOpenedFileHandle = context->mockFilesystem.Open(absolutePathToCreate);
+          if (newlyOpenedFileHandle != nullptr)
+          {
+            *fileHandle = newlyOpenedFileHandle;
+            return NtStatus::kSuccess;
+          }
+
+          return NtStatus::kObjectNameNotFound;
+        });
+
+    TEST_ASSERT_WITH_FAILURE_MESSAGE(
+        NtStatus::kSuccess == newFileHandleResult,
+        "NTSTATUS = 0x%08x when attempting to create file \"%.*s\".",
+        static_cast<unsigned int>(newFileHandleResult),
+        static_cast<int>(absolutePathToCreate.length()),
+        absolutePathToCreate.data());
+    CloseHandleUsingFilesystemExecutor(context, newlyCreatedFileHandle);
+  }
+
   /// Enumerates a single file and fills its file name information structure with the resulting
   /// information. Sends requests via the filesystem executor but can fall back to direct file
   /// operations if no redirection is needed for the operation. If the directory enumeration
@@ -128,8 +190,7 @@ namespace PathwinderTest
       TemporaryString expectedFileAbsolutePath;
       expectedFileAbsolutePath << directoryAbsolutePath << L'\\' << expectedFile;
 
-      HANDLE expectedFileHandle =
-          OpenExistingFileUsingFilesystemExecutor(context, expectedFileAbsolutePath);
+      HANDLE expectedFileHandle = OpenUsingFilesystemExecutor(context, expectedFileAbsolutePath);
       CloseHandleUsingFilesystemExecutor(context, expectedFileHandle);
     }
   }
@@ -146,10 +207,23 @@ namespace PathwinderTest
       std::wstring_view directoryAbsolutePath,
       const TFileNameSet& expectedFiles)
   {
-    HANDLE directoryHandle =
-        OpenExistingFileUsingFilesystemExecutor(context, directoryAbsolutePath);
+    HANDLE directoryHandle = OpenUsingFilesystemExecutor(context, directoryAbsolutePath);
 
     BytewiseDanglingFilenameStruct<SFileNamesInformation> singleEnumeratedFileInformation;
+
+    if (true == expectedFiles.empty())
+    {
+      const NTSTATUS enumerateResult = EnumerateOneFileUsingFilesystemExecutor(
+          context, directoryHandle, singleEnumeratedFileInformation);
+
+      TEST_ASSERT_WITH_FAILURE_MESSAGE(
+          NtStatus::kNoSuchFile == enumerateResult,
+          L"Unexpected file \"%.*s\" was enumerated in directory \"%.*s\".",
+          static_cast<int>(singleEnumeratedFileInformation.GetDanglingFilename().length()),
+          singleEnumeratedFileInformation.GetDanglingFilename().data(),
+          static_cast<int>(directoryAbsolutePath.length()),
+          directoryAbsolutePath.data());
+    }
 
     std::set<std::wstring, std::less<>> actualFiles;
     while (actualFiles.size() < expectedFiles.size())
@@ -238,72 +312,19 @@ namespace PathwinderTest
         reinterpret_cast<size_t>(handleToClose));
   }
 
-  /// Uses the filesystem executor subsystem to create a new file and add it to the mock filesystem.
-  /// @param [in] absolutePathToCreate Absolute path of the file to be opened. In order for this
-  /// function to succeed the file must exist in the fake filesystem.
-  /// @param [in] director Filesystem director object, created as part of the calling test case.
-  /// @param [in, out] openHandleStore Open handle store object, created and maintained by the
-  /// calling test case and potentially updated by the filesystem executor.
-  /// @param [in, out] mockFilesystem Fake filesystem object, created and maintained by the calling
-  /// test case and potentially modified by the filesystem executor.
-  /// @return Handle to the newly-opened file.
-  void CreateNewFileUsingFilesystemExecutor(
+  void CreateDirectoryUsingFilesystemExecutor(
       TIntegrationTestContext& context, std::wstring_view absolutePathToCreate)
   {
-    HANDLE newlyCreatedFileHandle = nullptr;
-
-    UNICODE_STRING absolutePathToCreateUnicodeString =
-        Strings::NtConvertStringViewToUnicodeString(absolutePathToCreate);
-    OBJECT_ATTRIBUTES absolutePathToCreateObjectAttributes = {
-        .Length = sizeof(OBJECT_ATTRIBUTES),
-        .RootDirectory = nullptr,
-        .ObjectName = &absolutePathToCreateUnicodeString};
-
-    NTSTATUS newFileHandleResult = FilesystemExecutor::NewFileHandle(
-        __FUNCTIONW__,
-        kFunctionRequestIdentifier,
-        context->openHandleStore,
-        &newlyCreatedFileHandle,
-        FILE_GENERIC_READ | FILE_GENERIC_WRITE,
-        &absolutePathToCreateObjectAttributes,
-        0,
-        FILE_CREATE,
-        FILE_SYNCHRONOUS_IO_NONALERT,
-        [&context](
-            std::wstring_view absolutePath,
-            FileAccessMode fileAccessMode,
-            CreateDisposition createDisposition) -> FileOperationInstruction
-        {
-          return context->filesystemDirector.GetInstructionForFileOperation(
-              absolutePath, fileAccessMode, createDisposition);
-        },
-        [&context](PHANDLE fileHandle, POBJECT_ATTRIBUTES objectAttributes, ULONG createDisposition)
-            -> NTSTATUS
-        {
-          std::wstring_view absolutePathToCreate =
-              Strings::NtConvertUnicodeStringToStringView(*objectAttributes->ObjectName);
-
-          context->mockFilesystem.AddFile(absolutePathToCreate);
-          HANDLE newlyOpenedFileHandle = context->mockFilesystem.Open(absolutePathToCreate);
-          if (newlyOpenedFileHandle != nullptr)
-          {
-            *fileHandle = newlyOpenedFileHandle;
-            return NtStatus::kSuccess;
-          }
-
-          return NtStatus::kObjectNameNotFound;
-        });
-
-    TEST_ASSERT_WITH_FAILURE_MESSAGE(
-        NtStatus::kSuccess == newFileHandleResult,
-        "NTSTATUS = 0x%08x when attempting to create file \"%.*s\".",
-        static_cast<unsigned int>(newFileHandleResult),
-        static_cast<int>(absolutePathToCreate.length()),
-        absolutePathToCreate.data());
-    CloseHandleUsingFilesystemExecutor(context, newlyCreatedFileHandle);
+    CreateUsingFilesystemExecutor(context, absolutePathToCreate, true);
   }
 
-  HANDLE OpenExistingFileUsingFilesystemExecutor(
+  void CreateFileUsingFilesystemExecutor(
+      TIntegrationTestContext& context, std::wstring_view absolutePathToCreate)
+  {
+    CreateUsingFilesystemExecutor(context, absolutePathToCreate, false);
+  }
+
+  HANDLE OpenUsingFilesystemExecutor(
       TIntegrationTestContext& context, std::wstring_view absolutePathToOpen)
   {
     HANDLE newlyOpenedFileHandle = nullptr;

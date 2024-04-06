@@ -133,7 +133,7 @@ namespace PathwinderTest
     // Second part of the documented example is to create an out-of-scope file. It should be added
     // to, and visible in, the origin directory as a real file and not present in the target
     // directory.
-    CreateNewFileUsingFilesystemExecutor(context, L"C:\\AppDir\\DataDir\\Data.dat");
+    CreateFileUsingFilesystemExecutor(context, L"C:\\AppDir\\DataDir\\Data.dat");
 
     VerifyDirectoryAppearsToContain(
         context, L"C:\\AppDir\\DataDir", {L"2ndOrigin.bin", L"3rdTarget.txt", L"Data.dat"});
@@ -143,7 +143,7 @@ namespace PathwinderTest
 
     // Third part of the documented example is to create an in-scope file. It should be added to the
     // target directory and visible in the origin directory.
-    CreateNewFileUsingFilesystemExecutor(context, L"C:\\AppDir\\DataDir\\Output.txt");
+    CreateFileUsingFilesystemExecutor(context, L"C:\\AppDir\\DataDir\\Output.txt");
 
     VerifyDirectoryAppearsToContain(
         context,

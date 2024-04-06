@@ -28,6 +28,40 @@ namespace PathwinderTest
 {
   using namespace ::Pathwinder;
 
+  // Tests a real-world scenario in which only one rule is defined but it refers to an origin
+  // directory that does not really exist. If the target directory also does not exist then the
+  // origin directory is not made available to the application. If the target directory is
+  // subsequently created, then the origin directory appears to the application too.
+  TEST_CASE(RealWorldScenario_SingleRule_OriginDirectoryOnlyShownIfTargetExists)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:Test]\n"
+        L"OriginDirectory = C:\\Test\\OriginDir\n"
+        L"TargetDirectory = C:\\Test\\TargetDir";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(L"C:\\Test");
+
+    TIntegrationTestContext context =
+        CreateIntegrationTestContext(mockFilesystem, kConfigurationFileString);
+
+    // Since neither the origin nor the target directories actually exist in the real filesystem,
+    // neither should be visible to the application.
+    VerifyDirectoryAppearsToContain(context, L"C:\\Test", {});
+
+    // Once the target directory is created, the origin directory should be visible to the
+    // application too. This test simulates creating the target directory externally (for example,
+    // by using File Explorer) by accessing the mock filesystem directly rather than by using the
+    // filesystem executor.
+    mockFilesystem.AddDirectory(L"C:\\Test\\TargetDir");
+    VerifyDirectoryAppearsToContain(context, L"C:\\Test", {L"OriginDir", L"TargetDir"});
+  }
+
+  // Tests a real-world scenario in which multiple rules all have the same origin directory. This is
+  // about rule precedence: all rules except one use Overlay mode and have file patterns, and the
+  // final rule uses Simple mode and has no file patterns. Any files in scope of the first three
+  // rules, that exist for real in the origin directory but not the target directory, should be
+  // available.
   TEST_CASE(RealWorldScenario_MultipleRulesSameOriginDirectory_SimpleWildcardOverlayFilePatterns)
   {
     // This configuration file defines four rules all having the same origin directory. Three rules
