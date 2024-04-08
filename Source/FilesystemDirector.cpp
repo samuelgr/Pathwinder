@@ -644,11 +644,15 @@ namespace Pathwinder
 
       if (false == maybeRedirectedFilePath.has_value())
       {
+        std::wstring_view selectedOriginDirectory =
+            selectedRuleContainer->AnyRule().GetOriginDirectoryFullPath();
         Message::OutputFormatted(
             Message::ESeverity::Info,
-            L"File operation redirection query for path \"%.*s\" did not match any rules because it does not satisfy any file patterns.",
+            L"File operation redirection query for path \"%.*s\" did not match any rules because no file patterns match for rules having origin directory \"%.*s\".",
             static_cast<int>(absoluteFilePath.length()),
-            absoluteFilePath.data());
+            absoluteFilePath.data(),
+            static_cast<int>(selectedOriginDirectory.length()),
+            selectedOriginDirectory.data());
         return FileOperationInstruction::NoRedirectionOrInterception();
       }
 
