@@ -15,6 +15,14 @@
 
 #include "Utilities.h"
 
+/// Print a message during a test.
+#define TEST_PRINT_MESSAGE(messagef, ...)                                                          \
+  do                                                                                               \
+  {                                                                                                \
+    ::PathwinderTest::PrintFormatted(L"%s(%d): " messagef, __FILEW__, __LINE__, ##__VA_ARGS__);    \
+  }                                                                                                \
+  while (0)
+
 /// Exit from a test case and indicate a failing result.
 #define TEST_FAILED throw ::PathwinderTest::TestFailedException()
 

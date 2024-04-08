@@ -296,9 +296,11 @@ namespace PathwinderTest
   }
 
   // Verifies correct functionality of the "RelatedOriginDirectories" example provided on the
-  // Mechanics of Filesystem Rules documentation page. This uses two rules with related origin
-  // directories and verifies that the rule with the deeper origin directory takes precedence.
-  TEST_CASE(DocumentedExample_MechanicsOfFilesystemRules_RelatedOriginDirectories)
+  // Mechanics of Filesystem Rules documentation page when no file patterns are used. This uses two
+  // rules with related origin directories and verifies that the rule with the deeper origin
+  // directory takes precedence.
+  TEST_CASE(
+      DocumentedExample_MechanicsOfFilesystemRules_RelatedOriginDirectories_WithoutFilePatterns)
   {
     constexpr std::wstring_view kConfigurationFileString =
         L"[FilesystemRule:RelatedOriginDirectories1]\n"
@@ -314,8 +316,9 @@ namespace PathwinderTest
 
     constexpr std::wstring_view kFilePathToAccess = L"C:\\OriginSide\\Level1\\Level2\\TextFile.txt";
 
-    // Both of these are valid redirections based on which rule takes precedence, which should be
-    // rule 2.
+    // These three files respectively represent no redirection, redirection using rule 1, and
+    // redirection using rule 2.
+    mockFilesystem.AddFile(kFilePathToAccess);
     mockFilesystem.AddFilesInDirectory(L"C:\\TargetSide\\Dir1\\Level2", {L"TextFile.txt"});
     mockFilesystem.AddFilesInDirectory(L"C:\\TargetSide\\Dir2", {L"TextFile.txt"});
 
@@ -326,5 +329,115 @@ namespace PathwinderTest
     TEST_ASSERT(
         L"C:\\TargetSide\\Dir2\\TextFile.txt" ==
         mockFilesystem.GetPathFromHandle(accessedFileHandle));
+  }
+
+  // Verifies correct functionality of the "RelatedOriginDirectories" example provided on the
+  // Mechanics of Filesystem Rules documentation page when a file pattern are used. This uses two
+  // rules with related origin directories and verifies that the rule with the deeper origin
+  // directory takes precedence but, because of a file pattern mismatch, leads to no redirection.
+  TEST_CASE(DocumentedExample_MechanicsOfFilesystemRules_RelatedOriginDirectories_WithFilePatterns)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:RelatedOriginDirectories1]\n"
+        L"OriginDirectory = C:\\OriginSide\\Level1\n"
+        L"TargetDirectory = C:\\TargetSide\\Dir1\n"
+        L"\n"
+        L"[FilesystemRule:RelatedOriginDirectories2]\n"
+        L"OriginDirectory = C:\\OriginSide\\Level1\\Level2\n"
+        L"TargetDirectory = C:\\TargetSide\\Dir2\n"
+        L"FilePattern = *.bin";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(L"C:\\OriginSide");
+
+    constexpr std::wstring_view kFilePathToAccess = L"C:\\OriginSide\\Level1\\Level2\\TextFile.txt";
+
+    // These three files respectively represent no redirection, redirection using rule 1, and
+    // redirection using rule 2.
+    mockFilesystem.AddFile(kFilePathToAccess);
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetSide\\Dir1\\Level2", {L"TextFile.txt"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\TargetSide\\Dir2", {L"TextFile.txt"});
+
+    TIntegrationTestContext context =
+        CreateIntegrationTestContext(mockFilesystem, kConfigurationFileString);
+
+    HANDLE accessedFileHandle = OpenUsingFilesystemExecutor(context, kFilePathToAccess);
+    TEST_ASSERT(kFilePathToAccess == mockFilesystem.GetPathFromHandle(accessedFileHandle));
+  }
+
+  // Verifies correct functionality of the rules used in the "Same Origin Directories" example
+  // provided on the Mechanics of Filesystem Rules documentation page. Four rules with the same
+  // origin directories are created. The test verifies that only the correct files are visible to
+  // the application and that redirections happen following the correct order of precedence for rule
+  // evaluation.
+  TEST_CASE(DocumentedExample_MechanicsOfFilesystemRules_SameOriginDirectories)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:CatchAll]\n"
+        L"OriginDirectory = C:\\AppDir\\DataDir\n"
+        L"TargetDirectory = C:\\TargetDir\\CatchAll\n"
+        L"\n"
+        L"[FilesystemRule:TxtFilesOnly]\n"
+        L"OriginDirectory = C:\\AppDir\\DataDir\n"
+        L"TargetDirectory = C:\\TargetDir\\TxtFilesOnly\n"
+        L"FilePattern = *.txt\n"
+        L"RedirectMode = Overlay\n"
+        L"\n"
+        L"[FilesystemRule:BinAndLogFilesOnly]\n"
+        L"OriginDirectory = C:\\AppDir\\DataDir\n"
+        L"TargetDirectory = C:\\TargetDir\\BinAndLogFilesOnly\n"
+        L"FilePattern = *.bin\n"
+        L"FilePattern = *.log\n"
+        L"\n"
+        L"[FilesystemRule:ExeFilesOnly]\n"
+        L"OriginDirectory = C:\\AppDir\\DataDir\n"
+        L"TargetDirectory = C:\\TargetDir\\ExeFilesOnly\n"
+        L"FilePattern = *.exe";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\AppDir\\DataDir",
+        {L"Origin.txt", L"Origin.bin", L"Origin.log", L"Origin.exe", L"Origin.dat"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\TargetDir\\CatchAll",
+        {L"CatchAllFile.txt",
+         L"CatchAllFile.bin",
+         L"CatchAllFile.log",
+         L"CatchAllFile.exe",
+         L"CatchAllFile.dat"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\TargetDir\\TxtFilesOnly",
+        {L"TxtFilesOnly.txt",
+         L"TxtFilesOnly.bin",
+         L"TxtFilesOnly.log",
+         L"TxtFilesOnly.exe",
+         L"TxtFilesOnly.dat"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\TargetDir\\BinAndLogFilesOnly",
+        {L"BinAndLogFilesOnly.txt",
+         L"BinAndLogFilesOnly.bin",
+         L"BinAndLogFilesOnly.log",
+         L"BinAndLogFilesOnly.exe",
+         L"BinAndLogFilesOnly.dat"});
+    mockFilesystem.AddFilesInDirectory(
+        L"C:\\TargetDir\\ExeFilesOnly",
+        {L"ExeFilesOnly.txt",
+         L"ExeFilesOnly.bin",
+         L"ExeFilesOnly.log",
+         L"ExeFilesOnly.exe",
+         L"ExeFilesOnly.dat"});
+
+    TIntegrationTestContext context =
+        CreateIntegrationTestContext(mockFilesystem, kConfigurationFileString);
+
+    VerifyDirectoryAppearsToContain(
+        context,
+        L"C:\\AppDir\\DataDir",
+        {L"Origin.txt",
+         L"CatchAllFile.dat",
+         L"TxtFilesOnly.txt",
+         L"BinAndLogFilesOnly.bin",
+         L"BinAndLogFilesOnly.log",
+         L"ExeFilesOnly.exe"});
   }
 } // namespace PathwinderTest

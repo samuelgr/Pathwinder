@@ -226,7 +226,9 @@ namespace PathwinderTest
     }
 
     std::set<std::wstring, std::less<>> actualFiles;
-    while (actualFiles.size() < expectedFiles.size())
+    std::set<std::wstring, std::less<>> unexpectedFiles;
+
+    while (true)
     {
       const NTSTATUS enumerateResult = EnumerateOneFileUsingFilesystemExecutor(
           context, directoryHandle, singleEnumeratedFileInformation);
@@ -236,13 +238,9 @@ namespace PathwinderTest
         std::wstring_view enumeratedFileName =
             singleEnumeratedFileInformation.GetDanglingFilename();
 
-        TEST_ASSERT_WITH_FAILURE_MESSAGE(
-            true == expectedFiles.contains(enumeratedFileName),
-            L"Unexpected file \"%.*s\" was enumerated in directory \"%.*s\".",
-            static_cast<int>(enumeratedFileName.length()),
-            enumeratedFileName.data(),
-            static_cast<int>(directoryAbsolutePath.length()),
-            directoryAbsolutePath.data());
+        if (true != expectedFiles.contains(enumeratedFileName))
+          unexpectedFiles.emplace(enumeratedFileName);
+
         TEST_ASSERT_WITH_FAILURE_MESSAGE(
             true == actualFiles.emplace(enumeratedFileName).second,
             L"File \"%.*s\" in directory \"%.*s\" was enumerated multiple times.",
@@ -261,6 +259,19 @@ namespace PathwinderTest
             directoryAbsolutePath.data());
         break;
       }
+    }
+
+    if (false == unexpectedFiles.empty())
+    {
+      for (const auto& unexpectedFile : unexpectedFiles)
+      {
+        TEST_PRINT_MESSAGE(
+            L"Unexpected file \"%s\" was enumerated in directory \"%.*s\".",
+            unexpectedFile.c_str(),
+            static_cast<int>(directoryAbsolutePath.length()),
+            directoryAbsolutePath.data());
+      }
+      TEST_FAILED;
     }
 
     for (const auto& expectedFile : expectedFiles)
