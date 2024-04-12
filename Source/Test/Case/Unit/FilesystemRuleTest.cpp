@@ -443,8 +443,6 @@ namespace PathwinderTest
   }
 
   // Verifies that a filesystem rule container correctly identifies rules that match file patterns.
-  // In this case all file patterns are totally disjoint, and no query selection enumerators are
-  // used to select or eliminate rules from inclusion in the queries.
   TEST_CASE(RelatedFilesystemRuleContainer_IdentifyRuleMatchingFilename_Nominal)
   {
     const FilesystemRule rules[] = {
@@ -479,15 +477,75 @@ namespace PathwinderTest
       if (true == testRecord.expectedRuleName.empty())
       {
         TEST_ASSERT(false == ruleContainer.HasRuleMatchingFileName(testRecord.inputFileName));
-        TEST_ASSERT(nullptr == ruleContainer.RuleMatchingFileName(testRecord.inputFileName));
+        TEST_ASSERT(nullptr == ruleContainer.RuleMatchingFileName(testRecord.inputFileName).first);
       }
       else
       {
         TEST_ASSERT(true == ruleContainer.HasRuleMatchingFileName(testRecord.inputFileName));
-        TEST_ASSERT(nullptr != ruleContainer.RuleMatchingFileName(testRecord.inputFileName));
+        TEST_ASSERT(nullptr != ruleContainer.RuleMatchingFileName(testRecord.inputFileName).first);
         TEST_ASSERT(
-            ruleContainer.RuleMatchingFileName(testRecord.inputFileName)->GetName() ==
+            ruleContainer.RuleMatchingFileName(testRecord.inputFileName).first->GetName() ==
             testRecord.expectedRuleName);
+      }
+    }
+  }
+
+  // Verifies that a filesystem rule container correctly identifies rules that match file patterns.
+  // In this case only a subset of filesystem rules are queried due to the inclusion of a stopping
+  // index.
+  TEST_CASE(RelatedFilesystemRuleContainer_IdentifyRuleMatchingFilename_WithStopIndex)
+  {
+    const FilesystemRule rules[] = {
+        FilesystemRule(
+            L"TXT", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.txt"}),
+        FilesystemRule(
+            L"BIN", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.bin"}),
+        FilesystemRule(
+            L"LOG", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.log"}),
+        FilesystemRule(
+            L"EXE", std::wstring_view(), std::wstring_view(), std::vector<std::wstring>{L"*.exe"}),
+    };
+
+    // Expected rule order is BIN, EXE, LOG, TXT. A stopping index of 1 includes BIN and EXE but
+    // excludes LOG and TXT.
+    constexpr RelatedFilesystemRuleContainer::TFilesystemRulesIndex kStopIndex = 1;
+
+    RelatedFilesystemRuleContainer ruleContainer;
+    for (const auto& rule : rules)
+      TEST_ASSERT(true == ruleContainer.InsertRule(rule).second);
+
+    constexpr struct
+    {
+      std::wstring_view inputFileName;
+      std::wstring_view expectedRuleName;
+    } kTestRecords[] = {
+        {.inputFileName = L"file1.TXT", .expectedRuleName = L""},
+        {.inputFileName = L"File2.txt", .expectedRuleName = L""},
+        {.inputFileName = L"log file.Log", .expectedRuleName = L""},
+        {.inputFileName = L"app.exe", .expectedRuleName = L"EXE"},
+        {.inputFileName = L"binfile_1234.bin", .expectedRuleName = L"BIN"},
+        {.inputFileName = L"document.docx", .expectedRuleName = L""}};
+
+    for (const auto& testRecord : kTestRecords)
+    {
+      if (true == testRecord.expectedRuleName.empty())
+      {
+        TEST_ASSERT(
+            false == ruleContainer.HasRuleMatchingFileName(testRecord.inputFileName, kStopIndex));
+        TEST_ASSERT(
+            nullptr ==
+            ruleContainer.RuleMatchingFileName(testRecord.inputFileName, kStopIndex).first);
+      }
+      else
+      {
+        TEST_ASSERT(
+            true == ruleContainer.HasRuleMatchingFileName(testRecord.inputFileName, kStopIndex));
+        TEST_ASSERT(
+            nullptr !=
+            ruleContainer.RuleMatchingFileName(testRecord.inputFileName, kStopIndex).first);
+        TEST_ASSERT(
+            ruleContainer.RuleMatchingFileName(testRecord.inputFileName, kStopIndex)
+                .first->GetName() == testRecord.expectedRuleName);
       }
     }
   }
@@ -546,5 +604,13 @@ namespace PathwinderTest
     for (const auto& filesystemRule : ruleContainer.AllRules())
       actualRuleOrder.push_back(filesystemRule.GetName());
     TEST_ASSERT(actualRuleOrder == expectedRuleOrder);
+
+    // The last part of the test verifies that rules can be identified correctly by index position.
+    for (RelatedFilesystemRuleContainer::TFilesystemRulesIndex index = 0;
+         static_cast<size_t>(index) < expectedRuleOrder.size();
+         ++index)
+    {
+      TEST_ASSERT(expectedRuleOrder[index] == ruleContainer.GetRuleByIndex(index)->GetName());
+    }
   }
 } // namespace PathwinderTest

@@ -30,8 +30,9 @@ namespace Pathwinder
   /// Identify the rule from within the container that was responsible for performing a redirection
   /// from a path on that rule's origin side to the specified redirected path, which would be on the
   /// rule's target sidde.
-  /// @param rules Container of rules to search.
-  /// @param redirectedPath Path that resulted from doing a redirection using that filesystem rule.
+  /// @param [in] rules Container of rules to search.
+  /// @param [in] redirectedPath Path that resulted from doing a redirection using that filesystem
+  /// rule.
   /// @return Rule that did the redirection, or `nullptr` if no such rule exists.
   static const FilesystemRule* IdentifyRuleThatPerformedRedirection(
       const RelatedFilesystemRuleContainer& rules, std::wstring_view redirectedPath)
@@ -185,40 +186,25 @@ namespace Pathwinder
             int numOverlayRedirectModeRules = 0;
             bool containsSimpleRedirectModeRuleWithNoFilePatterns = false;
 
-            for (const auto& directoryEnumerationRule : directoryEnumerationRules->AllRules())
+            if (1 == directoryEnumerationRules->CountOfRules())
             {
-              // A simplification is available for the same rule that was used for the original
-              // redirection. In that case, the file handle's real opened path can be used instead
-              // of relying on the filesystem rule's origin or target directories. Depending on
-              // whether or not the rule has any file patterns, some of the enumeration checks can
-              // be skipped. The expected most common case is one rule per origin directory, so this
-              // simplification is likely to be applied almost always.
-              if (&directoryEnumerationRule == originalRedirectRule)
+              // A major simplification is available in the common case of one rule per origin
+              // directory. There is only one rule to consult, and it is directly known how it will
+              // behave.
+              const FilesystemRule& directoryEnumerationRule = *originalRedirectRule;
+
+              if (true == directoryEnumerationRule.HasFilePatterns())
               {
-                if (true == directoryEnumerationRule.HasFilePatterns())
-                {
-                  directoriesToEnumerate.emplace_back(
-                      DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                          IncludeOnlyMatchingFilenames(
-                              EDirectoryPathSource::RealOpenedPath, directoryEnumerationRule));
-                }
-                else
-                {
-                  directoriesToEnumerate.emplace_back(
-                      DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                          IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath));
-                }
-              }
-              else
-              {
-                // If the filesystem rule is a different one that has the same origin directory then
-                // regardless of whether or not it has any file patterns the rule is still needed as
-                // a source of information for which directory to enumerate.
                 directoriesToEnumerate.emplace_back(
                     DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                         IncludeOnlyMatchingFilenames(
-                            EDirectoryPathSource::FilePatternSourceTargetDirectory,
-                            directoryEnumerationRule));
+                            EDirectoryPathSource::RealOpenedPath, directoryEnumerationRule));
+              }
+              else
+              {
+                directoriesToEnumerate.emplace_back(
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                        IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath));
               }
 
               Message::OutputFormatted(
@@ -234,17 +220,68 @@ namespace Pathwinder
               switch (directoryEnumerationRule.GetRedirectMode())
               {
                 case ERedirectMode::Simple:
-                  numSimpleRedirectModeRules += 1;
+                  numSimpleRedirectModeRules = 1;
                   if (false == directoryEnumerationRule.HasFilePatterns())
                     containsSimpleRedirectModeRuleWithNoFilePatterns = true;
                   break;
 
                 case ERedirectMode::Overlay:
-                  numOverlayRedirectModeRules += 1;
+                  numOverlayRedirectModeRules = 1;
                   break;
 
                 default:
                   break;
+              }
+            }
+            else
+            {
+              RelatedFilesystemRuleContainer::TFilesystemRulesIndex ruleIndex = 0;
+              for (const FilesystemRule& directoryEnumerationRule :
+                   directoryEnumerationRules->AllRules())
+              {
+                // If multiple filesystem rules are associated with the same origin directory then
+                // they are processed in order of precedence. Any scopes that are overlapping
+                // between the file patterns are resolved in favor of the rules that come earlier in
+                // the container. Inverting all matches prior to the current rule means that we are
+                // explicitly excluding from the scope of the current rule any file names that match
+                // earlier rules.
+
+                directoriesToEnumerate.emplace_back(
+                    DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                        IncludeOnlyMatchingFilenames(
+                            EDirectoryPathSource::FilePatternSourceTargetDirectory,
+                            *directoryEnumerationRules,
+                            EFilePatternMatchCondition::MatchByPositionInvertAllPriorToSelected,
+                            ruleIndex));
+
+                Message::OutputFormatted(
+                    Message::ESeverity::Debug,
+                    L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will include in-scope contents of \"%.*s\" in the output.",
+                    static_cast<int>(unredirectedPath.length()),
+                    unredirectedPath.data(),
+                    static_cast<int>(directoryEnumerationRule.GetName().length()),
+                    directoryEnumerationRule.GetName().data(),
+                    static_cast<int>(
+                        directoryEnumerationRule.GetTargetDirectoryFullPath().length()),
+                    directoryEnumerationRule.GetTargetDirectoryFullPath().data());
+
+                switch (directoryEnumerationRule.GetRedirectMode())
+                {
+                  case ERedirectMode::Simple:
+                    numSimpleRedirectModeRules += 1;
+                    if (false == directoryEnumerationRule.HasFilePatterns())
+                      containsSimpleRedirectModeRuleWithNoFilePatterns = true;
+                    break;
+
+                  case ERedirectMode::Overlay:
+                    numOverlayRedirectModeRules += 1;
+                    break;
+
+                  default:
+                    break;
+                }
+
+                ruleIndex += 1;
               }
             }
 
@@ -275,7 +312,7 @@ namespace Pathwinder
 
                 if (1 == directoryEnumerationRules->CountOfRules())
                 {
-                  // Some files on the origin side may need to be hiddne, but there is only one
+                  // Some files on the origin side may need to be hidden, but there is only one
                   // filesystem rule to be consulted. It is already known that this filesystem rule
                   // uses Simple redirect mode. Anything in-scope for that rule needs to be
                   // excluded.

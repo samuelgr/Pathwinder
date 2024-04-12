@@ -749,18 +749,26 @@ namespace PathwinderTest
     constexpr std::wstring_view realOpenedPath = L"C:\\Target1";
 
     const DirectoryEnumerationInstruction expectedDirectoryEnumerationInstruction =
-        DirectoryEnumerationInstruction::EnumerateDirectories(
-            {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                 IncludeOnlyMatchingFilenames(
-                     EDirectoryPathSource::RealOpenedPath, *director.FindRuleByName(L"1")),
-             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                 IncludeOnlyMatchingFilenames(
-                     EDirectoryPathSource::FilePatternSourceTargetDirectory,
-                     *director.FindRuleByName(L"2")),
-             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                 IncludeOnlyMatchingFilenames(
-                     EDirectoryPathSource::FilePatternSourceTargetDirectory,
-                     *director.FindRuleByName(L"3"))});
+        DirectoryEnumerationInstruction::EnumerateDirectories({
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                IncludeOnlyMatchingFilenames(
+                    EDirectoryPathSource::FilePatternSourceTargetDirectory,
+                    *director.SelectRulesForPath(L"C:\\Origin"),
+                    EFilePatternMatchCondition::MatchByPositionInvertAllPriorToSelected,
+                    0),
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                IncludeOnlyMatchingFilenames(
+                    EDirectoryPathSource::FilePatternSourceTargetDirectory,
+                    *director.SelectRulesForPath(L"C:\\Origin"),
+                    EFilePatternMatchCondition::MatchByPositionInvertAllPriorToSelected,
+                    1),
+            DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                IncludeOnlyMatchingFilenames(
+                    EDirectoryPathSource::FilePatternSourceTargetDirectory,
+                    *director.SelectRulesForPath(L"C:\\Origin"),
+                    EFilePatternMatchCondition::MatchByPositionInvertAllPriorToSelected,
+                    2),
+        });
     const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =
         director.GetInstructionForDirectoryEnumeration(associatedPath, realOpenedPath);
 
@@ -790,14 +798,21 @@ namespace PathwinderTest
             {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                  IncludeOnlyMatchingFilenames(
                      EDirectoryPathSource::FilePatternSourceTargetDirectory,
-                     *director.FindRuleByName(L"1")),
-             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
-                 IncludeOnlyMatchingFilenames(
-                     EDirectoryPathSource::RealOpenedPath, *director.FindRuleByName(L"2")),
+                     *director.SelectRulesForPath(L"C:\\Origin"),
+                     EFilePatternMatchCondition::MatchByPositionInvertAllPriorToSelected,
+                     0),
              DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                  IncludeOnlyMatchingFilenames(
                      EDirectoryPathSource::FilePatternSourceTargetDirectory,
-                     *director.FindRuleByName(L"3")),
+                     *director.SelectRulesForPath(L"C:\\Origin"),
+                     EFilePatternMatchCondition::MatchByPositionInvertAllPriorToSelected,
+                     1),
+             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                 IncludeOnlyMatchingFilenames(
+                     EDirectoryPathSource::FilePatternSourceTargetDirectory,
+                     *director.SelectRulesForPath(L"C:\\Origin"),
+                     EFilePatternMatchCondition::MatchByPositionInvertAllPriorToSelected,
+                     2),
              DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                  IncludeAllExceptMatchingFilenames(
                      EDirectoryPathSource::AssociatedPath,
@@ -818,6 +833,8 @@ namespace PathwinderTest
   TEST_CASE(
       FilesystemDirector_GetInstructionForDirectoryEnumeration_EnumerateOriginDirectoryMultiRuleAllOverlay)
   {
+    // Filesystem rules should exist in the container in this order. Their indices would
+    // respectively be 0, 1, and 2.
     const FilesystemDirector director(MakeFilesystemDirector({
         {L"1",
          FilesystemRule(L"1", L"C:\\Origin", L"C:\\Target1", {L"*.pdf"}, ERedirectMode::Overlay)},
@@ -834,13 +851,21 @@ namespace PathwinderTest
             {DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                  IncludeOnlyMatchingFilenames(
                      EDirectoryPathSource::FilePatternSourceTargetDirectory,
-                     *director.FindRuleByName(L"1")),
+                     *director.SelectRulesForPath(L"C:\\Origin"),
+                     EFilePatternMatchCondition::MatchByPositionInvertAllPriorToSelected,
+                     0),
              DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
                  IncludeOnlyMatchingFilenames(
                      EDirectoryPathSource::FilePatternSourceTargetDirectory,
-                     *director.FindRuleByName(L"2")),
-             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
-                 EDirectoryPathSource::RealOpenedPath),
+                     *director.SelectRulesForPath(L"C:\\Origin"),
+                     EFilePatternMatchCondition::MatchByPositionInvertAllPriorToSelected,
+                     1),
+             DirectoryEnumerationInstruction::SingleDirectoryEnumeration::
+                 IncludeOnlyMatchingFilenames(
+                     EDirectoryPathSource::FilePatternSourceTargetDirectory,
+                     *director.SelectRulesForPath(L"C:\\Origin"),
+                     EFilePatternMatchCondition::MatchByPositionInvertAllPriorToSelected,
+                     2),
              DirectoryEnumerationInstruction::SingleDirectoryEnumeration::IncludeAllFilenames(
                  EDirectoryPathSource::AssociatedPath)});
     const DirectoryEnumerationInstruction actualDirectoryEnumerationInstruction =

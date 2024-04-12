@@ -256,7 +256,7 @@ namespace Pathwinder
 
     /// Determines if the provided path is a volume root, meaning that it identifies a volume (in a
     /// way that Pathwinder recognizes) but does not contain any other path information.
-    /// @param absolutePath Absolute path to check.
+    /// @param [in] absolutePath Absolute path to check.
     /// @return Whether or not the supplied absolute path is a volume root path.
     bool PathIsVolumeRoot(std::wstring_view absolutePath);
 

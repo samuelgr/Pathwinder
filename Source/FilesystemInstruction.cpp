@@ -44,12 +44,14 @@ namespace Pathwinder
       EDirectoryPathSource directoryPathSource,
       const RelatedFilesystemRuleContainer& filePatternSource,
       bool invertFilePatternMatches,
-      EFilePatternMatchCondition filePatternMatchCondition)
+      EFilePatternMatchCondition filePatternMatchCondition,
+      RelatedFilesystemRuleContainer::TFilesystemRulesIndex filePatternMatchRuleIndex)
       : directoryPathSource(directoryPathSource),
         filePatternSource({.multipleRules = &filePatternSource}),
         filePatternMatchConfig(
             {.invertMatches = invertFilePatternMatches,
-             .filePatternMatchCondition = filePatternMatchCondition})
+             .filePatternMatchCondition = filePatternMatchCondition,
+             .filePatternMatchRuleIndex = filePatternMatchRuleIndex})
   {}
 
   std::wstring_view
@@ -65,20 +67,22 @@ namespace Pathwinder
         return realOpenedPath;
 
       case EDirectoryPathSource::FilePatternSourceOriginDirectory:
-        DebugAssert(
-            (EFilePatternMatchCondition::SingleRuleOnly !=
-             filePatternMatchConfig.filePatternMatchCondition) ||
-                (nullptr != filePatternSource.singleRule),
-            "Attempting to use a filesystem rule as a directory path source without a singular filesystem rule present.");
-        return filePatternSource.singleRule->GetOriginDirectoryFullPath();
+        if (EFilePatternMatchCondition::SingleRuleOnly ==
+            filePatternMatchConfig.filePatternMatchCondition)
+          return filePatternSource.singleRule->GetOriginDirectoryFullPath();
+        else
+          return filePatternSource.multipleRules
+              ->GetRuleByIndex(filePatternMatchConfig.filePatternMatchRuleIndex)
+              ->GetOriginDirectoryFullPath();
 
       case EDirectoryPathSource::FilePatternSourceTargetDirectory:
-        DebugAssert(
-            (EFilePatternMatchCondition::SingleRuleOnly !=
-             filePatternMatchConfig.filePatternMatchCondition) ||
-                (nullptr != filePatternSource.singleRule),
-            "Attempting to use a filesystem rule as a directory path source without a singular filesystem rule present.");
-        return filePatternSource.singleRule->GetTargetDirectoryFullPath();
+        if (EFilePatternMatchCondition::SingleRuleOnly ==
+            filePatternMatchConfig.filePatternMatchCondition)
+          return filePatternSource.singleRule->GetTargetDirectoryFullPath();
+        else
+          return filePatternSource.multipleRules
+              ->GetRuleByIndex(filePatternMatchConfig.filePatternMatchRuleIndex)
+              ->GetTargetDirectoryFullPath();
 
       default:
         return std::wstring_view();
@@ -101,8 +105,14 @@ namespace Pathwinder
       if (nullptr == filePatternSource.multipleRules) return true;
 
       const bool matchFoundReturnValue = !filePatternMatchConfig.invertMatches;
-      const FilesystemRule* matchingFilesystemRule =
-          filePatternSource.multipleRules->RuleMatchingFileName(filename);
+      const auto matchingFilesystemRuleAndPosition =
+          filePatternSource.multipleRules->RuleMatchingFileName(
+              filename, filePatternMatchConfig.filePatternMatchRuleIndex);
+
+      const FilesystemRule* matchingFilesystemRule = matchingFilesystemRuleAndPosition.first;
+      const RelatedFilesystemRuleContainer::TFilesystemRulesIndex matchingFilesystemRulePosition =
+          matchingFilesystemRuleAndPosition.second;
+
       const bool hasMatchingFilesystemRule = (matchingFilesystemRule != nullptr);
       if (false == hasMatchingFilesystemRule) return !matchFoundReturnValue;
 
@@ -120,6 +130,12 @@ namespace Pathwinder
             default:
               return matchFoundReturnValue;
           }
+
+        case EFilePatternMatchCondition::MatchByPositionInvertAllPriorToSelected:
+          return (
+              (matchingFilesystemRulePosition == filePatternMatchConfig.filePatternMatchRuleIndex)
+                  ? matchFoundReturnValue
+                  : !matchFoundReturnValue);
 
         default:
           break;

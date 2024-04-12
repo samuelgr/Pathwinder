@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "ArrayList.h"
+#include "DebugAssert.h"
 #include "Strings.h"
 #include "TemporaryBuffer.h"
 
@@ -287,6 +288,12 @@ namespace Pathwinder
   {
   public:
 
+    /// Maximum number of filesystem rules that can be stored in this container. A higher value
+    /// leads to potentially more processing overhead for file operations, especially directory
+    /// enumeration. The absolute upper bound for this value is determined by the sizes of any
+    /// integer types that need to encode an index into the container.
+    static constexpr unsigned int kMaximumFilesystemRuleCount = 64;
+
     /// Comparator function object type for establishing the ordering of filesystem rules. If the
     /// number of file patterns is the same, then filesystem rules are ordered by name. Otherwise,
     /// the filesystem rules are ordered in descending order by number of file patterns. That way, 0
@@ -305,6 +312,13 @@ namespace Pathwinder
 
     /// Type alias for the internal container type that holds the filesystem rules themselves.
     using TFilesystemRules = std::set<FilesystemRule, OrderedFilesystemRuleLessThanComparator>;
+
+    /// Type alias for iterators in the internal container type that holds filesystem rules.
+    using TFilesystemRulesIter = TFilesystemRules::const_iterator;
+
+    /// Type alias for numeric indices representing rule position within the internal container type
+    /// that holds filesystem rules.
+    using TFilesystemRulesIndex = uint16_t;
 
     RelatedFilesystemRuleContainer(void) = default;
 
@@ -341,8 +355,27 @@ namespace Pathwinder
     template <typename... Args> inline std::pair<const FilesystemRule*, bool> EmplaceRule(
         Args&&... args)
     {
+      if (filesystemRules.size() >= static_cast<size_t>(kMaximumFilesystemRuleCount))
+        return std::make_pair<const FilesystemRule*, bool>(nullptr, false);
       auto emplaceResult = filesystemRules.emplace(std::forward<Args>(args)...);
       return std::make_pair(&(*emplaceResult.first), emplaceResult.second);
+    }
+
+    /// Retrieves a filesystem from this container identified by its position index. Does not
+    /// perform any boundary checks on the container itself.
+    /// @param [in] desiredIndex Position index of the desired rule.
+    /// @return Pointer to the desired rule.
+    const FilesystemRule* GetRuleByIndex(TFilesystemRulesIndex desiredIndex) const
+    {
+      TFilesystemRulesIndex index = 0;
+      for (const auto& filesystemRule : filesystemRules)
+      {
+        if (index == desiredIndex) return &filesystemRule;
+        index += 1;
+      }
+      DebugAssert(
+          false, "Returning a null rule when attempting to retrieve a rule by position index.");
+      return nullptr;
     }
 
     /// Attempts to insert a filesystem rule into this container using copy semantics.
@@ -367,23 +400,42 @@ namespace Pathwinder
     /// any of the rules held by this object. Input filename must not contain any backslash
     /// separators, as it is intended to represent a file within a directory rather than a path.
     /// @param [in] candidateFileName File name to check for matches with any file pattern.
+    /// @param [in] stopAtRuleIndex Highest rule index to include in the search for a match. Can be
+    /// used to limit the scope of the search to a subset of the rules at the start of the
+    /// container. Defaults to not restricting the scope of the search at all.
     /// @return `true` if any file pattern produces a match, `false` otherwise.
-    inline bool HasRuleMatchingFileName(std::wstring_view candidateFileName) const
+    inline bool HasRuleMatchingFileName(
+        std::wstring_view candidateFileName,
+        TFilesystemRulesIndex stopAtRuleIndex =
+            std::numeric_limits<TFilesystemRulesIndex>::max()) const
     {
-      return (nullptr != RuleMatchingFileName(candidateFileName));
+      return (nullptr != RuleMatchingFileName(candidateFileName, stopAtRuleIndex).first);
     }
 
     /// Identifies the first filesystem rule found such that the specified filename matches any of
     /// the file patterns associated with that rule. Input filename must not contain any backslash
     /// separators, as it is intended to represent a file within a directory rather than a path.
     /// @param [in] candidateFileName File name to check for matches with any file pattern.
-    /// @return Pointer to the first rule that matches, or `nullptr` if none exist.
-    inline const FilesystemRule* RuleMatchingFileName(std::wstring_view candidateFileName) const
+    /// @param [in] stopAtRuleIndex Highest rule index to include in the search for a match. Can be
+    /// used to limit the scope of the search to a subset of the rules at the start of the
+    /// container. Defaults to not restricting the scope of the search at all.
+    /// @return Pair consisting of a pointer to the first rule that matches (or `nullptr` if none
+    /// exist) and a numeric position index of said rule (valid only if the rule is not `nullptr`).
+    inline std::pair<const FilesystemRule*, TFilesystemRulesIndex> RuleMatchingFileName(
+        std::wstring_view candidateFileName,
+        TFilesystemRulesIndex stopAtRuleIndex =
+            std::numeric_limits<TFilesystemRulesIndex>::max()) const
     {
+      TFilesystemRulesIndex matchingRuleIndex = 0;
       for (const auto& filesystemRule : filesystemRules)
-        if (filesystemRule.FileNameMatchesAnyPattern(candidateFileName)) return &filesystemRule;
+      {
+        if (filesystemRule.FileNameMatchesAnyPattern(candidateFileName))
+          return std::make_pair(&filesystemRule, matchingRuleIndex);
+        if (matchingRuleIndex == stopAtRuleIndex) break;
+        matchingRuleIndex += 1;
+      }
 
-      return nullptr;
+      return std::make_pair(nullptr, 0);
     }
 
   private:

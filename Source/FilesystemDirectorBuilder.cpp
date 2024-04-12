@@ -365,9 +365,22 @@ namespace Pathwinder
         targetDirectoryFullPathOwnedView,
         std::move(filePatterns),
         redirectMode);
-    DebugAssert(
-        createResult.second,
-        "FilesystemDirectorBuilder consistency check failed due to unsuccessful emplacement of a supposedly-unique filesystem rule keyed by name and file pattern count.");
+    if (nullptr == createResult.first)
+    {
+      DebugAssert(
+          false == createResult.second,
+          "FilesystemDirectorBuilder consistency check failed due to successful emplacement of a null filesystem rule.");
+      return Strings::FormatString(
+          L"Error while creating filesystem rule \"%s\": Exceeds the limit of %u filesystem rules per origin directory.",
+          nameEmplaceResult.first->c_str(),
+          RelatedFilesystemRuleContainer::kMaximumFilesystemRuleCount);
+    }
+    else
+    {
+      DebugAssert(
+          true == createResult.second,
+          "FilesystemDirectorBuilder consistency check failed due to unsuccessful emplacement of a supposedly-unique filesystem rule keyed by name and file pattern count.");
+    }
 
     const FilesystemRule* const newRule = createResult.first;
     filesystemRulesByName.emplace(newRule->GetName(), newRule);

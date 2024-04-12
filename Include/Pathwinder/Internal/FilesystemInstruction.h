@@ -125,6 +125,12 @@ namespace Pathwinder
     /// would be akin to a MatchByRedirectModeInvertSimple mode.
     MatchByRedirectModeInvertOverlay,
 
+    /// Query the multi-rule container for a file pattern match and, if the rule that matches has
+    /// its index exactly equal to the selected rule index, then the result is a match. However, if
+    /// the rule that matches comes before the selected rule's index, then the result is not a
+    /// match.
+    MatchByPositionInvertAllPriorToSelected,
+
     /// Not used as a value. Identifies the number of enumerators present in this enumeration.
     Count
   };
@@ -207,8 +213,12 @@ namespace Pathwinder
       /// path of the directory to be enumerated.
       /// @param [in] filePatternSource Filesystem rule container used to determine whether or not a
       /// filename should be included in the enumeration result.
-      /// @param [in] queryRuleSelectionMode Filtering mode for determining which rules in the
-      /// container should be checked. By default, all rules are checked.
+      /// @param [in] filePatternMatchCondition Condition for querying the container of multiple
+      /// rules. Determines which rules are in scope for the match and which are not. Defaults to
+      /// matching any rule in the container.
+      /// @param [in] filePatternMatchRuleIndex Position index operand for determining which rule
+      /// within the container is the "active" rule for directory pattern source determination
+      /// purposes and, for some match conditions, the operand rule.
       /// @return Instance of this class that represents an enumeration to be done and will
       /// return `true` when the #ShouldIncludeInDirectoryEnumeration method is invoked only
       /// for those filenames that match a file pattern associated with the specified rule and
@@ -217,10 +227,16 @@ namespace Pathwinder
           EDirectoryPathSource directoryPathSource,
           const RelatedFilesystemRuleContainer& filePatternSource,
           EFilePatternMatchCondition filePatternMatchCondition =
-              EFilePatternMatchCondition::MatchAny)
+              EFilePatternMatchCondition::MatchAny,
+          RelatedFilesystemRuleContainer::TFilesystemRulesIndex filePatternMatchRuleIndex =
+              std::numeric_limits<RelatedFilesystemRuleContainer::TFilesystemRulesIndex>::max())
       {
         return SingleDirectoryEnumeration(
-            directoryPathSource, filePatternSource, false, filePatternMatchCondition);
+            directoryPathSource,
+            filePatternSource,
+            false,
+            filePatternMatchCondition,
+            filePatternMatchRuleIndex);
       }
 
       /// Creates an instance of this class that includes only those filenames that do not
@@ -245,8 +261,12 @@ namespace Pathwinder
       /// path of the directory to be enumerated.
       /// @param [in] filePatternSource Filesystem rule container used to determine whether or not a
       /// filename should be included in the enumeration result.
-      /// @param [in] queryRuleSelectionMode Filtering mode for determining which rules in the
-      /// container should be checked. By default, all rules are checked.
+      /// @param [in] filePatternMatchCondition Condition for querying the container of multiple
+      /// rules. Determines which rules are in scope for the match and which are not. Defaults to
+      /// matching any rule in the container.
+      /// @param [in] filePatternMatchRuleIndex Position index operand for determining which rule
+      /// within the container is the "active" rule for directory pattern source determination
+      /// purposes and, for some match conditions, the operand rule.
       /// @return Instance of this class that represents an enumeration to be done and will
       /// return `true` when the #ShouldIncludeInDirectoryEnumeration method is invoked only
       /// for those filenames that match a file pattern associated with the specified rule and
@@ -255,10 +275,16 @@ namespace Pathwinder
           EDirectoryPathSource directoryPathSource,
           const RelatedFilesystemRuleContainer& filePatternSource,
           EFilePatternMatchCondition filePatternMatchCondition =
-              EFilePatternMatchCondition::MatchAny)
+              EFilePatternMatchCondition::MatchAny,
+          RelatedFilesystemRuleContainer::TFilesystemRulesIndex filePatternMatchRuleIndex =
+              std::numeric_limits<RelatedFilesystemRuleContainer::TFilesystemRulesIndex>::max())
       {
         return SingleDirectoryEnumeration(
-            directoryPathSource, filePatternSource, true, filePatternMatchCondition);
+            directoryPathSource,
+            filePatternSource,
+            true,
+            filePatternMatchCondition,
+            filePatternMatchRuleIndex);
       }
 
       /// Retrieves and returns the enumerator that identifies the directory path source for
@@ -319,17 +345,23 @@ namespace Pathwinder
       struct SFilePatternMatchConfig
       {
         /// Whether or not final match output should be inverted.
-        bool invertMatches : 1;
+        bool invertMatches;
 
         /// How to search through the file pattern source for a match. Refer to the enumeration
         /// documentation for more information on the meaning of specific values.
-        EFilePatternMatchCondition filePatternMatchCondition : 7;
+        EFilePatternMatchCondition filePatternMatchCondition;
+
+        /// Which specific rule within the file pattern source is selected. This acts as an operand
+        /// for file pattern match conditions that involve querying multiple rules where one is
+        /// somehow the "selected" or "active" rule, for example searching through file patterns and
+        /// stopping at a specific rule.
+        RelatedFilesystemRuleContainer::TFilesystemRulesIndex filePatternMatchRuleIndex;
 
         bool operator==(const SFilePatternMatchConfig& other) const = default;
       };
 
       static_assert(
-          1 == sizeof(SFilePatternMatchConfig), "Data structure size constraint violation.");
+          sizeof(SFilePatternMatchConfig) <= 4, "Data structure size constraint violation.");
 
       SingleDirectoryEnumeration(EDirectoryPathSource directoryPathSource);
 
@@ -342,7 +374,8 @@ namespace Pathwinder
           EDirectoryPathSource directoryPathSource,
           const RelatedFilesystemRuleContainer& filePatternSource,
           bool invertFilePatternMatches,
-          EFilePatternMatchCondition filePatternMatchCondition);
+          EFilePatternMatchCondition filePatternMatchCondition,
+          RelatedFilesystemRuleContainer::TFilesystemRulesIndex filePatternMatchRuleIndex);
 
       /// File pattern source object, if any is present.
       UFilePatternSource filePatternSource;
@@ -350,9 +383,6 @@ namespace Pathwinder
       /// Configuration settings for how to consult the file pattern source object for matches
       /// during enumeration.
       SFilePatternMatchConfig filePatternMatchConfig;
-
-      static_assert(
-          1 == sizeof(filePatternMatchConfig), "Data structure size constraint violation.");
 
       /// Enumerator to specify how to obtain the path of the directory to be enumerated.
       EDirectoryPathSource directoryPathSource;
