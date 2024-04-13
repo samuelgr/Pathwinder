@@ -6,7 +6,7 @@
  * Copyright (c) 2022-2024
  ***********************************************************************************************//**
  * @file Resolver.cpp
- *   Implementation of named reference resolution functionality.
+ *   Implementation of functions for resolving named references and relative path components.
  **************************************************************************************************/
 
 #include "Resolver.h"
@@ -413,6 +413,77 @@ namespace Pathwinder
             resolvedStr.Capacity()));
 
       return ResolvedStringOrError::MakeValue(resolvedStr);
+    }
+
+    ResolvedStringOrError ResolveRelativePathComponents(
+        std::wstring_view potentiallyRelativePath, std::wstring_view pathDelimiter)
+    {
+      const bool hasTrailingPathDelimiter = potentiallyRelativePath.ends_with(pathDelimiter);
+
+      TemporaryVector<std::wstring_view> resolvedPathComponents;
+      size_t resolvedPathLength = 0;
+
+      for (std::wstring_view pathComponent :
+           Strings::Tokenizer(potentiallyRelativePath, pathDelimiter))
+      {
+        if ((pathComponent.empty()) || (pathComponent == L"."))
+        {
+          // Current-directory references and empty path components can be skipped. An empty path
+          // component indicates either there is a trailing path delimiter or there are multiple
+          // consecutive path delimiters somewhere in the middle of the path.
+
+          continue;
+        }
+        else if (pathComponent == L"..")
+        {
+          // Parent-directory references need one path component to be popped.
+
+          if (resolvedPathComponents.Size() < 2)
+            return ResolvedStringOrError::MakeError(Strings::FormatString(
+                L"%.*s: Invalid path: Too many \"..\" parent directory references.",
+                static_cast<int>(potentiallyRelativePath.length()),
+                potentiallyRelativePath.data()));
+
+          const size_t resolvedPathLengthToRemove =
+              resolvedPathComponents.Back().length() + pathDelimiter.length();
+          if (resolvedPathLengthToRemove > resolvedPathLength)
+            return ResolvedStringOrError::MakeError(Strings::FormatString(
+                L"%.*s: Internal error: Removing too many characters while resolving a single \"..\" parent directory reference.",
+                static_cast<int>(potentiallyRelativePath.length()),
+                potentiallyRelativePath.data()));
+
+          resolvedPathComponents.PopBack();
+          resolvedPathLength -= resolvedPathLengthToRemove;
+        }
+        else
+        {
+          // Any other path components need to be pushed without modification.
+
+          if (resolvedPathComponents.Size() == resolvedPathComponents.Capacity())
+            return ResolvedStringOrError::MakeError(Strings::FormatString(
+                L"%.*s: Invalid path: Hierarchy is too deep, exceeds the limit of %u path components.",
+                static_cast<int>(potentiallyRelativePath.length()),
+                potentiallyRelativePath.data(),
+                resolvedPathComponents.Capacity()));
+
+          resolvedPathComponents.PushBack(pathComponent);
+          resolvedPathLength += pathComponent.length() + pathDelimiter.length();
+        }
+      }
+
+      std::wstring resolvedPath;
+      resolvedPath.reserve(resolvedPathLength);
+
+      for (std::wstring_view resolvedPathComponent : resolvedPathComponents)
+      {
+        resolvedPath.append(resolvedPathComponent);
+        resolvedPath.append(pathDelimiter);
+      }
+
+      if (false == hasTrailingPathDelimiter)
+        resolvedPath.resize(resolvedPath.size() - pathDelimiter.length());
+
+      return std::move(resolvedPath);
     }
 
     void ClearConfiguredDefinitions(void)

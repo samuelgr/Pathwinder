@@ -6,7 +6,8 @@
  * Copyright (c) 2022-2024
  ***********************************************************************************************//**
  * @file Resolver.h
- *   Interface declaration for resolving references identified by name.
+ *   Interface declaration for resolving references identified by name and relative path
+ *   components.
  **************************************************************************************************/
 
 #pragma once
@@ -64,6 +65,16 @@ namespace Pathwinder
         std::wstring_view escapeCharacters = std::wstring_view(),
         std::wstring_view escapeSequenceStart = L"\\",
         std::wstring_view escapeSequenceEnd = std::wstring_view());
+
+    /// Resolves a filesystem path that potentially has relative path components ('.' and '..') by
+    /// turning it into an absolute path.
+    /// @param [in] potentiallyRelativePath Path to be resolved from potentially relative to
+    /// absolute.
+    /// @param [in] pathDelimiter Delimiter to use when separating components of the path. Defaults
+    /// to the Windows standard delimiter of a single backslash.
+    /// @return Input path turned into an absolute path or an error message if the process failed.
+    ResolvedStringOrError ResolveRelativePathComponents(
+        std::wstring_view potentiallyRelativePath, std::wstring_view pathDelimiter = L"\\");
 
     /// Clears the configured definitions. This operation is primarily intended for tests.
     /// Invoking this function also clears the internal reference resolution cache.

@@ -245,6 +245,20 @@ namespace Pathwinder
       return TIterator(this->Data(), size);
     }
 
+    /// Accesses the last element in this container without any bounds-checking.
+    /// @return Read-only reference to the last element in this container.
+    inline const T& Back(void) const
+    {
+      return (*this)[size - 1];
+    }
+
+    /// Accesses the last element in this container without any bounds-checking.
+    /// @return Mutable reference to the last element in this container.
+    inline T& Back(void)
+    {
+      return (*this)[size - 1];
+    }
+
     /// Removes all elements from this container, destroying each in sequence.
     inline void Clear(void)
     {
@@ -272,6 +286,20 @@ namespace Pathwinder
     inline bool Empty(void) const
     {
       return (0 == Size());
+    }
+
+    /// Accesses the first element in this container without any bounds-checking.
+    /// @return Read-only reference to the first element in this container.
+    inline const T& Front(void) const
+    {
+      return (*this)[0];
+    }
+
+    /// Accesses the first element in this container without any bounds-checking.
+    /// @return Mutable reference to the first element in this container.
+    inline T& Front(void)
+    {
+      return (*this)[0];
     }
 
     /// Removes the last element from this container and destroys it.
