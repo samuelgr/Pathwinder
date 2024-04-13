@@ -69,7 +69,9 @@ namespace Pathwinder
           PROTECTED_HOOK_RECORD(NtQueryInformationByName),
           PROTECTED_HOOK_RECORD(NtQueryInformationFile),
           PROTECTED_HOOK_RECORD(NtSetInformationFile),
-          UNPROTECTED_HOOK_RECORD(NtQueryAttributesFile)};
+          UNPROTECTED_HOOK_RECORD(NtQueryAttributesFile),
+          UNPROTECTED_HOOK_RECORD(NtQueryFullAttributesFile),
+      };
 
       Message::OutputFormatted(
           Message::ESeverity::Debug,

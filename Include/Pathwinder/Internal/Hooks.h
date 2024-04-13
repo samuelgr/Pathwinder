@@ -17,6 +17,7 @@
 
 #include "ApiWindows.h"
 #include "DebugAssert.h"
+#include "FileInformationStruct.h"
 #include "FilesystemDirector.h"
 
 // Creates a Hookshot dynamic hook and defines a protected dependency wrapper for it.
@@ -209,5 +210,9 @@ namespace Pathwinder
     // https://learn.microsoft.com/en-us/windows/win32/devnotes/ntqueryattributesfile
     HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
         NtQueryAttributesFile, NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES, PFILE_BASIC_INFO));
+
+    // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-zwqueryfullattributesfile
+    HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
+        NtQueryFullAttributesFile, NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES, SFileNetworkOpenInformation*));
   } // namespace Hooks
 } // namespace Pathwinder

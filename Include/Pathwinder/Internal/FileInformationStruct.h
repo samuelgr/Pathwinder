@@ -606,8 +606,8 @@ namespace Pathwinder
   // definitions can be used with the various file information structure types and functions defined
   // earlier in this file.
 
-  /// Contains information about a file in a directory. Same layout as
-  /// `FILE_DIRECTORY_INFORMATION` from the Windows driver kit.
+  /// Contains information about a file in a directory. Same layout as `FILE_DIRECTORY_INFORMATION`
+  /// from the Windows driver kit.
   /// https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_directory_information
   struct SFileDirectoryInformation
   {
@@ -842,6 +842,23 @@ namespace Pathwinder
     SFileModeInformation modeInformation;
     SFileAlignmentInformation alignmentInformation;
     SFileNameInformation nameInformation;
+  };
+
+  /// Contains information about a file. Same layout as `FILE_NETWORK_OPEN_INFORMATION` from the
+  /// Windows driver kit.
+  /// https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_file_network_open_information
+  struct SFileNetworkOpenInformation
+  {
+    static constexpr FILE_INFORMATION_CLASS kFileInformationClass =
+        static_cast<FILE_INFORMATION_CLASS>(34);
+
+    LARGE_INTEGER creationTime;
+    LARGE_INTEGER lastAccessTime;
+    LARGE_INTEGER lastWriteTime;
+    LARGE_INTEGER changeTime;
+    LARGE_INTEGER allocationSize;
+    LARGE_INTEGER endOfFile;
+    ULONG fileAttributes;
   };
 
   /// Contains information about a file in a directory. Same layout as

@@ -483,3 +483,19 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryAttributesFile::Hook(
         return Original(ObjectAttributes, FileInformation);
       });
 }
+
+NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryFullAttributesFile::Hook(
+    POBJECT_ATTRIBUTES ObjectAttributes, Pathwinder::SFileNetworkOpenInformation* FileInformation)
+{
+  return Pathwinder::FilesystemExecutor::QueryByObjectAttributes(
+      GetFunctionName(),
+      GetRequestIdentifier(),
+      OpenHandleStoreInstance(),
+      ObjectAttributes,
+      GENERIC_READ,
+      InstructionSourceForFileOperation,
+      [FileInformation](POBJECT_ATTRIBUTES ObjectAttributes) -> NTSTATUS
+      {
+        return Original(ObjectAttributes, FileInformation);
+      });
+}
