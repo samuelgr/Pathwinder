@@ -288,12 +288,6 @@ namespace Pathwinder
   {
   public:
 
-    /// Maximum number of filesystem rules that can be stored in this container. A higher value
-    /// leads to potentially more processing overhead for file operations, especially directory
-    /// enumeration. The absolute upper bound for this value is determined by the sizes of any
-    /// integer types that need to encode an index into the container.
-    static constexpr unsigned int kMaximumFilesystemRuleCount = 64;
-
     /// Comparator function object type for establishing the ordering of filesystem rules. If the
     /// number of file patterns is the same, then filesystem rules are ordered by name. Otherwise,
     /// the filesystem rules are ordered in descending order by number of file patterns. That way, 0
@@ -318,7 +312,17 @@ namespace Pathwinder
 
     /// Type alias for numeric indices representing rule position within the internal container type
     /// that holds filesystem rules.
-    using TFilesystemRulesIndex = uint16_t;
+    using TFilesystemRulesIndex = uint8_t;
+
+    /// Maximum number of filesystem rules that can be stored in this container. A higher value
+    /// leads to potentially more processing overhead for file operations, especially directory
+    /// enumeration. The absolute upper bound for this value is determined by the sizes of any
+    /// integer types that need to encode an index into the container.
+    static constexpr unsigned int kMaximumFilesystemRuleCount = 64;
+
+    static_assert(
+        kMaximumFilesystemRuleCount <= (1 + std::numeric_limits<TFilesystemRulesIndex>::max()),
+        "Too many rules allowed in a container, given the type used for position indices.");
 
     RelatedFilesystemRuleContainer(void) = default;
 

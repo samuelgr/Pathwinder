@@ -345,11 +345,11 @@ namespace Pathwinder
       struct SFilePatternMatchConfig
       {
         /// Whether or not final match output should be inverted.
-        bool invertMatches;
+        bool invertMatches : 1;
 
         /// How to search through the file pattern source for a match. Refer to the enumeration
         /// documentation for more information on the meaning of specific values.
-        EFilePatternMatchCondition filePatternMatchCondition;
+        EFilePatternMatchCondition filePatternMatchCondition : 7;
 
         /// Which specific rule within the file pattern source is selected. This acts as an operand
         /// for file pattern match conditions that involve querying multiple rules where one is
@@ -361,7 +361,7 @@ namespace Pathwinder
       };
 
       static_assert(
-          sizeof(SFilePatternMatchConfig) <= 4, "Data structure size constraint violation.");
+          sizeof(SFilePatternMatchConfig) <= 2, "Data structure size constraint violation.");
 
       SingleDirectoryEnumeration(EDirectoryPathSource directoryPathSource);
 
