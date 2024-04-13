@@ -163,4 +163,67 @@ namespace PathwinderTest
          L"4_B.bin",
          L"4_C.log"});
   }
+
+  // Verifies that file operations that use a root directory file handle are appropriately
+  // redirected or not. In this case the root directory handle is exactly equal to a
+  // filesystem rule's origin directory, meaning it is redirected elsewhere, and may need to have
+  // its path re-composed to the origin side or a different rule's target side.
+  TEST_CASE(RealWorldScenario_OpenOriginDirectory_RootDirectoryHandlePathComposition)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:Test]\n"
+        L"OriginDirectory = C:\\Test\\OriginDir\n"
+        L"TargetDirectory = C:\\Test\\TargetDir\n"
+        L"FilePattern = *.txt\n"
+        L"\n"
+        L"[FilesystemRule:Test2]\n"
+        L"OriginDirectory = C:\\Test\\OriginDir\n"
+        L"TargetDirectory = C:\\Test\\TargetDir2\n"
+        L"FilePattern = *.log";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(L"C:\\Test");
+    mockFilesystem.AddFilesInDirectory(L"C:\\Test\\OriginDir", {L"OriginFile.bin"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\Test\\TargetDir", {L"TargetFile.txt"});
+    mockFilesystem.AddFilesInDirectory(L"C:\\Test\\TargetDir2", {L"TargetFile2.log"});
+
+    TIntegrationTestContext context =
+        CreateIntegrationTestContext(mockFilesystem, kConfigurationFileString);
+
+    HANDLE rootDirectoryHandle = OpenUsingFilesystemExecutor(context, L"C:\\Test\\OriginDir");
+
+    // This part of the test verifies that the files can be accessed correctly when opened by
+    // creating a new file handle.
+
+    HANDLE originSideFileHandle =
+        OpenUsingFilesystemExecutor(context, L"OriginFile.bin", rootDirectoryHandle);
+    TEST_ASSERT(
+        L"C:\\Test\\OriginDir\\OriginFile.bin" ==
+        mockFilesystem.GetPathFromHandle(originSideFileHandle));
+
+    HANDLE targetSideFileHandle =
+        OpenUsingFilesystemExecutor(context, L"TargetFile.txt", rootDirectoryHandle);
+    TEST_ASSERT(
+        L"C:\\Test\\TargetDir\\TargetFile.txt" ==
+        mockFilesystem.GetPathFromHandle(targetSideFileHandle));
+
+    HANDLE targetSideFileHandle2 =
+        OpenUsingFilesystemExecutor(context, L"TargetFile2.log", rootDirectoryHandle);
+    TEST_ASSERT(
+        L"C:\\Test\\TargetDir2\\TargetFile2.log" ==
+        mockFilesystem.GetPathFromHandle(targetSideFileHandle2));
+
+    // This part of the test verifies that the files can be accessed correctly when queried for
+    // information by name, with no file handle expected to be created.
+
+    TEST_ASSERT(
+        true ==
+        QueryExistsUsingFilesystemExecutor(context, L"OriginFile.bin", rootDirectoryHandle));
+    TEST_ASSERT(
+        true ==
+        QueryExistsUsingFilesystemExecutor(context, L"TargetFile.txt", rootDirectoryHandle));
+    TEST_ASSERT(
+        true ==
+        QueryExistsUsingFilesystemExecutor(context, L"TargetFile2.log", rootDirectoryHandle));
+  }
 } // namespace PathwinderTest

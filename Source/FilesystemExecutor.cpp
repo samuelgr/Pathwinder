@@ -733,14 +733,39 @@ namespace Pathwinder
         // originally opened it was determined that there is no possible match with a filesystem
         // rule. Therefore, it is not necessary to attempt redirection.
 
-        Message::OutputFormatted(
-            Message::ESeverity::SuperDebug,
-            L"%s(%u): Invoked with root directory handle %zu and relative path \"%.*s\" for which no redirection was attempted.",
-            functionName,
-            functionRequestIdentifier,
-            reinterpret_cast<size_t>(rootDirectory),
-            static_cast<int>(inputFilename.length()),
-            inputFilename.data());
+        if (true == Message::WillOutputMessageOfSeverity(Message::ESeverity::SuperDebug))
+        {
+          Message::OutputFormatted(
+              Message::ESeverity::SuperDebug,
+              L"%s(%u): Invoked with root directory handle %zu and relative path \"%.*s\" for which no redirection was attempted.",
+              functionName,
+              functionRequestIdentifier,
+              reinterpret_cast<size_t>(rootDirectory),
+              static_cast<int>(inputFilename.length()),
+              inputFilename.data());
+
+          auto rootDirectoryPath = FilesystemOperations::QueryAbsolutePathByHandle(rootDirectory);
+          if (true == rootDirectoryPath.HasValue())
+          {
+            Message::OutputFormatted(
+                Message::ESeverity::SuperDebug,
+                L"%s(%u): Root directory handle %zu corresponds to path \"%s\".",
+                functionName,
+                functionRequestIdentifier,
+                reinterpret_cast<size_t>(rootDirectory),
+                rootDirectoryPath.Value().AsCString());
+          }
+          else
+          {
+            Message::OutputFormatted(
+                Message::ESeverity::SuperDebug,
+                L"%s(%u): Path corresponding to root directory handle %zu could not be determined (NTSTATUS = 0x%08x).",
+                functionName,
+                functionRequestIdentifier,
+                reinterpret_cast<size_t>(rootDirectory),
+                static_cast<unsigned int>(rootDirectoryPath.Error()));
+          }
+        }
         return {
             .instruction = FileOperationInstruction::NoRedirectionOrInterception(),
             .composedInputPath = std::nullopt};
@@ -798,23 +823,54 @@ namespace Pathwinder
     /// and therefore not work.
     /// @param [out] redirectedObjectNameAndAttributes Mutable reference to the structure to be
     /// filled.
-    /// @param [in] instruction Instruction that specifies how to redirect a filesystem operation.
-    /// @param [in] unredirectedObjectAttributes Object attributes structure received from the
+    /// @param [in] operationContext File redirection operation context, including instruction and
+    /// other information.
+    /// @param [in] objectAttributesFromApp Object attributes structure received from the
     /// application.
-    static void FillRedirectedObjectNameAndAttributesForInstruction(
+    static void FillRedirectedObjectNameAndAttributes(
         SObjectNameAndAttributes& redirectedObjectNameAndAttributes,
-        const FileOperationInstruction& instruction,
-        const OBJECT_ATTRIBUTES& unredirectedObjectAttributes)
+        const SFileOperationContext& operationContext,
+        const OBJECT_ATTRIBUTES& objectAttributesFromApp)
     {
-      if (true == instruction.HasRedirectedFilename())
+      if (true == operationContext.instruction.HasRedirectedFilename())
       {
-        redirectedObjectNameAndAttributes.objectName =
-            Strings::NtConvertStringViewToUnicodeString(instruction.GetRedirectedFilename());
+        redirectedObjectNameAndAttributes.objectName = Strings::NtConvertStringViewToUnicodeString(
+            operationContext.instruction.GetRedirectedFilename());
 
-        redirectedObjectNameAndAttributes.objectAttributes = unredirectedObjectAttributes;
+        redirectedObjectNameAndAttributes.objectAttributes = objectAttributesFromApp;
         redirectedObjectNameAndAttributes.objectAttributes.RootDirectory = nullptr;
         redirectedObjectNameAndAttributes.objectAttributes.ObjectName =
             &redirectedObjectNameAndAttributes.objectName;
+      }
+    }
+
+    /// Fills the supplied object name and attributes structure with the name and attributes needed
+    /// to represent the unredirected filename from a file operation redirection instruction. This
+    /// must be done in place because the `OBJECT_ATTRIBUTES` structure refers to its `ObjectName`
+    /// field by pointer. Returning by value would invalidate the address of the `ObjectName` field
+    /// and therefore not work.
+    /// @param [out] unredirectedObjectNameAndAttributes Mutable reference to the structure to be
+    /// filled.
+    /// @param [in] operationContext File redirection operation context, including instruction and
+    /// other information.
+    /// @param [in] objectAttributesFromApp Object attributes structure received from the
+    /// application.
+    static void FillUnredirectedObjectNameAndAttributes(
+        SObjectNameAndAttributes& unredirectedObjectNameAndAttributes,
+        const SFileOperationContext& operationContext,
+        const OBJECT_ATTRIBUTES& objectAttributesFromApp)
+    {
+      unredirectedObjectNameAndAttributes.objectAttributes = objectAttributesFromApp;
+
+      if (true == operationContext.composedInputPath.has_value())
+      {
+        unredirectedObjectNameAndAttributes.objectName =
+            Strings::NtConvertStringViewToUnicodeString(
+                operationContext.composedInputPath->AsStringView());
+
+        unredirectedObjectNameAndAttributes.objectAttributes.RootDirectory = nullptr;
+        unredirectedObjectNameAndAttributes.objectAttributes.ObjectName =
+            &unredirectedObjectNameAndAttributes.objectName;
       }
     }
 
@@ -1453,15 +1509,21 @@ namespace Pathwinder
       const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
       if (FileOperationInstruction::NoRedirectionOrInterception() == redirectionInstruction)
-        return underlyingSystemCallInvoker(fileHandle, objectAttributes, createDisposition);
+      {
+        SObjectNameAndAttributes unredirectedObjectNameAndAttributes = {};
+        FillUnredirectedObjectNameAndAttributes(
+            unredirectedObjectNameAndAttributes, operationContext, *objectAttributes);
+        return underlyingSystemCallInvoker(
+            fileHandle, &unredirectedObjectNameAndAttributes.objectAttributes, createDisposition);
+      }
 
       NTSTATUS preOperationResult = ExecuteExtraPreOperations(
           functionName, functionRequestIdentifier, operationContext.instruction);
       if (!(NT_SUCCESS(preOperationResult))) return preOperationResult;
 
       SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
-      FillRedirectedObjectNameAndAttributesForInstruction(
-          redirectedObjectNameAndAttributes, operationContext.instruction, *objectAttributes);
+      FillRedirectedObjectNameAndAttributes(
+          redirectedObjectNameAndAttributes, operationContext, *objectAttributes);
 
       HANDLE newlyOpenedHandle = nullptr;
       NTSTATUS systemCallResult = NtStatus::kObjectPathNotFound;
@@ -1748,15 +1810,20 @@ namespace Pathwinder
       const FileOperationInstruction& redirectionInstruction = operationContext.instruction;
 
       if (FileOperationInstruction::NoRedirectionOrInterception() == redirectionInstruction)
-        return underlyingSystemCallInvoker(objectAttributes);
+      {
+        SObjectNameAndAttributes unredirectedObjectNameAndAttributes = {};
+        FillUnredirectedObjectNameAndAttributes(
+            unredirectedObjectNameAndAttributes, operationContext, *objectAttributes);
+        return underlyingSystemCallInvoker(&unredirectedObjectNameAndAttributes.objectAttributes);
+      }
 
       NTSTATUS preOperationResult = ExecuteExtraPreOperations(
           functionName, functionRequestIdentifier, operationContext.instruction);
       if (!(NT_SUCCESS(preOperationResult))) return preOperationResult;
 
       SObjectNameAndAttributes redirectedObjectNameAndAttributes = {};
-      FillRedirectedObjectNameAndAttributesForInstruction(
-          redirectedObjectNameAndAttributes, operationContext.instruction, *objectAttributes);
+      FillRedirectedObjectNameAndAttributes(
+          redirectedObjectNameAndAttributes, operationContext, *objectAttributes);
 
       std::wstring_view lastAttemptedPath;
 

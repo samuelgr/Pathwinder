@@ -27,22 +27,26 @@
 #include "MockFilesystemOperations.h"
 #include "OpenHandleStore.h"
 #include "PathwinderConfigReader.h"
+#include "TemporaryBuffer.h"
 
 namespace PathwinderTest
 {
   using namespace ::Pathwinder;
 
   static void CreateUsingFilesystemExecutor(
-      TIntegrationTestContext& context, std::wstring_view absolutePathToCreate, bool isDirectory)
+      TIntegrationTestContext& context,
+      std::wstring_view pathToCreate,
+      HANDLE rootDirectory,
+      bool isDirectory)
   {
     HANDLE newlyCreatedFileHandle = nullptr;
 
-    UNICODE_STRING absolutePathToCreateUnicodeString =
-        Strings::NtConvertStringViewToUnicodeString(absolutePathToCreate);
-    OBJECT_ATTRIBUTES absolutePathToCreateObjectAttributes = {
+    UNICODE_STRING pathToCreateUnicodeString =
+        Strings::NtConvertStringViewToUnicodeString(pathToCreate);
+    OBJECT_ATTRIBUTES pathToCreateObjectAttributes = {
         .Length = sizeof(OBJECT_ATTRIBUTES),
-        .RootDirectory = nullptr,
-        .ObjectName = &absolutePathToCreateUnicodeString};
+        .RootDirectory = rootDirectory,
+        .ObjectName = &pathToCreateUnicodeString};
 
     NTSTATUS newFileHandleResult = FilesystemExecutor::NewFileHandle(
         __FUNCTIONW__,
@@ -50,7 +54,7 @@ namespace PathwinderTest
         context->openHandleStore,
         &newlyCreatedFileHandle,
         FILE_GENERIC_READ | FILE_GENERIC_WRITE,
-        &absolutePathToCreateObjectAttributes,
+        &pathToCreateObjectAttributes,
         0,
         FILE_CREATE,
         FILE_SYNCHRONOUS_IO_NONALERT,
@@ -89,8 +93,8 @@ namespace PathwinderTest
         NtStatus::kSuccess == newFileHandleResult,
         "NTSTATUS = 0x%08x when attempting to create file \"%.*s\".",
         static_cast<unsigned int>(newFileHandleResult),
-        static_cast<int>(absolutePathToCreate.length()),
-        absolutePathToCreate.data());
+        static_cast<int>(pathToCreate.length()),
+        pathToCreate.data());
     CloseHandleUsingFilesystemExecutor(context, newlyCreatedFileHandle);
   }
 
@@ -324,28 +328,28 @@ namespace PathwinderTest
   }
 
   void CreateDirectoryUsingFilesystemExecutor(
-      TIntegrationTestContext& context, std::wstring_view absolutePathToCreate)
+      TIntegrationTestContext& context, std::wstring_view pathToCreate, HANDLE rootDirectory)
   {
-    CreateUsingFilesystemExecutor(context, absolutePathToCreate, true);
+    CreateUsingFilesystemExecutor(context, pathToCreate, rootDirectory, true);
   }
 
   void CreateFileUsingFilesystemExecutor(
-      TIntegrationTestContext& context, std::wstring_view absolutePathToCreate)
+      TIntegrationTestContext& context, std::wstring_view pathToCreate, HANDLE rootDirectory)
   {
-    CreateUsingFilesystemExecutor(context, absolutePathToCreate, false);
+    CreateUsingFilesystemExecutor(context, pathToCreate, rootDirectory, false);
   }
 
   HANDLE OpenUsingFilesystemExecutor(
-      TIntegrationTestContext& context, std::wstring_view absolutePathToOpen)
+      TIntegrationTestContext& context, std::wstring_view pathToOpen, HANDLE rootDirectory)
   {
     HANDLE newlyOpenedFileHandle = nullptr;
 
-    UNICODE_STRING absolutePathToOpenUnicodeString =
-        Strings::NtConvertStringViewToUnicodeString(absolutePathToOpen);
-    OBJECT_ATTRIBUTES absolutePathToOpenObjectAttributes = {
+    UNICODE_STRING pathToOpenUnicodeString =
+        Strings::NtConvertStringViewToUnicodeString(pathToOpen);
+    OBJECT_ATTRIBUTES pathToOpenObjectAttributes = {
         .Length = sizeof(OBJECT_ATTRIBUTES),
-        .RootDirectory = nullptr,
-        .ObjectName = &absolutePathToOpenUnicodeString};
+        .RootDirectory = rootDirectory,
+        .ObjectName = &pathToOpenUnicodeString};
 
     NTSTATUS newFileHandleResult = FilesystemExecutor::NewFileHandle(
         __FUNCTIONW__,
@@ -353,7 +357,7 @@ namespace PathwinderTest
         context->openHandleStore,
         &newlyOpenedFileHandle,
         FILE_GENERIC_READ,
-        &absolutePathToOpenObjectAttributes,
+        &pathToOpenObjectAttributes,
         0,
         FILE_OPEN,
         FILE_SYNCHRONOUS_IO_NONALERT,
@@ -368,8 +372,14 @@ namespace PathwinderTest
         [&context](PHANDLE fileHandle, POBJECT_ATTRIBUTES objectAttributes, ULONG createDisposition)
             -> NTSTATUS
         {
-          std::wstring_view absolutePathToOpen =
-              Strings::NtConvertUnicodeStringToStringView(*objectAttributes->ObjectName);
+          TemporaryString absolutePathToOpen;
+
+          if (nullptr != objectAttributes->RootDirectory)
+            absolutePathToOpen << *context->mockFilesystem.GetPathFromHandle(
+                                      objectAttributes->RootDirectory)
+                               << L'\\';
+          absolutePathToOpen << Strings::NtConvertUnicodeStringToStringView(
+              *objectAttributes->ObjectName);
 
           HANDLE newlyOpenedFileHandle = context->mockFilesystem.Open(absolutePathToOpen);
           if (newlyOpenedFileHandle != nullptr)
@@ -385,9 +395,55 @@ namespace PathwinderTest
         NtStatus::kSuccess == newFileHandleResult,
         "NTSTATUS = 0x%08x when attempting to open file \"%.*s\".",
         static_cast<unsigned int>(newFileHandleResult),
-        static_cast<int>(absolutePathToOpen.length()),
-        absolutePathToOpen.data());
+        static_cast<int>(pathToOpen.length()),
+        pathToOpen.data());
     return newlyOpenedFileHandle;
+  }
+
+  bool QueryExistsUsingFilesystemExecutor(
+      TIntegrationTestContext& context,
+      std::wstring_view pathToQuery,
+      HANDLE rootDirectory)
+  {
+    UNICODE_STRING pathToQueryUnicodeString =
+        Strings::NtConvertStringViewToUnicodeString(pathToQuery);
+    OBJECT_ATTRIBUTES pathToQueryObjectAttributes = {
+        .Length = sizeof(OBJECT_ATTRIBUTES),
+        .RootDirectory = rootDirectory,
+        .ObjectName = &pathToQueryUnicodeString};
+
+    NTSTATUS queryResult = FilesystemExecutor::QueryByObjectAttributes(
+        __FUNCTIONW__,
+        kFunctionRequestIdentifier,
+        context->openHandleStore,
+        &pathToQueryObjectAttributes,
+        FILE_GENERIC_READ,
+        [&context](
+            std::wstring_view absolutePath,
+            FileAccessMode fileAccessMode,
+            CreateDisposition createDisposition) -> FileOperationInstruction
+        {
+          return context->filesystemDirector.GetInstructionForFileOperation(
+              absolutePath, fileAccessMode, createDisposition);
+        },
+        [&context](POBJECT_ATTRIBUTES objectAttributes) -> NTSTATUS
+        {
+          TemporaryString absolutePathToQuery;
+
+          if (nullptr != objectAttributes->RootDirectory)
+            absolutePathToQuery << *context->mockFilesystem.GetPathFromHandle(
+                                       objectAttributes->RootDirectory)
+                                << L'\\';
+          absolutePathToQuery << Strings::NtConvertUnicodeStringToStringView(
+              *objectAttributes->ObjectName);
+
+          if (context->mockFilesystem.Exists(absolutePathToQuery))
+            return NtStatus::kSuccess;
+          else
+            return NtStatus::kObjectNameNotFound;
+        });
+
+    return (NtStatus::kSuccess == queryResult);
   }
 
   void VerifyDirectoryAppearsToContain(

@@ -76,26 +76,55 @@ namespace PathwinderTest
   /// filesystem.
   /// @param [in] context Integration test context object returned from
   /// #CreateIntegrationTestContext.
-  /// @param [in] absolutePathToCreate Absolute path of the file or directory to be created.
+  /// @param [in] pathToCreate Path of the directory to be created, either absolute or relative to
+  /// the specified root directory.
+  /// @param [in] rootDirectory Optional handle to an open root directory. For use when resolving a
+  /// relative path.
   void CreateDirectoryUsingFilesystemExecutor(
-      TIntegrationTestContext& context, std::wstring_view absolutePathToCreate);
+      TIntegrationTestContext& context,
+      std::wstring_view pathToCreate,
+      HANDLE rootDirectory = nullptr);
 
   /// Uses the filesystem executor subsystem to create a new file and add it to the mock filesystem.
   /// @param [in] context Integration test context object returned from
   /// #CreateIntegrationTestContext.
-  /// @param [in] absolutePathToCreate Absolute path of the file or directory to be created.
+  /// @param [in] pathToCreate Path of the directory to be created, either absolute or relative to
+  /// the specified root directory.
+  /// @param [in] rootDirectory Optional handle to an open root directory. For use when resolving a
+  /// relative path.
   void CreateFileUsingFilesystemExecutor(
-      TIntegrationTestContext& context, std::wstring_view absolutePathToCreate);
+      TIntegrationTestContext& context,
+      std::wstring_view pathToCreate,
+      HANDLE rootDirectory = nullptr);
 
   /// Uses the filesystem executor subsystem to open a file or directory for the specified absolute
   /// file path. If the operation fails, this function causes a test failure.
   /// @param [in] context Integration test context object returned from
   /// #CreateIntegrationTestContext.
-  /// @param [in] absolutePathToOpen Absolute path of the file or directory to be opened. In order
-  /// for this function to succeed the file or directory must exist in the fake filesystem.
+  /// @param [in] pathToOpen Path of the file or directory to be opened, either absolute or relative
+  /// to the specified root directory. In order for this function to succeed the file or directory
+  /// must exist in the fake filesystem.
+  /// @param [in] rootDirectory Optional handle to an open root directory. For use when resolving a
+  /// relative path.
   /// @return Handle to the newly-opened file.
   HANDLE OpenUsingFilesystemExecutor(
-      TIntegrationTestContext& context, std::wstring_view absolutePathToOpen);
+      TIntegrationTestContext& context,
+      std::wstring_view pathToOpen,
+      HANDLE rootDirectory = nullptr);
+
+  /// Uses the filesystem executor's query information entry point to verify that a file exists in
+  /// the mock filesystem.
+  /// @param [in] context Integration test context object returned from
+  /// #CreateIntegrationTestContext.
+  /// @param [in] pathToQuery Path of the file or directory to be queried, either absolute or
+  /// relative to the specified root directory.
+  /// @param [in] rootDirectory Optional handle to an open root directory. For use when resolving a
+  /// relative path.
+  /// @return `true` if the file reportedly exists in the mock filesystem, `false` otherwise.
+  bool QueryExistsUsingFilesystemExecutor(
+      TIntegrationTestContext& context,
+      std::wstring_view pathToQuery,
+      HANDLE rootDirectory = nullptr);
 
   /// Verifies that a directory appears to contain exactly the specified set of files and
   /// subdirectories, both by enumerating the contents of the directory and by directly attempting
