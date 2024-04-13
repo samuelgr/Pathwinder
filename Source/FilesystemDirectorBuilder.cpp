@@ -286,6 +286,13 @@ namespace Pathwinder
           L"Error while creating filesystem rule \"%s\": Origin directory: %s.",
           ruleName.c_str(),
           maybeOriginDirectoryResolvedString.Error().AsCString());
+    maybeOriginDirectoryResolvedString =
+        Resolver::ResolveRelativePathComponents(maybeOriginDirectoryResolvedString.Value());
+    if (true == maybeOriginDirectoryResolvedString.HasError())
+      return Strings::FormatString(
+          L"Error while creating filesystem rule \"%s\": Origin directory: %s.",
+          ruleName.c_str(),
+          maybeOriginDirectoryResolvedString.Error().AsCString());
     if (false == IsValidDirectoryString(maybeOriginDirectoryResolvedString.Value()))
       return Strings::FormatString(
           L"Error while creating filesystem rule \"%s\": Origin directory: Either empty or contains disallowed characters.",
@@ -315,6 +322,14 @@ namespace Pathwinder
           L"Error while creating filesystem rule \"%s\": Target directory: %s.",
           ruleName.c_str(),
           maybeTargetDirectoryResolvedString.Error().AsCString());
+    maybeTargetDirectoryResolvedString =
+        Resolver::ResolveRelativePathComponents(maybeTargetDirectoryResolvedString.Value());
+    if (true == maybeTargetDirectoryResolvedString.HasError())
+      return Strings::FormatString(
+          L"Error while creating filesystem rule \"%s\": Target directory: %s.",
+          ruleName.c_str(),
+          maybeTargetDirectoryResolvedString.Error().AsCString());
+    
     if (false == IsValidDirectoryString(maybeTargetDirectoryResolvedString.Value()))
       return Strings::FormatString(
           L"Error while creating filesystem rule \"%s\": Target directory: Either empty or contains disallowed characters.",

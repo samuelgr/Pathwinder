@@ -115,6 +115,29 @@ namespace PathwinderTest
     TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
   }
 
+  // Verifies the nominal situation of creating rules that do not overlap and contain no file
+  // patterns, but in this case the origin and target directories have relative path components and
+  // other aspects that should be handled, like multiple consecutive backslash characters.
+  // Additionally verifies the resulting contents of the filesystem rules that are created.
+  TEST_CASE(FilesystemDirectorBuilder_AddRule_Success_RelativePathComponents)
+  {
+    FilesystemDirectorBuilder directorBuilder;
+
+    auto maybeConfigRule1 = directorBuilder.AddRule(
+        L"1",
+        L"C:\\.\\OriginDir1\\..\\OriginDir1",
+        L"C:\\.\\.\\TargetDir1\\TargetSubdir\\..\\");
+    TEST_ASSERT(maybeConfigRule1.HasValue());
+    TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
+    TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
+
+    auto maybeConfigRule2 = directorBuilder.AddRule(
+        L"2", L"C:\\\\\\OriginDir2\\\\", L"C:\\\\.\\\\\\TargetDir2");
+    TEST_ASSERT(maybeConfigRule2.HasValue());
+    TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
+    TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
+  }
+
   // Verifies that non-overlapping filesystem rules can be created with file patterns.
   // Additionally verifies the resulting contents, including some file pattern checks, of the
   // filesystem rules that are created.

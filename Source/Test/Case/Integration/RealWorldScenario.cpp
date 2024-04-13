@@ -28,6 +28,28 @@ namespace PathwinderTest
 {
   using namespace ::Pathwinder;
 
+  // Tests a real-world scenario in which only one rule is defined but it uses relative path
+  // components for both the origin and target directories. The resulting filesystem director is
+  // checked for having a filesystem rule with the correct origin and target directories.
+  TEST_CASE(RealWorldScenario_SingleRule_RelativePathComponents)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:Test]\n"
+        L"OriginDirectory = C:\\Test\\OriginDir1\\..\\OriginDir2\\.\n"
+        L"TargetDirectory = C:\\Test\\TargetDir1\\.\\.\\\\\\..\\TargetDir2\\";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(L"C:\\Test");
+
+    TIntegrationTestContext context =
+        CreateIntegrationTestContext(mockFilesystem, kConfigurationFileString);
+
+    const FilesystemRule* testRule = context->filesystemDirector.FindRuleByName(L"Test");
+    TEST_ASSERT(nullptr != testRule);
+    TEST_ASSERT(L"C:\\Test\\OriginDir2" == testRule->GetOriginDirectoryFullPath());
+    TEST_ASSERT(L"C:\\Test\\TargetDir2" == testRule->GetTargetDirectoryFullPath());
+  }
+
   // Tests a real-world scenario in which only one rule is defined but it refers to an origin
   // directory that does not really exist. If the target directory also does not exist then the
   // origin directory is not made available to the application. If the target directory is
