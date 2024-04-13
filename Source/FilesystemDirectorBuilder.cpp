@@ -295,7 +295,7 @@ namespace Pathwinder
           maybeOriginDirectoryResolvedString.Error().AsCString());
     if (false == IsValidDirectoryString(maybeOriginDirectoryResolvedString.Value()))
       return Strings::FormatString(
-          L"Error while creating filesystem rule \"%s\": Origin directory: Either empty or contains disallowed characters.",
+          L"Error while creating filesystem rule \"%s\": Origin directory: Either empty, relative, or contains disallowed characters.",
           ruleName.c_str());
 
     std::wstring_view originDirectoryFullPath = Strings::RemoveTrailing(
@@ -332,7 +332,7 @@ namespace Pathwinder
     
     if (false == IsValidDirectoryString(maybeTargetDirectoryResolvedString.Value()))
       return Strings::FormatString(
-          L"Error while creating filesystem rule \"%s\": Target directory: Either empty or contains disallowed characters.",
+          L"Error while creating filesystem rule \"%s\": Target directory: Either empty, relative, or contains disallowed characters.",
           ruleName.c_str());
 
     std::wstring_view targetDirectoryFullPath = Strings::RemoveTrailing(
