@@ -125,7 +125,7 @@ namespace Pathwinder
           FILE_READ_ATTRIBUTES | SYNCHRONIZE,
           &absolutePathObjectAttributes,
           &unusedStatusBlock,
-          FILE_SHARE_READ,
+          FILE_SHARE_READ | FILE_SHARE_WRITE,
           FILE_SYNCHRONOUS_IO_NONALERT);
       if (!(NT_SUCCESS(openResult))) return INVALID_FILE_ATTRIBUTES;
 
