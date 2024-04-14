@@ -1783,8 +1783,8 @@ namespace Pathwinder
       static constexpr FILE_INFORMATION_CLASS kFileInformationClassNormalizedName =
           static_cast<FILE_INFORMATION_CLASS>(48);
 
-      const NTSTATUS systemCallResult =
-          underlyingSystemCallInvoker(fileHandle, ioStatusBlock, fileInformation, length, fileInformationClass);
+      const NTSTATUS systemCallResult = underlyingSystemCallInvoker(
+          fileHandle, ioStatusBlock, fileInformation, length, fileInformationClass);
       switch (systemCallResult)
       {
         case Pathwinder::NtStatus::kBufferOverflow:
@@ -1861,10 +1861,12 @@ namespace Pathwinder
           static_cast<size_t>(fileNameInformation->fileNameLength);
 
       FileInformationStructLayout::WriteFileNameByType(
-          *fileNameInformation, fileNameInformationLengthBytes, replacementFilename);
+          *fileNameInformation,
+          static_cast<unsigned int>(fileNameInformationLengthBytes),
+          replacementFilename);
 
       const size_t newFileNameLengthBytes = replacementFilename.length() * sizeof(wchar_t);
-      fileNameInformation->fileNameLength = newFileNameLengthBytes;
+      fileNameInformation->fileNameLength = static_cast<ULONG>(newFileNameLengthBytes);
 
       // The I/O status block needs to be updated so that the total number of bytes written is
       // correct in the Information field and the final status code is correct in the Status field.
