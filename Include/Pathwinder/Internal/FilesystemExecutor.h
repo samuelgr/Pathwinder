@@ -196,6 +196,46 @@ namespace Pathwinder
             underlyingSystemCallInvoker);
 
     /// Common internal entry point for intercepting queries for file information such that the
+    /// input identifies the file of interest by open file handle. Most parameters come directly
+    /// from `NtQueryInformationFile` but those that do not are documented.
+    /// @param [in] functionName Name of the API function whose hook function is invoking this
+    /// function. Used only for logging.
+    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
+    /// the named function. Used only for logging.
+    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
+    /// file handles known to be open. Sets the context for this call.
+    /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
+    /// query operation, given a file handle, I/O status block, file information buffer pointer,
+    /// buffer length, and file information class. Any and all other information is expected to be
+    /// captured within the object itself, including application-specified parameters. This function
+    /// only examines and manipulates the output after it is written into the output file
+    /// information buffer.
+    /// @param [in] replacementFileNameTransform Optional transformation to apply to the
+    /// filename used to replace whatever the system returns from the underlying system call query.
+    /// Defaults to no transformation at all. Only invoked for those file information classes that
+    /// result in a filename being returned to the calling application. Proposed replacement
+    /// filenames will be the full and absolute path, without a Windows namespace prefix, and so
+    /// this transformation gives the caller an opportunity to do things like add the prefix, remove
+    /// the drive letter, and so on.
+    /// @return Result of the operation, which should be returned to the application.
+    NTSTATUS QueryByHandle(
+        const wchar_t* functionName,
+        unsigned int functionRequestIdentifier,
+        OpenHandleStore& openHandleStore,
+        HANDLE fileHandle,
+        PIO_STATUS_BLOCK ioStatusBlock,
+        PVOID fileInformation,
+        ULONG length,
+        FILE_INFORMATION_CLASS fileInformationClass,
+        std::function<NTSTATUS(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG, FILE_INFORMATION_CLASS)>
+            underlyingSystemCallInvoker,
+        std::function<std::wstring_view(std::wstring_view)> replacementFileNameFilterAndTransform =
+            [](std::wstring_view proposedReplacementFileName) -> std::wstring_view
+        {
+          return proposedReplacementFileName;
+        });
+
+    /// Common internal entry point for intercepting queries for file information such that the
     /// input is a name identified in an `OBJECT_ATTRIBUTES` structure but the operation does not
     /// result in a new file handle being created.
     /// @param [in] functionName Name of the API function whose hook function is invoking this
@@ -225,45 +265,5 @@ namespace Pathwinder
             FileAccessMode fileAccessMode,
             CreateDisposition createDisposition)> instructionSourceFunc,
         std::function<NTSTATUS(POBJECT_ATTRIBUTES)> underlyingSystemCallInvoker);
-
-    /// Common internal entry point for intercepting queries for file name information such that the
-    /// input identifies the file of interest by open file handle.
-    /// @param [in] functionName Name of the API function whose hook function is invoking this
-    /// function. Used only for logging.
-    /// @param [in] functionRequestIdentifier Request identifier associated with the invocation of
-    /// the named function. Used only for logging.
-    /// @param [in] openHandleStore Instance of an open handle store object that holds all of the
-    /// file handles known to be open. Sets the context for this call.
-    /// @param [in] fileHandle Open handle associated with the file for which information is
-    /// requested.
-    /// @param [in] fileNameInformation Buffer that will receive file name information when the
-    /// underlying system call is invoked.
-    /// @param [in] fileNameInformationBufferCapacity Capacity of the buffer that holds the file
-    /// name information structure.
-    /// @param [in] underlyingSystemCallInvoker Invokable function object that performs the actual
-    /// operation, with parameters for the open file handle and information about the structure to
-    /// fill. Any and all other information is expected to be captured within the object itself,
-    /// including other application-specified parameters.
-    /// @param [in] replacementFileNameFilterAndTransform Optional transformation to apply to the
-    /// filename used to replace whatever the system returns from the underlying system call query.
-    /// If this function returns nothing, then the underlying system call is invoked and not
-    /// intercepted. Defaults to no transformation at all. First parameter is system-returned
-    /// filename, and second parameter is proposed replacement filename.
-    /// @return Result of the operation, which should be returned to the application.
-    NTSTATUS QueryNameByHandle(
-        const wchar_t* functionName,
-        unsigned int functionRequestIdentifier,
-        OpenHandleStore& openHandleStore,
-        HANDLE fileHandle,
-        SFileNameInformation* fileNameInformation,
-        ULONG fileNameInformationBufferCapacity,
-        std::function<NTSTATUS(HANDLE, SFileNameInformation*, ULONG)> underlyingSystemCallInvoker,
-        std::function<std::optional<std::wstring_view>(
-            std::wstring_view, std::wstring_view)> replacementFileNameFilterAndTransform =
-            [](std::wstring_view systemReturnedFileName,
-               std::wstring_view proposedReplacementFileName) -> std::optional<std::wstring_view>
-        {
-          return proposedReplacementFileName;
-        });
   } // namespace FilesystemExecutor
 } // namespace Pathwinder

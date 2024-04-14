@@ -406,65 +406,35 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryInformationFile::Hook(
     ULONG Length,
     FILE_INFORMATION_CLASS FileInformationClass)
 {
-  // This enumerator does not have an associated structure but additionally uses
-  // `FILE_NAME_INFORMATION` (internally `SFileNameInformation`) to request file name information.
-  // For more information in this enumerator, see
-  // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntqueryinformationfile.
-  constexpr FILE_INFORMATION_CLASS kFileInformationClassNormalizedName =
-      static_cast<FILE_INFORMATION_CLASS>(48);
-
-  Pathwinder::SFileNameInformation* fileNameInformation = nullptr;
-
-  // There are only three file information classes that result in the filename being identified. Any
-  // other file information class is uninteresting, and in those cases the query does not need to be
-  // intercepted.
-  switch (FileInformationClass)
-  {
-    case Pathwinder::SFileNameInformation::kFileInformationClass:
-    case kFileInformationClassNormalizedName:
-      fileNameInformation = reinterpret_cast<Pathwinder::SFileNameInformation*>(FileInformation);
-      break;
-
-    case Pathwinder::SFileAllInformation::kFileInformationClass:
-      fileNameInformation =
-          &(reinterpret_cast<Pathwinder::SFileAllInformation*>(FileInformation)->nameInformation);
-      break;
-
-    default:
-      return Original(FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
-  }
-
-  const ULONG fileNameInformationBufferCapacity = Length -
-      static_cast<ULONG>(reinterpret_cast<size_t>(fileNameInformation) -
-                         reinterpret_cast<size_t>(FileInformation));
-
-  return Pathwinder::FilesystemExecutor::QueryNameByHandle(
+  return Pathwinder::FilesystemExecutor::QueryByHandle(
       GetFunctionName(),
       GetRequestIdentifier(),
       OpenHandleStoreInstance(),
       FileHandle,
-      fileNameInformation,
-      fileNameInformationBufferCapacity,
-      [IoStatusBlock, Length, FileInformationClass](
-          HANDLE fileHandle,
-          Pathwinder::SFileNameInformation* fileNameInformation,
-          ULONG length) -> NTSTATUS
+      IoStatusBlock,
+      FileInformation,
+      Length,
+      FileInformationClass,
+      [](HANDLE fileHandle,
+         PIO_STATUS_BLOCK ioStatusBlock,
+         PVOID fileInformation,
+         ULONG length,
+         FILE_INFORMATION_CLASS fileInformationClass) -> NTSTATUS
       {
-        return Original(
-            fileHandle, IoStatusBlock, fileNameInformation, length, FileInformationClass);
+        return Original(fileHandle, ioStatusBlock, fileInformation, length, fileInformationClass);
       },
-      [](std::wstring_view systemReturnedFileName,
-         std::wstring_view proposedReplacementFileName) -> std::optional<std::wstring_view>
+      [](std::wstring_view proposedReplacementFileName) -> std::wstring_view
       {
-        // When queried such that it returns a full path, the `NtQueryInformationFile` returns full
-        // path and file name information beginning with a backslash character, omitting the drive
-        // letter. Thus, if the system-returned string does not begin with a backslash, it is not
-        // a full path and is therefore uninteresting.
-        if (false == systemReturnedFileName.starts_with(L'\\')) return std::nullopt;
-        proposedReplacementFileName.remove_prefix(
-            Pathwinder::Strings::PathGetWindowsNamespacePrefix(proposedReplacementFileName)
-                .length());
-        proposedReplacementFileName.remove_prefix(proposedReplacementFileName.find_first_of(L'\\'));
+        // When queried such that it returns a full path, the `NtQueryInformationFile` returns the
+        // full path beginning with a backslash character, omitting the drive letter.
+
+        if (Pathwinder::Strings::PathBeginsWithDriveLetter(proposedReplacementFileName))
+        {
+          const size_t firstBackslashPosition = proposedReplacementFileName.find_first_of(L'\\');
+          if (std::wstring_view::npos != firstBackslashPosition)
+            proposedReplacementFileName.remove_prefix(firstBackslashPosition);
+        }
+
         return proposedReplacementFileName;
       });
 }
