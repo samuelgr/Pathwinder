@@ -123,6 +123,12 @@ namespace Pathwinder
     /// @param [in] filesystemDirector Filesystem director object instance to use.
     void SetFilesystemDirectorInstance(FilesystemDirector&& filesystemDirector);
 
+    /// Reinitializes the current working directory so that the system-owned handle to it is passed
+    /// through the hook functions. Generally this handle is created very early in the
+    /// initialization process so Pathwinder cannot intercept it. Requires that the filesystem
+    /// director instance already be initialized.
+    void ReinitializeCurrentDirectory(void);
+
     // Pathwinder requires these hooks to be set in order to function correctly and may invoke
     // their original versions. These functions are documented parts of Windows, though they may
     // be internal or part of the driver development kit (WDK).
@@ -213,6 +219,7 @@ namespace Pathwinder
 
     // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-zwqueryfullattributesfile
     HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
-        NtQueryFullAttributesFile, NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES, SFileNetworkOpenInformation*));
+        NtQueryFullAttributesFile,
+        NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES, SFileNetworkOpenInformation*));
   } // namespace Hooks
 } // namespace Pathwinder

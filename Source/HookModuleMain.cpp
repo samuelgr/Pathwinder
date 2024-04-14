@@ -131,4 +131,5 @@ HOOKSHOT_HOOK_MODULE_ENTRY(hookshot)
 {
   Pathwinder::Globals::Initialize();
   Pathwinder::Hooks::SetAllHooksOrDie(hookshot);
+  Pathwinder::Hooks::ReinitializeCurrentDirectory();
 }

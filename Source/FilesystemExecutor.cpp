@@ -733,39 +733,14 @@ namespace Pathwinder
         // originally opened it was determined that there is no possible match with a filesystem
         // rule. Therefore, it is not necessary to attempt redirection.
 
-        if (true == Message::WillOutputMessageOfSeverity(Message::ESeverity::SuperDebug))
-        {
-          Message::OutputFormatted(
-              Message::ESeverity::SuperDebug,
-              L"%s(%u): Invoked with root directory handle %zu and relative path \"%.*s\" for which no redirection was attempted.",
-              functionName,
-              functionRequestIdentifier,
-              reinterpret_cast<size_t>(rootDirectory),
-              static_cast<int>(inputFilename.length()),
-              inputFilename.data());
-
-          auto rootDirectoryPath = FilesystemOperations::QueryAbsolutePathByHandle(rootDirectory);
-          if (true == rootDirectoryPath.HasValue())
-          {
-            Message::OutputFormatted(
-                Message::ESeverity::SuperDebug,
-                L"%s(%u): Root directory handle %zu corresponds to path \"%s\".",
-                functionName,
-                functionRequestIdentifier,
-                reinterpret_cast<size_t>(rootDirectory),
-                rootDirectoryPath.Value().AsCString());
-          }
-          else
-          {
-            Message::OutputFormatted(
-                Message::ESeverity::SuperDebug,
-                L"%s(%u): Path corresponding to root directory handle %zu could not be determined (NTSTATUS = 0x%08x).",
-                functionName,
-                functionRequestIdentifier,
-                reinterpret_cast<size_t>(rootDirectory),
-                static_cast<unsigned int>(rootDirectoryPath.Error()));
-          }
-        }
+        Message::OutputFormatted(
+            Message::ESeverity::SuperDebug,
+            L"%s(%u): Invoked with root directory handle %zu and relative path \"%.*s\" for which no redirection was attempted.",
+            functionName,
+            functionRequestIdentifier,
+            reinterpret_cast<size_t>(rootDirectory),
+            static_cast<int>(inputFilename.length()),
+            inputFilename.data());
         return {
             .instruction = FileOperationInstruction::NoRedirectionOrInterception(),
             .composedInputPath = std::nullopt};
