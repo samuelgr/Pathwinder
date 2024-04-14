@@ -111,8 +111,6 @@ namespace Pathwinder
     {
       ENSURE_ABSOLUTE_PATH_PARAM_HAS_WINDOWS_NAMESPCE_PREFIX(absolutePath);
 
-      SFileStatInformation absolutePathObjectInfo{};
-
       UNICODE_STRING absolutePathSystemString =
           Strings::NtConvertStringViewToUnicodeString(absolutePath);
       OBJECT_ATTRIBUTES absolutePathObjectAttributes{};
@@ -120,16 +118,27 @@ namespace Pathwinder
           &absolutePathObjectAttributes, &absolutePathSystemString, 0, nullptr, nullptr);
 
       IO_STATUS_BLOCK unusedStatusBlock{};
-      NTSTATUS queryResult = Hooks::ProtectedDependency::NtQueryInformationByName::SafeInvoke(
+
+      HANDLE queryHandle = nullptr;
+      NTSTATUS openResult = Hooks::ProtectedDependency::NtOpenFile::SafeInvoke(
+          &queryHandle,
+          FILE_READ_ATTRIBUTES | SYNCHRONIZE,
           &absolutePathObjectAttributes,
           &unusedStatusBlock,
-          &absolutePathObjectInfo,
-          sizeof(absolutePathObjectInfo),
-          SFileStatInformation::kFileInformationClass);
+          FILE_SHARE_READ,
+          FILE_SYNCHRONOUS_IO_NONALERT);
+      if (!(NT_SUCCESS(openResult))) return INVALID_FILE_ATTRIBUTES;
 
-      if (!(NT_SUCCESS(queryResult))) return INVALID_FILE_ATTRIBUTES;
-
-      return absolutePathObjectInfo.fileAttributes;
+      SFileBasicInformation queryFileInformation{};
+      NTSTATUS queryResult = Hooks::ProtectedDependency::NtQueryInformationFile::SafeInvoke(
+          queryHandle,
+          &unusedStatusBlock,
+          &queryFileInformation,
+          sizeof(queryFileInformation),
+          SFileBasicInformation::kFileInformationClass);
+      Hooks::ProtectedDependency::NtClose::SafeInvoke(queryHandle);
+      if (!(NT_SUCCESS(openResult))) return INVALID_FILE_ATTRIBUTES;
+      return queryFileInformation.fileAttributes;
     }
 
     /// Retrieves the character used to represent the logical drive at index n. This is a simple
