@@ -81,7 +81,10 @@ namespace PathwinderTest
   }
 
   void MockFilesystemOperations::AddFilesystemEntityInternal(
-      std::wstring_view absolutePath, EFilesystemEntityType type, unsigned int sizeInBytes)
+      std::wstring_view absolutePath,
+      EFilesystemEntityType type,
+      unsigned int sizeInBytes,
+      bool recursivelyCreateDirectories)
   {
     std::wstring_view currentPathView = absolutePath;
 
@@ -107,6 +110,12 @@ namespace PathwinderTest
         TEST_FAILED_BECAUSE(
             L"%s: Internal error: Unknown filesystem entity type when adding to a fake filesystem.",
             __FUNCTIONW__);
+    }
+
+    if (false == recursivelyCreateDirectories)
+    {
+      std::wstring_view directoryPart = currentPathView.substr(0, lastBackslashIndex);
+      if (false == IsDirectory(directoryPart)) return;
     }
 
     while (lastBackslashIndex != std::wstring_view::npos)
@@ -175,7 +184,8 @@ namespace PathwinderTest
   {
     const std::wstring_view absoluteDirectoryPathTrimmed =
         Strings::RemoveTrailing(absoluteDirectoryPath, L'\\');
-    AddFilesystemEntityInternal(absoluteDirectoryPathTrimmed, EFilesystemEntityType::Directory, 0);
+    AddFilesystemEntityInternal(
+        absoluteDirectoryPathTrimmed, EFilesystemEntityType::Directory, 0, true);
     return NtStatus::kSuccess;
   }
 

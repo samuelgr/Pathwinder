@@ -719,7 +719,7 @@ namespace Pathwinder
       // potentially created, if said hierarchy also exists on the origin side either as a real
       // directory or as the origin directory for a filesystem rule.
 
-      if (filesystemRulesByOriginDirectory.Contains(unredirectedPathDirectoryPart) ||
+      if (HasRuleWithOriginDirectory(unredirectedPathDirectoryPart) ||
           FilesystemOperations::IsDirectory(
               unredirectedPathDirectoryPartWithWindowsNamespacePrefix))
       {

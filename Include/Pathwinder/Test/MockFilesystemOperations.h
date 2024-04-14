@@ -113,7 +113,7 @@ namespace PathwinderTest
     /// case-insensitive.
     inline void AddDirectory(std::wstring_view absolutePath)
     {
-      AddFilesystemEntityInternal(absolutePath, EFilesystemEntityType::Directory, 0);
+      AddFilesystemEntityInternal(absolutePath, EFilesystemEntityType::Directory, 0, true);
     }
 
     /// Inserts a file and all its parent directories into the fake filesystem.
@@ -122,7 +122,7 @@ namespace PathwinderTest
     /// @param [in] sizeInBytes Size, in bytes, of the file being added. Defaults to 0.
     inline void AddFile(std::wstring_view absolutePath, unsigned int fileSizeInBytes = 0)
     {
-      AddFilesystemEntityInternal(absolutePath, EFilesystemEntityType::File, fileSizeInBytes);
+      AddFilesystemEntityInternal(absolutePath, EFilesystemEntityType::File, fileSizeInBytes, true);
     }
 
     /// Inserts multiple files into the fake filesystem, all in the same directory.
@@ -155,6 +155,24 @@ namespace PathwinderTest
     /// @param [in] handle Handle to query for the associated directory full path.
     /// @return Full path of the filesystem entity, if it is open.
     std::optional<std::wstring_view> GetPathFromHandle(HANDLE handle) const;
+
+    /// Inserts a directory into the fake filesystem if its parent directory exists.
+    /// @param [in] absolutePath Absolute path of the directory to insert. Paths are
+    /// case-insensitive.
+    inline void InsertDirectory(std::wstring_view absolutePath)
+    {
+      AddFilesystemEntityInternal(absolutePath, EFilesystemEntityType::Directory, 0, false);
+    }
+
+    /// Inserts a file into the fake filesystem if its parent directory exists.
+    /// @param [in] absolutePath Absolute path of the file to insert. Paths are
+    /// case-insensitive.
+    /// @param [in] sizeInBytes Size, in bytes, of the file being added. Defaults to 0.
+    inline void InsertFile(std::wstring_view absolutePath, unsigned int fileSizeInBytes = 0)
+    {
+      AddFilesystemEntityInternal(
+          absolutePath, EFilesystemEntityType::File, fileSizeInBytes, false);
+    }
 
     /// Generates a handle and marks a file or directory in the fake filesystem as being open.
     /// @param [in] absolutePath Absolute path of the file or directory to open, which must already
@@ -214,8 +232,12 @@ namespace PathwinderTest
     /// case-insensitive.
     /// @param [in] type Type of filesystem entity to be inserted.
     /// @param [in] sizeInBytes Size, in bytes, of the new filesystem entity.
+    /// @param [in] Whether or not to create any intermediate directories recursively as needed.
     void AddFilesystemEntityInternal(
-        std::wstring_view absolutePath, EFilesystemEntityType type, unsigned int sizeInBytes);
+        std::wstring_view absolutePath,
+        EFilesystemEntityType type,
+        unsigned int sizeInBytes,
+        bool recursivelyCreateDirectories);
 
     /// Attempts to generates a handle and marks a file or directory in the fake filesystem as being
     /// open. This method will fail if the requested filesystem entity does not exist in the fake

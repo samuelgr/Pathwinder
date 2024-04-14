@@ -307,6 +307,15 @@ namespace Pathwinder
         FileAccessMode fileAccessMode,
         CreateDisposition createDisposition) const;
 
+    /// Determines if any rule contained inside this object uses the specified directory as its
+    /// origin directory.
+    /// @param [in] directoryFullPath Full path of the directory to check.
+    /// @return `true` if so, `false` if not.
+    inline bool HasRuleWithOriginDirectory(std::wstring_view directoryFullPath) const
+    {
+      return filesystemRulesByOriginDirectory.Contains(directoryFullPath);
+    }
+
     /// Determines if the specified file path, which is already absolute, exists as a valid
     /// prefix for any filesystem rule. The input file path must not contain any leading Windows
     /// namespace prefixes and must not have any trailing backslash characters. Primarily

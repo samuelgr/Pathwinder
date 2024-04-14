@@ -75,9 +75,9 @@ namespace PathwinderTest
               Strings::NtConvertUnicodeStringToStringView(*objectAttributes->ObjectName);
 
           if (true == isDirectory)
-            context->mockFilesystem.AddDirectory(absolutePathToCreate);
+            context->mockFilesystem.InsertDirectory(absolutePathToCreate);
           else
-            context->mockFilesystem.AddFile(absolutePathToCreate);
+            context->mockFilesystem.InsertFile(absolutePathToCreate);
 
           HANDLE newlyOpenedFileHandle = context->mockFilesystem.Open(absolutePathToCreate);
           if (newlyOpenedFileHandle != nullptr)
@@ -401,9 +401,7 @@ namespace PathwinderTest
   }
 
   bool QueryExistsUsingFilesystemExecutor(
-      TIntegrationTestContext& context,
-      std::wstring_view pathToQuery,
-      HANDLE rootDirectory)
+      TIntegrationTestContext& context, std::wstring_view pathToQuery, HANDLE rootDirectory)
   {
     UNICODE_STRING pathToQueryUnicodeString =
         Strings::NtConvertStringViewToUnicodeString(pathToQuery);

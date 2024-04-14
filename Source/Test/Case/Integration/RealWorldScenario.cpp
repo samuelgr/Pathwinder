@@ -226,4 +226,50 @@ namespace PathwinderTest
         true ==
         QueryExistsUsingFilesystemExecutor(context, L"TargetFile2.log", rootDirectoryHandle));
   }
+
+  // Exercises a real-world scenario in which a deep hierarchy of illusionary directories is created
+  // using filesystem rules and a new file is created at the deepest level. Even though the
+  // containing directory on the origin side does not really exist, because the containing directory
+  // is an illusionary directory it should result in the correct target-side hierarchy being created
+  // automatically. As a result, the file creation attempt should succeed on the target side.
+  TEST_CASE(RealWorldScenario_CreateNewFile_DeepOriginDirectoryHierarchy)
+  {
+    constexpr std::wstring_view kConfigurationFileString =
+        L"[FilesystemRule:Intermediate1]\n"
+        L"OriginDirectory = C:\\Origin\\Level1\n"
+        L"TargetDirectory = C:\\Temp\\Intermediate1\n"
+        L"\n"
+        L"[FilesystemRule:Intermediate2]\n"
+        L"OriginDirectory = C:\\Origin\\Level1\\Level2\n"
+        L"TargetDirectory = C:\\Temp\\Intermediate2\n"
+        L"\n"
+        L"[FilesystemRule:Intermediate3]\n"
+        L"OriginDirectory = C:\\Origin\\Level1\\Level2\\Level3\n"
+        L"TargetDirectory = C:\\Temp\\Intermediate3\n"
+        L"\n"
+        L"[FilesystemRule:Intermediate4]\n"
+        L"OriginDirectory = C:\\Origin\\Level1\\Level2\\Level3\\Level4\n"
+        L"TargetDirectory = C:\\Temp\\Intermediate4\n"
+        L"\n"
+        L"[FilesystemRule:Intermediate5]\n"
+        L"OriginDirectory = C:\\Origin\\Level1\\Level2\\Level3\\Level4\\Level5\n"
+        L"TargetDirectory = C:\\Temp\\Intermediate5\n"
+        L"\n"
+        L"[FilesystemRule:Test]\n"
+        L"OriginDirectory = C:\\Origin\\Level1\\Level2\\Level3\\Level4\\Level5\\DesiredOrigin\n"
+        L"TargetDirectory = C:\\DesiredTarget\\Subdir";
+
+    MockFilesystemOperations mockFilesystem;
+    mockFilesystem.AddDirectory(L"C:\\Origin");
+
+    TIntegrationTestContext context =
+        CreateIntegrationTestContext(mockFilesystem, kConfigurationFileString);
+
+    CreateFileUsingFilesystemExecutor(
+        context, L"C:\\Origin\\Level1\\Level2\\Level3\\Level4\\Level5\\DesiredOrigin\\File.txt");
+
+    TEST_ASSERT(true == mockFilesystem.IsDirectory(L"C:\\DesiredTarget"));
+    TEST_ASSERT(true == mockFilesystem.IsDirectory(L"C:\\DesiredTarget\\Subdir"));
+    TEST_ASSERT(true == mockFilesystem.Exists(L"C:\\DesiredTarget\\Subdir\\File.txt"));
+  }
 } // namespace PathwinderTest
