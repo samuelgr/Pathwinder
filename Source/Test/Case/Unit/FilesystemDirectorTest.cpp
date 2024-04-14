@@ -364,7 +364,9 @@ namespace PathwinderTest
          FileOperationInstruction::OverlayRedirectTo(
              L"C:\\Target1\\file1.txt",
              EAssociateNameWithHandle::Unredirected,
-             ECreateDispositionPreference::PreferOpenExistingFile)},
+             ECreateDispositionPreference::PreferOpenExistingFile,
+             {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
+             L"C:\\Target1")},
         {L"C:\\Origin2\\Subdir2\\file2.txt",
          FileOperationInstruction::OverlayRedirectTo(
              L"C:\\Target2\\Subdir2\\file2.txt",
@@ -453,6 +455,38 @@ namespace PathwinderTest
   {
     MockFilesystemOperations mockFilesystem;
     mockFilesystem.AddDirectory(L"C:\\Origin1");
+
+    const FilesystemDirector director(
+        MakeFilesystemDirector({{L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")}}));
+
+    const std::pair<std::wstring_view, FileOperationInstruction> kTestInputsAndExpectedOutputs[] = {
+        {L"C:\\Origin1\\AnyTypeOfFile",
+         FileOperationInstruction::SimpleRedirectTo(
+             L"C:\\Target1\\AnyTypeOfFile",
+             EAssociateNameWithHandle::Unredirected,
+             {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
+             L"C:\\Target1")}};
+
+    for (const auto& testRecord : kTestInputsAndExpectedOutputs)
+    {
+      const std::wstring_view testInput = testRecord.first;
+      const auto& expectedOutput = testRecord.second;
+
+      auto actualOutput = director.GetInstructionForFileOperation(
+          testInput, FileAccessMode::ReadOnly(), CreateDisposition::CreateNewFile());
+      TEST_ASSERT(actualOutput == expectedOutput);
+    }
+  }
+
+  // Verifies that pre-operations are correctly added when a hierarchy does not exist on the origin
+  // side and the file operation attempts to create a new file inside a filesystem rule's origin
+  // directory. Regardless of the nature of the filesystem entity that is the subject of the query
+  // (file or directory) a pre-operation is needed to ensure the parent hierarchy exists on the
+  // target side if the directory matches a filesystem rule's origin directory.
+  TEST_CASE(
+      FilesystemDirector_GetInstructionForFileOperation_OriginHierarchyDoesNotExist_CreateNewFileInOriginDirectory)
+  {
+    MockFilesystemOperations mockFilesystem;
 
     const FilesystemDirector director(
         MakeFilesystemDirector({{L"1", FilesystemRule(L"1", L"C:\\Origin1", L"C:\\Target1")}}));

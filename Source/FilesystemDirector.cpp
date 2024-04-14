@@ -716,9 +716,11 @@ namespace Pathwinder
       // complete file creation in the target hierarchy if it would also be possible to do so
       // in the origin hierarchy. In this situation it is necessary to ensure that the
       // target-side hierarchy exists up to the directory containing the file that is to be
-      // potentially created, if said hierarchy also exists on the origin side.
+      // potentially created, if said hierarchy also exists on the origin side either as a real
+      // directory or as the origin directory for a filesystem rule.
 
-      if (FilesystemOperations::IsDirectory(
+      if (filesystemRulesByOriginDirectory.Contains(unredirectedPathDirectoryPart) ||
+          FilesystemOperations::IsDirectory(
               unredirectedPathDirectoryPartWithWindowsNamespacePrefix))
       {
         extraPreOperations.insert(static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists));
@@ -731,7 +733,9 @@ namespace Pathwinder
       // If the filesystem operation cannot result in file creation, then it is possible that
       // the operation is targeting a directory that exists in the origin hierarchy. In this
       // situation it is necessary to ensure that the same directory also exists in the target
-      // hierarchy.
+      // hierarchy. This is required because the directory access is being redirected from the
+      // origin side to the target side, and it would be incorrect for the access to fail due to
+      // file-not-found if the requested directory exists on the origin side.
 
       if (FilesystemOperations::IsDirectory(absoluteFilePath))
       {
