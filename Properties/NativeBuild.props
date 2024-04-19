@@ -1,14 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup Label="UserMacros" />
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" InitialTargets="CheckProjectLanguage">
+  <Target Name="CheckProjectLanguage">
+    <Error
+        Text="$(MSBuildThisFile) can only be used to build C/C++ projects with file extension '.vcxproj' but it has been imported by project '$(MSBuildProjectFile)'."
+        Condition="'$(MSBuildProjectExtension)'!='.vcxproj'"
+    />
+  </Target>
+
+  <Import Project="$(MSBuildProjectDirectory)\$(MSBuildProjectName).props" Condition="Exists('$(MSBuildProjectDirectory)\$(MSBuildProjectName).props')" />
+
   <PropertyGroup>
-    <OutDir>$(SolutionDir)Output\$(Configuration)\$(Platform)\</OutDir>
-    <IntDir>$(SolutionDir)Output\$(Configuration)\$(Platform)\Build\$(ProjectName)\</IntDir>
-    <LinkIncremental>false</LinkIncremental>
+    <ProjectLanguage>cpp</ProjectLanguage>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(BuildSettingsPlatformCombinedOutput)'!=''">
-    <OutDir>$(SolutionDir)Output\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)Output\$(Configuration)\Build\$(Platform)\$(ProjectName)\</IntDir>
+  <Import Project="$(MSBuildThisFileDirectory)CommonBuild.props" />
+
+  <!-- Output paths
+       Project-independent directories are turned into the specific properties Visual Studio expects for C# projects. -->
+  <PropertyGroup>
+    <OutDir>$(TopLevelOutDir)</OutDir>
+    <IntDir>$(TopLevelIntDir)</IntDir>
+  </PropertyGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)GitVersionInfo.props" />
+
+  <!-- Build settings -->
+  <PropertyGroup>
+    <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -86,4 +103,19 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup />
+
+  <!-- Third-party dependencies -->
+  <Import Project="$(MSBuildThisFileDirectory)ThirdParty.props" Condition="Exists('$(MSBuildThisFileDirectory)ThirdParty.props')"/>
+
+  <!-- Resources and version information -->
+  <PropertyGroup>
+    <ResourceForcedIncludes Condition="Exists('$(SolutionDir)Resources\$(SolutionName).h')">$(SolutionDir)Resources\$(SolutionName).h</ResourceForcedIncludes>
+    <ResourceForcedIncludes Condition="Exists('$(SolutionDir)Resources\$(MSBuildProjectName).h')">$(ResourceForcedIncludes);$(SolutionDir)Resources\$(MSBuildProjectName).h</ResourceForcedIncludes>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <ForcedIncludeFiles>$(ResourceForcedIncludes);%(ForcedIncludeFiles)</ForcedIncludeFiles>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  
 </Project>

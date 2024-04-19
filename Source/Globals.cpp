@@ -18,7 +18,6 @@
 #include <string>
 #include <string_view>
 
-#include "GitVersionInfo.h"
 #include "Message.h"
 #include "Resolver.h"
 #include "Strings.h"
