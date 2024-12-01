@@ -34,6 +34,9 @@ namespace Pathwinder
           {
               ConfigurationFileLayoutNameAndValueType(
                   Strings::kStrConfigurationSettingLogLevel, Configuration::EValueType::Integer),
+              ConfigurationFileLayoutNameAndValueType(
+                  Strings::kStrConfigurationSettingRedirectConfigToExecutableDirectory,
+                  Configuration::EValueType::Boolean),
           }),
   };
 

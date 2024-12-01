@@ -21,6 +21,7 @@
 #include "Message.h"
 #include "Resolver.h"
 #include "Strings.h"
+#include "TemporaryBuffer.h"
 
 #ifndef PATHWINDER_SKIP_CONFIG
 #include "Configuration.h"
@@ -158,9 +159,27 @@ namespace Pathwinder
     /// @return Filled configuration data object.
     static Configuration::ConfigurationData ReadConfigurationFile(void)
     {
+      TemporaryString configFileName;
+      configFileName << Strings::kStrPathwinderDirectoryName << L"\\"
+                     << Strings::kStrConfigurationFilename;
+
       PathwinderConfigReader configReader;
       Configuration::ConfigurationData configData =
-          configReader.ReadConfigurationFile(Strings::kStrConfigurationFilename);
+          configReader.ReadConfigurationFile(configFileName);
+
+      if ((false == configData.HasReadErrors()) &&
+          (true ==
+           configData
+               .GetFirstBooleanValue(
+                   Configuration::kSectionNameGlobal,
+                   Strings::kStrConfigurationSettingRedirectConfigToExecutableDirectory)
+               .value_or(false)))
+      {
+        configFileName.Clear();
+        configFileName << Strings::kStrExecutableDirectoryName << L"\\"
+                       << Strings::kStrConfigurationFilename;
+        configData = configReader.ReadConfigurationFile(configFileName);
+      }
 
       if (true == configData.HasReadErrors())
       {

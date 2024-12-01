@@ -345,8 +345,6 @@ namespace Pathwinder
           []() -> void
           {
             std::wstring_view pieces[] = {
-                GetPathwinderDirectoryName(),
-                L"\\",
                 GetProductName(),
                 kStrConfigurationFileExtension};
 
