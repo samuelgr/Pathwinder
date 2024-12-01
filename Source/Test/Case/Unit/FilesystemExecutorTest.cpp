@@ -3291,7 +3291,8 @@ namespace PathwinderTest
             instructionSourceWasInvoked = true;
             return fileOperationInstructionToTry;
           },
-          [&mockFilesystem](PHANDLE, POBJECT_ATTRIBUTES, ULONG) -> NTSTATUS
+          [&mockFilesystem, kExtraPreOperationHierarchyToCreate](
+              PHANDLE, POBJECT_ATTRIBUTES, ULONG) -> NTSTATUS
           {
             // Checking here for the completion of the pre-operation ensures that it was done prior
             // to the underlying system call being invoked.
@@ -3957,7 +3958,8 @@ namespace PathwinderTest
             instructionSourceWasInvoked = true;
             return fileOperationInstructionToTry;
           },
-          [&mockFilesystem](HANDLE, SFileRenameInformation&, ULONG) -> NTSTATUS
+          [&mockFilesystem, kExtraPreOperationHierarchyToCreate](
+              HANDLE, SFileRenameInformation&, ULONG) -> NTSTATUS
           {
             // Checking here for the completion of the pre-operation ensures that it was done prior
             // to the underlying system call being invoked.
@@ -4287,7 +4289,7 @@ namespace PathwinderTest
             instructionSourceWasInvoked = true;
             return fileOperationInstructionToTry;
           },
-          [&mockFilesystem](POBJECT_ATTRIBUTES) -> NTSTATUS
+          [&mockFilesystem, kExtraPreOperationHierarchyToCreate](POBJECT_ATTRIBUTES) -> NTSTATUS
           {
             // Checking here for the completion of the pre-operation ensures that it was done prior
             // to the underlying system call being invoked.
@@ -4428,7 +4430,8 @@ namespace PathwinderTest
         &fileNameInformation,
         sizeof(fileNameInformationBuffer),
         SFileNameInformation::kFileInformationClass,
-        [](HANDLE,
+        [kSystemReturnedPath](
+            HANDLE,
            PIO_STATUS_BLOCK ioStatusBlock,
            PVOID fileInformation,
            ULONG length,
@@ -4480,7 +4483,8 @@ namespace PathwinderTest
         &fileNameInformation,
         sizeof(fileNameInformationBuffer),
         SFileNameInformation::kFileInformationClass,
-        [](HANDLE,
+        [kSystemReturnedPath](
+            HANDLE,
            PIO_STATUS_BLOCK ioStatusBlock,
            PVOID fileInformation,
            ULONG length,
@@ -4566,7 +4570,8 @@ namespace PathwinderTest
         &actualFileAllInformation,
         sizeof(actualFileAllInformationBuffer),
         SFileAllInformation::kFileInformationClass,
-        [](HANDLE,
+        [kSystemReturnedPath](
+            HANDLE,
            PIO_STATUS_BLOCK ioStatusBlock,
            PVOID fileInformation,
            ULONG length,
@@ -4631,7 +4636,8 @@ namespace PathwinderTest
         &fileNameInformation,
         sizeof(fileNameInformationBuffer),
         SFileNameInformation::kFileInformationClass,
-        [](HANDLE,
+        [kSystemReturnedPath](
+            HANDLE,
            PIO_STATUS_BLOCK ioStatusBlock,
            PVOID fileInformation,
            ULONG length,
@@ -4702,7 +4708,8 @@ namespace PathwinderTest
         &fileNameInformation,
         sizeof(fileNameInformationBuffer),
         SFileNameInformation::kFileInformationClass,
-        [](HANDLE,
+        [kSystemReturnedPath](
+            HANDLE,
            PIO_STATUS_BLOCK ioStatusBlock,
            PVOID fileInformation,
            ULONG length,
@@ -4775,7 +4782,8 @@ namespace PathwinderTest
         &fileNameInformation,
         fileNameInformationBufferAllowedBytes,
         SFileNameInformation::kFileInformationClass,
-        [](HANDLE,
+        [kSystemReturnedPath](
+            HANDLE,
            PIO_STATUS_BLOCK ioStatusBlock,
            PVOID fileInformation,
            ULONG length,
