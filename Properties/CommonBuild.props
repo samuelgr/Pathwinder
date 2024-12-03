@@ -3,10 +3,10 @@
 
   <!-- Top-level output file directory depends on whether or not there needs to be a separation by platform. -->
   <PropertyGroup Condition="'$(BuildSettingsPlatformCombinedOutput)'==''">
-    <TopLevelOutDir>$(SolutionDir)Output\$(Configuration)\$(Platform)\</TopLevelOutDir>
+    <TopLevelOutDir>$(MSBuildProjectDirectory)\Output\$(Configuration)\$(Platform)\</TopLevelOutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(BuildSettingsPlatformCombinedOutput)'!=''">
-    <TopLevelOutDir>$(SolutionDir)Output\$(Configuration)\</TopLevelOutDir>
+    <TopLevelOutDir>$(MSBuildProjectDirectory)\Output\$(Configuration)\</TopLevelOutDir>
   </PropertyGroup>
 
   <!-- Top-level intermediate file directory is a subdirectory of the top-level output directory. -->

@@ -22,7 +22,7 @@
 
   <!-- Pre-build event generates constants that contain Git version information in the correct language for the project. -->
   <Target Name="GitVersionInfo" BeforeTargets="PreBuildEvent" DependsOnTargets="CheckGitVersionInfoOutputFile">
-    <Exec Command="&quot;$(SolutionDir)GitVersionInfo.bat&quot; $(ProjectLanguage) &quot;$(IntermediateOutputPath)&quot; $(GitVersionInfoExtraArg)" />
+    <Exec Command="&quot;$(MSBuildProjectDirectory)\GitVersionInfo.bat&quot; $(ProjectLanguage) &quot;$(IntermediateOutputPath)&quot; $(GitVersionInfoExtraArg)" />
   </Target>
 
   <!-- Allow the necessary build tools to access the generated file. -->
