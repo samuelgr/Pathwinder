@@ -19,13 +19,13 @@
 #include <string_view>
 #include <unordered_map>
 
+#include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
 #include <Infra/ValueOrError.h>
 
 #include "ApiWindows.h"
 #include "FilesystemOperations.h"
 #include "MockFreeFunctionContext.h"
-#include "Strings.h"
 
 namespace PathwinderTest
 {
@@ -74,7 +74,7 @@ namespace PathwinderTest
     using TDirectoryContents = std::map<
         std::wstring,
         SFilesystemEntity,
-        Pathwinder::Strings::CaseInsensitiveLessThanComparator<wchar_t>>;
+        Infra::Strings::CaseInsensitiveLessThanComparator<wchar_t>>;
 
     /// Type alias for the contents of an entire mock filesystem. Key is a directory name and
     /// value is the directory's contents. This is a single-level data structure whereby all
@@ -83,8 +83,8 @@ namespace PathwinderTest
     using TFilesystemContents = std::unordered_map<
         std::wstring,
         TDirectoryContents,
-        Pathwinder::Strings::CaseInsensitiveHasher<wchar_t>,
-        Pathwinder::Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
+        Infra::Strings::CaseInsensitiveHasher<wchar_t>,
+        Infra::Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
 
     /// Represents the state of an in-progress mock directory enumeration.
     struct SDirectoryEnumerationState

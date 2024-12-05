@@ -21,9 +21,8 @@
 
 #include <Infra/ArrayList.h>
 #include <Infra/DebugAssert.h>
+#include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
-
-#include "Strings.h"
 
 namespace Pathwinder
 {
@@ -300,7 +299,7 @@ namespace Pathwinder
       inline bool operator()(const FilesystemRule& lhs, const FilesystemRule& rhs) const
       {
         if (lhs.GetFilePatterns().size() == rhs.GetFilePatterns().size())
-          return (Strings::CompareCaseInsensitive(lhs.GetName(), rhs.GetName()) < 0);
+          return (Infra::Strings::CompareCaseInsensitive(lhs.GetName(), rhs.GetName()) < 0);
         return (lhs.GetFilePatterns().size() > rhs.GetFilePatterns().size());
       }
     };

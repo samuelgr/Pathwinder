@@ -1128,8 +1128,8 @@ namespace Pathwinder
 
       if (false == selectedPath.empty())
       {
-        successfulPath = Strings::RemoveTrailing(successfulPath, L'\\');
-        selectedPath = Strings::RemoveTrailing(selectedPath, L'\\');
+        successfulPath = Infra::Strings::RemoveTrailing(successfulPath, L'\\');
+        selectedPath = Infra::Strings::RemoveTrailing(selectedPath, L'\\');
 
         openHandleStore.InsertHandle(
             newlyOpenedHandle, std::wstring(selectedPath), std::wstring(successfulPath));
@@ -1209,8 +1209,8 @@ namespace Pathwinder
 
       if (false == selectedPath.empty())
       {
-        successfulPath = Strings::RemoveTrailing(successfulPath, L'\\');
-        selectedPath = Strings::RemoveTrailing(selectedPath, L'\\');
+        successfulPath = Infra::Strings::RemoveTrailing(successfulPath, L'\\');
+        selectedPath = Infra::Strings::RemoveTrailing(selectedPath, L'\\');
 
         openHandleStore.InsertOrUpdateHandle(
             handleToUpdate, std::wstring(selectedPath), std::wstring(successfulPath));

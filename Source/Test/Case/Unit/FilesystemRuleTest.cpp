@@ -19,9 +19,8 @@
 #include <string_view>
 #include <vector>
 
+#include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
-
-#include "Strings.h"
 
 namespace PathwinderTest
 {
@@ -42,8 +41,8 @@ namespace PathwinderTest
     TEST_ASSERT(true == testRule.HasFilePatterns());
     TEST_ASSERT(actualFilePatterns.size() == expectedFilePatterns.size());
     for (size_t i = 0; i < expectedFilePatterns.size(); ++i)
-      TEST_ASSERT(
-          Strings::EqualsCaseInsensitive<wchar_t>(actualFilePatterns[i], expectedFilePatterns[i]));
+      TEST_ASSERT(Infra::Strings::EqualsCaseInsensitive<wchar_t>(
+          actualFilePatterns[i], expectedFilePatterns[i]));
   }
 
   // Verifies that a filesystem rule can be created without file patterns and that the lack of file
@@ -58,8 +57,8 @@ namespace PathwinderTest
     TEST_ASSERT(false == testRule.HasFilePatterns());
     TEST_ASSERT(actualFilePatterns.size() == expectedFilePatterns.size());
     for (size_t i = 0; i < expectedFilePatterns.size(); ++i)
-      TEST_ASSERT(
-          Strings::EqualsCaseInsensitive<wchar_t>(actualFilePatterns[i], expectedFilePatterns[i]));
+      TEST_ASSERT(Infra::Strings::EqualsCaseInsensitive<wchar_t>(
+          actualFilePatterns[i], expectedFilePatterns[i]));
   }
 
   // Verifies that a filesystem rule can be created with file patterns whereby they are equivalent
@@ -80,7 +79,7 @@ namespace PathwinderTest
       TEST_ASSERT(false == testRule.HasFilePatterns());
       TEST_ASSERT(actualFilePatterns.size() == expectedFilePatterns.size());
       for (size_t i = 0; i < expectedFilePatterns.size(); ++i)
-        TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(
+        TEST_ASSERT(Infra::Strings::EqualsCaseInsensitive<wchar_t>(
             actualFilePatterns[i], expectedFilePatterns[i]));
     }
   }

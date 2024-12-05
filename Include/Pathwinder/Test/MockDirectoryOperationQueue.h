@@ -16,10 +16,11 @@
 #include <string>
 #include <string_view>
 
+#include <Infra/Strings.h>
+
 #include "ApiWindows.h"
 #include "DirectoryOperationQueue.h"
 #include "FileInformationStruct.h"
-#include "Strings.h"
 
 namespace PathwinderTest
 {
@@ -32,7 +33,7 @@ namespace PathwinderTest
     /// Type alias for the container type used to hold a sorted set of file names to be
     /// enumerated.
     using TFileNamesToEnumerate =
-        std::set<std::wstring, Pathwinder::Strings::CaseInsensitiveLessThanComparator<wchar_t>>;
+        std::set<std::wstring, Infra::Strings::CaseInsensitiveLessThanComparator<wchar_t>>;
 
     /// Queues created this way will not enumerate any files but can be used to test enumeration
     /// status reporting. This can also be used as a default constructor for creating objects that

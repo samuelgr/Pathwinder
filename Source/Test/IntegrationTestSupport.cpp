@@ -29,6 +29,7 @@
 #include "MockFilesystemOperations.h"
 #include "OpenHandleStore.h"
 #include "PathwinderConfigReader.h"
+#include "Strings.h"
 
 namespace PathwinderTest
 {

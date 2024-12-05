@@ -19,11 +19,11 @@
 #include <unordered_map>
 
 #include <Infra/Mutex.h>
+#include <Infra/Strings.h>
 
 #include "ApiWindows.h"
 #include "DirectoryOperationQueue.h"
 #include "FileInformationStruct.h"
-#include "Strings.h"
 
 namespace Pathwinder
 {
@@ -46,7 +46,7 @@ namespace Pathwinder
       FileInformationStructLayout fileInformationStructLayout;
 
       /// Set of already-enumerated files. Used for deduplication in the output.
-      std::set<std::wstring, Strings::CaseInsensitiveLessThanComparator<wchar_t>>
+      std::set<std::wstring, Infra::Strings::CaseInsensitiveLessThanComparator<wchar_t>>
           enumeratedFilenames;
 
       /// Whether or not to enable special behavior for the first invocation of a directory

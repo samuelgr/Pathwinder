@@ -21,6 +21,7 @@
 #include <unordered_map>
 
 #include <Infra/ArrayList.h>
+#include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
 #include <Infra/ValueOrError.h>
 
@@ -48,7 +49,8 @@ namespace PathwinderTest
   {
     IDirectoryOperationQueue* queue;
     FileInformationStructLayout fileInformationStructLayout;
-    std::set<std::wstring, Strings::CaseInsensitiveLessThanComparator<wchar_t>> enumeratedFilenames;
+    std::set<std::wstring, Infra::Strings::CaseInsensitiveLessThanComparator<wchar_t>>
+        enumeratedFilenames;
     bool isFirstInvocation;
 
     inline SDirectoryEnumerationStateSnapshot(
@@ -121,7 +123,7 @@ namespace PathwinderTest
     TEST_ASSERT(enumerationQueueToCheck.GetFileInformationClass() == fileInformationClass);
     TEST_ASSERT(mockFilesystem.GetFilePatternForDirectoryEnumeration(enumeratedDirectoryHandle)
                     .has_value());
-    TEST_ASSERT(Strings::EqualsCaseInsensitive(
+    TEST_ASSERT(Infra::Strings::EqualsCaseInsensitive(
         *mockFilesystem.GetFilePatternForDirectoryEnumeration(enumeratedDirectoryHandle),
         filePattern));
   }
@@ -149,8 +151,8 @@ namespace PathwinderTest
     TEST_ASSERT(
         nameInsertionQueueToCheck.GetNameInsertionInstructions() == nameInsertionInstructions);
     TEST_ASSERT(nameInsertionQueueToCheck.GetFileInformationClass() == fileInformationClass);
-    TEST_ASSERT(
-        Strings::EqualsCaseInsensitive(nameInsertionQueueToCheck.GetFilePattern(), filePattern));
+    TEST_ASSERT(Infra::Strings::EqualsCaseInsensitive(
+        nameInsertionQueueToCheck.GetFilePattern(), filePattern));
   }
 
   /// Copies a string to the dangling filename field of a file name information structure. Intended

@@ -18,9 +18,8 @@
 #include <unordered_map>
 
 #include <Infra/ArrayList.h>
+#include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
-
-#include "Strings.h"
 
 namespace Pathwinder
 {
@@ -392,10 +391,10 @@ namespace Pathwinder
       const Node* currentNode = &rootNode;
       const Node* longestMatchingPrefixNode = nullptr;
 
-      for (std::optional<TStringView> maybeNextPathComponent = Strings::TokenizeString<TChar>(
+      for (std::optional<TStringView> maybeNextPathComponent = Infra::Strings::Tokenize<TChar>(
                tokenizeState, stringToMatch, pathDelimiters.Data(), pathDelimiters.Size());
            true == maybeNextPathComponent.has_value();
-           maybeNextPathComponent = Strings::TokenizeString<TChar>(
+           maybeNextPathComponent = Infra::Strings::Tokenize<TChar>(
                tokenizeState, stringToMatch, pathDelimiters.Data(), pathDelimiters.Size()))
       {
         if (0 == maybeNextPathComponent->length()) continue;
@@ -426,7 +425,7 @@ namespace Pathwinder
       const Node* currentNode = &rootNode;
 
       for (TStringView pathComponent :
-           Strings::Tokenizer(prefix, pathDelimiters.Data(), pathDelimiters.Size()))
+           Infra::Strings::Tokenizer(prefix, pathDelimiters.Data(), pathDelimiters.Size()))
       {
         if (0 == pathComponent.length()) continue;
 
@@ -488,7 +487,7 @@ namespace Pathwinder
       Node* currentNode = &rootNode;
 
       for (TStringView pathComponent :
-           Strings::Tokenizer(prefix, pathDelimiters.Data(), pathDelimiters.Size()))
+           Infra::Strings::Tokenizer(prefix, pathDelimiters.Data(), pathDelimiters.Size()))
       {
         if (true == pathComponent.empty()) continue;
 

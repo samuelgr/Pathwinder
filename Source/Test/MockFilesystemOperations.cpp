@@ -184,7 +184,7 @@ namespace PathwinderTest
       std::wstring_view absoluteDirectoryPath)
   {
     const std::wstring_view absoluteDirectoryPathTrimmed =
-        Strings::RemoveTrailing(absoluteDirectoryPath, L'\\');
+        Infra::Strings::RemoveTrailing(absoluteDirectoryPath, L'\\');
     AddFilesystemEntityInternal(
         absoluteDirectoryPathTrimmed, EFilesystemEntityType::Directory, 0, true);
     return NtStatus::kSuccess;

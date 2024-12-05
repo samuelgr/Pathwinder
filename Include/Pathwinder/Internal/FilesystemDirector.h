@@ -19,10 +19,11 @@
 #include <unordered_set>
 #include <vector>
 
+#include <Infra/Strings.h>
+
 #include "FilesystemInstruction.h"
 #include "FilesystemRule.h"
 #include "PrefixTree.h"
-#include "Strings.h"
 
 namespace Pathwinder
 {
@@ -30,8 +31,8 @@ namespace Pathwinder
   /// compared case-insensitively.
   using TCaseInsensitiveStringSet = std::unordered_set<
       std::wstring,
-      Strings::CaseInsensitiveHasher<wchar_t>,
-      Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
+      Infra::Strings::CaseInsensitiveHasher<wchar_t>,
+      Infra::Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
 
   /// Type alias for holding owned strings for deduplication and organization. Contained strings are
   /// compared case-sensitively.
@@ -41,8 +42,8 @@ namespace Pathwinder
   using TFilesystemRulePrefixTree = PrefixTree<
       wchar_t,
       RelatedFilesystemRuleContainer,
-      Strings::CaseInsensitiveHasher<wchar_t>,
-      Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
+      Infra::Strings::CaseInsensitiveHasher<wchar_t>,
+      Infra::Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
 
   /// Type alias for holding a map from filesystem rule name to filesystem rule object. All
   /// filesystem rules are uniquely identified by name, and the names are considered case

@@ -21,6 +21,7 @@
 
 #include <Infra/DebugAssert.h>
 #include <Infra/Globals.h>
+#include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
@@ -93,151 +94,6 @@ namespace Pathwinder
               stringLength -= 1;
 
             if (stringLength > 0) initString.assign(stringStart, &stringStart[stringLength]);
-          });
-
-      return initString;
-    }
-
-    /// Generates the value for kStrExecutableCompleteFilename; see documentation of this
-    /// run-time constant for more information.
-    /// @return Corresponding run-time constant value.
-    static const std::wstring& GetExecutableCompleteFilename(void)
-    {
-      static std::wstring initString;
-      static std::once_flag initFlag;
-
-      std::call_once(
-          initFlag,
-          []() -> void
-          {
-            Infra::TemporaryBuffer<wchar_t> buf;
-            GetModuleFileName(nullptr, buf.Data(), static_cast<DWORD>(buf.Capacity()));
-
-            initString.assign(buf.Data());
-          });
-
-      return initString;
-    }
-
-    /// Generates the value for kStrExecutableBaseName; see documentation of this run-time
-    /// constant for more information.
-    /// @return Corresponding run-time constant value.
-    static const std::wstring& GetExecutableBaseName(void)
-    {
-      static std::wstring initString;
-      static std::once_flag initFlag;
-
-      std::call_once(
-          initFlag,
-          []() -> void
-          {
-            std::wstring_view executableBaseName = GetExecutableCompleteFilename();
-
-            const size_t lastBackslashPos = executableBaseName.find_last_of(L"\\");
-            if (std::wstring_view::npos != lastBackslashPos)
-              executableBaseName.remove_prefix(1 + lastBackslashPos);
-
-            initString.assign(executableBaseName);
-          });
-
-      return initString;
-    }
-
-    /// Generates the value for kStrExecutableDirectoryName; see documentation of this run-time
-    /// constant for more information.
-    /// @return Corresponding run-time constant value.
-    static const std::wstring& GetExecutableDirectoryName(void)
-    {
-      static std::wstring initString;
-      static std::once_flag initFlag;
-
-      std::call_once(
-          initFlag,
-          []() -> void
-          {
-            std::wstring_view executableDirectoryName = GetExecutableCompleteFilename();
-
-            const size_t lastBackslashPos = executableDirectoryName.find_last_of(L"\\");
-            if (std::wstring_view::npos != lastBackslashPos)
-            {
-              executableDirectoryName.remove_suffix(
-                  executableDirectoryName.length() - lastBackslashPos);
-              initString.assign(executableDirectoryName);
-            }
-          });
-
-      return initString;
-    }
-
-    /// Generates the value for kStrPathwinderCompleteFilename; see documentation of this
-    /// run-time constant for more information.
-    /// @return Corresponding run-time constant value.
-    static const std::wstring& GetPathwinderCompleteFilename(void)
-    {
-      static std::wstring initString;
-      static std::once_flag initFlag;
-
-      std::call_once(
-          initFlag,
-          []() -> void
-          {
-            Infra::TemporaryBuffer<wchar_t> buf;
-            GetModuleFileName(
-                Infra::Globals::GetInstanceHandle(),
-                buf.Data(),
-                static_cast<DWORD>(buf.Capacity()));
-
-            initString.assign(buf.Data());
-          });
-
-      return initString;
-    }
-
-    /// Generates the value for kStrPathwinderBaseName; see documentation of this run-time
-    /// constant for more information.
-    /// @return Corresponding run-time constant value.
-    static const std::wstring& GetPathwinderBaseName(void)
-    {
-      static std::wstring initString;
-      static std::once_flag initFlag;
-
-      std::call_once(
-          initFlag,
-          []() -> void
-          {
-            std::wstring_view executableBaseName = GetPathwinderCompleteFilename();
-
-            const size_t lastBackslashPos = executableBaseName.find_last_of(L"\\");
-            if (std::wstring_view::npos != lastBackslashPos)
-              executableBaseName.remove_prefix(1 + lastBackslashPos);
-
-            initString.assign(executableBaseName);
-          });
-
-      return initString;
-    }
-
-    /// Generates the value for kStrPathwinderDirectoryName; see documentation of this run-time
-    /// constant for more information.
-    /// @return Corresponding run-time constant value.
-    static const std::wstring& GetPathwinderDirectoryName(void)
-    {
-      static std::wstring initString;
-      static std::once_flag initFlag;
-
-      std::call_once(
-          initFlag,
-          []() -> void
-          {
-            std::wstring_view executableDirectoryName = GetPathwinderCompleteFilename();
-
-            const size_t lastBackslashPos = executableDirectoryName.find_last_of(L"\\");
-            if (std::wstring_view::npos != lastBackslashPos)
-            {
-              executableDirectoryName.remove_suffix(
-                  executableDirectoryName.length() - lastBackslashPos);
-              initString.assign(executableDirectoryName);
-            }
           });
 
       return initString;
@@ -386,8 +242,9 @@ namespace Pathwinder
               CoTaskMemFree(knownFolderPath);
             }
 
-            logFilename << GetProductName().c_str() << L'_' << GetExecutableBaseName().c_str()
-                        << L'_' << Infra::Globals::GetCurrentProcessId() << kStrLogFileExtension;
+            logFilename << GetProductName().c_str() << L'_'
+                        << Infra::Globals::GetExecutableBaseName() << L'_'
+                        << Infra::Globals::GetCurrentProcessId() << kStrLogFileExtension;
 
             initString.assign(logFilename);
           });
@@ -396,12 +253,6 @@ namespace Pathwinder
     }
 
     extern const std::wstring_view kStrProductName(GetProductName());
-    extern const std::wstring_view kStrExecutableCompleteFilename(GetExecutableCompleteFilename());
-    extern const std::wstring_view kStrExecutableBaseName(GetExecutableBaseName());
-    extern const std::wstring_view kStrExecutableDirectoryName(GetExecutableDirectoryName());
-    extern const std::wstring_view kStrPathwinderCompleteFilename(GetPathwinderCompleteFilename());
-    extern const std::wstring_view kStrPathwinderBaseName(GetPathwinderBaseName());
-    extern const std::wstring_view kStrPathwinderDirectoryName(GetPathwinderDirectoryName());
     extern const std::wstring_view kStrNetBiosHostname(GetNetBiosHostname());
     extern const std::wstring_view kStrDnsHostname(GetDnsHostname());
     extern const std::wstring_view kStrDnsDomain(GetDnsDomain());
@@ -409,81 +260,12 @@ namespace Pathwinder
     extern const std::wstring_view kStrConfigurationFilename(GetConfigurationFilename());
     extern const std::wstring_view kStrLogFilename(GetLogFilename());
 
-    template <typename CharType> int CompareCaseInsensitive(
-        std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB)
-    {
-      for (size_t i = 0; i < std::min(strA.length(), strB.length()); ++i)
-      {
-        const wchar_t charA = ToLowercase(strA[i]);
-        const wchar_t charB = ToLowercase(strB[i]);
-
-        if (charA != charB) return (static_cast<int>(charA) - static_cast<int>(charB));
-      }
-
-      return (static_cast<int>(strA.length()) - static_cast<int>(strB.length()));
-    }
-
-    template int CompareCaseInsensitive<char>(std::string_view, std::string_view);
-    template int CompareCaseInsensitive<wchar_t>(std::wstring_view, std::wstring_view);
-
-    Infra::TemporaryString ConvertStringNarrowToWide(const char* str)
-    {
-      Infra::TemporaryString convertedStr;
-      size_t numCharsConverted = 0;
-
-      if (0 ==
-          mbstowcs_s(
-              &numCharsConverted,
-              convertedStr.Data(),
-              convertedStr.Capacity(),
-              str,
-              static_cast<size_t>(convertedStr.Capacity()) - 1))
-        convertedStr.UnsafeSetSize(static_cast<unsigned int>(numCharsConverted));
-
-      return convertedStr;
-    }
-
-    Infra::TemporaryBuffer<char> ConvertStringWideToNarrow(const wchar_t* str)
-    {
-      Infra::TemporaryBuffer<char> convertedStr;
-      size_t numCharsConverted = 0;
-
-      if (0 !=
-          wcstombs_s(
-              &numCharsConverted,
-              convertedStr.Data(),
-              convertedStr.Capacity(),
-              str,
-              static_cast<size_t>(convertedStr.Capacity()) - 1))
-        convertedStr[0] = '\0';
-
-      return convertedStr;
-    }
-
-    template <typename CharType> bool EqualsCaseInsensitive(
-        std::basic_string_view<CharType> strA, std::basic_string_view<CharType> strB)
-    {
-      if (strA.length() != strB.length()) return false;
-
-      for (size_t i = 0; i < strA.length(); ++i)
-      {
-        if (ToLowercase(strA[i]) != ToLowercase(strB[i])) return false;
-      }
-
-      return true;
-    }
-
-    template bool EqualsCaseInsensitive<char>(std::string_view, std::string_view);
-    template bool EqualsCaseInsensitive<wchar_t>(std::wstring_view, std::wstring_view);
-
     bool FileNameMatchesPattern(std::wstring_view fileName, std::wstring_view filePatternUpperCase)
     {
       if (true == filePatternUpperCase.empty()) return true;
 
-      UNICODE_STRING fileNameString =
-          Pathwinder::Strings::NtConvertStringViewToUnicodeString(fileName);
-      UNICODE_STRING filePatternString =
-          Pathwinder::Strings::NtConvertStringViewToUnicodeString(filePatternUpperCase);
+      UNICODE_STRING fileNameString = NtConvertStringViewToUnicodeString(fileName);
+      UNICODE_STRING filePatternString = NtConvertStringViewToUnicodeString(filePatternUpperCase);
 
       return (
           TRUE ==
@@ -491,60 +273,10 @@ namespace Pathwinder
               &filePatternString, &fileNameString, TRUE, nullptr));
     }
 
-    Infra::TemporaryString FormatString(_Printf_format_string_ const wchar_t* format, ...)
-    {
-      Infra::TemporaryString buf;
-
-      va_list args;
-      va_start(args, format);
-
-      buf.UnsafeSetSize(static_cast<size_t>(vswprintf_s(buf.Data(), buf.Capacity(), format, args)));
-
-      va_end(args);
-
-      return buf;
-    }
-
-    template <typename CharType> size_t HashCaseInsensitive(std::basic_string_view<CharType> str)
-    {
-      // Implements the FNV-1a hash algorithm. References:
-      // https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
-      // https://softwareengineering.stackexchange.com/questions/49550/which-hashing-algorithm-is-best-for-uniqueness-and-speed/145633#145633
-
-#ifdef _WIN64
-      constexpr uint64_t hashPrime = 1099511628211ull;
-      uint64_t hash = 14695981039346656037ull;
-#else
-      constexpr uint32_t hashPrime = 16777619u;
-      uint32_t hash = 2166136261u;
-#endif
-      static_assert(sizeof(size_t) == sizeof(hash), "Hash size mismatch.");
-
-      for (size_t charIndex = 0; charIndex < str.length(); ++charIndex)
-      {
-        const CharType currentChar = Strings::ToLowercase(str[charIndex]);
-        const uint8_t* const charByteBase = reinterpret_cast<const uint8_t*>(&currentChar);
-        const size_t charByteCount = sizeof(currentChar);
-
-        for (size_t charByteIndex = 0; charByteIndex < charByteCount; ++charByteIndex)
-        {
-          const decltype(hash) currentByte =
-              static_cast<decltype(hash)>(charByteBase[charByteIndex]);
-          hash = hash ^ currentByte;
-          hash = hash * hashPrime;
-        }
-      }
-
-      return hash;
-    }
-
-    template size_t HashCaseInsensitive<char>(std::string_view);
-    template size_t HashCaseInsensitive<wchar_t>(std::wstring_view);
-
     Infra::TemporaryString NtAccessMaskToString(ACCESS_MASK accessMask)
     {
       constexpr std::wstring_view kSeparator = L" | ";
-      Infra::TemporaryString outputString = Strings::FormatString(L"0x%08x (", accessMask);
+      Infra::TemporaryString outputString = Infra::Strings::Format(L"0x%08x (", accessMask);
 
       if (0 == accessMask)
       {
@@ -605,7 +337,7 @@ namespace Pathwinder
             FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA | FILE_APPEND_DATA | WRITE_DAC | WRITE_OWNER |
             SYNCHRONIZE | FILE_EXECUTE | FILE_LIST_DIRECTORY | FILE_TRAVERSE));
         if (0 != accessMask)
-          outputString << Strings::FormatString(L"0x%08x", accessMask) << kSeparator;
+          outputString << Infra::Strings::Format(L"0x%08x", accessMask) << kSeparator;
       }
 
       outputString.RemoveSuffix(static_cast<unsigned int>(kSeparator.length()));
@@ -621,26 +353,27 @@ namespace Pathwinder
       switch (createDisposition)
       {
         case FILE_SUPERSEDE:
-          return Strings::FormatString(kFormatString, createDisposition, L"FILE_SUPERSEDE");
+          return Infra::Strings::Format(kFormatString, createDisposition, L"FILE_SUPERSEDE");
         case FILE_CREATE:
-          return Strings::FormatString(kFormatString, createDisposition, L"FILE_CREATE");
+          return Infra::Strings::Format(kFormatString, createDisposition, L"FILE_CREATE");
         case FILE_OPEN:
-          return Strings::FormatString(kFormatString, createDisposition, L"FILE_OPEN");
+          return Infra::Strings::Format(kFormatString, createDisposition, L"FILE_OPEN");
         case FILE_OPEN_IF:
-          return Strings::FormatString(kFormatString, createDisposition, L"FILE_OPEN_IF");
+          return Infra::Strings::Format(kFormatString, createDisposition, L"FILE_OPEN_IF");
         case FILE_OVERWRITE:
-          return Strings::FormatString(kFormatString, createDisposition, L"FILE_OVERWRITE");
+          return Infra::Strings::Format(kFormatString, createDisposition, L"FILE_OVERWRITE");
         case FILE_OVERWRITE_IF:
-          return Strings::FormatString(kFormatString, createDisposition, L"FILE_OVERWRITE_IF");
+          return Infra::Strings::Format(kFormatString, createDisposition, L"FILE_OVERWRITE_IF");
         default:
-          return Strings::FormatString(kFormatString, createDisposition, L"unknown");
+          return Infra::Strings::Format(kFormatString, createDisposition, L"unknown");
       }
     }
 
     Infra::TemporaryString NtCreateOrOpenOptionsToString(ULONG createOrOpenOptions)
     {
       constexpr std::wstring_view kSeparator = L" | ";
-      Infra::TemporaryString outputString = Strings::FormatString(L"0x%08x (", createOrOpenOptions);
+      Infra::TemporaryString outputString =
+          Infra::Strings::Format(L"0x%08x (", createOrOpenOptions);
 
       if (0 == createOrOpenOptions)
       {
@@ -708,7 +441,7 @@ namespace Pathwinder
                FILE_RESERVE_OPFILTER | FILE_OPEN_REPARSE_POINT | FILE_OPEN_NO_RECALL |
                FILE_OPEN_FOR_FREE_SPACE_QUERY | FILE_CONTAINS_EXTENDED_CREATE_INFORMATION));
         if (0 != createOrOpenOptions)
-          outputString << Strings::FormatString(L"0x%08x", createOrOpenOptions) << kSeparator;
+          outputString << Infra::Strings::Format(L"0x%08x", createOrOpenOptions) << kSeparator;
       }
 
       outputString.RemoveSuffix(static_cast<unsigned int>(kSeparator.length()));
@@ -720,7 +453,7 @@ namespace Pathwinder
     Infra::TemporaryString NtShareAccessToString(ULONG shareAccess)
     {
       constexpr std::wstring_view kSeparator = L" | ";
-      Infra::TemporaryString outputString = Strings::FormatString(L"0x%08x (", shareAccess);
+      Infra::TemporaryString outputString = Infra::Strings::Format(L"0x%08x (", shareAccess);
 
       if (0 == shareAccess)
       {
@@ -736,7 +469,7 @@ namespace Pathwinder
 
         shareAccess &= (~(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE));
         if (0 != shareAccess)
-          outputString << Strings::FormatString(L"0x%08x", shareAccess) << kSeparator;
+          outputString << Infra::Strings::Format(L"0x%08x", shareAccess) << kSeparator;
       }
 
       outputString.RemoveSuffix(static_cast<unsigned int>(kSeparator.length()));
@@ -829,166 +562,5 @@ namespace Pathwinder
           ((kPathDriveLetterPrefixLengthChars +
             PathGetWindowsNamespacePrefix(absolutePath).length()) == absolutePath.length());
     }
-
-    template <typename CharType> Infra::TemporaryVector<std::basic_string_view<CharType>>
-        SplitString(
-            std::basic_string_view<CharType> stringToSplit,
-            std::basic_string_view<CharType> delimiter)
-    {
-      return SplitString(stringToSplit, &delimiter, 1);
-    }
-
-    template Infra::TemporaryVector<std::string_view> SplitString<char>(
-        std::string_view, std::string_view);
-    template Infra::TemporaryVector<std::wstring_view> SplitString<wchar_t>(
-        std::wstring_view, std::wstring_view);
-
-    template <typename CharType> Infra::TemporaryVector<std::basic_string_view<CharType>>
-        SplitString(
-            std::basic_string_view<CharType> stringToSplit,
-            const std::basic_string_view<CharType>* delimiters,
-            unsigned int numDelimiters)
-    {
-      Infra::TemporaryVector<std::basic_string_view<CharType>> stringPieces;
-
-      auto beginIter = stringToSplit.cbegin();
-      auto endIter = beginIter;
-
-      while ((stringPieces.Size() < stringPieces.Capacity()) && (stringToSplit.cend() != endIter))
-      {
-        bool delimiterFound = false;
-        std::basic_string_view<CharType> remainingStringToSplit(endIter, stringToSplit.cend());
-
-        for (unsigned int i = 0; i < numDelimiters; ++i)
-        {
-          auto delimiter = delimiters[i];
-
-          if (true == delimiter.empty()) continue;
-
-          if (true == remainingStringToSplit.starts_with(delimiter))
-          {
-            stringPieces.EmplaceBack(beginIter, endIter);
-            endIter += delimiter.length();
-            beginIter = endIter;
-            delimiterFound = true;
-            break;
-          }
-        }
-
-        if (false == delimiterFound) endIter += 1;
-      }
-
-      if (stringPieces.Size() < stringPieces.Capacity())
-        stringPieces.EmplaceBack(beginIter, endIter);
-      else
-        stringPieces.Clear();
-
-      return stringPieces;
-    }
-
-    template Infra::TemporaryVector<std::string_view> SplitString<char>(
-        std::string_view, const std::string_view*, unsigned int);
-    template Infra::TemporaryVector<std::wstring_view> SplitString<wchar_t>(
-        std::wstring_view, const std::wstring_view*, unsigned int);
-
-    template <typename CharType> bool StartsWithCaseInsensitive(
-        std::basic_string_view<CharType> str, std::basic_string_view<CharType> maybePrefix)
-    {
-      if (str.length() < maybePrefix.length()) return false;
-
-      str.remove_suffix(str.length() - maybePrefix.length());
-      return EqualsCaseInsensitive(str, maybePrefix);
-    }
-
-    template bool StartsWithCaseInsensitive<char>(std::string_view, std::string_view);
-    template bool StartsWithCaseInsensitive<wchar_t>(std::wstring_view, std::wstring_view);
-
-    Infra::TemporaryString SystemErrorCodeString(const unsigned long systemErrorCode)
-    {
-      Infra::TemporaryString systemErrorString;
-      DWORD systemErrorLength = FormatMessage(
-          FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-          nullptr,
-          systemErrorCode,
-          0,
-          systemErrorString.Data(),
-          systemErrorString.Capacity(),
-          nullptr);
-
-      if (0 == systemErrorLength)
-      {
-        systemErrorString =
-            FormatString(L"System error %u.", static_cast<unsigned int>(systemErrorCode));
-      }
-      else
-      {
-        for (; systemErrorLength > 0; --systemErrorLength)
-        {
-          if (L'\0' != systemErrorString[systemErrorLength] &&
-              !iswspace(systemErrorString[systemErrorLength]))
-            break;
-
-          systemErrorString[systemErrorLength] = L'\0';
-          systemErrorString.UnsafeSetSize(systemErrorLength);
-        }
-      }
-
-      return systemErrorString;
-    }
-
-    template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(
-        size_t& tokenizeState,
-        std::basic_string_view<CharType> stringToTokenize,
-        std::basic_string_view<CharType> delimiter)
-    {
-      return TokenizeString(tokenizeState, stringToTokenize, &delimiter, 1);
-    }
-
-    template std::optional<std::string_view> TokenizeString<char>(
-        size_t&, std::string_view, std::string_view);
-    template std::optional<std::wstring_view> TokenizeString<wchar_t>(
-        size_t&, std::wstring_view, std::wstring_view);
-
-    template <typename CharType> std::optional<std::basic_string_view<CharType>> TokenizeString(
-        size_t& tokenizeState,
-        std::basic_string_view<CharType> stringToTokenize,
-        const std::basic_string_view<CharType>* delimiters,
-        unsigned int numDelimiters)
-    {
-      if (stringToTokenize.length() < tokenizeState) return std::nullopt;
-
-      auto beginIter = stringToTokenize.cbegin() + tokenizeState;
-      auto endIter = beginIter;
-
-      while (stringToTokenize.cend() != endIter)
-      {
-        std::basic_string_view<CharType> remainingStringToTokenize(
-            endIter, stringToTokenize.cend());
-
-        for (unsigned int i = 0; i < numDelimiters; ++i)
-        {
-          auto delimiter = delimiters[i];
-
-          if (true == delimiter.empty()) continue;
-
-          if (true == remainingStringToTokenize.starts_with(delimiter))
-          {
-            tokenizeState += delimiter.length();
-            return std::basic_string_view<CharType>(beginIter, endIter);
-          }
-        }
-
-        tokenizeState += 1;
-        endIter += 1;
-      }
-
-      tokenizeState = (1 + stringToTokenize.length());
-      return std::basic_string_view<CharType>(beginIter, endIter);
-    }
-
-    template std::optional<std::string_view> TokenizeString<char>(
-        size_t&, std::string_view, const std::string_view*, unsigned int);
-    template std::optional<std::wstring_view> TokenizeString<wchar_t>(
-        size_t&, std::wstring_view, const std::wstring_view*, unsigned int);
   } // namespace Strings
 } // namespace Pathwinder

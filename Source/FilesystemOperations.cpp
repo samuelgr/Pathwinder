@@ -232,7 +232,7 @@ namespace Pathwinder
     {
       const std::wstring_view windowsNamespacePrefix =
           Strings::PathGetWindowsNamespacePrefix(absoluteDirectoryPath);
-      const std::wstring_view absoluteDirectoryPathTrimmed = Strings::RemoveTrailing(
+      const std::wstring_view absoluteDirectoryPathTrimmed = Infra::Strings::RemoveTrailing(
           absoluteDirectoryPath.substr(windowsNamespacePrefix.length()), L'\\');
 
       std::wstring_view driveLetterPrefix = PathGetDriveLetterPrefix(absoluteDirectoryPathTrimmed);
@@ -276,7 +276,7 @@ namespace Pathwinder
       std::wstring_view remainingHierarchyToCreate =
           absoluteDirectoryPathTrimmed.substr(1 + currentDirectoryToTry.length());
       for (std::wstring_view nextHierarchyLevelToCreate :
-           Strings::Tokenizer(remainingHierarchyToCreate, L"\\"))
+           Infra::Strings::Tokenizer(remainingHierarchyToCreate, L"\\"))
       {
         currentDirectoryToTry = absoluteDirectoryPathTrimmed.substr(
             0, 1 + currentDirectoryToTry.length() + nextHierarchyLevelToCreate.length());

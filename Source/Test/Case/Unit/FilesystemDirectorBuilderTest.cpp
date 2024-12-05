@@ -16,6 +16,7 @@
 
 #include <string_view>
 
+#include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
 #include <Infra/ValueOrError.h>
 
@@ -404,14 +405,14 @@ namespace PathwinderTest
     TEST_ASSERT(director.FindRuleByName(L"1")->GetName() == L"1");
     TEST_ASSERT(director.FindRuleByName(L"1")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
     TEST_ASSERT(1 == director.FindRuleByName(L"1")->GetFilePatterns().size());
-    TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(
+    TEST_ASSERT(Infra::Strings::EqualsCaseInsensitive<wchar_t>(
         L"*.txt", director.FindRuleByName(L"1")->GetFilePatterns()[0]));
 
     TEST_ASSERT(nullptr != director.FindRuleByName(L"2"));
     TEST_ASSERT(director.FindRuleByName(L"2")->GetName() == L"2");
     TEST_ASSERT(director.FindRuleByName(L"2")->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
     TEST_ASSERT(1 == director.FindRuleByName(L"2")->GetFilePatterns().size());
-    TEST_ASSERT(Strings::EqualsCaseInsensitive<wchar_t>(
+    TEST_ASSERT(Infra::Strings::EqualsCaseInsensitive<wchar_t>(
         L"*.bin", director.FindRuleByName(L"2")->GetFilePatterns()[0]));
   }
 

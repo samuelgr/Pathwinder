@@ -19,6 +19,8 @@
 #include <unordered_set>
 
 #include <Infra/DebugAssert.h>
+#include <Infra/Globals.h>
+#include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
@@ -49,12 +51,12 @@ namespace Pathwinder
     static ResolvedStringOrError ResolveBuiltin(std::wstring_view name)
     {
       static const std::unordered_map<std::wstring_view, std::wstring_view> kBuiltinStrings = {
-          {L"ExecutableCompleteFilename", Strings::kStrExecutableCompleteFilename},
-          {L"ExecutableBaseName", Strings::kStrExecutableBaseName},
-          {L"ExecutableDirectoryName", Strings::kStrExecutableDirectoryName},
-          {L"PathwinderCompleteFilename", Strings::kStrPathwinderCompleteFilename},
-          {L"PathwinderBaseName", Strings::kStrPathwinderBaseName},
-          {L"PathwinderDirectoryName", Strings::kStrPathwinderDirectoryName},
+          {L"ExecutableCompleteFilename", Infra::Globals::GetExecutableCompleteFilename()},
+          {L"ExecutableBaseName", Infra::Globals::GetExecutableBaseName()},
+          {L"ExecutableDirectoryName", Infra::Globals::GetExecutableDirectoryName()},
+          {L"PathwinderCompleteFilename", Infra::Globals::GetThisModuleCompleteFilename()},
+          {L"PathwinderBaseName", Infra::Globals::GetThisModuleBaseName()},
+          {L"PathwinderDirectoryName", Infra::Globals::GetThisModuleDirectoryName()},
           {L"NetBiosHostname", Strings::kStrNetBiosHostname},
           {L"DnsHostname", Strings::kStrDnsHostname},
           {L"DnsDomain", Strings::kStrDnsDomain},
@@ -62,8 +64,8 @@ namespace Pathwinder
 
       const auto builtinStringsIter = kBuiltinStrings.find(name);
       if (kBuiltinStrings.cend() == builtinStringsIter)
-        return ResolvedStringOrError::MakeError(
-            Strings::FormatString(L"%s: Unrecognized built-in string", std::wstring(name).c_str()));
+        return ResolvedStringOrError::MakeError(Infra::Strings::Format(
+            L"%s: Unrecognized built-in string", std::wstring(name).c_str()));
 
       return ResolvedStringOrError::MakeValue(builtinStringsIter->second);
     }
@@ -78,12 +80,12 @@ namespace Pathwinder
       const auto configuredDefinitionIter = configuredDefinitions.find(name);
       if (configuredDefinitions.cend() == configuredDefinitionIter)
         return ResolvedStringOrError::MakeError(
-            Strings::FormatString(L"%s: Unrecognized variable name", std::wstring(name).c_str()));
+            Infra::Strings::Format(L"%s: Unrecognized variable name", std::wstring(name).c_str()));
 
       std::pair resolutionInProgress = resolutionsInProgress.emplace(name);
       if (false == resolutionInProgress.second)
         return ResolvedStringOrError::MakeError(
-            Strings::FormatString(L"%s: Circular reference", std::wstring(name).c_str()));
+            Infra::Strings::Format(L"%s: Circular reference", std::wstring(name).c_str()));
 
       ResolvedStringOrError resolvedDefinition =
           ResolveAllReferences(configuredDefinitionIter->second);
@@ -104,14 +106,14 @@ namespace Pathwinder
           environmentVariableValue.Capacity());
 
       if (getEnvironmentVariableResult >= environmentVariableValue.Capacity())
-        return ResolvedStringOrError::MakeError(Strings::FormatString(
+        return ResolvedStringOrError::MakeError(Infra::Strings::Format(
             L"%s: Failed to obtain environment variable value: Value is too long",
             std::wstring(name).c_str()));
       else if (0 == getEnvironmentVariableResult)
-        return ResolvedStringOrError::MakeError(Strings::FormatString(
+        return ResolvedStringOrError::MakeError(Infra::Strings::Format(
             L"%s: Failed to obtain environment variable value: %s",
             std::wstring(name).c_str(),
-            Strings::SystemErrorCodeString(GetLastError()).AsCString()));
+            Infra::Strings::FromSystemErrorCode(GetLastError()).AsCString()));
 
       return ResolvedStringOrError::MakeValue(environmentVariableValue.Data());
     }
@@ -273,7 +275,7 @@ namespace Pathwinder
 
       const auto knownFolderIter = kKnownFolderIdentifiers.find(name);
       if (kKnownFolderIdentifiers.cend() == knownFolderIter)
-        return ResolvedStringOrError::MakeError(Strings::FormatString(
+        return ResolvedStringOrError::MakeError(Infra::Strings::Format(
             L"%s: Unrecognized known folder identifier", std::wstring(name).c_str()));
 
       wchar_t* knownFolderPath = nullptr;
@@ -284,7 +286,7 @@ namespace Pathwinder
       {
         if (nullptr != knownFolderPath) CoTaskMemFree(knownFolderPath);
 
-        return ResolvedStringOrError::MakeError(Strings::FormatString(
+        return ResolvedStringOrError::MakeError(Infra::Strings::Format(
             L"%s: Failed to obtain known folder path: error code 0x%08lx",
             std::wstring(name).c_str(),
             static_cast<unsigned long>(getKnownFolderPathResult)));
@@ -312,7 +314,7 @@ namespace Pathwinder
         return ResolvedStringViewOrError::MakeValue(previouslyResolvedIter->second);
 
       Infra::TemporaryVector<std::wstring_view> strParts =
-          Strings::SplitString(str, Strings::kStrDelimterReferenceDomainVsName);
+          Infra::Strings::Split(str, Strings::kStrDelimterReferenceDomainVsName);
       std::wstring_view strPartReferenceDomain;
       std::wstring_view strPartReferenceName;
 
@@ -330,12 +332,12 @@ namespace Pathwinder
 
         default:
           return ResolvedStringViewOrError::MakeError(
-              Strings::FormatString(L"%s: Unparseable reference", std::wstring(str).c_str()));
+              Infra::Strings::Format(L"%s: Unparseable reference", std::wstring(str).c_str()));
       }
 
       const auto resolverByDomainIter = kResolversByDomain.find(strPartReferenceDomain);
       if (kResolversByDomain.cend() == resolverByDomainIter)
-        return ResolvedStringViewOrError::MakeError(Strings::FormatString(
+        return ResolvedStringViewOrError::MakeError(Infra::Strings::Format(
             L"%s: Unrecognized reference domain", std::wstring(strPartReferenceDomain).c_str()));
 
       ResolvedStringOrError resolveResult = resolverByDomainIter->second(strPartReferenceName);
@@ -355,10 +357,10 @@ namespace Pathwinder
     {
       Infra::TemporaryString resolvedStr;
       Infra::TemporaryVector<std::wstring_view> strParts =
-          Strings::SplitString(str, Strings::kStrDelimiterReferenceVsLiteral);
+          Infra::Strings::Split(str, Strings::kStrDelimiterReferenceVsLiteral);
 
       if (1 != (strParts.Size() % 2))
-        return ResolvedStringOrError::MakeError(Strings::FormatString(
+        return ResolvedStringOrError::MakeError(Infra::Strings::Format(
             L"%s: Unmatched '%s' delimiters",
             std::wstring(str).c_str(),
             Strings::kStrDelimiterReferenceVsLiteral.data()));
@@ -377,7 +379,7 @@ namespace Pathwinder
               ResolveSingleReference(strParts[i]);
 
           if (true == resolvedReferenceResult.HasError())
-            return ResolvedStringOrError::MakeError(Strings::FormatString(
+            return ResolvedStringOrError::MakeError(Infra::Strings::Format(
                 L"%s: Failed to resolve reference: %s",
                 std::wstring(str).c_str(),
                 resolvedReferenceResult.Error().AsCString()));
@@ -408,7 +410,7 @@ namespace Pathwinder
       }
 
       if (true == resolvedStr.Overflow())
-        return ResolvedStringOrError::MakeError(Strings::FormatString(
+        return ResolvedStringOrError::MakeError(Infra::Strings::Format(
             L"%s: Successfully resolved, but result exceeds the limit of %u characters",
             std::wstring(str).c_str(),
             resolvedStr.Capacity()));
@@ -425,7 +427,7 @@ namespace Pathwinder
       size_t resolvedPathLength = 0;
 
       for (std::wstring_view pathComponent :
-           Strings::Tokenizer(potentiallyRelativePath, pathDelimiter))
+           Infra::Strings::Tokenizer(potentiallyRelativePath, pathDelimiter))
       {
         if ((pathComponent.empty()) || (pathComponent == L"."))
         {
@@ -440,7 +442,7 @@ namespace Pathwinder
           // Parent-directory references need one path component to be popped.
 
           if (resolvedPathComponents.Size() < 2)
-            return ResolvedStringOrError::MakeError(Strings::FormatString(
+            return ResolvedStringOrError::MakeError(Infra::Strings::Format(
                 L"%.*s: Invalid path: Too many \"..\" parent directory references.",
                 static_cast<int>(potentiallyRelativePath.length()),
                 potentiallyRelativePath.data()));
@@ -448,7 +450,7 @@ namespace Pathwinder
           const size_t resolvedPathLengthToRemove =
               resolvedPathComponents.Back().length() + pathDelimiter.length();
           if (resolvedPathLengthToRemove > resolvedPathLength)
-            return ResolvedStringOrError::MakeError(Strings::FormatString(
+            return ResolvedStringOrError::MakeError(Infra::Strings::Format(
                 L"%.*s: Internal error: Removing too many characters while resolving a single \"..\" parent directory reference.",
                 static_cast<int>(potentiallyRelativePath.length()),
                 potentiallyRelativePath.data()));
@@ -461,7 +463,7 @@ namespace Pathwinder
           // Any other path components need to be pushed without modification.
 
           if (resolvedPathComponents.Size() == resolvedPathComponents.Capacity())
-            return ResolvedStringOrError::MakeError(Strings::FormatString(
+            return ResolvedStringOrError::MakeError(Infra::Strings::Format(
                 L"%.*s: Invalid path: Hierarchy is too deep, exceeds the limit of %u path components.",
                 static_cast<int>(potentiallyRelativePath.length()),
                 potentiallyRelativePath.data(),

@@ -18,6 +18,7 @@
 
 #include <Infra/DebugAssert.h>
 #include <Infra/Message.h>
+#include <Infra/Strings.h>
 
 #include "ApiWindows.h"
 #include "FilesystemInstruction.h"
@@ -94,8 +95,8 @@ namespace Pathwinder
   DirectoryEnumerationInstruction FilesystemDirector::GetInstructionForDirectoryEnumeration(
       std::wstring_view associatedPath, std::wstring_view realOpenedPath) const
   {
-    associatedPath = Strings::RemoveTrailing(associatedPath, L'\\');
-    realOpenedPath = Strings::RemoveTrailing(realOpenedPath, L'\\');
+    associatedPath = Infra::Strings::RemoveTrailing(associatedPath, L'\\');
+    realOpenedPath = Infra::Strings::RemoveTrailing(realOpenedPath, L'\\');
 
     // This method's implementation takes advantage of, and depends on, the design and
     // implementation of another method for redirecting file operations. If this method is
@@ -522,7 +523,8 @@ namespace Pathwinder
                const DirectoryEnumerationInstruction::SingleDirectoryNameInsertion& b) -> bool
             {
               return (
-                  Strings::CompareCaseInsensitive(a.FileNameToInsert(), b.FileNameToInsert()) < 0);
+                  Infra::Strings::CompareCaseInsensitive(
+                      a.FileNameToInsert(), b.FileNameToInsert()) < 0);
             });
       }
     }
@@ -541,8 +543,8 @@ namespace Pathwinder
         Strings::PathGetWindowsNamespacePrefix(absoluteFilePath);
     const std::wstring_view extraSuffix =
         ((true == absoluteFilePath.ends_with(L'\\')) ? L"\\" : L"");
-    const std::wstring_view absoluteFilePathTrimmedForQuery =
-        Strings::RemoveTrailing(absoluteFilePath.substr(windowsNamespacePrefix.length()), L'\\');
+    const std::wstring_view absoluteFilePathTrimmedForQuery = Infra::Strings::RemoveTrailing(
+        absoluteFilePath.substr(windowsNamespacePrefix.length()), L'\\');
 
     if (false == Strings::PathBeginsWithDriveLetter(absoluteFilePathTrimmedForQuery))
     {
@@ -726,7 +728,7 @@ namespace Pathwinder
               unredirectedPathDirectoryPartWithWindowsNamespacePrefix))
       {
         extraPreOperations.insert(static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists));
-        extraPreOperationOperand = Strings::RemoveTrailing(
+        extraPreOperationOperand = Infra::Strings::RemoveTrailing(
             redirectedFilePath.substr(0, redirectedFilePath.find_last_of(L'\\')), L'\\');
       }
     }
@@ -742,7 +744,7 @@ namespace Pathwinder
       if (FilesystemOperations::IsDirectory(absoluteFilePath))
       {
         extraPreOperations.insert(static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists));
-        extraPreOperationOperand = Strings::RemoveTrailing(redirectedFilePath, L'\\');
+        extraPreOperationOperand = Infra::Strings::RemoveTrailing(redirectedFilePath, L'\\');
       }
     }
 

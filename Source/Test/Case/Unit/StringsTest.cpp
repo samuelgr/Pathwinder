@@ -391,10 +391,10 @@ namespace PathwinderTest
         L"TestString", L"AbCdEfG", L"Totally_unrelated_string"};
 
     for (const auto matchingInput : kMatchingInputs)
-      TEST_ASSERT(true == Strings::EqualsCaseInsensitive(kTestString, matchingInput));
+      TEST_ASSERT(true == Infra::Strings::EqualsCaseInsensitive(kTestString, matchingInput));
 
     for (const auto nonMatchingInput : kNonMatchingInputs)
-      TEST_ASSERT(false == Strings::EqualsCaseInsensitive(kTestString, nonMatchingInput));
+      TEST_ASSERT(false == Infra::Strings::EqualsCaseInsensitive(kTestString, nonMatchingInput));
   }
 
   // Tests case-insensitive string prefix matching by providing some matching and some

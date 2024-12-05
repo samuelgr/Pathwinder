@@ -22,7 +22,6 @@
 #include "FilesystemDirector.h"
 #include "FilesystemInstruction.h"
 #include "OpenHandleStore.h"
-#include "Strings.h"
 
 namespace Pathwinder
 {

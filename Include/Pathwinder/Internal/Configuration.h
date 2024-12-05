@@ -22,6 +22,7 @@
 #include <type_traits>
 #include <vector>
 
+#include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
 
 /// Convenience wrapper around initializer list syntax for defining a configuration file section in

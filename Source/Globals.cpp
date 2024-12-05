@@ -118,7 +118,7 @@ namespace Pathwinder
     static Configuration::ConfigurationData ReadConfigurationFile(void)
     {
       Infra::TemporaryString configFileName;
-      configFileName << Strings::kStrPathwinderDirectoryName << L"\\"
+      configFileName << Infra::Globals::GetThisModuleDirectoryName() << L"\\"
                      << Strings::kStrConfigurationFilename;
 
       PathwinderConfigReader configReader;
@@ -134,7 +134,7 @@ namespace Pathwinder
                .value_or(false)))
       {
         configFileName.Clear();
-        configFileName << Strings::kStrExecutableDirectoryName << L"\\"
+        configFileName << Infra::Globals::GetExecutableDirectoryName() << L"\\"
                        << Strings::kStrConfigurationFilename;
         configData = configReader.ReadConfigurationFile(configFileName);
       }

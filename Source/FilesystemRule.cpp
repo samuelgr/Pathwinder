@@ -15,6 +15,7 @@
 #include <string_view>
 #include <vector>
 
+#include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
@@ -36,7 +37,7 @@ namespace Pathwinder
     {
       // Lengths are the same, so the two could be equal if they are related at all.
 
-      if (Strings::EqualsCaseInsensitive(candidateDirectory, comparisonTargetDirectory))
+      if (Infra::Strings::EqualsCaseInsensitive(candidateDirectory, comparisonTargetDirectory))
         return EDirectoryCompareResult::Equal;
     }
     else if (candidateDirectory.length() < comparisonTargetDirectory.length())
@@ -47,7 +48,8 @@ namespace Pathwinder
       // more than one backslash character.
 
       if ((true ==
-           Strings::StartsWithCaseInsensitive(comparisonTargetDirectory, candidateDirectory)) &&
+           Infra::Strings::StartsWithCaseInsensitive(
+               comparisonTargetDirectory, candidateDirectory)) &&
           (L'\\' == comparisonTargetDirectory[candidateDirectory.length()]))
       {
         comparisonTargetDirectory.remove_prefix(candidateDirectory.length());
@@ -66,7 +68,8 @@ namespace Pathwinder
       // one backslash character.
 
       if ((true ==
-           Strings::StartsWithCaseInsensitive(candidateDirectory, comparisonTargetDirectory)) &&
+           Infra::Strings::StartsWithCaseInsensitive(
+               candidateDirectory, comparisonTargetDirectory)) &&
           (L'\\' == candidateDirectory[comparisonTargetDirectory.length()]))
       {
         candidateDirectory.remove_prefix(comparisonTargetDirectory.length());

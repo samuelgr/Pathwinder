@@ -20,6 +20,7 @@
 
 #include <Infra/ArrayList.h>
 #include <Infra/DebugAssert.h>
+#include <Infra/Strings.h>
 #include <Infra/ValueOrError.h>
 
 #include "ApiWindows.h"
@@ -270,7 +271,7 @@ namespace Pathwinder
         continue;
 
       if ((nullptr == nextFrontQueueCandidate) ||
-          (Strings::CompareCaseInsensitive(
+          (Infra::Strings::CompareCaseInsensitive(
                underlyingQueue->FileNameOfFront(), nextFrontQueueCandidate->FileNameOfFront()) < 0))
         nextFrontQueueCandidate = underlyingQueue.get();
     }

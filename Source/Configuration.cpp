@@ -23,6 +23,7 @@
 #include <string_view>
 #include <vector>
 
+#include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
 
 #include "Strings.h"
@@ -304,7 +305,7 @@ namespace Pathwinder
       // Check if the string represents a value of TRUE.
       for (auto& trueString : kTrueStrings)
       {
-        if (true == Strings::EqualsCaseInsensitive(trueString, source))
+        if (true == Infra::Strings::EqualsCaseInsensitive(trueString, source))
         {
           dest = (TBooleanValue) true;
           return true;
@@ -314,7 +315,7 @@ namespace Pathwinder
       // Check if the string represents a value of FALSE.
       for (auto& falseString : kFalseStrings)
       {
-        if (true == Strings::EqualsCaseInsensitive(falseString, source))
+        if (true == Infra::Strings::EqualsCaseInsensitive(falseString, source))
         {
           dest = (TBooleanValue) false;
           return true;
@@ -714,7 +715,7 @@ namespace Pathwinder
 
         if (true == mustExist)
           configDataFromNonExistentFile.InsertReadErrorMessage(
-              Strings::FormatString(L"%s: Unable to open file.", configFileName.data()));
+              Infra::Strings::Format(L"%s: Unable to open file.", configFileName.data()));
 
         return configDataFromNonExistentFile;
       }
@@ -728,7 +729,7 @@ namespace Pathwinder
       MemoryBufferHandle configBufferHandle(configBuffer);
       return ReadConfiguration(
           configBufferHandle,
-          Strings::FormatString(
+          Infra::Strings::Format(
               L"[0x%0.*zx]",
               static_cast<int>(2 * sizeof(size_t)),
               reinterpret_cast<size_t>(configBuffer.data())));
@@ -756,7 +757,7 @@ namespace Pathwinder
         switch (ClassifyConfigurationFileLine(configLineBuffer.Data(), configLineLength))
         {
           case ELineClassification::Error:
-            configToFill.InsertReadErrorMessage(Strings::FormatString(
+            configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                 L"%s(%d): Unable to parse line.", configSourceName.data(), configLineNumber));
             break;
 
@@ -769,7 +770,7 @@ namespace Pathwinder
 
             if (0 != seenSections.count(section))
             {
-              configToFill.InsertReadErrorMessage(Strings::FormatString(
+              configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                   L"%s(%d): %s: Duplicated section name.",
                   configSourceName.data(),
                   configLineNumber,
@@ -783,13 +784,13 @@ namespace Pathwinder
             {
               case EAction::Error:
                 if (true == HasLastErrorMessage())
-                  configToFill.InsertReadErrorMessage(Strings::FormatString(
+                  configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                       L"%s(%d): %s",
                       configSourceName.data(),
                       configLineNumber,
                       GetLastErrorMessage().c_str()));
                 else
-                  configToFill.InsertReadErrorMessage(Strings::FormatString(
+                  configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                       L"%s(%d): %s: Unrecognized section name.",
                       configSourceName.data(),
                       configLineNumber,
@@ -807,7 +808,7 @@ namespace Pathwinder
                 break;
 
               default:
-                configToFill.InsertReadErrorMessage(Strings::FormatString(
+                configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                     L"%s(%d): Internal error while processing section name.",
                     configSourceName.data(),
                     configLineNumber));
@@ -836,7 +837,7 @@ namespace Pathwinder
                 case EValueType::String:
                   if (configToFill.SectionNamePairExists(thisSection, name))
                   {
-                    configToFill.InsertReadErrorMessage(Strings::FormatString(
+                    configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                         L"%s(%d): %s: Only a single value is allowed for this setting.",
                         configSourceName.data(),
                         configLineNumber,
@@ -855,7 +856,7 @@ namespace Pathwinder
               switch (valueType)
               {
                 case EValueType::Error:
-                  configToFill.InsertReadErrorMessage(Strings::FormatString(
+                  configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                       L"%s(%d): %s: Unrecognized configuration setting.",
                       configSourceName.data(),
                       configLineNumber,
@@ -869,7 +870,7 @@ namespace Pathwinder
 
                   if (false == ParseInteger(value, intValue))
                   {
-                    configToFill.InsertReadErrorMessage(Strings::FormatString(
+                    configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                         L"%s(%d): %s: Failed to parse integer value.",
                         configSourceName.data(),
                         configLineNumber,
@@ -881,13 +882,13 @@ namespace Pathwinder
                   {
                     case EAction::Error:
                       if (true == HasLastErrorMessage())
-                        configToFill.InsertReadErrorMessage(Strings::FormatString(
+                        configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                             L"%s(%d): %s",
                             configSourceName.data(),
                             configLineNumber,
                             GetLastErrorMessage().c_str()));
                       else
-                        configToFill.InsertReadErrorMessage(Strings::FormatString(
+                        configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                             L"%s(%d): %s: Invalid value for configuration setting %s.",
                             configSourceName.data(),
                             configLineNumber,
@@ -899,7 +900,7 @@ namespace Pathwinder
                       if (false ==
                           configToFill.InsertValue(
                               thisSection, name, Value(TIntegerValue(intValue), configLineNumber)))
-                        configToFill.InsertReadErrorMessage(Strings::FormatString(
+                        configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                             L"%s(%d): %s: Duplicated value for configuration setting %s.",
                             configSourceName.data(),
                             configLineNumber,
@@ -917,7 +918,7 @@ namespace Pathwinder
 
                   if (false == ParseBoolean(value, boolValue))
                   {
-                    configToFill.InsertReadErrorMessage(Strings::FormatString(
+                    configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                         L"%s(%d): %s: Failed to parse Boolean value.",
                         configSourceName.data(),
                         configLineNumber,
@@ -929,13 +930,13 @@ namespace Pathwinder
                   {
                     case EAction::Error:
                       if (true == HasLastErrorMessage())
-                        configToFill.InsertReadErrorMessage(Strings::FormatString(
+                        configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                             L"%s(%d): %s",
                             configSourceName.data(),
                             configLineNumber,
                             GetLastErrorMessage().c_str()));
                       else
-                        configToFill.InsertReadErrorMessage(Strings::FormatString(
+                        configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                             L"%s(%d): %s: Invalid value for configuration setting %s.",
                             configSourceName.data(),
                             configLineNumber,
@@ -947,7 +948,7 @@ namespace Pathwinder
                       if (false ==
                           configToFill.InsertValue(
                               thisSection, name, Value(TBooleanValue(boolValue), configLineNumber)))
-                        configToFill.InsertReadErrorMessage(Strings::FormatString(
+                        configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                             L"%s(%d): %s: Duplicated value for configuration setting %s.",
                             configSourceName.data(),
                             configLineNumber,
@@ -965,13 +966,13 @@ namespace Pathwinder
                   {
                     case EAction::Error:
                       if (true == HasLastErrorMessage())
-                        configToFill.InsertReadErrorMessage(Strings::FormatString(
+                        configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                             L"%s(%d): %s",
                             configSourceName.data(),
                             configLineNumber,
                             GetLastErrorMessage().c_str()));
                       else
-                        configToFill.InsertReadErrorMessage(Strings::FormatString(
+                        configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                             L"%s(%d): %s: Invalid value for configuration setting %s.",
                             configSourceName.data(),
                             configLineNumber,
@@ -983,7 +984,7 @@ namespace Pathwinder
                       if (false ==
                           configToFill.InsertValue(
                               thisSection, name, Value(TStringValue(value), configLineNumber)))
-                        configToFill.InsertReadErrorMessage(Strings::FormatString(
+                        configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                             L"%s(%d): %s: Duplicated value for configuration setting %s.",
                             configSourceName.data(),
                             configLineNumber,
@@ -995,7 +996,7 @@ namespace Pathwinder
                 }
 
                 default:
-                  configToFill.InsertReadErrorMessage(Strings::FormatString(
+                  configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                       L"%s(%d): Internal error while processing configuration setting.",
                       configSourceName.data(),
                       configLineNumber));
@@ -1005,7 +1006,7 @@ namespace Pathwinder
             break;
 
           default:
-            configToFill.InsertReadErrorMessage(Strings::FormatString(
+            configToFill.InsertReadErrorMessage(Infra::Strings::Format(
                 L"%s(%d): Internal error while processing line.",
                 configSourceName.data(),
                 configLineNumber));
@@ -1024,13 +1025,13 @@ namespace Pathwinder
 
         if (readHandle.IsError())
         {
-          configToFill.InsertReadErrorMessage(Strings::FormatString(
+          configToFill.InsertReadErrorMessage(Infra::Strings::Format(
               L"%s(%d): I/O error while reading.", configSourceName.data(), configLineNumber));
           return configToFill;
         }
         else if (configLineLength < 0)
         {
-          configToFill.InsertReadErrorMessage(Strings::FormatString(
+          configToFill.InsertReadErrorMessage(Infra::Strings::Format(
               L"%s(%d): Line is too long.", configSourceName.data(), configLineNumber));
           return configToFill;
         }
