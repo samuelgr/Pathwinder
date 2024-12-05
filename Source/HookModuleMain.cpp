@@ -10,11 +10,12 @@
  **************************************************************************************************/
 
 #include <Hookshot/Hookshot.h>
+#include <Infra/Globals.h>
+#include <Infra/Message.h>
 
 #include "ApiWindows.h"
 #include "Globals.h"
 #include "Hooks.h"
-#include "Message.h"
 #include "Strings.h"
 
 /// Convenience wrapper for instantiating a hook record structure for a protected hook the given
@@ -73,8 +74,8 @@ namespace Pathwinder
           UNPROTECTED_HOOK_RECORD(NtQueryFullAttributesFile),
       };
 
-      Message::OutputFormatted(
-          Message::ESeverity::Debug,
+      Infra::Message::OutputFormatted(
+          Infra::Message::ESeverity::Debug,
           L"Attempting to hook %u Windows API function(s).",
           static_cast<unsigned int>(_countof(hookRecords)));
 
@@ -89,14 +90,14 @@ namespace Pathwinder
 
           if (false == Hookshot::SuccessfulResult(setHookResult))
           {
-            Message::OutputFormatted(
-                Message::ESeverity::ForcedInteractiveError,
+            Infra::Message::OutputFormatted(
+                Infra::Message::ESeverity::ForcedInteractiveError,
                 L"%.*s failed to set a hook for the Windows API function \"%s\" and cannot function without it.\n\nHookshot::EResult = %u",
                 static_cast<int>(Strings::kStrProductName.length()),
                 Strings::kStrProductName.data(),
                 hookRecord.hookProxy.GetFunctionName(),
                 static_cast<unsigned int>(setHookResult));
-            TerminateProcess(Globals::GetCurrentProcessHandle(), (UINT)-1);
+            TerminateProcess(Infra::Globals::GetCurrentProcessHandle(), (UINT)-1);
           }
         }
         else
@@ -109,8 +110,8 @@ namespace Pathwinder
 
           if (false == Hookshot::SuccessfulResult(setHookResult))
           {
-            Message::OutputFormatted(
-                Message::ESeverity::Warning,
+            Infra::Message::OutputFormatted(
+                Infra::Message::ESeverity::Warning,
                 L"Failed to hook the \"%s\" Windows API function (Hookshot::EResult = %u).",
                 hookRecord.hookProxy.GetFunctionName(),
                 static_cast<unsigned int>(setHookResult));
@@ -118,8 +119,8 @@ namespace Pathwinder
           }
         }
 
-        Message::OutputFormatted(
-            Message::ESeverity::Debug,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Debug,
             L"Successfully hooked the \"%s\" Windows API function.",
             hookRecord.hookProxy.GetFunctionName());
       }

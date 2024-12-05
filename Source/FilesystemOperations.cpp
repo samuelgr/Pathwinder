@@ -19,13 +19,13 @@
 #include <string_view>
 
 #include <Infra/DebugAssert.h>
+#include <Infra/Message.h>
 #include <Infra/TemporaryBuffer.h>
 #include <Infra/ValueOrError.h>
 
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"
 #include "Hooks.h"
-#include "Message.h"
 #include "Strings.h"
 
 /// Ensures that the specified function parameter, which is a string view, has a Windows namespace

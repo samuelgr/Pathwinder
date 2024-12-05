@@ -20,10 +20,10 @@
 #include <string_view>
 
 #include <Infra/DebugAssert.h>
+#include <Infra/Globals.h>
 #include <Infra/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
-#include "Globals.h"
 
 namespace Pathwinder
 {
@@ -84,7 +84,7 @@ namespace Pathwinder
           {
             const wchar_t* stringStart = nullptr;
             int stringLength = LoadString(
-                Globals::GetInstanceHandle(),
+                Infra::Globals::GetInstanceHandle(),
                 IDS_PATHWINDER_PRODUCT_NAME,
                 (wchar_t*)&stringStart,
                 0);
@@ -183,7 +183,9 @@ namespace Pathwinder
           {
             Infra::TemporaryBuffer<wchar_t> buf;
             GetModuleFileName(
-                Globals::GetInstanceHandle(), buf.Data(), static_cast<DWORD>(buf.Capacity()));
+                Infra::Globals::GetInstanceHandle(),
+                buf.Data(),
+                static_cast<DWORD>(buf.Capacity()));
 
             initString.assign(buf.Data());
           });
@@ -385,7 +387,7 @@ namespace Pathwinder
             }
 
             logFilename << GetProductName().c_str() << L'_' << GetExecutableBaseName().c_str()
-                        << L'_' << Globals::GetCurrentProcessId() << kStrLogFileExtension;
+                        << L'_' << Infra::Globals::GetCurrentProcessId() << kStrLogFileExtension;
 
             initString.assign(logFilename);
           });

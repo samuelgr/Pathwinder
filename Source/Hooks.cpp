@@ -18,6 +18,7 @@
 
 #include <Hookshot/DynamicHook.h>
 #include <Infra/DebugAssert.h>
+#include <Infra/Message.h>
 #include <Infra/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
@@ -26,8 +27,6 @@
 #include "FilesystemExecutor.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemOperations.h"
-#include "Globals.h"
-#include "Message.h"
 #include "OpenHandleStore.h"
 #include "Strings.h"
 
@@ -92,15 +91,15 @@ void Pathwinder::Hooks::ReinitializeCurrentDirectory(void)
       GetCurrentDirectory(currentDirectory.Capacity(), currentDirectory.Data()));
   if (true == currentDirectory.Empty())
   {
-    Message::OutputFormatted(
-        Message::ESeverity::Error,
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Error,
         L"Failed to determine the current working directory (GetLastError() = %u).",
         GetLastError());
     return;
   }
 
-  Message::OutputFormatted(
-      Message::ESeverity::Info,
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Info,
       L"Current working directory is \"%s\".",
       currentDirectory.AsCString());
 
@@ -108,22 +107,22 @@ void Pathwinder::Hooks::ReinitializeCurrentDirectory(void)
   tempDirectory.UnsafeSetSize(GetTempPath2(tempDirectory.Capacity(), tempDirectory.Data()));
   if (true == tempDirectory.Empty())
   {
-    Message::OutputFormatted(
-        Message::ESeverity::Error,
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Error,
         L"Failed to determine the current user's temporary directory (GetLastError() = %u).",
         GetLastError());
     return;
   }
 
-  Message::OutputFormatted(
-      Message::ESeverity::Info,
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Info,
       L"Current user's temporary directory is \"%s\".",
       tempDirectory.AsCString());
 
   if (0 == SetCurrentDirectory(tempDirectory.AsCString()))
   {
-    Message::OutputFormatted(
-        Message::ESeverity::Error,
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Error,
         L"Failed to set the current working directory to the current user's temporary directory (GetLastError() = %u).",
         GetLastError());
     return;
@@ -131,8 +130,8 @@ void Pathwinder::Hooks::ReinitializeCurrentDirectory(void)
 
   if (0 == SetCurrentDirectory(currentDirectory.AsCString()))
   {
-    Message::OutputFormatted(
-        Message::ESeverity::Error,
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Error,
         L"Failed to set the current working directory back to the original working directory (GetLastError() = %u).",
         GetLastError());
     return;
@@ -249,8 +248,8 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtOpenFile::Hook(
         // expect that same value to be present here too.
         if (FILE_OPEN != createDisposition)
         {
-          Pathwinder::Message::OutputFormatted(
-              Pathwinder::Message::ESeverity::Error,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::Error,
               L"%s(%u): Internal error: Invoked with an invalid create disposition (0x%08x).",
               functionName,
               requestIdentifier,

@@ -18,9 +18,10 @@
 #include <string>
 #include <string_view>
 
+#include <Infra/Globals.h>
+#include <Infra/Message.h>
 #include <Infra/TemporaryBuffer.h>
 
-#include "Message.h"
 #include "Resolver.h"
 #include "Strings.h"
 
@@ -36,51 +37,6 @@ namespace Pathwinder
 {
   namespace Globals
   {
-    /// Holds all static data that falls under the global category. Used to make sure that
-    /// globals are initialized as early as possible so that values are available during dynamic
-    /// initialization. Implemented as a singleton object.
-    class GlobalData
-    {
-    public:
-
-      /// Returns a reference to the singleton instance of this class.
-      /// @return Reference to the singleton instance.
-      static GlobalData& GetInstance(void)
-      {
-        static GlobalData globalData;
-        return globalData;
-      }
-
-      /// Pseudohandle of the current process.
-      HANDLE gCurrentProcessHandle;
-
-      /// PID of the current process.
-      DWORD gCurrentProcessId;
-
-      /// Holds information about the current system, as retrieved from Windows.
-      SYSTEM_INFO gSystemInformation;
-
-      /// Handle of the instance that represents the running form of this code.
-      HINSTANCE gInstanceHandle;
-
-    private:
-
-      GlobalData(void)
-          : gCurrentProcessHandle(GetCurrentProcess()),
-            gCurrentProcessId(GetProcessId(GetCurrentProcess())),
-            gSystemInformation(),
-            gInstanceHandle(nullptr)
-      {
-        GetModuleHandleEx(
-            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-            (LPCWSTR)&GlobalData::GetInstance,
-            &gInstanceHandle);
-        GetNativeSystemInfo(&gSystemInformation);
-      }
-
-      GlobalData(const GlobalData& other) = delete;
-    };
-
 #ifndef PATHWINDER_SKIP_CONFIG
     /// Reads all filesystem rules from a configuration file and attempts to create all the
     /// required filesystem rule objects and build them into a filesystem director object.
@@ -108,13 +64,13 @@ namespace Pathwinder
         // Therefore it is unnecessary to take any corrective action, such as automatically
         // enabling dry-run mode. Reporting the error is sufficient.
 
-        if (true == Message::IsLogFileEnabled())
-          Message::Output(
-              Message::ESeverity::ForcedInteractiveWarning,
+        if (true == Infra::Message::IsLogFileEnabled())
+          Infra::Message::Output(
+              Infra::Message::ESeverity::ForcedInteractiveWarning,
               L"Errors were encountered during filesystem rule creation. See log file for more information.");
         else
-          Message::Output(
-              Message::ESeverity::ForcedInteractiveWarning,
+          Infra::Message::Output(
+              Infra::Message::ESeverity::ForcedInteractiveWarning,
               L"Errors were encountered during filesystem rule creation. Enable logging and see log file for more information.");
       }
     }
@@ -122,17 +78,17 @@ namespace Pathwinder
     /// Enables the log if it is not already enabled.
     /// Regardless, the minimum severity for output is set based on the parameter.
     /// @param [in] logLevel Logging level to configure as the minimum severity for output.
-    static void EnableLog(Message::ESeverity logLevel)
+    static void EnableLog(Infra::Message::ESeverity logLevel)
     {
       static std::once_flag enableLogFlag;
       std::call_once(
           enableLogFlag,
           [logLevel]() -> void
           {
-            Message::CreateAndEnableLogFile();
+            Infra::Message::CreateAndEnableLogFile(Strings::kStrLogFilename);
           });
 
-      Message::SetMinimumSeverityForOutput(logLevel);
+      Infra::Message::SetMinimumSeverityForOutput(logLevel);
     }
 
     /// Enables the log, if it is configured in the specified configuration data object.
@@ -148,8 +104,9 @@ namespace Pathwinder
       if (logLevel > 0)
       {
         // Offset the requested severity so that 0 = disabled, 1 = error, 2 = warning, etc.
-        const Message::ESeverity configuredSeverity = (Message::ESeverity)(
-            logLevel + static_cast<int64_t>(Message::ESeverity::LowerBoundConfigurableValue));
+        const Infra::Message::ESeverity configuredSeverity = (Infra::Message::ESeverity)(
+            logLevel +
+            static_cast<int64_t>(Infra::Message::ESeverity::LowerBoundConfigurableValue));
         EnableLog(configuredSeverity);
       }
     }
@@ -184,18 +141,19 @@ namespace Pathwinder
 
       if (true == configData.HasReadErrors())
       {
-        EnableLog(Message::ESeverity::Error);
+        EnableLog(Infra::Message::ESeverity::Error);
 
-        Message::Output(
-            Message::ESeverity::Error,
+        Infra::Message::Output(
+            Infra::Message::ESeverity::Error,
             L"Errors were encountered during configuration file reading.");
         for (const auto& readErrorMessage : configData.GetReadErrorMessages())
-          Message::OutputFormatted(Message::ESeverity::Error, L"    %s", readErrorMessage.c_str());
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::Error, L"    %s", readErrorMessage.c_str());
 
         configData.ClearReadErrorMessages();
 
-        Message::Output(
-            Message::ESeverity::ForcedInteractiveWarning,
+        Infra::Message::Output(
+            Infra::Message::ESeverity::ForcedInteractiveWarning,
             L"Errors were encountered during configuration file reading. See log file on the Desktop for more information.");
       }
 
@@ -215,41 +173,11 @@ namespace Pathwinder
     }
 #endif
 
-    HANDLE GetCurrentProcessHandle(void)
-    {
-      return GlobalData::GetInstance().gCurrentProcessHandle;
-    }
-
-    DWORD GetCurrentProcessId(void)
-    {
-      return GlobalData::GetInstance().gCurrentProcessId;
-    }
-
-    HINSTANCE GetInstanceHandle(void)
-    {
-      return GlobalData::GetInstance().gInstanceHandle;
-    }
-
-    const SYSTEM_INFO& GetSystemInformation(void)
-    {
-      return GlobalData::GetInstance().gSystemInformation;
-    }
-
-    SVersionInfo GetVersion(void)
-    {
-      constexpr uint16_t kVersionStructured[] = {GIT_VERSION_STRUCT};
-      static_assert(4 == _countof(kVersionStructured), "Invalid structured version information.");
-
-      return {
-          .major = kVersionStructured[0],
-          .minor = kVersionStructured[1],
-          .patch = kVersionStructured[2],
-          .flags = kVersionStructured[3],
-          .string = _CRT_WIDE(GIT_VERSION_STRING)};
-    }
-
     void Initialize(void)
     {
+      Infra::Globals::SetProductInformation(
+          Strings::kStrProductName, Infra::Globals::GitVersionInfoForCurrentProject());
+
 #ifndef PATHWINDER_SKIP_CONFIG
       Configuration::ConfigurationData configData = ReadConfigurationFile();
 

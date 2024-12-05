@@ -19,6 +19,7 @@
 #include <unordered_map>
 
 #include <Infra/DebugAssert.h>
+#include <Infra/Message.h>
 #include <Infra/TemporaryBuffer.h>
 #include <Infra/ValueOrError.h>
 
@@ -26,7 +27,6 @@
 #include "Configuration.h"
 #include "FilesystemOperations.h"
 #include "FilesystemRule.h"
-#include "Message.h"
 #include "Resolver.h"
 #include "Strings.h"
 
@@ -119,23 +119,23 @@ namespace Pathwinder
         const std::wstring_view newFilesystemRuleRedirectMode =
             RedirectModeToString(newFilesystemRule.GetRedirectMode());
 
-        Message::OutputFormatted(
-            Message::ESeverity::Info,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Info,
             L"Successfully created filesystem rule \"%.*s\".",
             static_cast<int>(newFilesystemRule.GetName().length()),
             newFilesystemRule.GetName().data());
-        Message::OutputFormatted(
-            Message::ESeverity::Info,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Info,
             L"  Redirection mode = %.*s",
             static_cast<int>(newFilesystemRuleRedirectMode.length()),
             newFilesystemRuleRedirectMode.data());
-        Message::OutputFormatted(
-            Message::ESeverity::Info,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Info,
             L"  Origin directory = \"%.*s\"",
             static_cast<int>(newFilesystemRule.GetOriginDirectoryFullPath().length()),
             newFilesystemRule.GetOriginDirectoryFullPath().data());
-        Message::OutputFormatted(
-            Message::ESeverity::Info,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Info,
             L"  Target directory = \"%.*s\"",
             static_cast<int>(newFilesystemRule.GetTargetDirectoryFullPath().length()),
             newFilesystemRule.GetTargetDirectoryFullPath().data());
@@ -143,17 +143,18 @@ namespace Pathwinder
         if (true == newFilesystemRule.HasFilePatterns())
         {
           for (const auto& filePattern : newFilesystemRule.GetFilePatterns())
-            Message::OutputFormatted(
-                Message::ESeverity::Info, L"  File pattern = \"%s\"", filePattern.c_str());
+            Infra::Message::OutputFormatted(
+                Infra::Message::ESeverity::Info, L"  File pattern = \"%s\"", filePattern.c_str());
         }
         else
         {
-          Message::Output(Message::ESeverity::Info, L"  File pattern = \"*\"");
+          Infra::Message::Output(Infra::Message::ESeverity::Info, L"  File pattern = \"*\"");
         }
       }
       else
       {
-        Message::Output(Message::ESeverity::Error, addFilesystemRuleResult.Error().AsCString());
+        Infra::Message::Output(
+            Infra::Message::ESeverity::Error, addFilesystemRuleResult.Error().AsCString());
         builderHasRuleErrors = true;
       }
     }
@@ -165,8 +166,8 @@ namespace Pathwinder
       // It is not an error for a configuration data object to contain no filesystem rules.
       // The resulting filesystem director object will simply do nothing.
 
-      Message::Output(
-          Message::ESeverity::Warning,
+      Infra::Message::Output(
+          Infra::Message::ESeverity::Warning,
           L"Successfully built a filesystem director configuration, but it contains no filesystem rules.");
       return FilesystemDirector();
     }
@@ -174,15 +175,15 @@ namespace Pathwinder
     auto buildResult = builder.Build();
     if (buildResult.HasValue())
     {
-      Message::OutputFormatted(
-          Message::ESeverity::Info,
+      Infra::Message::OutputFormatted(
+          Infra::Message::ESeverity::Info,
           L"Successfully built a filesystem director configuration with %u rules(s).",
           buildResult.Value().CountOfRules());
       return std::move(buildResult.Value());
     }
     else
     {
-      Message::Output(Message::ESeverity::Error, buildResult.Error().AsCString());
+      Infra::Message::Output(Infra::Message::ESeverity::Error, buildResult.Error().AsCString());
       return std::nullopt;
     }
   }

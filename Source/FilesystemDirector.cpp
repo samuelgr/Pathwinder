@@ -17,12 +17,12 @@
 #include <string_view>
 
 #include <Infra/DebugAssert.h>
+#include <Infra/Message.h>
 
 #include "ApiWindows.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemOperations.h"
 #include "FilesystemRule.h"
-#include "Message.h"
 #include "PrefixTree.h"
 #include "Strings.h"
 
@@ -151,8 +151,8 @@ namespace Pathwinder
           SelectRulesForPath(unredirectedPathTrimmedForQuery);
       if (nullptr == directoryEnumerationRules)
       {
-        Message::OutputFormatted(
-            Message::ESeverity::Error,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Error,
             L"Directory enumeration query for path \"%.*s\" did not match any rules due to an internal error.",
             static_cast<int>(associatedPath.length()),
             associatedPath.data());
@@ -163,8 +163,8 @@ namespace Pathwinder
           *directoryEnumerationRules, redirectedPathTrimmedForQuery);
       if (nullptr == originalRedirectRule)
       {
-        Message::OutputFormatted(
-            Message::ESeverity::Error,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Error,
             L"Directory enumeration query for path \"%.*s\" matched rules but failed because the original rule could not be identified due to an internal error.",
             static_cast<int>(associatedPath.length()),
             associatedPath.data());
@@ -208,8 +208,8 @@ namespace Pathwinder
                         IncludeAllFilenames(EDirectoryPathSource::RealOpenedPath));
               }
 
-              Message::OutputFormatted(
-                  Message::ESeverity::Debug,
+              Infra::Message::OutputFormatted(
+                  Infra::Message::ESeverity::Debug,
                   L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will include in-scope contents of \"%.*s\" in the output.",
                   static_cast<int>(unredirectedPath.length()),
                   unredirectedPath.data(),
@@ -255,8 +255,8 @@ namespace Pathwinder
                             EFilePatternMatchCondition::MatchByPositionInvertAllPriorToSelected,
                             ruleIndex));
 
-                Message::OutputFormatted(
-                    Message::ESeverity::Debug,
+                Infra::Message::OutputFormatted(
+                    Infra::Message::ESeverity::Debug,
                     L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will include in-scope contents of \"%.*s\" in the output.",
                     static_cast<int>(unredirectedPath.length()),
                     unredirectedPath.data(),
@@ -349,8 +349,8 @@ namespace Pathwinder
                         IncludeAllFilenames(EDirectoryPathSource::AssociatedPath));
               }
 
-              Message::OutputFormatted(
-                  Message::ESeverity::Debug,
+              Infra::Message::OutputFormatted(
+                  Infra::Message::ESeverity::Debug,
                   L"Directory enumeration query for path \"%.*s\" will additionally include in the output any contents of the original query path not hidden or already enumerated by matching filesystem rules.",
                   static_cast<int>(unredirectedPath.length()),
                   unredirectedPath.data());
@@ -379,8 +379,8 @@ namespace Pathwinder
                 // directory being enumerated is somehow in scope, so the target-side directory
                 // contents completely replace any origin-side directory contents.
 
-                Message::OutputFormatted(
-                    Message::ESeverity::Debug,
+                Infra::Message::OutputFormatted(
+                    Infra::Message::ESeverity::Debug,
                     L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will instead enumerate \"%.*s\".",
                     static_cast<int>(unredirectedPath.length()),
                     unredirectedPath.data(),
@@ -401,8 +401,8 @@ namespace Pathwinder
                 // enumerated is somehow in scope, so the target-side directory contents are merged
                 // with any origin-side directory contents.
 
-                Message::OutputFormatted(
-                    Message::ESeverity::Debug,
+                Infra::Message::OutputFormatted(
+                    Infra::Message::ESeverity::Debug,
                     L"Directory enumeration query for path \"%.*s\" matches rule \"%.*s\" and will overlay the contents of \"%.*s\".",
                     static_cast<int>(unredirectedPath.length()),
                     unredirectedPath.data(),
@@ -418,8 +418,8 @@ namespace Pathwinder
                 break;
 
               default:
-                Message::OutputFormatted(
-                    Message::ESeverity::Error,
+                Infra::Message::OutputFormatted(
+                    Infra::Message::ESeverity::Error,
                     L"Directory enumeration query for path \"%.*s\" matched rule \"%.*s\" but failed because of an invalid redirection mode due to an internal error.",
                     static_cast<int>(associatedPath.length()),
                     associatedPath.data(),
@@ -432,8 +432,8 @@ namespace Pathwinder
           break;
 
         default:
-          Message::OutputFormatted(
-              Message::ESeverity::Error,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::Error,
               L"Directory enumeration query for path \"%.*s\" matched rules but failed a directory hierarchy consistency check due to an internal error.",
               static_cast<int>(associatedPath.length()),
               associatedPath.data());
@@ -444,8 +444,8 @@ namespace Pathwinder
     {
       // If a redirection did not take place then the contents of the requested directory
       // still need to be enumerated as is.
-      Message::OutputFormatted(
-          Message::ESeverity::SuperDebug,
+      Infra::Message::OutputFormatted(
+          Infra::Message::ESeverity::SuperDebug,
           L"Directory enumeration query for path \"%.*s\" does not match any rules.",
           static_cast<int>(realOpenedPath.length()),
           realOpenedPath.data());
@@ -496,8 +496,8 @@ namespace Pathwinder
 
             if (false == directoryNamesToInsert.has_value()) directoryNamesToInsert.emplace();
 
-            Message::OutputFormatted(
-                Message::ESeverity::Info,
+            Infra::Message::OutputFormatted(
+                Infra::Message::ESeverity::Info,
                 L"Directory enumeration query for path \"%.*s\" will potentially insert \"%.*s\" into the output because it is the origin directory of rule \"%.*s\".",
                 static_cast<int>(directoryPath.length()),
                 directoryPath.data(),
@@ -546,8 +546,8 @@ namespace Pathwinder
 
     if (false == Strings::PathBeginsWithDriveLetter(absoluteFilePathTrimmedForQuery))
     {
-      Message::OutputFormatted(
-          Message::ESeverity::SuperDebug,
+      Infra::Message::OutputFormatted(
+          Infra::Message::ESeverity::SuperDebug,
           L"File operation redirection query for path \"%.*s\" does not begin with a drive letter and was therefore skipped for redirection.",
           static_cast<int>(absoluteFilePath.length()),
           absoluteFilePath.data());
@@ -557,8 +557,8 @@ namespace Pathwinder
     const size_t lastSeparatorPos = absoluteFilePathTrimmedForQuery.find_last_of(L'\\');
     if (std::wstring_view::npos == lastSeparatorPos)
     {
-      Message::OutputFormatted(
-          Message::ESeverity::SuperDebug,
+      Infra::Message::OutputFormatted(
+          Infra::Message::ESeverity::SuperDebug,
           L"File operation redirection query for path \"%.*s\" does not contain a final path separator and was therefore skipped for redirection.",
           static_cast<int>(absoluteFilePath.length()),
           absoluteFilePath.data());
@@ -569,8 +569,8 @@ namespace Pathwinder
 
     if (nullptr == selectedRuleContainer)
     {
-      Message::OutputFormatted(
-          Message::ESeverity::SuperDebug,
+      Infra::Message::OutputFormatted(
+          Infra::Message::ESeverity::SuperDebug,
           L"File operation redirection query for path \"%.*s\" did not match any rules.",
           static_cast<int>(absoluteFilePath.length()),
           absoluteFilePath.data());
@@ -620,8 +620,8 @@ namespace Pathwinder
           extraSuffix);
       if (false == maybeRedirectedFilePath.has_value())
       {
-        Message::OutputFormatted(
-            Message::ESeverity::Error,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Error,
             L"File operation redirection query for path \"%.*s\" did not match rule \"%.*s\" due to an internal error.",
             static_cast<int>(absoluteFilePath.length()),
             absoluteFilePath.data(),
@@ -632,8 +632,8 @@ namespace Pathwinder
 
       if (selectedRuleContainer->CountOfRules() > 1)
       {
-        Message::OutputFormatted(
-            Message::ESeverity::Info,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Info,
             L"File operation redirection query for path \"%.*s\" is for the origin directory of multiple rules and was redirected to \"%s\" using arbitrarily-chosen rule \"%.*s\".",
             static_cast<int>(absoluteFilePath.length()),
             absoluteFilePath.data(),
@@ -643,8 +643,8 @@ namespace Pathwinder
       }
       else
       {
-        Message::OutputFormatted(
-            Message::ESeverity::Info,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Info,
             L"File operation redirection query for path \"%.*s\" is for the origin directory of rule \"%.*s\" and was redirected to \"%s\".",
             static_cast<int>(absoluteFilePath.length()),
             absoluteFilePath.data(),
@@ -685,8 +685,8 @@ namespace Pathwinder
       {
         std::wstring_view selectedOriginDirectory =
             selectedRuleContainer->AnyRule().GetOriginDirectoryFullPath();
-        Message::OutputFormatted(
-            Message::ESeverity::Info,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Info,
             L"File operation redirection query for path \"%.*s\" did not match any rules because no file patterns match for rules having origin directory \"%.*s\".",
             static_cast<int>(absoluteFilePath.length()),
             absoluteFilePath.data(),
@@ -695,8 +695,8 @@ namespace Pathwinder
         return FileOperationInstruction::NoRedirectionOrInterception();
       }
 
-      Message::OutputFormatted(
-          Message::ESeverity::Info,
+      Infra::Message::OutputFormatted(
+          Infra::Message::ESeverity::Info,
           L"File operation redirection query for path \"%.*s\" matched rule \"%s\" and was redirected to \"%s\".",
           static_cast<int>(absoluteFilePath.length()),
           absoluteFilePath.data(),
@@ -788,8 +788,8 @@ namespace Pathwinder
       }
     }
 
-    Message::OutputFormatted(
-        Message::ESeverity::Error,
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Error,
         L"Internal error: unrecognized file redirection mode (ERedirectMode = %u) encountered while processing file operation redirection query for path \"%.*s\".",
         static_cast<unsigned int>(selectedRule->GetRedirectMode()),
         static_cast<int>(absoluteFilePath.length()),

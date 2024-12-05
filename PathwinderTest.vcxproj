@@ -120,7 +120,6 @@
     <ClCompile Include="Source\FilesystemRule.cpp" />
     <ClCompile Include="Source\FilesystemDirector.cpp" />
     <ClCompile Include="Source\Globals.cpp" />
-    <ClCompile Include="Source\Message.cpp" />
     <ClCompile Include="Source\OpenHandleStore.cpp" />
     <ClCompile Include="Source\PathwinderConfigReader.cpp" />
     <ClCompile Include="Source\Resolver.cpp" />
@@ -160,8 +159,6 @@
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemRule.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirector.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\Iterator.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
     <ClInclude Include="Include\Pathwinder\Internal\OpenHandleStore.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PathwinderConfigReader.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PrefixTree.h" />

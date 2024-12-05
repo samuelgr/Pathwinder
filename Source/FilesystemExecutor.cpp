@@ -19,6 +19,7 @@
 #include <mutex>
 
 #include <Infra/ArrayList.h>
+#include <Infra/Message.h>
 #include <Infra/Mutex.h>
 #include <Infra/TemporaryBuffer.h>
 #include <Infra/ValueOrError.h>
@@ -27,8 +28,6 @@
 #include "BufferPool.h"
 #include "FileInformationStruct.h"
 #include "FilesystemOperations.h"
-#include "Globals.h"
-#include "Message.h"
 #include "OpenHandleStore.h"
 #include "Strings.h"
 #include "ThreadPool.h"
@@ -317,12 +316,12 @@ namespace Pathwinder
         ULONG createDisposition,
         ULONG createOptions)
     {
-      constexpr Message::ESeverity kDumpSeverity = Message::ESeverity::SuperDebug;
+      constexpr Infra::Message::ESeverity kDumpSeverity = Infra::Message::ESeverity::SuperDebug;
 
       // There is overhead involved with producing a dump of parameter values.
       // This is why it is helpful to guard the block on whether or not the output would actually
       // be logged.
-      if (true == Message::WillOutputMessageOfSeverity(kDumpSeverity))
+      if (true == Infra::Message::WillOutputMessageOfSeverity(kDumpSeverity))
       {
         const std::wstring_view functionNameView = std::wstring_view(functionName);
         const std::wstring_view objectNameParam =
@@ -335,31 +334,31 @@ namespace Pathwinder
         static Infra::Mutex paramPrintMutex;
         std::unique_lock paramPrintLock(paramPrintMutex);
 
-        Message::OutputFormatted(
+        Infra::Message::OutputFormatted(
             kDumpSeverity,
             L"%s(%u): Invoked with these parameters:",
             functionName,
             functionRequestIdentifier);
-        Message::OutputFormatted(
+        Infra::Message::OutputFormatted(
             kDumpSeverity,
             L"%s(%u):   ObjectName = \"%.*s\"",
             functionName,
             functionRequestIdentifier,
             static_cast<int>(objectNameParam.length()),
             objectNameParam.data());
-        Message::OutputFormatted(
+        Infra::Message::OutputFormatted(
             kDumpSeverity,
             L"%s(%u):   RootDirectory = %zu",
             functionName,
             functionRequestIdentifier,
             reinterpret_cast<size_t>(objectAttributes->RootDirectory));
-        Message::OutputFormatted(
+        Infra::Message::OutputFormatted(
             kDumpSeverity,
             L"%s(%u):   DesiredAccess = %s",
             functionName,
             functionRequestIdentifier,
             Strings::NtAccessMaskToString(desiredAccess).AsCString());
-        Message::OutputFormatted(
+        Infra::Message::OutputFormatted(
             kDumpSeverity,
             L"%s(%u):   ShareAccess = %s",
             functionName,
@@ -368,13 +367,13 @@ namespace Pathwinder
 
         if (functionNameView.contains(L"Create"))
         {
-          Message::OutputFormatted(
+          Infra::Message::OutputFormatted(
               kDumpSeverity,
               L"%s(%u):   CreateDisposition = %s",
               functionName,
               functionRequestIdentifier,
               Strings::NtCreateDispositionToString(createDisposition).AsCString());
-          Message::OutputFormatted(
+          Infra::Message::OutputFormatted(
               kDumpSeverity,
               L"%s(%u):   CreateOptions = %s",
               functionName,
@@ -383,7 +382,7 @@ namespace Pathwinder
         }
         else if (functionNameView.contains(L"Open"))
         {
-          Message::OutputFormatted(
+          Infra::Message::OutputFormatted(
               kDumpSeverity,
               L"%s(%u):   OpenOptions = %s",
               functionName,
@@ -666,8 +665,8 @@ namespace Pathwinder
         FileOperationInstruction redirectionInstruction =
             instructionSourceFunc(inputFullFilename, fileAccessMode, createDisposition);
         if (true == redirectionInstruction.HasRedirectedFilename())
-          Message::OutputFormatted(
-              Message::ESeverity::Debug,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::Debug,
               L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined and redirected to \"%.*s\".",
               functionName,
               functionRequestIdentifier,
@@ -679,8 +678,8 @@ namespace Pathwinder
               static_cast<int>(redirectionInstruction.GetRedirectedFilename().length()),
               redirectionInstruction.GetRedirectedFilename().data());
         else
-          Message::OutputFormatted(
-              Message::ESeverity::SuperDebug,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::SuperDebug,
               L"%s(%u): Invoked with root directory path \"%.*s\" (via handle %zu) and relative path \"%.*s\" which were combined but not redirected.",
               functionName,
               functionRequestIdentifier,
@@ -704,8 +703,8 @@ namespace Pathwinder
 
         if (true == redirectionInstruction.HasRedirectedFilename())
         {
-          Message::OutputFormatted(
-              Message::ESeverity::Debug,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::Debug,
               L"%s(%u): Invoked with path \"%.*s\" which was redirected to \"%.*s\".",
               functionName,
               functionRequestIdentifier,
@@ -716,8 +715,8 @@ namespace Pathwinder
         }
         else
         {
-          Message::OutputFormatted(
-              Message::ESeverity::SuperDebug,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::SuperDebug,
               L"%s(%u): Invoked with path \"%.*s\" which was not redirected.",
               functionName,
               functionRequestIdentifier,
@@ -735,8 +734,8 @@ namespace Pathwinder
         // originally opened it was determined that there is no possible match with a filesystem
         // rule. Therefore, it is not necessary to attempt redirection.
 
-        Message::OutputFormatted(
-            Message::ESeverity::SuperDebug,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::SuperDebug,
             L"%s(%u): Invoked with root directory handle %zu and relative path \"%.*s\" for which no redirection was attempted.",
             functionName,
             functionRequestIdentifier,
@@ -769,8 +768,8 @@ namespace Pathwinder
               static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)) &&
           (NT_SUCCESS(extraPreOperationResult)))
       {
-        Message::OutputFormatted(
-            Message::ESeverity::Debug,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Debug,
             L"%s(%u): Ensuring directory hierarchy exists for \"%.*s\".",
             functionName,
             functionRequestIdentifier,
@@ -782,8 +781,8 @@ namespace Pathwinder
       }
 
       if (!(NT_SUCCESS(extraPreOperationResult)))
-        Message::OutputFormatted(
-            Message::ESeverity::Error,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Error,
             L"%s(%u): A required pre-operation failed (NTSTATUS = 0x%08x).",
             functionName,
             functionRequestIdentifier,
@@ -982,8 +981,8 @@ namespace Pathwinder
           break;
 
         default:
-          Message::OutputFormatted(
-              Message::ESeverity::Error,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::Error,
               L"%s(%u): Internal error: unrecognized file operation instruction (ECreateDispositionPreference = %u).",
               functionName,
               functionRequestIdentifier,
@@ -1042,8 +1041,8 @@ namespace Pathwinder
           break;
 
         default:
-          Message::OutputFormatted(
-              Message::ESeverity::Error,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::Error,
               L"%s(%u): Internal error: unrecognized file operation instruction (ETryFiles = %u).",
               functionName,
               functionRequestIdentifier,
@@ -1118,8 +1117,8 @@ namespace Pathwinder
           break;
 
         default:
-          Message::OutputFormatted(
-              Message::ESeverity::Error,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::Error,
               L"%s(%u): Internal error: unrecognized file operation instruction (EAssociateNameWithHandle = %u).",
               functionName,
               functionRequestIdentifier,
@@ -1134,8 +1133,8 @@ namespace Pathwinder
 
         openHandleStore.InsertHandle(
             newlyOpenedHandle, std::wstring(selectedPath), std::wstring(successfulPath));
-        Message::OutputFormatted(
-            Message::ESeverity::Debug,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Debug,
             L"%s(%u): Handle %zu was opened for path \"%.*s\" and stored in association with path \"%.*s\".",
             functionName,
             functionRequestIdentifier,
@@ -1176,8 +1175,8 @@ namespace Pathwinder
         {
           OpenHandleStore::SHandleData erasedHandleData;
           if (true == openHandleStore.RemoveHandle(handleToUpdate, &erasedHandleData))
-            Message::OutputFormatted(
-                Message::ESeverity::Debug,
+            Infra::Message::OutputFormatted(
+                Infra::Message::ESeverity::Debug,
                 L"%s(%u): Handle %zu associated with path \"%s\" was erased from storage.",
                 functionName,
                 functionRequestIdentifier,
@@ -1199,8 +1198,8 @@ namespace Pathwinder
           break;
 
         default:
-          Message::OutputFormatted(
-              Message::ESeverity::Error,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::Error,
               L"%s(%u): Internal error: unrecognized file operation instruction (EAssociateNameWithHandle = %u).",
               functionName,
               functionRequestIdentifier,
@@ -1215,8 +1214,8 @@ namespace Pathwinder
 
         openHandleStore.InsertOrUpdateHandle(
             handleToUpdate, std::wstring(selectedPath), std::wstring(successfulPath));
-        Message::OutputFormatted(
-            Message::ESeverity::Debug,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Debug,
             L"%s(%u): Handle %zu was updated in storage to be opened with path \"%.*s\" and associated with path \"%.*s\".",
             functionName,
             functionRequestIdentifier,
@@ -1243,8 +1242,8 @@ namespace Pathwinder
       NTSTATUS closeHandleResult = openHandleStore.RemoveAndCloseHandle(handle, &closedHandleData);
 
       if (NT_SUCCESS(closeHandleResult))
-        Message::OutputFormatted(
-            Message::ESeverity::Debug,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Debug,
             L"%s(%u): Handle %zu for path \"%s\" was closed and erased from storage.",
             functionName,
             functionRequestIdentifier,
@@ -1294,8 +1293,8 @@ namespace Pathwinder
       switch (GetIoModeForHandle(fileHandle))
       {
         case EInputOutputMode::Synchronous:
-          Message::OutputFormatted(
-              Message::ESeverity::SuperDebug,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::SuperDebug,
               L"%s(%u): Application requested synchronous directory enumeration for handle %zu.",
               functionName,
               functionRequestIdentifier,
@@ -1322,8 +1321,8 @@ namespace Pathwinder
                    .apcContextParam = apcContext,
                    .apcTargetThread = HandleForCurrentThread()}))
           {
-            Message::OutputFormatted(
-                Message::ESeverity::SuperDebug,
+            Infra::Message::OutputFormatted(
+                Infra::Message::ESeverity::SuperDebug,
                 L"%s(%u): Application requested asynchronous directory enumeration for handle %zu, and the request was successfully enqueued.",
                 functionName,
                 functionRequestIdentifier,
@@ -1332,8 +1331,8 @@ namespace Pathwinder
           }
           else
           {
-            Message::OutputFormatted(
-                Message::ESeverity::Error,
+            Infra::Message::OutputFormatted(
+                Infra::Message::ESeverity::Error,
                 L"%s(%u): Application requested asynchronous directory enumeration for handle %zu, but the request failed to be enqueued.",
                 functionName,
                 functionRequestIdentifier,
@@ -1342,8 +1341,8 @@ namespace Pathwinder
           }
 
         default:
-          Message::OutputFormatted(
-              Message::ESeverity::Error,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::Error,
               L"%s(%u): Failed to determine I/O mode during directory enumeration for handle %zu.",
               functionName,
               functionRequestIdentifier,
@@ -1389,8 +1388,8 @@ namespace Pathwinder
                                  : Strings::NtConvertUnicodeStringToStringView(*fileName));
       if (true == queryFilePattern.empty())
       {
-        Message::OutputFormatted(
-            Message::ESeverity::Debug,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Debug,
             L"%s(%u): Invoked with handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".",
             functionName,
             functionRequestIdentifier,
@@ -1402,8 +1401,8 @@ namespace Pathwinder
       }
       else
       {
-        Message::OutputFormatted(
-            Message::ESeverity::Debug,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Debug,
             L"%s(%u): Invoked with file pattern \"%.*s\" and handle %zu, which is associated with path \"%.*s\" and opened for path \"%.*s\".",
             functionName,
             functionRequestIdentifier,
@@ -1516,8 +1515,8 @@ namespace Pathwinder
       {
         if (true == createDispositionToTry.HasError())
         {
-          Message::OutputFormatted(
-              Message::ESeverity::SuperDebug,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::SuperDebug,
               L"%s(%u): NTSTATUS = 0x%08x (forced result).",
               functionName,
               functionRequestIdentifier,
@@ -1534,8 +1533,8 @@ namespace Pathwinder
         {
           if (true == operationToTry.HasError())
           {
-            Message::OutputFormatted(
-                Message::ESeverity::SuperDebug,
+            Infra::Message::OutputFormatted(
+                Infra::Message::ESeverity::SuperDebug,
                 L"%s(%u): NTSTATUS = 0x%08x (forced result).",
                 functionName,
                 functionRequestIdentifier,
@@ -1569,8 +1568,8 @@ namespace Pathwinder
               break;
 
             default:
-              Message::OutputFormatted(
-                  Message::ESeverity::Error,
+              Infra::Message::OutputFormatted(
+                  Infra::Message::ESeverity::Error,
                   L"%s(%u): Internal error: unrecognized create disposition condition (SCreateDispositionToTry::ECondition = %u).",
                   functionName,
                   functionRequestIdentifier,
@@ -1584,9 +1583,10 @@ namespace Pathwinder
           systemCallResult = underlyingSystemCallInvoker(
               &newlyOpenedHandle, objectAttributesToTry, ntParamCreateDispositionToTry);
 
-          if (true == Message::WillOutputMessageOfSeverity(Message::ESeverity::SuperDebug))
-            Message::OutputFormatted(
-                Message::ESeverity::SuperDebug,
+          if (true ==
+              Infra::Message::WillOutputMessageOfSeverity(Infra::Message::ESeverity::SuperDebug))
+            Infra::Message::OutputFormatted(
+                Infra::Message::ESeverity::SuperDebug,
                 L"%s(%u): NTSTATUS = 0x%08x, CreateDisposition = %s, ObjectName = \"%.*s\".",
                 functionName,
                 functionRequestIdentifier,
@@ -1671,8 +1671,8 @@ namespace Pathwinder
           }
         }
 
-        Message::OutputFormatted(
-            Message::ESeverity::Debug,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Debug,
             L"%s(%u): Rename by relative move for file handle %zu resolved to path \"%.*s\".",
             functionName,
             functionRequestIdentifier,
@@ -1719,8 +1719,8 @@ namespace Pathwinder
         {
           if (true == operationToTry.HasError())
           {
-            Message::OutputFormatted(
-                Message::ESeverity::SuperDebug,
+            Infra::Message::OutputFormatted(
+                Infra::Message::ESeverity::SuperDebug,
                 L"%s(%u): NTSTATUS = 0x%08x (forced result).",
                 functionName,
                 functionRequestIdentifier,
@@ -1735,8 +1735,8 @@ namespace Pathwinder
               fileHandle,
               *renameInformationToTry,
               FileInformationStructLayout::SizeOfStructByType(*renameInformationToTry));
-          Message::OutputFormatted(
-              Message::ESeverity::SuperDebug,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::SuperDebug,
               L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".",
               functionName,
               functionRequestIdentifier,
@@ -1836,15 +1836,15 @@ namespace Pathwinder
           openHandleStore.GetDataForHandle(fileHandle);
       if (false == maybeHandleData.has_value())
       {
-        if (Message::WillOutputMessageOfSeverity(Message::ESeverity::SuperDebug))
+        if (Infra::Message::WillOutputMessageOfSeverity(Infra::Message::ESeverity::SuperDebug))
         {
           std::wstring_view systemReturnedFileName(
               FileInformationStructLayout::ReadFileNameByType(*fileNameInformation));
           systemReturnedFileName = std::wstring_view(
               systemReturnedFileName.data(),
               std::min(systemReturnedFileName.length(), fileNameCapacityChars));
-          Message::OutputFormatted(
-              Message::ESeverity::SuperDebug,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::SuperDebug,
               L"%s(%u): Invoked with handle %zu, the system returned path \"%.*s\", and is it not being replaced.",
               functionName,
               functionRequestIdentifier,
@@ -1956,8 +1956,8 @@ namespace Pathwinder
       {
         if (true == operationToTry.HasError())
         {
-          Message::OutputFormatted(
-              Message::ESeverity::SuperDebug,
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::SuperDebug,
               L"%s(%u): NTSTATUS = 0x%08x (forced result).",
               functionName,
               functionRequestIdentifier,
@@ -1970,8 +1970,8 @@ namespace Pathwinder
         lastAttemptedPath =
             Strings::NtConvertUnicodeStringToStringView(*(objectAttributesToTry->ObjectName));
         systemCallResult = underlyingSystemCallInvoker(objectAttributesToTry);
-        Message::OutputFormatted(
-            Message::ESeverity::SuperDebug,
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::SuperDebug,
             L"%s(%u): NTSTATUS = 0x%08x, ObjectName = \"%.*s\".",
             functionName,
             functionRequestIdentifier,

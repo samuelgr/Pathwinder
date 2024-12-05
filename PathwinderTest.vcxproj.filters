@@ -27,9 +27,6 @@
     <ClCompile Include="Source\Globals.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Message.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Strings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -137,9 +134,6 @@
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Internal\Message.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\Strings.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -192,9 +186,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Test\MockDirectoryOperationQueue.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Internal\Iterator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemExecutor.h">
