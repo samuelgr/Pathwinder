@@ -18,7 +18,6 @@
 #include <string_view>
 
 #include "ApiWindows.h"
-#include "Configuration.h"
 
 namespace PathwinderTest
 {

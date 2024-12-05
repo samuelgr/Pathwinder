@@ -17,11 +17,11 @@
 #include <string>
 #include <string_view>
 
+#include <Infra/Configuration.h>
 #include <Infra/Globals.h>
 #include <Infra/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
-#include "Configuration.h"
 #include "Strings.h"
 
 namespace PathwinderTest
@@ -42,7 +42,8 @@ namespace PathwinderTest
       SetConfiguredDefinitions(std::move(configuredDefinitions));
     }
 
-    inline TemporaryConfiguredDefinitions(Configuration::Section&& configuredDefinitionsSection)
+    inline TemporaryConfiguredDefinitions(
+        Infra::Configuration::Section&& configuredDefinitionsSection)
     {
       SetConfiguredDefinitionsFromSection(std::move(configuredDefinitionsSection));
     }
@@ -243,7 +244,8 @@ namespace PathwinderTest
     const std::wstring kVariableName = L"W";
     const std::wstring kVariableValue = L"This is the evaluated value of W.";
 
-    Configuration::Section testDefinitionSection({{std::wstring(kVariableName), kVariableValue}});
+    Infra::Configuration::Section testDefinitionSection(
+        {{std::wstring(kVariableName), kVariableValue}});
 
     TemporaryConfiguredDefinitions testDefinitions(std::move(testDefinitionSection));
 
@@ -280,7 +282,7 @@ namespace PathwinderTest
   // instead of a directly-supplied definition map.
   TEST_CASE(Resolver_SingleReference_ConfiguredDefinition_EmbeddedFromConfigSection)
   {
-    Configuration::Section testDefinitionSection(
+    Infra::Configuration::Section testDefinitionSection(
         {{L"X", L"Value of X"},
          {L"Y", L"Value of Y incorporates value of X: (%CONF::X%)"},
          {L"Z", L"Value of Z incorporates value of Y: (%CONF::Y%)"}});

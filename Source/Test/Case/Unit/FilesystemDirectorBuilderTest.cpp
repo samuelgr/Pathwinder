@@ -16,12 +16,12 @@
 
 #include <string_view>
 
+#include <Infra/Configuration.h>
 #include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
 #include <Infra/ValueOrError.h>
 
 #include "ApiWindows.h"
-#include "Configuration.h"
 #include "FilesystemOperations.h"
 #include "MockFilesystemOperations.h"
 
@@ -233,12 +233,12 @@ namespace PathwinderTest
   // redirection modes that are supported.
   TEST_CASE(FilesystemDirectorBuilder_AddRuleFromConfigurationSection_Success_Nominal)
   {
-    Configuration::Section configSection1 = {
+    Infra::Configuration::Section configSection1 = {
         {L"OriginDirectory", L"C:\\OriginDir1"},
         {L"TargetDirectory", L"C:\\TargetDir1"},
         {L"RedirectMode", L"Simple"}};
 
-    Configuration::Section configSection2 = {
+    Infra::Configuration::Section configSection2 = {
         {L"OriginDirectory", L"C:\\OriginDir2"},
         {L"TargetDirectory", L"C:\\TargetDir2"},
         {L"RedirectMode", L"Overlay"}};
@@ -263,12 +263,12 @@ namespace PathwinderTest
   // filesystem rules that are created.
   TEST_CASE(FilesystemDirectorBuilder_AddRuleFromConfigurationSection_Success_WithFilePatterns)
   {
-    Configuration::Section configSection1 = {
+    Infra::Configuration::Section configSection1 = {
         {L"OriginDirectory", L"C:\\OriginDir1"},
         {L"TargetDirectory", L"C:\\TargetDir1"},
         {L"FilePattern", {L"file*.txt", L"*.bin"}}};
 
-    Configuration::Section configSection2 = {
+    Infra::Configuration::Section configSection2 = {
         {L"OriginDirectory", L"C:\\OriginDir2"},
         {L"TargetDirectory", L"C:\\TargetDir2"},
         {L"FilePattern", {L"log*", L"file???.dat"}}};
@@ -294,11 +294,11 @@ namespace PathwinderTest
   // either an origin or a target directory.
   TEST_CASE(FilesystemDirectorBuilder_AddRuleFromConfigurationSection_Failure_MissingDirectory)
   {
-    Configuration::Section configSectionMissingOriginDirectory = {
+    Infra::Configuration::Section configSectionMissingOriginDirectory = {
         {L"TargetDirectory", L"C:\\TargetDir1"},
     };
 
-    Configuration::Section configSectionMissingTargetDirectory = {
+    Infra::Configuration::Section configSectionMissingTargetDirectory = {
         {L"OriginDirectory", L"C:\\OriginDir2"}, {L"FilePattern", {L"log*", L"file???.dat"}}};
 
     FilesystemDirectorBuilder directorBuilder;
@@ -519,7 +519,7 @@ namespace PathwinderTest
     mockFilesystem.AddDirectory(L"C:\\OriginDir1");
     mockFilesystem.AddDirectory(L"E:\\OriginDir2");
 
-    Configuration::ConfigurationData configData = {
+    Infra::Configuration::ConfigurationData configData = {
         {L"FilesystemRule:1",
          {{L"OriginDirectory", L"C:\\OriginDir1"}, {L"TargetDirectory", L"C:\\TargetDir"}}},
         {L"FilesystemRule:2",
@@ -551,7 +551,7 @@ namespace PathwinderTest
     mockFilesystem.AddDirectory(L"C:\\OriginDir1");
     mockFilesystem.AddDirectory(L"E:\\OriginDir2");
 
-    Configuration::ConfigurationData configData = {
+    Infra::Configuration::ConfigurationData configData = {
         {L"FilesystemRule:1",
          {{L"OriginDirectory", L"C:\\OriginDir1"},
           {L"TargetDirectory", L"C:\\TargetDir"},
@@ -585,7 +585,7 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     mockFilesystem.AddDirectory(L"C:");
 
-    Configuration::ConfigurationData configData = {
+    Infra::Configuration::ConfigurationData configData = {
         {L"FilesystemRule:1",
          {{L"OriginDirectory", L"C:\\OriginDir\\Subdir1"},
           {L"TargetDirectory", L"C:\\TargetDir\\Subdir1"}}}};
@@ -603,7 +603,7 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     mockFilesystem.AddDirectory(L"C:\\OriginDir2");
 
-    Configuration::ConfigurationData configDataArray[] = {
+    Infra::Configuration::ConfigurationData configDataArray[] = {
         {{L"FilesystemRule:1", {{L"TargetDirectory", L"C:\\TargetDir1"}}}},
         {{L"FilesystemRule:2",
           {{L"OriginDirectory", L"C:\\OriginDirectory2"},

@@ -16,10 +16,9 @@
 #include <string>
 #include <string_view>
 
+#include <Infra/Configuration.h>
 #include <Infra/TemporaryBuffer.h>
 #include <Infra/ValueOrError.h>
-
-#include "Configuration.h"
 
 namespace Pathwinder
 {
@@ -95,6 +94,7 @@ namespace Pathwinder
     /// expected entry point for using a configuration file to set configured definitions.
     /// @param [in] configuredDefinitionsSection Configuration data section containing
     /// definitions.
-    void SetConfiguredDefinitionsFromSection(Configuration::Section&& configuredDefinitionsSection);
+    void SetConfiguredDefinitionsFromSection(
+        Infra::Configuration::Section&& configuredDefinitionsSection);
   } // namespace Resolver
 } // namespace Pathwinder

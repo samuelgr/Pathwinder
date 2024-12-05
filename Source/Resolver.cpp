@@ -18,13 +18,13 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include <Infra/Configuration.h>
 #include <Infra/DebugAssert.h>
 #include <Infra/Globals.h>
 #include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
-#include "Configuration.h"
 #include "Strings.h"
 
 namespace Pathwinder
@@ -501,7 +501,8 @@ namespace Pathwinder
       resolvedSingleReferenceCache.clear();
     }
 
-    void SetConfiguredDefinitionsFromSection(Configuration::Section&& configuredDefinitionsSection)
+    void SetConfiguredDefinitionsFromSection(
+        Infra::Configuration::Section&& configuredDefinitionsSection)
     {
       TConfiguredDefinitions configuredDefinitions;
 
@@ -510,7 +511,7 @@ namespace Pathwinder
            definitionRecord = configuredDefinitionsSection.ExtractFirstName())
       {
         DebugAssert(
-            Configuration::EValueType::String == definitionRecord->second.GetType(),
+            Infra::Configuration::EValueType::String == definitionRecord->second.GetType(),
             "Configured definitions section contains a non-string value.");
 
         std::wstring definitionName = std::move(definitionRecord->first);

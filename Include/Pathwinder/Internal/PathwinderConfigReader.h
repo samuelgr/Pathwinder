@@ -13,11 +13,11 @@
 
 #include <string_view>
 
-#include "Configuration.h"
+#include <Infra/Configuration.h>
 
 namespace Pathwinder
 {
-  using namespace ::Pathwinder::Configuration;
+  using namespace ::Infra::Configuration;
 
   class PathwinderConfigReader : public ConfigurationFileReader
   {

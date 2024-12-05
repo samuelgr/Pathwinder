@@ -18,6 +18,7 @@
 #include <string_view>
 #include <unordered_map>
 
+#include <Infra/Configuration.h>
 #include <Infra/DebugAssert.h>
 #include <Infra/Message.h>
 #include <Infra/Strings.h>
@@ -25,7 +26,6 @@
 #include <Infra/ValueOrError.h>
 
 #include "ApiWindows.h"
-#include "Configuration.h"
 #include "FilesystemOperations.h"
 #include "FilesystemRule.h"
 #include "Resolver.h"
@@ -40,7 +40,7 @@ namespace Pathwinder
   /// @return Redirection mode enumerator, if it is either absent from the configuration section
   /// data object or present and maps to a valid enumerator.
   static std::optional<ERedirectMode> RedirectModeFromConfigurationSection(
-      const Configuration::Section& configSection)
+      const Infra::Configuration::Section& configSection)
   {
     constexpr ERedirectMode kDefaultRedirectMode = ERedirectMode::Simple;
 
@@ -83,7 +83,7 @@ namespace Pathwinder
   }
 
   std::optional<FilesystemDirector> FilesystemDirectorBuilder::BuildFromConfigurationData(
-      Configuration::ConfigurationData& configData)
+      Infra::Configuration::ConfigurationData& configData)
   {
     FilesystemDirectorBuilder builder;
 
@@ -110,7 +110,8 @@ namespace Pathwinder
       filesystemRuleName.remove_prefix(
           Strings::kStrConfigurationSectionFilesystemRulePrefix.length());
 
-      Configuration::Section& filesystemRuleContents = filesystemRuleSectionNameAndContents.second;
+      Infra::Configuration::Section& filesystemRuleContents =
+          filesystemRuleSectionNameAndContents.second;
 
       auto addFilesystemRuleResult = builder.AddRuleFromConfigurationSection(
           std::wstring(filesystemRuleName), filesystemRuleContents);
@@ -409,7 +410,7 @@ namespace Pathwinder
 
   Infra::ValueOrError<const FilesystemRule*, Infra::TemporaryString>
       FilesystemDirectorBuilder::AddRuleFromConfigurationSection(
-          std::wstring&& ruleName, Configuration::Section& configSection)
+          std::wstring&& ruleName, Infra::Configuration::Section& configSection)
   {
     auto maybeOriginDirectory = configSection.ExtractFirstStringValue(
         Strings::kStrConfigurationSettingFilesystemRuleOriginDirectory);

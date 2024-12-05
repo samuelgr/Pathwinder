@@ -111,7 +111,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Source\ApiWindows.cpp" />
-    <ClCompile Include="Source\Configuration.cpp" />
     <ClCompile Include="Source\DirectoryOperationQueue.cpp" />
     <ClCompile Include="Source\FileInformationStruct.cpp" />
     <ClCompile Include="Source\FilesystemDirectorBuilder.cpp" />
@@ -149,7 +148,6 @@
     <ClInclude Include="Include\Pathwinder\Internal\ApiBitSet.h" />
     <ClInclude Include="Include\Pathwinder\Internal\ApiWindows.h" />
     <ClInclude Include="Include\Pathwinder\Internal\BufferPool.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\Configuration.h" />
     <ClInclude Include="Include\Pathwinder\Internal\DirectoryOperationQueue.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FileInformationStruct.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirectorBuilder.h" />

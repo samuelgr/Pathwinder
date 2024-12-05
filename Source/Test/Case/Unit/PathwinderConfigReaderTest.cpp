@@ -15,13 +15,13 @@
 
 #include <string_view>
 
+#include <Infra/Configuration.h>
 #include <Infra/TemporaryBuffer.h>
-
-#include "Configuration.h"
 
 namespace PathwinderTest
 {
   using namespace ::Pathwinder;
+  using ::Infra::Configuration::ConfigurationData;
 
   /// Converts the specified configuration data object into a configuration file and then passes
   /// it through a reader object for parsing. Upon completion, verifies that the contents and

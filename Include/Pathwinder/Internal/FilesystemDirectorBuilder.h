@@ -18,9 +18,9 @@
 #include <unordered_set>
 #include <vector>
 
+#include <Infra/Configuration.h>
 #include <Infra/ValueOrError.h>
 
-#include "Configuration.h"
 #include "FilesystemDirector.h"
 #include "FilesystemRule.h"
 
@@ -49,7 +49,7 @@ namespace Pathwinder
     /// define filesystem rules.
     /// @return Newly-created filesystem director object if successful.
     static std::optional<FilesystemDirector> BuildFromConfigurationData(
-        Configuration::ConfigurationData& configData);
+        Infra::Configuration::ConfigurationData& configData);
 
     /// Checks if the specified candidate directory string is valid for use as an origin or a
     /// target directory. It must not be empty, must not contain any disallowed characters, and
@@ -101,7 +101,7 @@ namespace Pathwinder
     /// @return Pointer to the new rule on success, error message on failure.
     Infra::ValueOrError<const FilesystemRule*, Infra::TemporaryString>
         AddRuleFromConfigurationSection(
-            std::wstring&& ruleName, Configuration::Section& configSection);
+            std::wstring&& ruleName, Infra::Configuration::Section& configSection);
 
     /// Attempts to build a real filesystem director object using all of the rules added so far.
     /// Built filesystem director objects are immutable. Some constraints that are enforced

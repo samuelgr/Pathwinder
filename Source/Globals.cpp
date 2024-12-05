@@ -26,7 +26,8 @@
 #include "Strings.h"
 
 #ifndef PATHWINDER_SKIP_CONFIG
-#include "Configuration.h"
+#include <Infra/Configuration.h>
+
 #include "FilesystemDirector.h"
 #include "FilesystemDirectorBuilder.h"
 #include "Hooks.h"
@@ -46,7 +47,7 @@ namespace Pathwinder
     /// extracted out of it. This has the effect of using the filesystem rules defined in the
     /// configuration file to govern the behavior of file operations globally.
     /// @param [in] configData Read-only reference to a configuration data object.
-    static void BuildFilesystemRules(Configuration::ConfigurationData& configData)
+    static void BuildFilesystemRules(Infra::Configuration::ConfigurationData& configData)
     {
       if (true == configData.HasReadErrors()) return;
 
@@ -93,13 +94,13 @@ namespace Pathwinder
 
     /// Enables the log, if it is configured in the specified configuration data object.
     /// @param [in] configData Read-only reference to a configuration data object.
-    static void EnableLogIfConfigured(const Configuration::ConfigurationData& configData)
+    static void EnableLogIfConfigured(const Infra::Configuration::ConfigurationData& configData)
     {
-      const int64_t logLevel =
-          configData
-              .GetFirstIntegerValue(
-                  Configuration::kSectionNameGlobal, Strings::kStrConfigurationSettingLogLevel)
-              .value_or(0);
+      const int64_t logLevel = configData
+                                   .GetFirstIntegerValue(
+                                       Infra::Configuration::kSectionNameGlobal,
+                                       Strings::kStrConfigurationSettingLogLevel)
+                                   .value_or(0);
 
       if (logLevel > 0)
       {
@@ -115,21 +116,21 @@ namespace Pathwinder
     /// configuration data object. Enables logging and outputs read errors if any are
     /// encountered.
     /// @return Filled configuration data object.
-    static Configuration::ConfigurationData ReadConfigurationFile(void)
+    static Infra::Configuration::ConfigurationData ReadConfigurationFile(void)
     {
       Infra::TemporaryString configFileName;
       configFileName << Infra::Globals::GetThisModuleDirectoryName() << L"\\"
                      << Strings::kStrConfigurationFilename;
 
       PathwinderConfigReader configReader;
-      Configuration::ConfigurationData configData =
+      Infra::Configuration::ConfigurationData configData =
           configReader.ReadConfigurationFile(configFileName);
 
       if ((false == configData.HasReadErrors()) &&
           (true ==
            configData
                .GetFirstBooleanValue(
-                   Configuration::kSectionNameGlobal,
+                   Infra::Configuration::kSectionNameGlobal,
                    Strings::kStrConfigurationSettingRedirectConfigToExecutableDirectory)
                .value_or(false)))
       {
@@ -163,7 +164,8 @@ namespace Pathwinder
     /// Reads configured definitions from the configuration file, if specified, and submits them
     /// to the reference resolution subsystem.
     /// @param [in] configData Read-only reference to a configuration data object.
-    static void SetResolverConfiguredDefinitions(Configuration::ConfigurationData& configData)
+    static void SetResolverConfiguredDefinitions(
+        Infra::Configuration::ConfigurationData& configData)
     {
       auto configuredDefinitionsSectionIter =
           configData.Sections().find(Strings::kStrConfigurationSectionDefinitions);
@@ -179,7 +181,7 @@ namespace Pathwinder
           Strings::kStrProductName, Infra::Globals::GitVersionInfoForCurrentProject());
 
 #ifndef PATHWINDER_SKIP_CONFIG
-      Configuration::ConfigurationData configData = ReadConfigurationFile();
+      Infra::Configuration::ConfigurationData configData = ReadConfigurationFile();
 
       EnableLogIfConfigured(configData);
       SetResolverConfiguredDefinitions(configData);

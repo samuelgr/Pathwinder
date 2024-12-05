@@ -14,46 +14,48 @@
 #include <map>
 #include <string_view>
 
-#include "Configuration.h"
+#include <Infra/Configuration.h>
+
 #include "Strings.h"
 
 namespace Pathwinder
 {
-  using namespace ::Pathwinder::Configuration;
+  using namespace ::Infra::Configuration;
 
   /// Holds the names of Pathwinder configuration file sections that accept arbitrary name-value
   /// pairs. Key is the section name, value is the accepted type.
-  static std::map<std::wstring_view, Configuration::EValueType, std::less<>>
+  static std::map<std::wstring_view, Infra::Configuration::EValueType, std::less<>>
       configurationFileDynamicSections = {
-          {Strings::kStrConfigurationSectionDefinitions, Configuration::EValueType::String}};
+          {Strings::kStrConfigurationSectionDefinitions, Infra::Configuration::EValueType::String}};
 
   /// Holds the layout of the Pathwinder configuration file that is known statically.
-  static Configuration::TConfigurationFileLayout configurationFileLayout = {
+  static Infra::Configuration::TConfigurationFileLayout configurationFileLayout = {
       ConfigurationFileLayoutSection(
-          Configuration::kSectionNameGlobal,
+          Infra::Configuration::kSectionNameGlobal,
           {
               ConfigurationFileLayoutNameAndValueType(
-                  Strings::kStrConfigurationSettingLogLevel, Configuration::EValueType::Integer),
+                  Strings::kStrConfigurationSettingLogLevel,
+                  Infra::Configuration::EValueType::Integer),
               ConfigurationFileLayoutNameAndValueType(
                   Strings::kStrConfigurationSettingRedirectConfigToExecutableDirectory,
-                  Configuration::EValueType::Boolean),
+                  Infra::Configuration::EValueType::Boolean),
           }),
   };
 
   // Holds the layout of Pathwinder configuration sections that define filesystem rules.
-  static Configuration::TConfigurationFileSectionLayout filesystemRuleSectionLayout = {
+  static Infra::Configuration::TConfigurationFileSectionLayout filesystemRuleSectionLayout = {
       ConfigurationFileLayoutNameAndValueType(
           Strings::kStrConfigurationSettingFilesystemRuleOriginDirectory,
-          Configuration::EValueType::String),
+          Infra::Configuration::EValueType::String),
       ConfigurationFileLayoutNameAndValueType(
           Strings::kStrConfigurationSettingFilesystemRuleTargetDirectory,
-          Configuration::EValueType::String),
+          Infra::Configuration::EValueType::String),
       ConfigurationFileLayoutNameAndValueType(
           Strings::kStrConfigurationSettingFilesystemRuleRedirectMode,
-          Configuration::EValueType::String),
+          Infra::Configuration::EValueType::String),
       ConfigurationFileLayoutNameAndValueType(
           Strings::kStrConfigurationSettingFilesystemRuleFilePattern,
-          Configuration::EValueType::StringMultiValue),
+          Infra::Configuration::EValueType::StringMultiValue),
   };
 
   /// Checks if the specified section name could correspond with a section that defines a
