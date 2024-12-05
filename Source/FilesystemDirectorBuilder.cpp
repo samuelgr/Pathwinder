@@ -18,16 +18,17 @@
 #include <string_view>
 #include <unordered_map>
 
+#include <Infra/DebugAssert.h>
+#include <Infra/TemporaryBuffer.h>
+#include <Infra/ValueOrError.h>
+
 #include "ApiWindows.h"
 #include "Configuration.h"
-#include "DebugAssert.h"
 #include "FilesystemOperations.h"
 #include "FilesystemRule.h"
 #include "Message.h"
 #include "Resolver.h"
 #include "Strings.h"
-#include "TemporaryBuffer.h"
-#include "ValueOrError.h"
 
 namespace Pathwinder
 {
@@ -248,12 +249,13 @@ namespace Pathwinder
     return true;
   }
 
-  ValueOrError<const FilesystemRule*, TemporaryString> FilesystemDirectorBuilder::AddRule(
-      std::wstring&& ruleName,
-      std::wstring_view originDirectory,
-      std::wstring_view targetDirectory,
-      std::vector<std::wstring>&& filePatterns,
-      ERedirectMode redirectMode)
+  Infra::ValueOrError<const FilesystemRule*, Infra::TemporaryString>
+      FilesystemDirectorBuilder::AddRule(
+          std::wstring&& ruleName,
+          std::wstring_view originDirectory,
+          std::wstring_view targetDirectory,
+          std::vector<std::wstring>&& filePatterns,
+          ERedirectMode redirectMode)
   {
     if (true == filesystemRuleNames.contains(ruleName))
       return Strings::FormatString(
@@ -329,7 +331,7 @@ namespace Pathwinder
           L"Error while creating filesystem rule \"%s\": Target directory: %s.",
           ruleName.c_str(),
           maybeTargetDirectoryResolvedString.Error().AsCString());
-    
+
     if (false == IsValidDirectoryString(maybeTargetDirectoryResolvedString.Value()))
       return Strings::FormatString(
           L"Error while creating filesystem rule \"%s\": Target directory: Either empty, relative, or contains disallowed characters.",
@@ -403,7 +405,7 @@ namespace Pathwinder
     return newRule;
   }
 
-  ValueOrError<const FilesystemRule*, TemporaryString>
+  Infra::ValueOrError<const FilesystemRule*, Infra::TemporaryString>
       FilesystemDirectorBuilder::AddRuleFromConfigurationSection(
           std::wstring&& ruleName, Configuration::Section& configSection)
   {
@@ -440,7 +442,8 @@ namespace Pathwinder
         std::move(*maybeRedirectMode));
   }
 
-  ValueOrError<FilesystemDirector, TemporaryString> FilesystemDirectorBuilder::Build(void)
+  Infra::ValueOrError<FilesystemDirector, Infra::TemporaryString> FilesystemDirectorBuilder::Build(
+      void)
   {
     using TFilesystemRulePrefixTreeByReference = PrefixTree<
         TFilesystemRulePrefixTree::TChar,
@@ -467,7 +470,8 @@ namespace Pathwinder
             static_cast<int>(filesystemRuleRecord.first.length()),
             filesystemRuleRecord.first.data());
 
-      const TemporaryString originDirectoryParent = filesystemRule.GetOriginDirectoryParent();
+      const Infra::TemporaryString originDirectoryParent =
+          filesystemRule.GetOriginDirectoryParent();
       if ((false == FilesystemOperations::IsDirectory(originDirectoryParent.AsCString())) &&
           (false == HasOriginDirectory(originDirectoryParent)))
         return Strings::FormatString(

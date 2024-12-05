@@ -17,7 +17,7 @@
 #include <type_traits>
 #include <unordered_map>
 
-#include "TemporaryBuffer.h"
+#include <Infra/TemporaryBuffer.h>
 
 namespace PathwinderTest
 {

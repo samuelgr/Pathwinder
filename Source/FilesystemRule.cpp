@@ -15,9 +15,10 @@
 #include <string_view>
 #include <vector>
 
+#include <Infra/TemporaryBuffer.h>
+
 #include "ApiWindows.h"
 #include "Strings.h"
-#include "TemporaryBuffer.h"
 
 namespace Pathwinder
 {
@@ -138,7 +139,7 @@ namespace Pathwinder
   /// @param [in] extraSuffix Additional suffix to add to the end of the output string, if one is
   /// generated.
   /// @return Redirected location as an absolute path, if redirection occurred successfully.
-  static std::optional<TemporaryString> RedirectPathInternal(
+  static std::optional<Infra::TemporaryString> RedirectPathInternal(
       std::wstring_view candidatePathDirectoryPart,
       std::wstring_view candidatePathFilePart,
       std::wstring_view fromDirectory,
@@ -198,7 +199,7 @@ namespace Pathwinder
 
     candidatePathDirectoryPart.remove_prefix(fromDirectory.length());
 
-    TemporaryString redirectedPath;
+    Infra::TemporaryString redirectedPath;
     redirectedPath << namespacePrefix << toDirectory << candidatePathDirectoryPart;
     if (false == candidatePathFilePart.empty()) redirectedPath << L'\\' << candidatePathFilePart;
     if (false == extraSuffix.empty()) redirectedPath << extraSuffix;
@@ -254,7 +255,7 @@ namespace Pathwinder
     return FileNameMatchesAnyPatternInternal(candidateFileName, filePatterns);
   }
 
-  std::optional<TemporaryString> FilesystemRule::RedirectPathOriginToTarget(
+  std::optional<Infra::TemporaryString> FilesystemRule::RedirectPathOriginToTarget(
       std::wstring_view candidatePathDirectoryPart,
       std::wstring_view candidatePathFilePart,
       std::wstring_view namespacePrefix,
@@ -270,7 +271,7 @@ namespace Pathwinder
         extraSuffix);
   }
 
-  std::optional<TemporaryString> FilesystemRule::RedirectPathTargetToOrigin(
+  std::optional<Infra::TemporaryString> FilesystemRule::RedirectPathTargetToOrigin(
       std::wstring_view candidatePathDirectoryPart,
       std::wstring_view candidatePathFilePart,
       std::wstring_view namespacePrefix,

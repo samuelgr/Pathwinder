@@ -125,7 +125,6 @@
     <ClCompile Include="Source\PathwinderConfigReader.cpp" />
     <ClCompile Include="Source\Resolver.cpp" />
     <ClCompile Include="Source\Strings.cpp" />
-    <ClCompile Include="Source\TemporaryBuffer.cpp" />
     <ClCompile Include="Source\Test\Case\Integration\DocumentedExample.cpp" />
     <ClCompile Include="Source\Test\Case\Integration\RealWorldScenario.cpp" />
     <ClCompile Include="Source\Test\Case\Unit\DirectoryOperationQueueTest.cpp" />
@@ -138,7 +137,6 @@
     <ClCompile Include="Source\Test\Case\Unit\PathwinderConfigReaderTest.cpp" />
     <ClCompile Include="Source\Test\Case\Unit\PrefixTreeTest.cpp" />
     <ClCompile Include="Source\Test\Case\Unit\ResolverTest.cpp" />
-    <ClCompile Include="Source\Test\Case\Unit\StringsTest.cpp" />
     <ClCompile Include="Source\Test\Case\Unit\ThreadPoolTest.cpp" />
     <ClCompile Include="Source\Test\Harness.cpp" />
     <ClCompile Include="Source\Test\IntegrationTestSupport.cpp" />
@@ -151,10 +149,8 @@
   <ItemGroup>
     <ClInclude Include="Include\Pathwinder\Internal\ApiBitSet.h" />
     <ClInclude Include="Include\Pathwinder\Internal\ApiWindows.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\ArrayList.h" />
     <ClInclude Include="Include\Pathwinder\Internal\BufferPool.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Configuration.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\DebugAssert.h" />
     <ClInclude Include="Include\Pathwinder\Internal\DirectoryOperationQueue.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FileInformationStruct.h" />
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemDirectorBuilder.h" />
@@ -166,15 +162,12 @@
     <ClInclude Include="Include\Pathwinder\Internal\Globals.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Iterator.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Message.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\MutexWrapper.h" />
     <ClInclude Include="Include\Pathwinder\Internal\OpenHandleStore.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PathwinderConfigReader.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PrefixTree.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Resolver.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Strings.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\TemporaryBuffer.h" />
     <ClInclude Include="Include\Pathwinder\Internal\ThreadPool.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\ValueOrError.h" />
     <ClInclude Include="Include\Pathwinder\Test\Harness.h" />
     <ClInclude Include="Include\Pathwinder\Test\IntegrationTestSupport.h" />
     <ClInclude Include="Include\Pathwinder\Test\MockDirectoryOperationQueue.h" />
@@ -186,6 +179,11 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources\Pathwinder.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="Modules\Infra\Infra.vcxproj">
+      <Project>{5af31c51-1646-4bda-9407-12273b2da870}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

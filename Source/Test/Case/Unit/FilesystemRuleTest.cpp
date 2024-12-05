@@ -19,8 +19,9 @@
 #include <string_view>
 #include <vector>
 
+#include <Infra/TemporaryBuffer.h>
+
 #include "Strings.h"
-#include "TemporaryBuffer.h"
 
 namespace PathwinderTest
 {
@@ -170,10 +171,10 @@ namespace PathwinderTest
 
     for (const auto& kTestFile : kTestFiles)
     {
-      TemporaryString expectedOutputPath = kTargetDirectory;
+      Infra::TemporaryString expectedOutputPath = kTargetDirectory;
       expectedOutputPath << L'\\' << kTestFile;
 
-      std::optional<TemporaryString> actualOutputPath =
+      std::optional<Infra::TemporaryString> actualOutputPath =
           filesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data());
       TEST_ASSERT(true == actualOutputPath.has_value());
       TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
@@ -181,10 +182,10 @@ namespace PathwinderTest
 
     for (const auto& kTestFile : kTestFiles)
     {
-      TemporaryString expectedOutputPath = kOriginDirectory;
+      Infra::TemporaryString expectedOutputPath = kOriginDirectory;
       expectedOutputPath << L'\\' << kTestFile;
 
-      std::optional<TemporaryString> actualOutputPath =
+      std::optional<Infra::TemporaryString> actualOutputPath =
           filesystemRule.RedirectPathTargetToOrigin(kTargetDirectory, kTestFile.data());
       TEST_ASSERT(true == actualOutputPath.has_value());
       TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
@@ -206,22 +207,24 @@ namespace PathwinderTest
 
     for (const auto& kTestFile : kTestFiles)
     {
-      TemporaryString expectedOutputPath;
+      Infra::TemporaryString expectedOutputPath;
       expectedOutputPath << kNamespacePrefix << kTargetDirectory << L'\\' << kTestFile;
 
-      std::optional<TemporaryString> actualOutputPath = filesystemRule.RedirectPathOriginToTarget(
-          kOriginDirectory, kTestFile.data(), kNamespacePrefix);
+      std::optional<Infra::TemporaryString> actualOutputPath =
+          filesystemRule.RedirectPathOriginToTarget(
+              kOriginDirectory, kTestFile.data(), kNamespacePrefix);
       TEST_ASSERT(true == actualOutputPath.has_value());
       TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
     }
 
     for (const auto& kTestFile : kTestFiles)
     {
-      TemporaryString expectedOutputPath;
+      Infra::TemporaryString expectedOutputPath;
       expectedOutputPath << kNamespacePrefix << kOriginDirectory << L'\\' << kTestFile;
 
-      std::optional<TemporaryString> actualOutputPath = filesystemRule.RedirectPathTargetToOrigin(
-          kTargetDirectory, kTestFile.data(), kNamespacePrefix);
+      std::optional<Infra::TemporaryString> actualOutputPath =
+          filesystemRule.RedirectPathTargetToOrigin(
+              kTargetDirectory, kTestFile.data(), kNamespacePrefix);
       TEST_ASSERT(true == actualOutputPath.has_value());
       TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
     }
@@ -240,7 +243,7 @@ namespace PathwinderTest
 
     const FilesystemRule filesystemRule(L"", kOriginDirectory, kTargetDirectory);
 
-    std::optional<TemporaryString> actualOutputPath =
+    std::optional<Infra::TemporaryString> actualOutputPath =
         filesystemRule.RedirectPathOriginToTarget(kInputPathDirectory, kInputPathFile);
     TEST_ASSERT(true == actualOutputPath.has_value());
     TEST_ASSERT(actualOutputPath.value() == kExpectedOutputPath);
@@ -265,10 +268,10 @@ namespace PathwinderTest
 
     for (const auto& kTestFile : kTestFilesMatching)
     {
-      TemporaryString expectedOutputPath = kTargetDirectory;
+      Infra::TemporaryString expectedOutputPath = kTargetDirectory;
       expectedOutputPath << L'\\' << kTestFile;
 
-      std::optional<TemporaryString> actualOutputPath =
+      std::optional<Infra::TemporaryString> actualOutputPath =
           filesystemRule.RedirectPathOriginToTarget(kOriginDirectory, kTestFile.data());
       TEST_ASSERT(true == actualOutputPath.has_value());
       TEST_ASSERT(actualOutputPath.value() == expectedOutputPath);
@@ -297,7 +300,7 @@ namespace PathwinderTest
         L"D:\\AnotherDirectory\\Target\\Subdir1\\Subdir2\\file.txt";
 
     const FilesystemRule filesystemRule(L"", kOriginDirectory, kTargetDirectory);
-    std::optional<TemporaryString> actualOutputPath =
+    std::optional<Infra::TemporaryString> actualOutputPath =
         filesystemRule.RedirectPathOriginToTarget(kInputDirectory, kInputFile);
     TEST_ASSERT(actualOutputPath.has_value());
     TEST_ASSERT(actualOutputPath.value() == kExpectedOutputPath);
@@ -317,7 +320,7 @@ namespace PathwinderTest
 
     const FilesystemRule filesystemRule(
         L"", kOriginDirectory, kTargetDirectory, std::move(filePatterns));
-    std::optional<TemporaryString> actualOutputPath =
+    std::optional<Infra::TemporaryString> actualOutputPath =
         filesystemRule.RedirectPathOriginToTarget(kInputDirectory, kInputFile);
     TEST_ASSERT(false == actualOutputPath.has_value());
   }

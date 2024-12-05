@@ -18,19 +18,20 @@
 #include <functional>
 #include <mutex>
 
+#include <Infra/ArrayList.h>
+#include <Infra/Mutex.h>
+#include <Infra/TemporaryBuffer.h>
+#include <Infra/ValueOrError.h>
+
 #include "ApiWindows.h"
-#include "ArrayList.h"
 #include "BufferPool.h"
 #include "FileInformationStruct.h"
 #include "FilesystemOperations.h"
 #include "Globals.h"
 #include "Message.h"
-#include "MutexWrapper.h"
 #include "OpenHandleStore.h"
 #include "Strings.h"
-#include "TemporaryBuffer.h"
 #include "ThreadPool.h"
-#include "ValueOrError.h"
 
 namespace Pathwinder
 {
@@ -62,7 +63,7 @@ namespace Pathwinder
 
       /// If an input path was composed, for example due to combination with a root directory,
       /// then that input path is stored here.
-      std::optional<TemporaryString> composedInputPath;
+      std::optional<Infra::TemporaryString> composedInputPath;
     };
 
     /// Directory enumeration request parameters.
@@ -225,7 +226,8 @@ namespace Pathwinder
     /// operations. Each element is either a create disposition that should be attempted or a forced
     /// result code, in which case the file operation should not be attempted but rather assumed to
     /// have the forced result.
-    using TCreateDispositionsList = ArrayList<ValueOrError<SCreateDispositionToTry, NTSTATUS>, 2>;
+    using TCreateDispositionsList =
+        Infra::ArrayList<Infra::ValueOrError<SCreateDispositionToTry, NTSTATUS>, 2>;
 
     /// Holds multiple file operations to attempt in a small list, ordered by priority.
     /// Each element is either a single file operation that should be submitted to the system or a
@@ -233,7 +235,7 @@ namespace Pathwinder
     /// the forced result.
     /// @tparam FileObjectType Data structure type that identifies files to try.
     template <typename FileObjectType> using TFileOperationsList =
-        ArrayList<ValueOrError<FileObjectType*, NTSTATUS>, 2>;
+        Infra::ArrayList<Infra::ValueOrError<FileObjectType*, NTSTATUS>, 2>;
 
     /// Converts a `CreateDisposition` parameter, which system calls use to identify filesystem
     /// behavior regarding creating new files or opening existing files, into an appropriate
@@ -330,7 +332,7 @@ namespace Pathwinder
         // their parameters to the log file. This is just a cosmetic readability issue. Furthermore,
         // using a mutex does not prevent other log messages unrelated to dumping parameters from
         // being interleaved.
-        static Mutex paramPrintMutex;
+        static Infra::Mutex paramPrintMutex;
         std::unique_lock paramPrintLock(paramPrintMutex);
 
         Message::OutputFormatted(
@@ -645,7 +647,7 @@ namespace Pathwinder
         std::function<FileOperationInstruction(
             std::wstring_view, FileAccessMode, CreateDisposition)> instructionSourceFunc)
     {
-      std::optional<TemporaryString> maybeRedirectedFilename = std::nullopt;
+      std::optional<Infra::TemporaryString> maybeRedirectedFilename = std::nullopt;
       std::optional<OpenHandleStore::SHandleDataView> maybeRootDirectoryHandleData =
           ((nullptr == rootDirectory) ? std::nullopt
                                       : openHandleStore.GetDataForHandle(rootDirectory));
@@ -658,7 +660,7 @@ namespace Pathwinder
 
         std::wstring_view rootDirectoryHandlePath = maybeRootDirectoryHandleData->associatedPath;
 
-        TemporaryString inputFullFilename;
+        Infra::TemporaryString inputFullFilename;
         inputFullFilename << rootDirectoryHandlePath << L'\\' << inputFilename;
 
         FileOperationInstruction redirectionInstruction =
@@ -1634,7 +1636,7 @@ namespace Pathwinder
       // path (after the rename) is relative to the directory in which the file is currently
       // located. Since the file is identified only by its handle, Pathwinder needs to figure out
       // the path of its containing directory so that redirection rules can be applied correctly.
-      std::optional<TemporaryString> maybeComposedUnredirectedPath = std::nullopt;
+      std::optional<Infra::TemporaryString> maybeComposedUnredirectedPath = std::nullopt;
       if ((nullptr == renameInformation.rootDirectory) &&
           (false == Strings::PathBeginsWithDriveLetter(unredirectedPath)))
       {
@@ -1649,7 +1651,7 @@ namespace Pathwinder
 
         if (true == maybeDirectorySourceHandleData.has_value())
         {
-          maybeComposedUnredirectedPath = TemporaryString();
+          maybeComposedUnredirectedPath = Infra::TemporaryString();
           (*maybeComposedUnredirectedPath)
               << Strings::PathGetParentDirectory(maybeDirectorySourceHandleData->associatedPath)
               << L'\\' << unredirectedPath;
@@ -1661,7 +1663,7 @@ namespace Pathwinder
 
           if (true == maybeAbsolutePath.HasValue())
           {
-            maybeComposedUnredirectedPath = TemporaryString();
+            maybeComposedUnredirectedPath = Infra::TemporaryString();
             (*maybeComposedUnredirectedPath)
                 << Strings::PathGetParentDirectory(maybeAbsolutePath.Value().AsStringView())
                 << L'\\' << unredirectedPath;

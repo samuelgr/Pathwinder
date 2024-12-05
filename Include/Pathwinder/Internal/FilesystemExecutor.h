@@ -15,13 +15,14 @@
 #include <cstdint>
 #include <functional>
 
+#include <Infra/TemporaryBuffer.h>
+
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"
 #include "FilesystemDirector.h"
 #include "FilesystemInstruction.h"
 #include "OpenHandleStore.h"
 #include "Strings.h"
-#include "TemporaryBuffer.h"
 
 namespace Pathwinder
 {

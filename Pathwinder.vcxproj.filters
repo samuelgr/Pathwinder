@@ -24,9 +24,6 @@
     <ClCompile Include="Source\Message.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\TemporaryBuffer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Strings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -86,13 +83,7 @@
     <ClInclude Include="Include\Pathwinder\Internal\Message.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Internal\TemporaryBuffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\Strings.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Internal\ValueOrError.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\Configuration.h">
@@ -116,9 +107,6 @@
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemOperations.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Internal\DebugAssert.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\PrefixTree.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -126,9 +114,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\Hooks.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Internal\MutexWrapper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemInstruction.h">
@@ -150,9 +135,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\Iterator.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Internal\ArrayList.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Include\Pathwinder\Internal\FilesystemExecutor.h">

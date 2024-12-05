@@ -18,11 +18,12 @@
 #include <mutex>
 #include <string>
 
+#include <Infra/Mutex.h>
+#include <Infra/TemporaryBuffer.h>
+
 #include "ApiWindows.h"
 #include "Globals.h"
-#include "MutexWrapper.h"
 #include "Strings.h"
-#include "TemporaryBuffer.h"
 
 namespace Pathwinder
 {
@@ -188,13 +189,13 @@ namespace Pathwinder
     /// @param [in] message Message text.
     static void OutputInternalUsingLogFile(const ESeverity severity, const wchar_t* message)
     {
-      TemporaryString outputString;
+      Infra::TemporaryString outputString;
 
       // First compose the output string stamp.
       // Desired format is "[(current date) (current time)] [(severity)]"
       outputString << L'[';
 
-      TemporaryBuffer<wchar_t> bufferTimestamp;
+      Infra::TemporaryBuffer<wchar_t> bufferTimestamp;
 
       if (0 !=
           GetDateFormatEx(
@@ -275,7 +276,7 @@ namespace Pathwinder
       // message box) use system objects and subsequently free them using `NtClose`. As a
       // result, this function may be called more than once by the same thread, so a
       // non-recursive mutex would lead to deadlock.
-      static RecursiveMutex outputGuard;
+      static Infra::RecursiveMutex outputGuard;
 
       EOutputMode outputModes[static_cast<int>(EOutputMode::UpperBoundValue)];
       const int numOutputModes = DetermineOutputModes(severity, outputModes);
@@ -319,7 +320,7 @@ namespace Pathwinder
     static void OutputFormattedInternal(
         const ESeverity severity, const wchar_t* format, va_list args)
     {
-      TemporaryBuffer<wchar_t> messageBuf;
+      Infra::TemporaryBuffer<wchar_t> messageBuf;
 
       vswprintf_s(messageBuf.Data(), messageBuf.Capacity(), format, args);
       OutputInternal(severity, messageBuf.Data());

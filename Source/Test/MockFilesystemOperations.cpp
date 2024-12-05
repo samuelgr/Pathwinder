@@ -18,10 +18,11 @@
 #include <string_view>
 #include <unordered_map>
 
+#include <Infra/ValueOrError.h>
+
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"
 #include "Strings.h"
-#include "ValueOrError.h"
 
 namespace PathwinderTest
 {
@@ -208,7 +209,7 @@ namespace PathwinderTest
     return filesystemContents.contains(absolutePath);
   }
 
-  ValueOrError<HANDLE, NTSTATUS> MockFilesystemOperations::OpenDirectoryForEnumeration(
+  Infra::ValueOrError<HANDLE, NTSTATUS> MockFilesystemOperations::OpenDirectoryForEnumeration(
       std::wstring_view absoluteDirectoryPath)
   {
     HANDLE openResult =
@@ -333,8 +334,8 @@ namespace PathwinderTest
     return NtStatus::kSuccess;
   }
 
-  ValueOrError<TemporaryString, NTSTATUS> MockFilesystemOperations::QueryAbsolutePathByHandle(
-      HANDLE fileHandle)
+  Infra::ValueOrError<Infra::TemporaryString, NTSTATUS>
+      MockFilesystemOperations::QueryAbsolutePathByHandle(HANDLE fileHandle)
   {
     auto maybeAbsolutePath = GetPathFromHandle(fileHandle);
 
@@ -344,10 +345,11 @@ namespace PathwinderTest
           __FUNCTIONW__,
           reinterpret_cast<size_t>(fileHandle));
 
-    return TemporaryString(*maybeAbsolutePath);
+    return Infra::TemporaryString(*maybeAbsolutePath);
   }
 
-  ValueOrError<ULONG, NTSTATUS> MockFilesystemOperations::QueryFileHandleMode(HANDLE fileHandle)
+  Infra::ValueOrError<ULONG, NTSTATUS> MockFilesystemOperations::QueryFileHandleMode(
+      HANDLE fileHandle)
   {
     const auto directoryHandleIter = openFilesystemHandles.find(fileHandle);
     if (openFilesystemHandles.cend() == directoryHandleIter) return NtStatus::kObjectNameNotFound;
@@ -433,7 +435,7 @@ namespace Pathwinder
       MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, IsDirectory, absolutePath);
     }
 
-    ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
+    Infra::ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
         std::wstring_view absoluteDirectoryPath)
     {
       MOCK_FREE_FUNCTION_BODY(
@@ -459,12 +461,13 @@ namespace Pathwinder
           filePattern);
     }
 
-    ValueOrError<TemporaryString, NTSTATUS> QueryAbsolutePathByHandle(HANDLE fileHandle)
+    Infra::ValueOrError<Infra::TemporaryString, NTSTATUS> QueryAbsolutePathByHandle(
+        HANDLE fileHandle)
     {
       MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, QueryAbsolutePathByHandle, fileHandle);
     }
 
-    ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle)
+    Infra::ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle)
     {
       MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, QueryFileHandleMode, fileHandle);
     }

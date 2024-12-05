@@ -14,8 +14,9 @@
 
 #include <utility>
 
+#include <Infra/Mutex.h>
+
 #include "ApiWindows.h"
-#include "MutexWrapper.h"
 
 namespace Pathwinder
 {

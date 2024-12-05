@@ -16,9 +16,10 @@
 #include <string>
 #include <string_view>
 
+#include <Infra/TemporaryBuffer.h>
+#include <Infra/ValueOrError.h>
+
 #include "Configuration.h"
-#include "TemporaryBuffer.h"
-#include "ValueOrError.h"
 
 namespace Pathwinder
 {
@@ -26,11 +27,12 @@ namespace Pathwinder
   {
     /// Type alias for representing either the result of resolving references or an error
     /// message. This version fully contains and owns the resulting string.
-    using ResolvedStringOrError = ValueOrError<std::wstring, TemporaryString>;
+    using ResolvedStringOrError = Infra::ValueOrError<std::wstring, Infra::TemporaryString>;
 
     /// Type alias for representing either the result of resolving references or an error
     /// message. This version provides the resulting string as a read-only view.
-    using ResolvedStringViewOrError = ValueOrError<std::wstring_view, TemporaryString>;
+    using ResolvedStringViewOrError =
+        Infra::ValueOrError<std::wstring_view, Infra::TemporaryString>;
 
     /// Type alias for representing all the definitions of values that correspond to the CONF
     /// domain. Typically these would be located in a configuration file.

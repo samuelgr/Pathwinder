@@ -18,19 +18,20 @@
 #include <optional>
 #include <string_view>
 
+#include <Infra/DebugAssert.h>
+#include <Infra/TemporaryBuffer.h>
+#include <Infra/ValueOrError.h>
+
 #include "ApiWindows.h"
-#include "DebugAssert.h"
 #include "FileInformationStruct.h"
 #include "Hooks.h"
 #include "Message.h"
 #include "Strings.h"
-#include "TemporaryBuffer.h"
-#include "ValueOrError.h"
 
 /// Ensures that the specified function parameter, which is a string view, has a Windows namespace
 /// prefix. This is a common requirement when invoking any Windows system calls.
 #define ENSURE_ABSOLUTE_PATH_PARAM_HAS_WINDOWS_NAMESPCE_PREFIX(param)                              \
-  std::optional<TemporaryString> _internal_maybePrefixed_##param = std::nullopt;                   \
+  std::optional<Infra::TemporaryString> _internal_maybePrefixed_##param = std::nullopt;            \
   if (false == Strings::PathHasWindowsNamespacePrefix(param))                                      \
   {                                                                                                \
     _internal_maybePrefixed_##param = Strings::PathAddWindowsNamespacePrefix(param);               \
@@ -335,7 +336,7 @@ namespace Pathwinder
       return AttributesIndicateFileExistsAndIsDirectory(pathAttributes);
     }
 
-    ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
+    Infra::ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
         std::wstring_view absoluteDirectoryPath)
     {
       ENSURE_ABSOLUTE_PATH_PARAM_HAS_WINDOWS_NAMESPCE_PREFIX(absoluteDirectoryPath);
@@ -405,7 +406,8 @@ namespace Pathwinder
       return directoryEnumerationResult;
     }
 
-    ValueOrError<TemporaryString, NTSTATUS> QueryAbsolutePathByHandle(HANDLE fileHandle)
+    Infra::ValueOrError<Infra::TemporaryString, NTSTATUS> QueryAbsolutePathByHandle(
+        HANDLE fileHandle)
     {
       wchar_t driveLetterPrefix[] = {GetLogicalDriveLetterForHandle(fileHandle), L':', L'\0'};
       if (L'\0' == driveLetterPrefix[0]) return NtStatus::kObjectNameNotFound;
@@ -424,13 +426,13 @@ namespace Pathwinder
       if (false == absolutePathNameInformation.GetDanglingFilename().starts_with(L'\\'))
         return NtStatus::kObjectNameNotFound;
 
-      TemporaryString absolutePath;
+      Infra::TemporaryString absolutePath;
       absolutePath << driveLetterPrefix << absolutePathNameInformation.GetDanglingFilename();
 
       return absolutePath;
     }
 
-    ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle)
+    Infra::ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle)
     {
       SFileModeInformation modeInformation{};
       IO_STATUS_BLOCK unusedStatusBlock{};

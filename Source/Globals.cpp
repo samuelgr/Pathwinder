@@ -18,10 +18,11 @@
 #include <string>
 #include <string_view>
 
+#include <Infra/TemporaryBuffer.h>
+
 #include "Message.h"
 #include "Resolver.h"
 #include "Strings.h"
-#include "TemporaryBuffer.h"
 
 #ifndef PATHWINDER_SKIP_CONFIG
 #include "Configuration.h"
@@ -159,7 +160,7 @@ namespace Pathwinder
     /// @return Filled configuration data object.
     static Configuration::ConfigurationData ReadConfigurationFile(void)
     {
-      TemporaryString configFileName;
+      Infra::TemporaryString configFileName;
       configFileName << Strings::kStrPathwinderDirectoryName << L"\\"
                      << Strings::kStrConfigurationFilename;
 

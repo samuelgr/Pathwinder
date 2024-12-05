@@ -17,10 +17,11 @@
 #include <string>
 #include <string_view>
 
+#include <Infra/TemporaryBuffer.h>
+
 #include "ApiWindows.h"
 #include "Configuration.h"
 #include "Strings.h"
-#include "TemporaryBuffer.h"
 
 namespace PathwinderTest
 {
@@ -57,7 +58,7 @@ namespace PathwinderTest
   /// @return Resolved string, if resolution succeeded.
   static std::optional<std::wstring> GetEnvironmentVariableString(std::wstring_view name)
   {
-    TemporaryBuffer<wchar_t> environmentVariableValue;
+    Infra::TemporaryBuffer<wchar_t> environmentVariableValue;
     const DWORD getEnvironmentVariableResult = GetEnvironmentVariable(
         std::wstring(name).c_str(),
         environmentVariableValue.Data(),

@@ -18,10 +18,11 @@
 #include <unordered_set>
 #include <vector>
 
+#include <Infra/ValueOrError.h>
+
 #include "Configuration.h"
 #include "FilesystemDirector.h"
 #include "FilesystemRule.h"
-#include "ValueOrError.h"
 
 namespace Pathwinder
 {
@@ -83,7 +84,7 @@ namespace Pathwinder
     /// redirections are presented to the application and which files are tried. Default
     /// behavior is to use simple redirection mode.
     /// @return Pointer to the new rule on success, error message on failure.
-    ValueOrError<const FilesystemRule*, TemporaryString> AddRule(
+    Infra::ValueOrError<const FilesystemRule*, Infra::TemporaryString> AddRule(
         std::wstring&& ruleName,
         std::wstring_view originDirectory,
         std::wstring_view targetDirectory,
@@ -98,8 +99,9 @@ namespace Pathwinder
     /// @param [in] configSection Configuration section data object that contains the settings
     /// that define the new rule.
     /// @return Pointer to the new rule on success, error message on failure.
-    ValueOrError<const FilesystemRule*, TemporaryString> AddRuleFromConfigurationSection(
-        std::wstring&& ruleName, Configuration::Section& configSection);
+    Infra::ValueOrError<const FilesystemRule*, Infra::TemporaryString>
+        AddRuleFromConfigurationSection(
+            std::wstring&& ruleName, Configuration::Section& configSection);
 
     /// Attempts to build a real filesystem director object using all of the rules added so far.
     /// Built filesystem director objects are immutable. Some constraints that are enforced
@@ -114,7 +116,7 @@ namespace Pathwinder
     /// directory or target directory as an ancestor in the filesystem.
     /// @return Newly-built filesystem director object on success, or an error message on
     /// failure.
-    ValueOrError<FilesystemDirector, TemporaryString> Build(void);
+    Infra::ValueOrError<FilesystemDirector, Infra::TemporaryString> Build(void);
 
     /// Retrieves and returns the number of filesystem rules successfully added to this object.
     /// @return Number of filesystem rules.

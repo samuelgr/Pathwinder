@@ -18,11 +18,12 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include <Infra/DebugAssert.h>
+#include <Infra/TemporaryBuffer.h>
+
 #include "ApiWindows.h"
 #include "Configuration.h"
-#include "DebugAssert.h"
 #include "Strings.h"
-#include "TemporaryBuffer.h"
 
 namespace Pathwinder
 {
@@ -96,7 +97,7 @@ namespace Pathwinder
     /// @return Resolved value on success, error message on failure.
     static ResolvedStringOrError ResolveEnvironmentVariable(std::wstring_view name)
     {
-      TemporaryBuffer<wchar_t> environmentVariableValue;
+      Infra::TemporaryBuffer<wchar_t> environmentVariableValue;
       const DWORD getEnvironmentVariableResult = GetEnvironmentVariable(
           std::wstring(name).c_str(),
           environmentVariableValue.Data(),
@@ -310,7 +311,7 @@ namespace Pathwinder
       if (resolvedSingleReferenceCache.cend() != previouslyResolvedIter)
         return ResolvedStringViewOrError::MakeValue(previouslyResolvedIter->second);
 
-      TemporaryVector<std::wstring_view> strParts =
+      Infra::TemporaryVector<std::wstring_view> strParts =
           Strings::SplitString(str, Strings::kStrDelimterReferenceDomainVsName);
       std::wstring_view strPartReferenceDomain;
       std::wstring_view strPartReferenceName;
@@ -352,8 +353,8 @@ namespace Pathwinder
         std::wstring_view escapeSequenceStart,
         std::wstring_view escapeSequenceEnd)
     {
-      TemporaryString resolvedStr;
-      TemporaryVector<std::wstring_view> strParts =
+      Infra::TemporaryString resolvedStr;
+      Infra::TemporaryVector<std::wstring_view> strParts =
           Strings::SplitString(str, Strings::kStrDelimiterReferenceVsLiteral);
 
       if (1 != (strParts.Size() % 2))
@@ -420,7 +421,7 @@ namespace Pathwinder
     {
       const bool hasTrailingPathDelimiter = potentiallyRelativePath.ends_with(pathDelimiter);
 
-      TemporaryVector<std::wstring_view> resolvedPathComponents;
+      Infra::TemporaryVector<std::wstring_view> resolvedPathComponents;
       size_t resolvedPathLength = 0;
 
       for (std::wstring_view pathComponent :

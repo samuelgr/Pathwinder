@@ -18,14 +18,15 @@
 #include <optional>
 #include <unordered_map>
 
+#include <Infra/ArrayList.h>
+#include <Infra/DebugAssert.h>
+#include <Infra/ValueOrError.h>
+
 #include "ApiWindows.h"
-#include "ArrayList.h"
 #include "BufferPool.h"
-#include "DebugAssert.h"
 #include "FileInformationStruct.h"
 #include "FilesystemOperations.h"
 #include "Strings.h"
-#include "ValueOrError.h"
 
 namespace Pathwinder
 {
@@ -106,7 +107,7 @@ namespace Pathwinder
   }
 
   NameInsertionQueue::NameInsertionQueue(
-      TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&&
+      Infra::TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&&
           nameInsertionQueue,
       FILE_INFORMATION_CLASS fileInformationClass,
       std::wstring_view queryFilePattern)

@@ -15,11 +15,12 @@
 #include <optional>
 #include <vector>
 
+#include <Infra/TemporaryBuffer.h>
+
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemRule.h"
-#include "TemporaryBuffer.h"
 
 #pragma once
 
@@ -186,7 +187,7 @@ namespace Pathwinder
   public:
 
     NameInsertionQueue(
-        TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&&
+        Infra::TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&&
             nameInsertionQueue,
         FILE_INFORMATION_CLASS fileInformationClass,
         std::wstring_view queryFilePattern = std::wstring_view());
@@ -215,7 +216,8 @@ namespace Pathwinder
     /// Retrieves the name insertion instructions that this queue will use to generate directory
     /// enumeration output. Primarily intended for tests.
     /// @return Name insertion instructions.
-    inline const TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&
+    inline const Infra::TemporaryVector<
+        DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&
         GetNameInsertionInstructions(void) const
     {
       return nameInsertionQueue;
@@ -239,7 +241,7 @@ namespace Pathwinder
     std::wstring filePattern;
 
     /// Name insertions to be performed in order from first element to last element.
-    TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
+    Infra::TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
         nameInsertionQueue;
 
     /// Position of the next element of the queue.

@@ -19,6 +19,8 @@
 #include <set>
 #include <string_view>
 
+#include <Infra/TemporaryBuffer.h>
+
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"
 #include "FilesystemDirector.h"
@@ -27,7 +29,6 @@
 #include "MockFilesystemOperations.h"
 #include "OpenHandleStore.h"
 #include "PathwinderConfigReader.h"
-#include "TemporaryBuffer.h"
 
 namespace PathwinderTest
 {
@@ -191,7 +192,7 @@ namespace PathwinderTest
   {
     for (const auto& expectedFile : expectedFiles)
     {
-      TemporaryString expectedFileAbsolutePath;
+      Infra::TemporaryString expectedFileAbsolutePath;
       expectedFileAbsolutePath << directoryAbsolutePath << L'\\' << expectedFile;
 
       HANDLE expectedFileHandle = OpenUsingFilesystemExecutor(context, expectedFileAbsolutePath);
@@ -372,7 +373,7 @@ namespace PathwinderTest
         [&context](PHANDLE fileHandle, POBJECT_ATTRIBUTES objectAttributes, ULONG createDisposition)
             -> NTSTATUS
         {
-          TemporaryString absolutePathToOpen;
+          Infra::TemporaryString absolutePathToOpen;
 
           if (nullptr != objectAttributes->RootDirectory)
             absolutePathToOpen << *context->mockFilesystem.GetPathFromHandle(
@@ -426,7 +427,7 @@ namespace PathwinderTest
         },
         [&context](POBJECT_ATTRIBUTES objectAttributes) -> NTSTATUS
         {
-          TemporaryString absolutePathToQuery;
+          Infra::TemporaryString absolutePathToQuery;
 
           if (nullptr != objectAttributes->RootDirectory)
             absolutePathToQuery << *context->mockFilesystem.GetPathFromHandle(

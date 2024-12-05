@@ -19,10 +19,11 @@
 #include <string_view>
 #include <vector>
 
-#include "ArrayList.h"
-#include "DebugAssert.h"
+#include <Infra/ArrayList.h>
+#include <Infra/DebugAssert.h>
+#include <Infra/TemporaryBuffer.h>
+
 #include "Strings.h"
-#include "TemporaryBuffer.h"
 
 namespace Pathwinder
 {
@@ -222,7 +223,7 @@ namespace Pathwinder
     /// @param [in] extraSuffix Extra suffix to be added to the end of the output. This
     /// parameter is optional and defaults to the empty string.
     /// @return Redirected location as an absolute path, if redirection occurred successfully.
-    std::optional<TemporaryString> RedirectPathOriginToTarget(
+    std::optional<Infra::TemporaryString> RedirectPathOriginToTarget(
         std::wstring_view candidatePathDirectoryPart,
         std::wstring_view candidatePathFilePart,
         std::wstring_view namespacePrefix = std::wstring_view(),
@@ -244,7 +245,7 @@ namespace Pathwinder
     /// @param [in] extraSuffix Extra suffix to be added to the end of the output. This
     /// parameter is optional and defaults to the empty string.
     /// @return Redirected location as an absolute path, if redirection occurred successfully.
-    std::optional<TemporaryString> RedirectPathTargetToOrigin(
+    std::optional<Infra::TemporaryString> RedirectPathTargetToOrigin(
         std::wstring_view candidatePathDirectoryPart,
         std::wstring_view candidatePathFilePart,
         std::wstring_view namespacePrefix = std::wstring_view(),

@@ -17,9 +17,10 @@
 #include <string_view>
 #include <vector>
 
+#include <Infra/TemporaryBuffer.h>
+
 #include "ApiBitSet.h"
 #include "FilesystemRule.h"
-#include "TemporaryBuffer.h"
 
 namespace Pathwinder
 {
@@ -456,7 +457,7 @@ namespace Pathwinder
 
     /// Type alias for holding individual directory name insertions that need to be merged into
     /// the result of an application-requested directory enumeration operation.
-    using TDirectoryNamesToInsert = TemporaryVector<SingleDirectoryNameInsertion>;
+    using TDirectoryNamesToInsert = Infra::TemporaryVector<SingleDirectoryNameInsertion>;
 
     inline DirectoryEnumerationInstruction(
         TDirectoriesToEnumerate&& directoriesToEnumerate,
@@ -596,7 +597,7 @@ namespace Pathwinder
     /// Not intended to be invoked externally. Objects should generally be created using factory
     /// methods.
     inline FileOperationInstruction(
-        std::optional<TemporaryString>&& redirectedFilename,
+        std::optional<Infra::TemporaryString>&& redirectedFilename,
         ETryFiles filenamesToTry,
         ECreateDispositionPreference createDispositionPreference,
         EAssociateNameWithHandle filenameHandleAssociation,
@@ -668,7 +669,7 @@ namespace Pathwinder
     /// @return File operation redirection instruction encoded to indicate redirection plus
     /// optionally some additional processing.
     static inline FileOperationInstruction SimpleRedirectTo(
-        TemporaryString&& redirectedFilename,
+        Infra::TemporaryString&& redirectedFilename,
         EAssociateNameWithHandle filenameHandleAssociation = EAssociateNameWithHandle::None,
         BitSetEnum<EExtraPreOperation>&& extraPreOperations = {},
         std::wstring_view extraPreOperationOperand = std::wstring_view())
@@ -699,7 +700,7 @@ namespace Pathwinder
     /// @return File operation redirection instruction encoded to indicate redirection plus
     /// optionally some additional processing.
     static inline FileOperationInstruction OverlayRedirectTo(
-        TemporaryString&& redirectedFilename,
+        Infra::TemporaryString&& redirectedFilename,
         EAssociateNameWithHandle filenameHandleAssociation = EAssociateNameWithHandle::None,
         ECreateDispositionPreference createDispositionPreference =
             ECreateDispositionPreference::NoPreference,
@@ -771,7 +772,7 @@ namespace Pathwinder
     /// Redirected filename. This would result from a file operation redirection query that
     /// matches a rule and ends up being redirected. If not present, then no redirection
     /// occurred.
-    std::optional<TemporaryString> redirectedFilename;
+    std::optional<Infra::TemporaryString> redirectedFilename;
 
     /// Filenames to try when submitting a file operation to the underlying system call.
     ETryFiles filenamesToTry;

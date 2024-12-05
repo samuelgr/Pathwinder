@@ -17,9 +17,10 @@
 #include <string_view>
 #include <unordered_map>
 
-#include "ArrayList.h"
+#include <Infra/ArrayList.h>
+#include <Infra/TemporaryBuffer.h>
+
 #include "Strings.h"
-#include "TemporaryBuffer.h"
 
 namespace Pathwinder
 {
@@ -503,6 +504,6 @@ namespace Pathwinder
 
     /// Delimiters that act as delimiters between components of path strings. Immutable once this
     /// object is created.
-    ArrayList<TStringView, kMaxDelimiters> pathDelimiters;
+    Infra::ArrayList<TStringView, kMaxDelimiters> pathDelimiters;
   };
 } // namespace Pathwinder

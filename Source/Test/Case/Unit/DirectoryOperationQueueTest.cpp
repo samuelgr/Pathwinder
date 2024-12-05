@@ -18,13 +18,14 @@
 #include <string>
 #include <string_view>
 
+#include <Infra/TemporaryBuffer.h>
+
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemRule.h"
 #include "MockDirectoryOperationQueue.h"
 #include "MockFilesystemOperations.h"
-#include "TemporaryBuffer.h"
 
 namespace PathwinderTest
 {
@@ -132,7 +133,7 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     for (auto fileName : kFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
@@ -169,7 +170,7 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     for (auto fileName : kFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
@@ -218,13 +219,13 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     for (auto fileName : kMatchingFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
     for (auto fileName : kNonMatchingFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
@@ -274,7 +275,7 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     for (auto fileName : kFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
@@ -327,13 +328,13 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     for (auto fileName : kMatchingFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
     for (auto fileName : kNonMatchingFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
@@ -376,13 +377,13 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     for (auto fileName : kMatchingFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
     for (auto fileName : kNonMatchingFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
@@ -430,13 +431,13 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     for (auto fileName : kMatchingFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
     for (auto fileName : kNonMatchingFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
@@ -478,7 +479,7 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     for (auto fileName : kFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
@@ -511,7 +512,7 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     for (auto fileName : kFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
@@ -563,7 +564,7 @@ namespace PathwinderTest
     const FilesystemRule filesystemRules[] = {
         FilesystemRule(L"", L"C:\\Directory1\\Origin", L"C:\\Directory2\\Target")};
 
-    TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
+    Infra::TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
         nameInsertionInstructions;
     for (const auto& filesystemRule : filesystemRules)
       nameInsertionInstructions.EmplaceBack(filesystemRule);
@@ -595,7 +596,7 @@ namespace PathwinderTest
 
     constexpr std::wstring_view kFilePattern = L"a*";
 
-    TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
+    Infra::TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
         nameInsertionInstructions;
     for (const auto& filesystemRule : filesystemRules)
       nameInsertionInstructions.EmplaceBack(filesystemRule);
@@ -619,7 +620,7 @@ namespace PathwinderTest
     const FilesystemRule filesystemRules[] = {
         FilesystemRule(L"", L"C:\\Directory1\\Origin", L"C:\\Directory2\\Target")};
 
-    TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
+    Infra::TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
         nameInsertionInstructions;
     for (const auto& filesystemRule : filesystemRules)
       nameInsertionInstructions.EmplaceBack(filesystemRule);
@@ -648,7 +649,7 @@ namespace PathwinderTest
     const FilesystemRule filesystemRules[] = {
         FilesystemRule(L"", L"C:\\Directory1\\Origin", L"C:\\Directory2\\Target")};
 
-    TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
+    Infra::TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
         nameInsertionInstructions;
     for (const auto& filesystemRule : filesystemRules)
       nameInsertionInstructions.EmplaceBack(filesystemRule);
@@ -674,7 +675,7 @@ namespace PathwinderTest
         FilesystemRule(L"", L"C:\\DirectoryOrigin\\Origin3", L"C:\\DirectoryTarget\\Target3"),
         FilesystemRule(L"", L"C:\\DirectoryOrigin\\Origin4", L"C:\\DirectoryTarget\\Target4")};
 
-    TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
+    Infra::TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>
         nameInsertionInstructions;
     for (const auto& filesystemRule : filesystemRules)
       nameInsertionInstructions.EmplaceBack(filesystemRule);
@@ -860,13 +861,13 @@ namespace PathwinderTest
     MockFilesystemOperations mockFilesystem;
     for (auto fileName : kFirstDirectoryFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kFirstDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }
     for (auto fileName : kSecondDirectoryFileNames)
     {
-      TemporaryString fileAbsolutePath;
+      Infra::TemporaryString fileAbsolutePath;
       fileAbsolutePath << kSecondDirectoryName << L'\\' << fileName;
       mockFilesystem.AddFile(fileAbsolutePath.AsStringView());
     }

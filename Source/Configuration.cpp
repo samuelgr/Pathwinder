@@ -23,8 +23,9 @@
 #include <string_view>
 #include <vector>
 
+#include <Infra/TemporaryBuffer.h>
+
 #include "Strings.h"
-#include "TemporaryBuffer.h"
 
 namespace Pathwinder
 {
@@ -745,7 +746,7 @@ namespace Pathwinder
       std::wstring_view thisSection = kSectionNameGlobal;
 
       int configLineNumber = 1;
-      TemporaryBuffer<wchar_t> configLineBuffer;
+      Infra::TemporaryBuffer<wchar_t> configLineBuffer;
       int configLineLength =
           ReadAndTrimLine(readHandle, configLineBuffer.Data(), configLineBuffer.Capacity());
       bool skipValueLines = false;
@@ -1040,9 +1041,9 @@ namespace Pathwinder
       return configToFill;
     }
 
-    TemporaryString ConfigurationData::ToConfigurationFileString(void) const
+    Infra::TemporaryString ConfigurationData::ToConfigurationFileString(void) const
     {
-      TemporaryString configurationFileString;
+      Infra::TemporaryString configurationFileString;
 
       for (const auto& sectionRecord : sections)
       {

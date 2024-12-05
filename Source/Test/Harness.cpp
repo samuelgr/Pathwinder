@@ -17,7 +17,8 @@
 #include <set>
 #include <string_view>
 
-#include "DebugAssert.h"
+#include <Infra/DebugAssert.h>
+
 #include "Utilities.h"
 
 namespace PathwinderTest
@@ -84,7 +85,7 @@ namespace PathwinderTest
             testCase->Run();
             testCasePassed = true;
           }
-          catch (const DebugAssertionException& assertion)
+          catch (const Infra::DebugAssertionException& assertion)
           {
             std::wstring_view assertionMessage = assertion.GetFailureMessage();
             PrintFormatted(

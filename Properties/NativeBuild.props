@@ -104,6 +104,9 @@
   </ItemDefinitionGroup>
   <ItemGroup />
 
+  <!-- Module dependencies -->
+  <Import Project="$(MSBuildThisFileDirectory)Modules.props" Condition="Exists('$(MSBuildThisFileDirectory)Modules.props')"/>
+
   <!-- Third-party dependencies -->
   <Import Project="$(MSBuildThisFileDirectory)ThirdParty.props" Condition="Exists('$(MSBuildThisFileDirectory)ThirdParty.props')"/>
 

@@ -15,9 +15,10 @@
 #include <cstdint>
 #include <string_view>
 
+#include <Infra/TemporaryBuffer.h>
+#include <Infra/ValueOrError.h>
+
 #include "ApiWindows.h"
-#include "TemporaryBuffer.h"
-#include "ValueOrError.h"
 
 namespace Pathwinder
 {
@@ -50,7 +51,7 @@ namespace Pathwinder
     /// Opens the specified directory for synchronous enumeration.
     /// @param [in] absoluteDirectoryPath Absolute path to the directory to be opened.
     /// @return Handle for the directory file on success, Windows error code on failure.
-    ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
+    Infra::ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
         std::wstring_view absoluteDirectoryPath);
 
     /// Attempts to enumerate the contents of the directory identified by open handle, up to
@@ -80,7 +81,8 @@ namespace Pathwinder
     /// prefix.
     /// @param [in] fileHandle File handle for which the full absolute path is desired.
     /// @return Absolute path for the file handle, or a Windows error code on failure.
-    ValueOrError<TemporaryString, NTSTATUS> QueryAbsolutePathByHandle(HANDLE fileHandle);
+    Infra::ValueOrError<Infra::TemporaryString, NTSTATUS> QueryAbsolutePathByHandle(
+        HANDLE fileHandle);
 
     /// Obtains mode information for the specified file handle. The file handle must be open
     /// already. The mode is itself a bitmask that identifies the effective options that determine
@@ -88,7 +90,7 @@ namespace Pathwinder
     /// https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_mode_information
     /// @param [in] fileHandle File handle for which mode information is desired.
     /// @return Mode information for the file handle, or a Windows error code on failure.
-    ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle);
+    Infra::ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle);
 
     /// Obtains information about the specified file by asking the system to enumerate it via
     /// directory enumeration.

@@ -14,8 +14,9 @@
 
 #include <optional>
 
+#include <Infra/Mutex.h>
+
 #include "ApiWindows.h"
-#include "MutexWrapper.h"
 
 namespace Pathwinder
 {
@@ -53,7 +54,7 @@ namespace Pathwinder
     ThreadPool(PTP_POOL threadPool, PTP_CLEANUP_GROUP threadPoolCleanupGroup);
 
     /// Ensures proper concurrency control of the thread pool itself.
-    SharedMutex workItemMutex;
+    Infra::SharedMutex workItemMutex;
 
     /// Underlying thread pool object. Refer to the Windows thread pool API documentation for more
     /// information.

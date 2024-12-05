@@ -20,10 +20,11 @@
 #include <string_view>
 #include <type_traits>
 
+#include <Infra/DebugAssert.h>
+#include <Infra/TemporaryBuffer.h>
+
 #include "ApiWindows.h"
 #include "BufferPool.h"
-#include "DebugAssert.h"
-#include "TemporaryBuffer.h"
 
 namespace Pathwinder
 {
@@ -268,7 +269,7 @@ namespace Pathwinder
   private:
 
     /// Byte-wise buffer, which will hold the file information structure and trailing filename.
-    TemporaryVector<uint8_t> bytewiseBuffer;
+    Infra::TemporaryVector<uint8_t> bytewiseBuffer;
   };
 
   /// Describes the layout of a file information structure for a given file information class.

@@ -19,10 +19,11 @@
 #include <string>
 #include <string_view>
 
+#include <Infra/DebugAssert.h>
+#include <Infra/TemporaryBuffer.h>
+
 #include "ApiWindows.h"
-#include "DebugAssert.h"
 #include "Globals.h"
-#include "TemporaryBuffer.h"
 
 namespace Pathwinder
 {
@@ -109,7 +110,7 @@ namespace Pathwinder
           initFlag,
           []() -> void
           {
-            TemporaryBuffer<wchar_t> buf;
+            Infra::TemporaryBuffer<wchar_t> buf;
             GetModuleFileName(nullptr, buf.Data(), static_cast<DWORD>(buf.Capacity()));
 
             initString.assign(buf.Data());
@@ -180,7 +181,7 @@ namespace Pathwinder
           initFlag,
           []() -> void
           {
-            TemporaryBuffer<wchar_t> buf;
+            Infra::TemporaryBuffer<wchar_t> buf;
             GetModuleFileName(
                 Globals::GetInstanceHandle(), buf.Data(), static_cast<DWORD>(buf.Capacity()));
 
@@ -252,7 +253,7 @@ namespace Pathwinder
           initFlag,
           []() -> void
           {
-            TemporaryBuffer<wchar_t> buf;
+            Infra::TemporaryBuffer<wchar_t> buf;
             DWORD bufsize = static_cast<DWORD>(buf.Capacity());
 
             GetComputerNameEx(ComputerNamePhysicalNetBIOS, buf.Data(), &bufsize);
@@ -275,7 +276,7 @@ namespace Pathwinder
           initFlag,
           []() -> void
           {
-            TemporaryBuffer<wchar_t> buf;
+            Infra::TemporaryBuffer<wchar_t> buf;
             DWORD bufsize = static_cast<DWORD>(buf.Capacity());
 
             GetComputerNameEx(ComputerNamePhysicalDnsHostname, buf.Data(), &bufsize);
@@ -298,7 +299,7 @@ namespace Pathwinder
           initFlag,
           []() -> void
           {
-            TemporaryBuffer<wchar_t> buf;
+            Infra::TemporaryBuffer<wchar_t> buf;
             DWORD bufsize = static_cast<DWORD>(buf.Capacity());
 
             GetComputerNameEx(ComputerNamePhysicalDnsDomain, buf.Data(), &bufsize);
@@ -321,7 +322,7 @@ namespace Pathwinder
           initFlag,
           []() -> void
           {
-            TemporaryBuffer<wchar_t> buf;
+            Infra::TemporaryBuffer<wchar_t> buf;
             DWORD bufsize = static_cast<DWORD>(buf.Capacity());
 
             GetComputerNameEx(ComputerNamePhysicalDnsFullyQualified, buf.Data(), &bufsize);
@@ -344,9 +345,7 @@ namespace Pathwinder
           initFlag,
           []() -> void
           {
-            std::wstring_view pieces[] = {
-                GetProductName(),
-                kStrConfigurationFileExtension};
+            std::wstring_view pieces[] = {GetProductName(), kStrConfigurationFileExtension};
 
             size_t totalLength = 0;
             for (int i = 0; i < _countof(pieces); ++i)
@@ -373,7 +372,7 @@ namespace Pathwinder
           initFlag,
           []() -> void
           {
-            TemporaryString logFilename;
+            Infra::TemporaryString logFilename;
 
             PWSTR knownFolderPath;
             const HRESULT result =
@@ -425,9 +424,9 @@ namespace Pathwinder
     template int CompareCaseInsensitive<char>(std::string_view, std::string_view);
     template int CompareCaseInsensitive<wchar_t>(std::wstring_view, std::wstring_view);
 
-    TemporaryString ConvertStringNarrowToWide(const char* str)
+    Infra::TemporaryString ConvertStringNarrowToWide(const char* str)
     {
-      TemporaryString convertedStr;
+      Infra::TemporaryString convertedStr;
       size_t numCharsConverted = 0;
 
       if (0 ==
@@ -442,9 +441,9 @@ namespace Pathwinder
       return convertedStr;
     }
 
-    TemporaryBuffer<char> ConvertStringWideToNarrow(const wchar_t* str)
+    Infra::TemporaryBuffer<char> ConvertStringWideToNarrow(const wchar_t* str)
     {
-      TemporaryBuffer<char> convertedStr;
+      Infra::TemporaryBuffer<char> convertedStr;
       size_t numCharsConverted = 0;
 
       if (0 !=
@@ -490,9 +489,9 @@ namespace Pathwinder
               &filePatternString, &fileNameString, TRUE, nullptr));
     }
 
-    TemporaryString FormatString(_Printf_format_string_ const wchar_t* format, ...)
+    Infra::TemporaryString FormatString(_Printf_format_string_ const wchar_t* format, ...)
     {
-      TemporaryString buf;
+      Infra::TemporaryString buf;
 
       va_list args;
       va_start(args, format);
@@ -540,10 +539,10 @@ namespace Pathwinder
     template size_t HashCaseInsensitive<char>(std::string_view);
     template size_t HashCaseInsensitive<wchar_t>(std::wstring_view);
 
-    TemporaryString NtAccessMaskToString(ACCESS_MASK accessMask)
+    Infra::TemporaryString NtAccessMaskToString(ACCESS_MASK accessMask)
     {
       constexpr std::wstring_view kSeparator = L" | ";
-      TemporaryString outputString = Strings::FormatString(L"0x%08x (", accessMask);
+      Infra::TemporaryString outputString = Strings::FormatString(L"0x%08x (", accessMask);
 
       if (0 == accessMask)
       {
@@ -613,7 +612,7 @@ namespace Pathwinder
       return outputString;
     }
 
-    TemporaryString NtCreateDispositionToString(ULONG createDisposition)
+    Infra::TemporaryString NtCreateDispositionToString(ULONG createDisposition)
     {
       constexpr wchar_t kFormatString[] = L"0x%08x (%s)";
 
@@ -636,10 +635,10 @@ namespace Pathwinder
       }
     }
 
-    TemporaryString NtCreateOrOpenOptionsToString(ULONG createOrOpenOptions)
+    Infra::TemporaryString NtCreateOrOpenOptionsToString(ULONG createOrOpenOptions)
     {
       constexpr std::wstring_view kSeparator = L" | ";
-      TemporaryString outputString = Strings::FormatString(L"0x%08x (", createOrOpenOptions);
+      Infra::TemporaryString outputString = Strings::FormatString(L"0x%08x (", createOrOpenOptions);
 
       if (0 == createOrOpenOptions)
       {
@@ -716,10 +715,10 @@ namespace Pathwinder
       return outputString;
     }
 
-    TemporaryString NtShareAccessToString(ULONG shareAccess)
+    Infra::TemporaryString NtShareAccessToString(ULONG shareAccess)
     {
       constexpr std::wstring_view kSeparator = L" | ";
-      TemporaryString outputString = Strings::FormatString(L"0x%08x (", shareAccess);
+      Infra::TemporaryString outputString = Strings::FormatString(L"0x%08x (", shareAccess);
 
       if (0 == shareAccess)
       {
@@ -764,11 +763,11 @@ namespace Pathwinder
           .Buffer = const_cast<decltype(UNICODE_STRING::Buffer)>(strView.data())};
     }
 
-    TemporaryString PathAddWindowsNamespacePrefix(std::wstring_view absolutePath)
+    Infra::TemporaryString PathAddWindowsNamespacePrefix(std::wstring_view absolutePath)
     {
       static constexpr std::wstring_view kWindowsNamespacePrefixToPrepend = L"\\??\\";
 
-      TemporaryString prependedPath;
+      Infra::TemporaryString prependedPath;
       prependedPath << kWindowsNamespacePrefixToPrepend << absolutePath;
 
       return prependedPath;
@@ -829,23 +828,26 @@ namespace Pathwinder
             PathGetWindowsNamespacePrefix(absolutePath).length()) == absolutePath.length());
     }
 
-    template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(
-        std::basic_string_view<CharType> stringToSplit, std::basic_string_view<CharType> delimiter)
+    template <typename CharType> Infra::TemporaryVector<std::basic_string_view<CharType>>
+        SplitString(
+            std::basic_string_view<CharType> stringToSplit,
+            std::basic_string_view<CharType> delimiter)
     {
       return SplitString(stringToSplit, &delimiter, 1);
     }
 
-    template TemporaryVector<std::string_view> SplitString<char>(
+    template Infra::TemporaryVector<std::string_view> SplitString<char>(
         std::string_view, std::string_view);
-    template TemporaryVector<std::wstring_view> SplitString<wchar_t>(
+    template Infra::TemporaryVector<std::wstring_view> SplitString<wchar_t>(
         std::wstring_view, std::wstring_view);
 
-    template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(
-        std::basic_string_view<CharType> stringToSplit,
-        const std::basic_string_view<CharType>* delimiters,
-        unsigned int numDelimiters)
+    template <typename CharType> Infra::TemporaryVector<std::basic_string_view<CharType>>
+        SplitString(
+            std::basic_string_view<CharType> stringToSplit,
+            const std::basic_string_view<CharType>* delimiters,
+            unsigned int numDelimiters)
     {
-      TemporaryVector<std::basic_string_view<CharType>> stringPieces;
+      Infra::TemporaryVector<std::basic_string_view<CharType>> stringPieces;
 
       auto beginIter = stringToSplit.cbegin();
       auto endIter = beginIter;
@@ -882,9 +884,9 @@ namespace Pathwinder
       return stringPieces;
     }
 
-    template TemporaryVector<std::string_view> SplitString<char>(
+    template Infra::TemporaryVector<std::string_view> SplitString<char>(
         std::string_view, const std::string_view*, unsigned int);
-    template TemporaryVector<std::wstring_view> SplitString<wchar_t>(
+    template Infra::TemporaryVector<std::wstring_view> SplitString<wchar_t>(
         std::wstring_view, const std::wstring_view*, unsigned int);
 
     template <typename CharType> bool StartsWithCaseInsensitive(
@@ -899,9 +901,9 @@ namespace Pathwinder
     template bool StartsWithCaseInsensitive<char>(std::string_view, std::string_view);
     template bool StartsWithCaseInsensitive<wchar_t>(std::wstring_view, std::wstring_view);
 
-    TemporaryString SystemErrorCodeString(const unsigned long systemErrorCode)
+    Infra::TemporaryString SystemErrorCodeString(const unsigned long systemErrorCode)
     {
-      TemporaryString systemErrorString;
+      Infra::TemporaryString systemErrorString;
       DWORD systemErrorLength = FormatMessage(
           FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
           nullptr,

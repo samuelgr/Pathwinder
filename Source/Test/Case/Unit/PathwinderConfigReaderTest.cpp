@@ -15,8 +15,9 @@
 
 #include <string_view>
 
+#include <Infra/TemporaryBuffer.h>
+
 #include "Configuration.h"
-#include "TemporaryBuffer.h"
 
 namespace PathwinderTest
 {
@@ -27,7 +28,8 @@ namespace PathwinderTest
   /// error state of the resulting configuration data matches the input object.
   static void TestConfigurationFileRead(const ConfigurationData& expectedConfigurationData)
   {
-    TemporaryString configurationFile = expectedConfigurationData.ToConfigurationFileString();
+    Infra::TemporaryString configurationFile =
+        expectedConfigurationData.ToConfigurationFileString();
     ConfigurationData actualConfigurationData =
         PathwinderConfigReader().ReadInMemoryConfigurationFile(configurationFile);
     TEST_ASSERT(actualConfigurationData == expectedConfigurationData);

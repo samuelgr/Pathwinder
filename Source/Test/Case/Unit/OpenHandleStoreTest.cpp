@@ -72,7 +72,7 @@ namespace PathwinderTest
           std::wstring(kHandleAssociatedPathDuplicate),
           std::wstring(kHandleRealOpenedPathDuplicate));
     }
-    catch (const DebugAssertionException& assertion)
+    catch (const Infra::DebugAssertionException& assertion)
     {
       TEST_ASSERT(assertion.GetFailureMessage().contains(L"insert a handle"));
     }
@@ -247,7 +247,7 @@ namespace PathwinderTest
       NTSTATUS closeInvalidHandleResult = handleStore.RemoveAndCloseHandle(kHandle, nullptr);
       TEST_ASSERT(!NT_SUCCESS(closeInvalidHandleResult));
     }
-    catch (const DebugAssertionException& assertion)
+    catch (const Infra::DebugAssertionException& assertion)
     {
       TEST_ASSERT(assertion.GetFailureMessage().contains(L"close and erase a handle"));
     }
@@ -332,7 +332,7 @@ namespace PathwinderTest
       handleStore.AssociateDirectoryEnumerationState(
           kHandle, nullptr, FileInformationStructLayout());
     }
-    catch (const DebugAssertionException& assertion)
+    catch (const Infra::DebugAssertionException& assertion)
     {
       TEST_ASSERT(assertion.GetFailureMessage().contains(L"handle that already has one"));
     }
@@ -363,7 +363,7 @@ namespace PathwinderTest
       handleStore.AssociateDirectoryEnumerationState(
           kHandle, nullptr, FileInformationStructLayout());
     }
-    catch (const DebugAssertionException& assertion)
+    catch (const Infra::DebugAssertionException& assertion)
     {
       TEST_ASSERT(assertion.GetFailureMessage().contains(L"handle that is not in storage"));
     }

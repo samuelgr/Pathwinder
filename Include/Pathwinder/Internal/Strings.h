@@ -19,8 +19,9 @@
 #include <optional>
 #include <string_view>
 
+#include <Infra/TemporaryBuffer.h>
+
 #include "ApiWindows.h"
-#include "TemporaryBuffer.h"
 
 namespace Pathwinder
 {
@@ -144,12 +145,12 @@ namespace Pathwinder
     /// Converts characters in a narrow character string to wide character format.
     /// @param [in] str Null-terminated string to convert.
     /// @return Result of the conversion, or an empty string on failure.
-    TemporaryString ConvertStringNarrowToWide(const char* str);
+    Infra::TemporaryString ConvertStringNarrowToWide(const char* str);
 
     /// Converts characters in a wide character string to narrow character format.
     /// @param [in] str Null-terminated string to convert.
     /// @return Result of the conversion, or an empty string on failure.
-    TemporaryBuffer<char> ConvertStringWideToNarrow(const wchar_t* str);
+    Infra::TemporaryBuffer<char> ConvertStringWideToNarrow(const wchar_t* str);
 
     /// Checks if two strings are equal without regard for the case of each individual
     /// character.
@@ -177,7 +178,7 @@ namespace Pathwinder
     /// @param [in] format Format string, possibly with format specifiers which must be matched
     /// with the arguments that follow.
     /// @return Resulting string after all formatting is applied.
-    TemporaryString FormatString(_Printf_format_string_ const wchar_t* format, ...);
+    Infra::TemporaryString FormatString(_Printf_format_string_ const wchar_t* format, ...);
 
     /// Computes a hash code for the specified string, without regard to case.
     /// @tparam CharType Type of character in each string, either narrow or wide.
@@ -191,30 +192,30 @@ namespace Pathwinder
     /// prefix.
     /// @param [in] absolutePath Absolute path to be prepended with a prefix.
     /// @return Absolute path with a prefix inserted in front of it.
-    TemporaryString PathAddWindowsNamespacePrefix(std::wstring_view absolutePath);
+    Infra::TemporaryString PathAddWindowsNamespacePrefix(std::wstring_view absolutePath);
 
     /// Generates a string representation of the specified access mask.
     /// @param [in] accessMask Access mask, typically received from an application when creating or
     /// opening a file.
     /// @return String representation of the access mask.
-    TemporaryString NtAccessMaskToString(ACCESS_MASK accessMask);
+    Infra::TemporaryString NtAccessMaskToString(ACCESS_MASK accessMask);
 
     /// Generates a string representation of the specified create disposition value.
     /// @param [in] createDisposition Creation disposition options, typically received from an
     /// application when creating or opening a file.
     /// @return String representation of the create disposition.
-    TemporaryString NtCreateDispositionToString(ULONG createDisposition);
+    Infra::TemporaryString NtCreateDispositionToString(ULONG createDisposition);
 
     /// Generates a string representation of the specified create/open options flags.
     /// @param [in] createOrOpenOptions Create or open options flags.
     /// @return String representation of the create or open options flags.
-    TemporaryString NtCreateOrOpenOptionsToString(ULONG createOrOpenOptions);
+    Infra::TemporaryString NtCreateOrOpenOptionsToString(ULONG createOrOpenOptions);
 
     /// Generates a string representation of the specified share access flags.
     /// @param [in] shareAccess Share access flags, typically received from an application when
     /// creating or opening a file.
     /// @return String representation of the share access flags.
-    TemporaryString NtShareAccessToString(ULONG shareAccess);
+    Infra::TemporaryString NtShareAccessToString(ULONG shareAccess);
 
     /// Converts a standard string view to a Windows internal Unicode string view.
     /// @param [in] strView Standard string view to convert.
@@ -306,8 +307,10 @@ namespace Pathwinder
     /// pieces of the input string.
     /// @return Container that holds views referring to pieces of the input string split using
     /// the specified delimiter.
-    template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(
-        std::basic_string_view<CharType> stringToSplit, std::basic_string_view<CharType> delimiter);
+    template <typename CharType> Infra::TemporaryVector<std::basic_string_view<CharType>>
+        SplitString(
+            std::basic_string_view<CharType> stringToSplit,
+            std::basic_string_view<CharType> delimiter);
 
     /// Splits a string using the specified delimiter strings and returns a list of views each
     /// corresponding to a part of the input string. If there are too many delimiters present
@@ -321,10 +324,11 @@ namespace Pathwinder
     /// @param [in] numDelimiters Number of delimiters contained in the delimiter array.
     /// @return Container that holds views referring to pieces of the input string split using
     /// the specified delimiter.
-    template <typename CharType> TemporaryVector<std::basic_string_view<CharType>> SplitString(
-        std::basic_string_view<CharType> stringToSplit,
-        const std::basic_string_view<CharType>* delimiters,
-        unsigned int numDelimiters);
+    template <typename CharType> Infra::TemporaryVector<std::basic_string_view<CharType>>
+        SplitString(
+            std::basic_string_view<CharType> stringToSplit,
+            const std::basic_string_view<CharType>* delimiters,
+            unsigned int numDelimiters);
 
     /// Checks if one string is a prefix of another without regard for the case of each
     /// individual character.
@@ -373,7 +377,7 @@ namespace Pathwinder
     /// Generates a string representation of a system error code.
     /// @param [in] systemErrorCode System error code for which to generate a string.
     /// @return String representation of the system error code.
-    TemporaryString SystemErrorCodeString(const unsigned long systemErrorCode);
+    Infra::TemporaryString SystemErrorCodeString(const unsigned long systemErrorCode);
 
     /// Case-insensitive hasher for various kinds of string representations. This is a
     /// type-transparent hasher for all string representations that are implicitly convertable

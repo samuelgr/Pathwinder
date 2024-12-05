@@ -15,7 +15,7 @@
 #include <array>
 #include <cstddef>
 
-#include "MutexWrapper.h"
+#include <Infra/Mutex.h>
 
 namespace Pathwinder
 {
@@ -101,6 +101,6 @@ namespace Pathwinder
 
     /// Mutex used to ensure concurrency control over temporary buffer allocation and
     /// deallocation.
-    Mutex allocationMutex;
+    Infra::Mutex allocationMutex;
   };
 } // namespace Pathwinder

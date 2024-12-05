@@ -16,12 +16,13 @@
 
 #include <string_view>
 
+#include <Infra/TemporaryBuffer.h>
+#include <Infra/ValueOrError.h>
+
 #include "ApiWindows.h"
 #include "Configuration.h"
 #include "FilesystemOperations.h"
 #include "MockFilesystemOperations.h"
-#include "TemporaryBuffer.h"
-#include "ValueOrError.h"
 
 namespace PathwinderTest
 {
@@ -124,15 +125,13 @@ namespace PathwinderTest
     FilesystemDirectorBuilder directorBuilder;
 
     auto maybeConfigRule1 = directorBuilder.AddRule(
-        L"1",
-        L"C:\\.\\OriginDir1\\..\\OriginDir1",
-        L"C:\\.\\.\\TargetDir1\\TargetSubdir\\..\\");
+        L"1", L"C:\\.\\OriginDir1\\..\\OriginDir1", L"C:\\.\\.\\TargetDir1\\TargetSubdir\\..\\");
     TEST_ASSERT(maybeConfigRule1.HasValue());
     TEST_ASSERT(maybeConfigRule1.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir1");
     TEST_ASSERT(maybeConfigRule1.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir1");
 
-    auto maybeConfigRule2 = directorBuilder.AddRule(
-        L"2", L"C:\\\\\\OriginDir2\\\\", L"C:\\\\.\\\\\\TargetDir2");
+    auto maybeConfigRule2 =
+        directorBuilder.AddRule(L"2", L"C:\\\\\\OriginDir2\\\\", L"C:\\\\.\\\\\\TargetDir2");
     TEST_ASSERT(maybeConfigRule2.HasValue());
     TEST_ASSERT(maybeConfigRule2.Value()->GetOriginDirectoryFullPath() == L"C:\\OriginDir2");
     TEST_ASSERT(maybeConfigRule2.Value()->GetTargetDirectoryFullPath() == L"C:\\TargetDir2");
@@ -197,7 +196,7 @@ namespace PathwinderTest
   {
     FilesystemDirectorBuilder directorBuilder;
 
-    ValueOrError<const FilesystemRule*, TemporaryString> addRuleResults[] = {
+    Infra::ValueOrError<const FilesystemRule*, Infra::TemporaryString> addRuleResults[] = {
         directorBuilder.AddRule(L"1", L"C:\\", L"D:\\RedirectFromC"),
         directorBuilder.AddRule(L"2", L"C:\\RedirectToD", L"D:\\"),
         directorBuilder.AddRule(L"3", L"C:\\", L"D:\\")};

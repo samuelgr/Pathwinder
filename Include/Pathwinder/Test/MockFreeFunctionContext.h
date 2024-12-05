@@ -19,7 +19,7 @@
 #include <shared_mutex>
 #include <string_view>
 
-#include "MutexWrapper.h"
+#include <Infra/Mutex.h>
 
 /// Recommended way of declaring a class that implements a mock context for free functions.
 /// Requires a class name and the number of contexts to create.
@@ -137,7 +137,7 @@ namespace PathwinderTest
     /// Locks the context at the specified index so that the associated object can be accessed.
     /// @param [in] index Index of the desired context. Defaults to 0.
     /// @return Shared lock that is held for the corresponding context object.
-    static std::shared_lock<Pathwinder::SharedMutex> LockContext(size_t index = 0)
+    static std::shared_lock<Infra::SharedMutex> LockContext(size_t index = 0)
     {
       if (index > contexts.size())
         TEST_FAILED_BECAUSE(
@@ -157,7 +157,7 @@ namespace PathwinderTest
     /// Concurrency control mutexes, one per possible context.
     /// A shared lock is taken whenever a free function is invoked, and a unique lock is taken
     /// whenever the array of current contexts is to be updated.
-    static inline std::array<Pathwinder::SharedMutex, kNumContexts> contextGuards;
+    static inline std::array<Infra::SharedMutex, kNumContexts> contextGuards;
 
     /// Index within the contexts array that corresponds to this instance.
     size_t contextIndex;

@@ -18,12 +18,13 @@
 #include <string_view>
 #include <unordered_map>
 
+#include <Infra/DebugAssert.h>
+#include <Infra/Mutex.h>
+
 #include "ApiWindows.h"
-#include "DebugAssert.h"
 #include "DirectoryOperationQueue.h"
 #include "FileInformationStruct.h"
 #include "FilesystemOperations.h"
-#include "MutexWrapper.h"
 #include "Strings.h"
 
 namespace Pathwinder

@@ -16,8 +16,9 @@
 #include <optional>
 #include <string_view>
 
+#include <Infra/DebugAssert.h>
+
 #include "ApiWindows.h"
-#include "DebugAssert.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemOperations.h"
 #include "FilesystemRule.h"
@@ -453,7 +454,8 @@ namespace Pathwinder
               EDirectoryPathSource::RealOpenedPath)};
     }
 
-    std::optional<TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>>
+    std::optional<
+        Infra::TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>>
         directoryNamesToInsert;
     do
     {
@@ -595,7 +597,7 @@ namespace Pathwinder
     std::wstring_view unredirectedPathDirectoryPart;
     std::wstring_view unredirectedPathDirectoryPartWithWindowsNamespacePrefix;
     std::wstring_view unredirectedPathFilePart;
-    std::optional<TemporaryString> maybeRedirectedFilePath;
+    std::optional<Infra::TemporaryString> maybeRedirectedFilePath;
     const FilesystemRule* selectedRule = nullptr;
 
     if (EDirectoryCompareResult::Equal ==

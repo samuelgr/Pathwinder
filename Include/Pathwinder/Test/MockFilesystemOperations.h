@@ -19,12 +19,13 @@
 #include <string_view>
 #include <unordered_map>
 
+#include <Infra/TemporaryBuffer.h>
+#include <Infra/ValueOrError.h>
+
 #include "ApiWindows.h"
 #include "FilesystemOperations.h"
 #include "MockFreeFunctionContext.h"
 #include "Strings.h"
-#include "TemporaryBuffer.h"
-#include "ValueOrError.h"
 
 namespace PathwinderTest
 {
@@ -132,7 +133,7 @@ namespace PathwinderTest
     inline void AddFilesInDirectory(
         std::wstring_view directoryAbsolutePath, std::initializer_list<std::wstring_view> fileNames)
     {
-      Pathwinder::TemporaryString absolutePath;
+      Infra::TemporaryString absolutePath;
 
       for (auto& fileName : fileNames)
       {
@@ -205,7 +206,7 @@ namespace PathwinderTest
     intptr_t CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath);
     bool Exists(std::wstring_view absolutePath);
     bool IsDirectory(std::wstring_view absolutePath);
-    Pathwinder::ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
+    Infra::ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
         std::wstring_view absoluteDirectoryPath);
     NTSTATUS PartialEnumerateDirectoryContents(
         HANDLE directoryHandle,
@@ -214,9 +215,9 @@ namespace PathwinderTest
         unsigned int enumerationBufferCapacityBytes,
         ULONG queryFlags,
         std::wstring_view filePattern);
-    Pathwinder::ValueOrError<Pathwinder::TemporaryString, NTSTATUS> QueryAbsolutePathByHandle(
+    Infra::ValueOrError<Infra::TemporaryString, NTSTATUS> QueryAbsolutePathByHandle(
         HANDLE fileHandle);
-    Pathwinder::ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle);
+    Infra::ValueOrError<ULONG, NTSTATUS> QueryFileHandleMode(HANDLE fileHandle);
     NTSTATUS QuerySingleFileDirectoryInformation(
         std::wstring_view absoluteDirectoryPath,
         std::wstring_view fileName,

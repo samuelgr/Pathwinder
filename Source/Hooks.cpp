@@ -17,9 +17,10 @@
 #include <optional>
 
 #include <Hookshot/DynamicHook.h>
+#include <Infra/DebugAssert.h>
+#include <Infra/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
-#include "DebugAssert.h"
 #include "FileInformationStruct.h"
 #include "FilesystemDirector.h"
 #include "FilesystemExecutor.h"
@@ -29,7 +30,6 @@
 #include "Message.h"
 #include "OpenHandleStore.h"
 #include "Strings.h"
-#include "TemporaryBuffer.h"
 
 /// Retrieves an identifier for a particular invocation of a hook function.
 /// Used exclusively for logging.
@@ -87,7 +87,7 @@ void Pathwinder::Hooks::SetFilesystemDirectorInstance(
 
 void Pathwinder::Hooks::ReinitializeCurrentDirectory(void)
 {
-  TemporaryString currentDirectory;
+  Infra::TemporaryString currentDirectory;
   currentDirectory.UnsafeSetSize(
       GetCurrentDirectory(currentDirectory.Capacity(), currentDirectory.Data()));
   if (true == currentDirectory.Empty())
@@ -104,7 +104,7 @@ void Pathwinder::Hooks::ReinitializeCurrentDirectory(void)
       L"Current working directory is \"%s\".",
       currentDirectory.AsCString());
 
-  TemporaryString tempDirectory;
+  Infra::TemporaryString tempDirectory;
   tempDirectory.UnsafeSetSize(GetTempPath2(tempDirectory.Capacity(), tempDirectory.Data()));
   if (true == tempDirectory.Empty())
   {

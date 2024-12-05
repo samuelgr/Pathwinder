@@ -20,8 +20,11 @@
 #include <string_view>
 #include <unordered_map>
 
+#include <Infra/ArrayList.h>
+#include <Infra/TemporaryBuffer.h>
+#include <Infra/ValueOrError.h>
+
 #include "ApiWindows.h"
-#include "ArrayList.h"
 #include "FilesystemDirector.h"
 #include "FilesystemInstruction.h"
 #include "FilesystemRule.h"
@@ -29,8 +32,6 @@
 #include "MockFilesystemOperations.h"
 #include "OpenHandleStore.h"
 #include "Strings.h"
-#include "TemporaryBuffer.h"
-#include "ValueOrError.h"
 
 namespace PathwinderTest
 {
@@ -136,7 +137,7 @@ namespace PathwinderTest
   /// outputs of the enumeration.
   static void VerifyIsNameInsertionQueueAndMatchesSpec(
       const IDirectoryOperationQueue* queueToCheck,
-      const TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&
+      const Infra::TemporaryVector<DirectoryEnumerationInstruction::SingleDirectoryNameInsertion>&
           nameInsertionInstructions,
       FILE_INFORMATION_CLASS fileInformationClass,
       std::wstring_view filePattern = std::wstring_view())
@@ -321,7 +322,7 @@ namespace PathwinderTest
             MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
         fileNameStructLayout);
 
-    TemporaryVector<uint8_t> enumerationOutputBytes;
+    Infra::TemporaryVector<uint8_t> enumerationOutputBytes;
     IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
     const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
@@ -400,7 +401,7 @@ namespace PathwinderTest
             MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
         fileNameStructLayout);
 
-    TemporaryVector<uint8_t> enumerationOutputBytes;
+    Infra::TemporaryVector<uint8_t> enumerationOutputBytes;
     IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
     HANDLE syncEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
@@ -496,7 +497,7 @@ namespace PathwinderTest
             MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
         fileNameStructLayout);
 
-    TemporaryVector<uint8_t> enumerationOutputBytes;
+    Infra::TemporaryVector<uint8_t> enumerationOutputBytes;
     IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
     const STestApcData expectedApcData = {
@@ -586,7 +587,7 @@ namespace PathwinderTest
             MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
         fileNameStructLayout);
 
-    TemporaryVector<uint8_t> enumerationOutputBytes;
+    Infra::TemporaryVector<uint8_t> enumerationOutputBytes;
     IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
     const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
@@ -664,7 +665,7 @@ namespace PathwinderTest
         std::make_unique<MockDirectoryOperationQueue>(NtStatus::kNoMoreFiles),
         fileNameStructLayout);
 
-    TemporaryVector<uint8_t> enumerationOutputBytes;
+    Infra::TemporaryVector<uint8_t> enumerationOutputBytes;
     IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
     const NTSTATUS expectedReturnCode = NtStatus::kNoSuchFile;
@@ -750,7 +751,7 @@ namespace PathwinderTest
             MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
         fileNameStructLayout);
 
-    TemporaryVector<uint8_t> enumerationOutputBytes;
+    Infra::TemporaryVector<uint8_t> enumerationOutputBytes;
     IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
     const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
@@ -855,7 +856,7 @@ namespace PathwinderTest
             SDirectoryEnumerationStateSnapshot::GetForHandle(directoryHandle, openHandleStore)
                 .queue);
 
-    TemporaryVector<uint8_t> enumerationOutputBytes;
+    Infra::TemporaryVector<uint8_t> enumerationOutputBytes;
     IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
     UNICODE_STRING queryFilePatternUnicodeString =
         Strings::NtConvertStringViewToUnicodeString(kTestFilePattern);
@@ -918,7 +919,7 @@ namespace PathwinderTest
         })),
         fileNameStructLayout);
 
-    TemporaryVector<uint8_t> enumerationOutputBytes;
+    Infra::TemporaryVector<uint8_t> enumerationOutputBytes;
     IO_STATUS_BLOCK ioStatusBlock = InitializeIoStatusBlock();
 
     const NTSTATUS expectedReturnCode = NtStatus::kSuccess;
@@ -995,7 +996,7 @@ namespace PathwinderTest
             MockDirectoryOperationQueue::TFileNamesToEnumerate(expectedEnumeratedFilenames)),
         fileNameStructLayout);
 
-    TemporaryVector<uint8_t> enumerationOutputBytes;
+    Infra::TemporaryVector<uint8_t> enumerationOutputBytes;
     MockDirectoryOperationQueue::TFileNamesToEnumerate actualEnumeratedFilenames;
 
     for (size_t i = 0; i < expectedEnumeratedFilenames.size(); ++i)
@@ -1065,7 +1066,7 @@ namespace PathwinderTest
             MockDirectoryOperationQueue::TFileNamesToEnumerate(filesToEnumerate)),
         fileNameStructLayout);
 
-    TemporaryVector<uint8_t> enumerationOutputBytes;
+    Infra::TemporaryVector<uint8_t> enumerationOutputBytes;
 
     // Initial invocations with the buffer too small to hold a complete output structure. A partial
     // write is expected, along with a buffer overflow return code.
@@ -2398,7 +2399,7 @@ namespace PathwinderTest
 
     // Holds paths in the order that they are expected to be tried in invocations of the underlying
     // system call.
-    using TExpectedPaths = ArrayList<std::wstring_view, 2>;
+    using TExpectedPaths = Infra::ArrayList<std::wstring_view, 2>;
 
     const struct
     {
@@ -2700,12 +2701,13 @@ namespace PathwinderTest
   {
     // Holds a single create disposition or forced error code and used to represent what the
     // filesystem executor is expected to do in one particular instance.
-    using TCreateDispositionOrForcedError = ValueOrError<ULONG, NTSTATUS>;
+    using TCreateDispositionOrForcedError = Infra::ValueOrError<ULONG, NTSTATUS>;
 
     // Holds multiple create dispositions, or forced error codes, in the expected order that they
     // should be tried. If a create disposition is present then it is expected as the parameter,
     // otherwise it is expected as the return code from the filesystem executor function.
-    using TExpectedCreateDispositionsOrForcedErrors = ArrayList<TCreateDispositionOrForcedError, 2>;
+    using TExpectedCreateDispositionsOrForcedErrors =
+        Infra::ArrayList<TCreateDispositionOrForcedError, 2>;
 
     constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
 
@@ -2917,13 +2919,13 @@ namespace PathwinderTest
 
     // Holds a single parameter pair or forced error code and used to represent what the
     // filesystem executor is expected to do in one particular instance.
-    using TParametersOrForcedError = ValueOrError<SCreateDispositionAndPath, NTSTATUS>;
+    using TParametersOrForcedError = Infra::ValueOrError<SCreateDispositionAndPath, NTSTATUS>;
 
     // Holds multiple parameter pairs, or forced error codes, in the expected order that they
     // should be tried. If a parameter pair is present then it is expected as the parameters to the
     // underlying system call, otherwise it is expected as the return code from the filesystem
     // executor function.
-    using TExpectedParametersOrForcedErrors = ArrayList<TParametersOrForcedError, 4>;
+    using TExpectedParametersOrForcedErrors = Infra::ArrayList<TParametersOrForcedError, 4>;
 
     constexpr std::wstring_view kUnredirectedPath = L"C:\\TestDirectory\\TestFile.txt";
     constexpr std::wstring_view kRedirectedPath = L"C:\\RedirectedDirectory\\TestFile.txt";
@@ -3589,7 +3591,7 @@ namespace PathwinderTest
 
     // Holds paths in the order that they are expected to be tried in invocations of the underlying
     // system call.
-    using TExpectedPaths = ArrayList<std::wstring_view, 2>;
+    using TExpectedPaths = Infra::ArrayList<std::wstring_view, 2>;
 
     const struct
     {
@@ -4151,7 +4153,7 @@ namespace PathwinderTest
 
     // Holds paths in the order that they are expected to be tried in invocations of the underlying
     // system call.
-    using TExpectedPaths = ArrayList<std::wstring_view, 2>;
+    using TExpectedPaths = Infra::ArrayList<std::wstring_view, 2>;
 
     const struct
     {
@@ -4432,10 +4434,10 @@ namespace PathwinderTest
         SFileNameInformation::kFileInformationClass,
         [kSystemReturnedPath](
             HANDLE,
-           PIO_STATUS_BLOCK ioStatusBlock,
-           PVOID fileInformation,
-           ULONG length,
-           FILE_INFORMATION_CLASS) -> NTSTATUS
+            PIO_STATUS_BLOCK ioStatusBlock,
+            PVOID fileInformation,
+            ULONG length,
+            FILE_INFORMATION_CLASS) -> NTSTATUS
         {
           ioStatusBlock->Status = 55;
           ioStatusBlock->Information = 6666;
@@ -4485,10 +4487,10 @@ namespace PathwinderTest
         SFileNameInformation::kFileInformationClass,
         [kSystemReturnedPath](
             HANDLE,
-           PIO_STATUS_BLOCK ioStatusBlock,
-           PVOID fileInformation,
-           ULONG length,
-           FILE_INFORMATION_CLASS) -> NTSTATUS
+            PIO_STATUS_BLOCK ioStatusBlock,
+            PVOID fileInformation,
+            ULONG length,
+            FILE_INFORMATION_CLASS) -> NTSTATUS
         {
           SFileNameInformation* const fileNameInformation =
               reinterpret_cast<SFileNameInformation*>(fileInformation);
@@ -4572,10 +4574,10 @@ namespace PathwinderTest
         SFileAllInformation::kFileInformationClass,
         [kSystemReturnedPath](
             HANDLE,
-           PIO_STATUS_BLOCK ioStatusBlock,
-           PVOID fileInformation,
-           ULONG length,
-           FILE_INFORMATION_CLASS) -> NTSTATUS
+            PIO_STATUS_BLOCK ioStatusBlock,
+            PVOID fileInformation,
+            ULONG length,
+            FILE_INFORMATION_CLASS) -> NTSTATUS
         {
           SFileAllInformation* const fileAllInformation =
               reinterpret_cast<SFileAllInformation*>(fileInformation);
@@ -4638,10 +4640,10 @@ namespace PathwinderTest
         SFileNameInformation::kFileInformationClass,
         [kSystemReturnedPath](
             HANDLE,
-           PIO_STATUS_BLOCK ioStatusBlock,
-           PVOID fileInformation,
-           ULONG length,
-           FILE_INFORMATION_CLASS) -> NTSTATUS
+            PIO_STATUS_BLOCK ioStatusBlock,
+            PVOID fileInformation,
+            ULONG length,
+            FILE_INFORMATION_CLASS) -> NTSTATUS
         {
           SFileNameInformation* const fileNameInformation =
               reinterpret_cast<SFileNameInformation*>(fileInformation);
@@ -4710,10 +4712,10 @@ namespace PathwinderTest
         SFileNameInformation::kFileInformationClass,
         [kSystemReturnedPath](
             HANDLE,
-           PIO_STATUS_BLOCK ioStatusBlock,
-           PVOID fileInformation,
-           ULONG length,
-           FILE_INFORMATION_CLASS) -> NTSTATUS
+            PIO_STATUS_BLOCK ioStatusBlock,
+            PVOID fileInformation,
+            ULONG length,
+            FILE_INFORMATION_CLASS) -> NTSTATUS
         {
           SFileNameInformation* const fileNameInformation =
               reinterpret_cast<SFileNameInformation*>(fileInformation);
@@ -4784,10 +4786,10 @@ namespace PathwinderTest
         SFileNameInformation::kFileInformationClass,
         [kSystemReturnedPath](
             HANDLE,
-           PIO_STATUS_BLOCK ioStatusBlock,
-           PVOID fileInformation,
-           ULONG length,
-           FILE_INFORMATION_CLASS) -> NTSTATUS
+            PIO_STATUS_BLOCK ioStatusBlock,
+            PVOID fileInformation,
+            ULONG length,
+            FILE_INFORMATION_CLASS) -> NTSTATUS
         {
           SFileNameInformation* const fileNameInformation =
               reinterpret_cast<SFileNameInformation*>(fileInformation);

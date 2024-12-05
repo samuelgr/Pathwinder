@@ -16,6 +16,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Natvis", "Natvis", "{6F5436
 		Natvis\ValueOrError.natvis = Natvis\ValueOrError.natvis
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Modules", "Modules", "{1E216D85-E0BF-428E-BDA1-CD9E2087AB05}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Infra", "Modules\Infra\Infra.vcxproj", "{5AF31C51-1646-4BDA-9407-12273B2DA870}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -40,9 +44,20 @@ Global
 		{8482EB4C-9E88-41A2-B593-BDCF578DD205}.Release|Win32.Build.0 = Release|Win32
 		{8482EB4C-9E88-41A2-B593-BDCF578DD205}.Release|x64.ActiveCfg = Release|x64
 		{8482EB4C-9E88-41A2-B593-BDCF578DD205}.Release|x64.Build.0 = Release|x64
+		{5AF31C51-1646-4BDA-9407-12273B2DA870}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5AF31C51-1646-4BDA-9407-12273B2DA870}.Debug|Win32.Build.0 = Debug|Win32
+		{5AF31C51-1646-4BDA-9407-12273B2DA870}.Debug|x64.ActiveCfg = Debug|x64
+		{5AF31C51-1646-4BDA-9407-12273B2DA870}.Debug|x64.Build.0 = Debug|x64
+		{5AF31C51-1646-4BDA-9407-12273B2DA870}.Release|Win32.ActiveCfg = Release|Win32
+		{5AF31C51-1646-4BDA-9407-12273B2DA870}.Release|Win32.Build.0 = Release|Win32
+		{5AF31C51-1646-4BDA-9407-12273B2DA870}.Release|x64.ActiveCfg = Release|x64
+		{5AF31C51-1646-4BDA-9407-12273B2DA870}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{5AF31C51-1646-4BDA-9407-12273B2DA870} = {1E216D85-E0BF-428E-BDA1-CD9E2087AB05}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {46F7ADE4-708C-4356-8ED0-5E2214A1B3EB}

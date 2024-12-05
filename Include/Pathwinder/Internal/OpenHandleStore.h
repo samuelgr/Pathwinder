@@ -18,10 +18,11 @@
 #include <string_view>
 #include <unordered_map>
 
+#include <Infra/Mutex.h>
+
 #include "ApiWindows.h"
 #include "DirectoryOperationQueue.h"
 #include "FileInformationStruct.h"
-#include "MutexWrapper.h"
 #include "Strings.h"
 
 namespace Pathwinder
@@ -181,6 +182,6 @@ namespace Pathwinder
     std::unordered_map<HANDLE, SHandleData> openHandles;
 
     /// Mutex for ensuring concurrency-safe access to the open handles data structure.
-    SharedMutex openHandlesMutex;
+    Infra::SharedMutex openHandlesMutex;
   };
 } // namespace Pathwinder

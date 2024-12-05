@@ -19,10 +19,11 @@
 #include <string>
 #include <string_view>
 
+#include <Infra/TemporaryBuffer.h>
+
 #include "FilesystemInstruction.h"
 #include "MockFilesystemOperations.h"
 #include "PrefixTree.h"
-#include "TemporaryBuffer.h"
 
 namespace PathwinderTest
 {
