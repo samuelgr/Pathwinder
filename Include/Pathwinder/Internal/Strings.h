@@ -87,10 +87,6 @@ namespace Pathwinder
     // These strings are not safe to access before run-time, and should not be used to perform
     // dynamic initialization. Views are guaranteed to be null-terminated.
 
-    /// Product name.
-    /// Use this to identify Pathwinder in areas of user interaction.
-    extern const std::wstring_view kStrProductName;
-
     /// NetBIOS hostname of the machine on which the currently-running executable is running.
     extern const std::wstring_view kStrNetBiosHostname;
 
@@ -108,12 +104,12 @@ namespace Pathwinder
 
     /// Expected base filename of a configuration file, without the directory part.
     /// Pathwinder configuration filename = Pathwinder.ini
-    extern const std::wstring_view kStrConfigurationFilename;
+    std::wstring_view GetConfigurationFilename(void);
 
     /// Expected filename for the log file.
     /// Pathwinder log filename = (current user's desktop)\Pathwinder_(base name of the running
     /// executable)_(process ID).log
-    extern const std::wstring_view kStrLogFilename;
+    std::wstring_view GetLogFilename(void);
 
     /// Determines if the specified filename matches the specified file pattern. An empty file
     /// pattern is presumed to match everything. Input filename must not contain any backslash

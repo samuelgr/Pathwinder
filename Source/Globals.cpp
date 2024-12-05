@@ -18,8 +18,8 @@
 #include <string>
 #include <string_view>
 
-#include <Infra/Globals.h>
 #include <Infra/Message.h>
+#include <Infra/ProcessInfo.h>
 #include <Infra/TemporaryBuffer.h>
 
 #include "Resolver.h"
@@ -86,7 +86,7 @@ namespace Pathwinder
           enableLogFlag,
           [logLevel]() -> void
           {
-            Infra::Message::CreateAndEnableLogFile(Strings::kStrLogFilename);
+            Infra::Message::CreateAndEnableLogFile(Strings::GetLogFilename());
           });
 
       Infra::Message::SetMinimumSeverityForOutput(logLevel);
@@ -119,8 +119,8 @@ namespace Pathwinder
     static Infra::Configuration::ConfigurationData ReadConfigurationFile(void)
     {
       Infra::TemporaryString configFileName;
-      configFileName << Infra::Globals::GetThisModuleDirectoryName() << L"\\"
-                     << Strings::kStrConfigurationFilename;
+      configFileName << Infra::ProcessInfo::GetThisModuleDirectoryName() << L"\\"
+                     << Strings::GetConfigurationFilename();
 
       PathwinderConfigReader configReader;
       Infra::Configuration::ConfigurationData configData =
@@ -135,8 +135,8 @@ namespace Pathwinder
                .value_or(false)))
       {
         configFileName.Clear();
-        configFileName << Infra::Globals::GetExecutableDirectoryName() << L"\\"
-                       << Strings::kStrConfigurationFilename;
+        configFileName << Infra::ProcessInfo::GetExecutableDirectoryName() << L"\\"
+                       << Strings::GetConfigurationFilename();
         configData = configReader.ReadConfigurationFile(configFileName);
       }
 
@@ -177,8 +177,10 @@ namespace Pathwinder
 
     void Initialize(void)
     {
-      Infra::Globals::SetProductInformation(
-          Strings::kStrProductName, Infra::Globals::GitVersionInfoForCurrentProject());
+      Infra::ProcessInfo::SetProductInformation(
+          Infra::ProcessInfo::GetThisModuleInstanceHandle(),
+          IDS_PATHWINDER_PRODUCT_NAME,
+          Infra::ProcessInfo::GitVersionInfoForCurrentProject());
 
 #ifndef PATHWINDER_SKIP_CONFIG
       Infra::Configuration::ConfigurationData configData = ReadConfigurationFile();

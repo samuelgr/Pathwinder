@@ -20,7 +20,7 @@
 #include <string_view>
 
 #include <Infra/DebugAssert.h>
-#include <Infra/Globals.h>
+#include <Infra/ProcessInfo.h>
 #include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
 
@@ -69,34 +69,6 @@ namespace Pathwinder
     template <> wchar_t static inline ToLowercase(wchar_t c)
     {
       return std::towlower(c);
-    }
-
-    /// Generates the value for kStrProductName; see documentation of this run-time constant for
-    /// more information.
-    /// @return Corresponding run-time constant value.
-    static const std::wstring& GetProductName(void)
-    {
-      static std::wstring initString;
-      static std::once_flag initFlag;
-
-      std::call_once(
-          initFlag,
-          []() -> void
-          {
-            const wchar_t* stringStart = nullptr;
-            int stringLength = LoadString(
-                Infra::Globals::GetInstanceHandle(),
-                IDS_PATHWINDER_PRODUCT_NAME,
-                (wchar_t*)&stringStart,
-                0);
-
-            while ((stringLength > 0) && (L'\0' == stringStart[stringLength - 1]))
-              stringLength -= 1;
-
-            if (stringLength > 0) initString.assign(stringStart, &stringStart[stringLength]);
-          });
-
-      return initString;
     }
 
     /// Generates the value for kStrNetBiosHostname; see documentation of this run-time
@@ -194,7 +166,7 @@ namespace Pathwinder
     /// Generates the value for kStrConfigurationFilename; see documentation of this run-time
     /// constant for more information.
     /// @return Corresponding run-time constant value.
-    static const std::wstring& GetConfigurationFilename(void)
+    std::wstring_view GetConfigurationFilename(void)
     {
       static std::wstring initString;
       static std::once_flag initFlag;
@@ -203,7 +175,8 @@ namespace Pathwinder
           initFlag,
           []() -> void
           {
-            std::wstring_view pieces[] = {GetProductName(), kStrConfigurationFileExtension};
+            std::wstring_view pieces[] = {
+                *Infra::ProcessInfo::GetProductName(), kStrConfigurationFileExtension};
 
             size_t totalLength = 0;
             for (int i = 0; i < _countof(pieces); ++i)
@@ -221,7 +194,7 @@ namespace Pathwinder
     /// Generates the value for kStrLogFilename; see documentation of this run-time constant for
     /// more information.
     /// @return Corresponding run-time constant value.
-    static const std::wstring& GetLogFilename(void)
+    std::wstring_view GetLogFilename(void)
     {
       static std::wstring initString;
       static std::once_flag initFlag;
@@ -242,9 +215,9 @@ namespace Pathwinder
               CoTaskMemFree(knownFolderPath);
             }
 
-            logFilename << GetProductName().c_str() << L'_'
-                        << Infra::Globals::GetExecutableBaseName() << L'_'
-                        << Infra::Globals::GetCurrentProcessId() << kStrLogFileExtension;
+            logFilename << *Infra::ProcessInfo::GetProductName() << L'_'
+                        << Infra::ProcessInfo::GetExecutableBaseName() << L'_'
+                        << Infra::ProcessInfo::GetCurrentProcessId() << kStrLogFileExtension;
 
             initString.assign(logFilename);
           });
@@ -252,13 +225,10 @@ namespace Pathwinder
       return initString;
     }
 
-    extern const std::wstring_view kStrProductName(GetProductName());
     extern const std::wstring_view kStrNetBiosHostname(GetNetBiosHostname());
     extern const std::wstring_view kStrDnsHostname(GetDnsHostname());
     extern const std::wstring_view kStrDnsDomain(GetDnsDomain());
     extern const std::wstring_view kStrDnsFullyQualified(GetDnsFullyQualified());
-    extern const std::wstring_view kStrConfigurationFilename(GetConfigurationFilename());
-    extern const std::wstring_view kStrLogFilename(GetLogFilename());
 
     bool FileNameMatchesPattern(std::wstring_view fileName, std::wstring_view filePatternUpperCase)
     {

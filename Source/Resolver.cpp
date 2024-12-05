@@ -20,7 +20,7 @@
 
 #include <Infra/Configuration.h>
 #include <Infra/DebugAssert.h>
-#include <Infra/Globals.h>
+#include <Infra/ProcessInfo.h>
 #include <Infra/Strings.h>
 #include <Infra/TemporaryBuffer.h>
 
@@ -51,12 +51,12 @@ namespace Pathwinder
     static ResolvedStringOrError ResolveBuiltin(std::wstring_view name)
     {
       static const std::unordered_map<std::wstring_view, std::wstring_view> kBuiltinStrings = {
-          {L"ExecutableCompleteFilename", Infra::Globals::GetExecutableCompleteFilename()},
-          {L"ExecutableBaseName", Infra::Globals::GetExecutableBaseName()},
-          {L"ExecutableDirectoryName", Infra::Globals::GetExecutableDirectoryName()},
-          {L"PathwinderCompleteFilename", Infra::Globals::GetThisModuleCompleteFilename()},
-          {L"PathwinderBaseName", Infra::Globals::GetThisModuleBaseName()},
-          {L"PathwinderDirectoryName", Infra::Globals::GetThisModuleDirectoryName()},
+          {L"ExecutableCompleteFilename", Infra::ProcessInfo::GetExecutableCompleteFilename()},
+          {L"ExecutableBaseName", Infra::ProcessInfo::GetExecutableBaseName()},
+          {L"ExecutableDirectoryName", Infra::ProcessInfo::GetExecutableDirectoryName()},
+          {L"PathwinderCompleteFilename", Infra::ProcessInfo::GetThisModuleCompleteFilename()},
+          {L"PathwinderBaseName", Infra::ProcessInfo::GetThisModuleBaseName()},
+          {L"PathwinderDirectoryName", Infra::ProcessInfo::GetThisModuleDirectoryName()},
           {L"NetBiosHostname", Strings::kStrNetBiosHostname},
           {L"DnsHostname", Strings::kStrDnsHostname},
           {L"DnsDomain", Strings::kStrDnsDomain},

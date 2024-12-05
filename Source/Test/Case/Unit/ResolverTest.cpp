@@ -18,7 +18,7 @@
 #include <string_view>
 
 #include <Infra/Configuration.h>
-#include <Infra/Globals.h>
+#include <Infra/ProcessInfo.h>
 #include <Infra/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
@@ -343,8 +343,8 @@ namespace PathwinderTest
   TEST_CASE(Resolver_SingleReference_Builtin_Nominal)
   {
     const std::pair<std::wstring_view, std::wstring_view> kBuiltinStringTestRecords[] = {
-        {L"BUILTIN::ExecutableBaseName", Infra::Globals::GetExecutableBaseName()},
-        {L"BUILTIN::PathwinderDirectoryName", Infra::Globals::GetThisModuleDirectoryName()},
+        {L"BUILTIN::ExecutableBaseName", Infra::ProcessInfo::GetExecutableBaseName()},
+        {L"BUILTIN::PathwinderDirectoryName", Infra::ProcessInfo::GetThisModuleDirectoryName()},
     };
 
     for (const auto& kBuiltinStringTestRecord : kBuiltinStringTestRecords)

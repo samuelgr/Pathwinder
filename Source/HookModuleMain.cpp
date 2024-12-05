@@ -10,8 +10,8 @@
  **************************************************************************************************/
 
 #include <Hookshot/Hookshot.h>
-#include <Infra/Globals.h>
 #include <Infra/Message.h>
+#include <Infra/ProcessInfo.h>
 
 #include "ApiWindows.h"
 #include "Globals.h"
@@ -93,11 +93,11 @@ namespace Pathwinder
             Infra::Message::OutputFormatted(
                 Infra::Message::ESeverity::ForcedInteractiveError,
                 L"%.*s failed to set a hook for the Windows API function \"%s\" and cannot function without it.\n\nHookshot::EResult = %u",
-                static_cast<int>(Strings::kStrProductName.length()),
-                Strings::kStrProductName.data(),
+                static_cast<int>(Infra::ProcessInfo::GetProductName()->length()),
+                Infra::ProcessInfo::GetProductName()->data(),
                 hookRecord.hookProxy.GetFunctionName(),
                 static_cast<unsigned int>(setHookResult));
-            TerminateProcess(Infra::Globals::GetCurrentProcessHandle(), (UINT)-1);
+            TerminateProcess(Infra::ProcessInfo::GetCurrentProcessHandle(), (UINT)-1);
           }
         }
         else
