@@ -7,15 +7,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PathwinderTest", "Pathwinde
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Pathwinder", "Pathwinder.vcxproj", "{8482EB4C-9E88-41A2-B593-BDCF578DD205}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Natvis", "Natvis", "{6F5436BE-1782-44C2-9755-0014C6DDC7BB}"
-	ProjectSection(SolutionItems) = preProject
-		Natvis\ArrayList.natvis = Natvis\ArrayList.natvis
-		Natvis\Configuration.natvis = Natvis\Configuration.natvis
-		Natvis\Iterator.natvis = Natvis\Iterator.natvis
-		Natvis\TemporaryBuffer.natvis = Natvis\TemporaryBuffer.natvis
-		Natvis\ValueOrError.natvis = Natvis\ValueOrError.natvis
-	EndProjectSection
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Modules", "Modules", "{1E216D85-E0BF-428E-BDA1-CD9E2087AB05}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CoreInfra", "Modules\Infra\CoreInfra.vcxproj", "{5AF31C51-1646-4BDA-9407-12273B2DA870}"
