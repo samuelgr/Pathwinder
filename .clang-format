@@ -79,6 +79,8 @@ EmptyLineBeforeAccessModifier:                              Always
 FixNamespaceComments:                                       true
 IncludeBlocks:                                              Regroup
 IncludeCategories:
+    - Regex:                                                '".*\.generated\.h"'
+      Priority:                                             100
     - Regex:                                                '<[^/]+\.h>'
       Priority:                                             1
     - Regex:                                                '<[^/]+>'

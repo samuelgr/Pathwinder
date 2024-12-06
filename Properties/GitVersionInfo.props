@@ -28,7 +28,7 @@
   <!-- Allow the necessary build tools to access the generated file. -->
   <ItemDefinitionGroup Condition="'$(ProjectLanguage)'=='cpp'">
     <ClCompile>
-      <ForcedIncludeFiles>$(IntermediateOutputPath)$(GitVersionInfoOutputFile);%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>$(IntermediateOutputPath);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>$(IntermediateOutputPath);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
