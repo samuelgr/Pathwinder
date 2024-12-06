@@ -17,9 +17,9 @@
 #include <string_view>
 #include <unordered_map>
 
-#include <Infra/ArrayList.h>
-#include <Infra/Strings.h>
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/ArrayList.h>
+#include <Infra/Core/Strings.h>
+#include <Infra/Core/TemporaryBuffer.h>
 
 namespace Pathwinder
 {

@@ -15,7 +15,7 @@
 #include <array>
 #include <cstddef>
 
-#include <Infra/Mutex.h>
+#include <Infra/Core/Mutex.h>
 
 namespace Pathwinder
 {

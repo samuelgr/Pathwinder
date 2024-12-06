@@ -19,7 +19,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include <Infra/Strings.h>
+#include <Infra/Core/Strings.h>
 
 #include "FilesystemInstruction.h"
 #include "FilesystemRule.h"

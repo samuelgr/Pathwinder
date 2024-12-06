@@ -17,7 +17,7 @@
 #include <string_view>
 #include <vector>
 
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/TemporaryBuffer.h>
 
 #include "ApiBitSet.h"
 #include "FilesystemRule.h"

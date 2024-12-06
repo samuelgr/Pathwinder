@@ -10,8 +10,6 @@
  *   operations under the control of filesystem instructions.
  **************************************************************************************************/
 
-#include "TestCase.h"
-
 #include "FilesystemExecutor.h"
 
 #include <array>
@@ -20,10 +18,11 @@
 #include <string_view>
 #include <unordered_map>
 
-#include <Infra/ArrayList.h>
-#include <Infra/Strings.h>
-#include <Infra/TemporaryBuffer.h>
-#include <Infra/ValueOrError.h>
+#include <Infra/Core/ArrayList.h>
+#include <Infra/Core/Strings.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Core/ValueOrError.h>
+#include <Infra/Test/TestCase.h>
 
 #include "ApiWindows.h"
 #include "FilesystemDirector.h"

@@ -9,10 +9,10 @@
  *   Integration tests based on situations tested with real applications.
  **************************************************************************************************/
 
-#include "TestCase.h"
-
 #include <set>
 #include <string_view>
+
+#include <Infra/Test/TestCase.h>
 
 #include "FileInformationStruct.h"
 #include "FilesystemDirector.h"

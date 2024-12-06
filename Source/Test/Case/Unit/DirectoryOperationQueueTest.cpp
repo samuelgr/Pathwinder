@@ -10,15 +10,14 @@
  *   implementation.
  **************************************************************************************************/
 
-#include "TestCase.h"
-
 #include "DirectoryOperationQueue.h"
 
 #include <set>
 #include <string>
 #include <string_view>
 
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Test/TestCase.h>
 
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"

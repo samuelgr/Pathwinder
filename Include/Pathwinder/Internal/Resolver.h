@@ -16,9 +16,9 @@
 #include <string>
 #include <string_view>
 
-#include <Infra/Configuration.h>
-#include <Infra/TemporaryBuffer.h>
-#include <Infra/ValueOrError.h>
+#include <Infra/Core/Configuration.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Core/ValueOrError.h>
 
 namespace Pathwinder
 {

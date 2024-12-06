@@ -18,11 +18,11 @@
 #include <functional>
 #include <mutex>
 
-#include <Infra/ArrayList.h>
-#include <Infra/Message.h>
-#include <Infra/Mutex.h>
-#include <Infra/TemporaryBuffer.h>
-#include <Infra/ValueOrError.h>
+#include <Infra/Core/ArrayList.h>
+#include <Infra/Core/Message.h>
+#include <Infra/Core/Mutex.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Core/ValueOrError.h>
 
 #include "ApiWindows.h"
 #include "BufferPool.h"

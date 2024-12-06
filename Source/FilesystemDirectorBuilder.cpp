@@ -18,12 +18,12 @@
 #include <string_view>
 #include <unordered_map>
 
-#include <Infra/Configuration.h>
-#include <Infra/DebugAssert.h>
-#include <Infra/Message.h>
-#include <Infra/Strings.h>
-#include <Infra/TemporaryBuffer.h>
-#include <Infra/ValueOrError.h>
+#include <Infra/Core/Configuration.h>
+#include <Infra/Core/DebugAssert.h>
+#include <Infra/Core/Message.h>
+#include <Infra/Core/Strings.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Core/ValueOrError.h>
 
 #include "ApiWindows.h"
 #include "FilesystemOperations.h"

@@ -14,7 +14,7 @@
 
 #include <utility>
 
-#include <Infra/Mutex.h>
+#include <Infra/Core/Mutex.h>
 
 #include "ApiWindows.h"
 

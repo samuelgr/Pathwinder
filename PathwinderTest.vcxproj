@@ -136,12 +136,10 @@
     <ClCompile Include="Source\Test\Case\Unit\PrefixTreeTest.cpp" />
     <ClCompile Include="Source\Test\Case\Unit\ResolverTest.cpp" />
     <ClCompile Include="Source\Test\Case\Unit\ThreadPoolTest.cpp" />
-    <ClCompile Include="Source\Test\Harness.cpp" />
     <ClCompile Include="Source\Test\IntegrationTestSupport.cpp" />
     <ClCompile Include="Source\Test\MockDirectoryOperationQueue.cpp" />
     <ClCompile Include="Source\Test\MockFilesystemOperations.cpp" />
-    <ClCompile Include="Source\Test\TestCase.cpp" />
-    <ClCompile Include="Source\Test\Utilities.cpp" />
+    <ClCompile Include="Source\Test\TestMain.cpp" />
     <ClCompile Include="Source\ThreadPool.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -163,21 +161,21 @@
     <ClInclude Include="Include\Pathwinder\Internal\Resolver.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Strings.h" />
     <ClInclude Include="Include\Pathwinder\Internal\ThreadPool.h" />
-    <ClInclude Include="Include\Pathwinder\Test\Harness.h" />
     <ClInclude Include="Include\Pathwinder\Test\IntegrationTestSupport.h" />
     <ClInclude Include="Include\Pathwinder\Test\MockDirectoryOperationQueue.h" />
     <ClInclude Include="Include\Pathwinder\Test\MockFilesystemOperations.h" />
     <ClInclude Include="Include\Pathwinder\Test\MockFreeFunctionContext.h" />
-    <ClInclude Include="Include\Pathwinder\Test\TestCase.h" />
-    <ClInclude Include="Include\Pathwinder\Test\Utilities.h" />
     <ClInclude Include="Resources\Pathwinder.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources\Pathwinder.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="Modules\Infra\Infra.vcxproj">
+    <ProjectReference Include="Modules\Infra\CoreInfra.vcxproj">
       <Project>{5af31c51-1646-4bda-9407-12273b2da870}</Project>
+    </ProjectReference>
+    <ProjectReference Include="Modules\Infra\TestInfra.vcxproj">
+      <Project>{6abf224b-c252-4876-b2e1-8ca88e93610a}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

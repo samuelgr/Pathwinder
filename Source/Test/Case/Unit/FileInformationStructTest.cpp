@@ -10,12 +10,12 @@
  *   by Windows system calls.
  **************************************************************************************************/
 
-#include "TestCase.h"
-
 #include "FileInformationStruct.h"
 
 #include <cstring>
 #include <string_view>
+
+#include <Infra/Test/TestCase.h>
 
 #include "ApiWindows.h"
 

@@ -15,8 +15,8 @@
 #include <cstdint>
 #include <string_view>
 
-#include <Infra/TemporaryBuffer.h>
-#include <Infra/ValueOrError.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Core/ValueOrError.h>
 
 #include "ApiWindows.h"
 

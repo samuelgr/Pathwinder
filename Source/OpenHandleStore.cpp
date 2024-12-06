@@ -18,8 +18,8 @@
 #include <string_view>
 #include <unordered_map>
 
-#include <Infra/DebugAssert.h>
-#include <Infra/Mutex.h>
+#include <Infra/Core/DebugAssert.h>
+#include <Infra/Core/Mutex.h>
 
 #include "ApiWindows.h"
 #include "DirectoryOperationQueue.h"

@@ -9,8 +9,6 @@
  *   Unit tests for filesystem rule objects.
  **************************************************************************************************/
 
-#include "TestCase.h"
-
 #include "FilesystemRule.h"
 
 #include <optional>
@@ -19,8 +17,9 @@
 #include <string_view>
 #include <vector>
 
-#include <Infra/Strings.h>
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/Strings.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Test/TestCase.h>
 
 namespace PathwinderTest
 {

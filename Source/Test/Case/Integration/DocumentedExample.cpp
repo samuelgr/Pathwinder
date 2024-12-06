@@ -9,11 +9,11 @@
  *   Integration tests based on examples presented in project documentation.
  **************************************************************************************************/
 
-#include "TestCase.h"
-
 #include <map>
 #include <set>
 #include <string_view>
+
+#include <Infra/Test/TestCase.h>
 
 #include "FileInformationStruct.h"
 #include "FilesystemDirector.h"

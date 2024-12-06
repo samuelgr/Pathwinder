@@ -10,8 +10,6 @@
  *   filesystem rules.
  **************************************************************************************************/
 
-#include "TestCase.h"
-
 #include "FilesystemDirector.h"
 
 #include <map>
@@ -19,7 +17,8 @@
 #include <string>
 #include <string_view>
 
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Test/TestCase.h>
 
 #include "FilesystemInstruction.h"
 #include "MockFilesystemOperations.h"

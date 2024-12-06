@@ -14,7 +14,7 @@
 #include <type_traits>
 
 #include <Hookshot/DynamicHook.h>
-#include <Infra/DebugAssert.h>
+#include <Infra/Core/DebugAssert.h>
 
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"

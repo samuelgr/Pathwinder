@@ -18,15 +18,15 @@
 #include <string>
 #include <string_view>
 
-#include <Infra/Message.h>
-#include <Infra/ProcessInfo.h>
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/Message.h>
+#include <Infra/Core/ProcessInfo.h>
+#include <Infra/Core/TemporaryBuffer.h>
 
 #include "Resolver.h"
 #include "Strings.h"
 
 #ifndef PATHWINDER_SKIP_CONFIG
-#include <Infra/Configuration.h>
+#include <Infra/Core/Configuration.h>
 
 #include "FilesystemDirector.h"
 #include "FilesystemDirectorBuilder.h"

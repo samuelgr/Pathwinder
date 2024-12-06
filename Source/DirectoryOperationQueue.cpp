@@ -18,10 +18,10 @@
 #include <optional>
 #include <unordered_map>
 
-#include <Infra/ArrayList.h>
-#include <Infra/DebugAssert.h>
-#include <Infra/Strings.h>
-#include <Infra/ValueOrError.h>
+#include <Infra/Core/ArrayList.h>
+#include <Infra/Core/DebugAssert.h>
+#include <Infra/Core/Strings.h>
+#include <Infra/Core/ValueOrError.h>
 
 #include "ApiWindows.h"
 #include "BufferPool.h"

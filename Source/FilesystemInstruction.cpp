@@ -14,7 +14,7 @@
 
 #include <string_view>
 
-#include <Infra/DebugAssert.h>
+#include <Infra/Core/DebugAssert.h>
 
 namespace Pathwinder
 {

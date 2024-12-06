@@ -9,13 +9,13 @@
  *   Unit tests for open file handle state and metadata storage and manipulation functionality.
  **************************************************************************************************/
 
-#include "TestCase.h"
-
 #include "OpenHandleStore.h"
 
 #include <memory>
 #include <string>
 #include <string_view>
+
+#include <Infra/Test/TestCase.h>
 
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"

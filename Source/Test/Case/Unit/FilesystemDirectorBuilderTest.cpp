@@ -10,16 +10,15 @@
  *   ensuring consistency between filesystem rules.
  **************************************************************************************************/
 
-#include "TestCase.h"
-
 #include "FilesystemDirectorBuilder.h"
 
 #include <string_view>
 
-#include <Infra/Configuration.h>
-#include <Infra/Strings.h>
-#include <Infra/TemporaryBuffer.h>
-#include <Infra/ValueOrError.h>
+#include <Infra/Core/Configuration.h>
+#include <Infra/Core/Strings.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Core/ValueOrError.h>
+#include <Infra/Test/TestCase.h>
 
 #include "ApiWindows.h"
 #include "FilesystemOperations.h"

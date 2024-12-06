@@ -10,14 +10,13 @@
  *   basis for organization.
  **************************************************************************************************/
 
-#include "TestCase.h"
-
 #include "PrefixTree.h"
 
 #include <type_traits>
 #include <unordered_map>
 
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Test/TestCase.h>
 
 namespace PathwinderTest
 {

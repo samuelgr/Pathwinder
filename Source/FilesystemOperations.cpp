@@ -18,10 +18,10 @@
 #include <optional>
 #include <string_view>
 
-#include <Infra/DebugAssert.h>
-#include <Infra/Message.h>
-#include <Infra/TemporaryBuffer.h>
-#include <Infra/ValueOrError.h>
+#include <Infra/Core/DebugAssert.h>
+#include <Infra/Core/Message.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Core/ValueOrError.h>
 
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"

@@ -158,7 +158,7 @@
     <ResourceCompile Include="Resources\Pathwinder.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="Modules\Infra\Infra.vcxproj">
+    <ProjectReference Include="Modules\Infra\CoreInfra.vcxproj">
       <Project>{5af31c51-1646-4bda-9407-12273b2da870}</Project>
     </ProjectReference>
   </ItemGroup>

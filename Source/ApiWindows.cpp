@@ -11,7 +11,7 @@
 
 #include "ApiWindows.h"
 
-#include <Infra/DebugAssert.h>
+#include <Infra/Core/DebugAssert.h>
 
 namespace Pathwinder
 {

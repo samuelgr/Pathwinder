@@ -19,7 +19,7 @@
 #include <optional>
 #include <string_view>
 
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
 

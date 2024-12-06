@@ -9,17 +9,16 @@
  *   Unit tests for resolution of named references contained within a string.
  **************************************************************************************************/
 
-#include "TestCase.h"
-
 #include "Resolver.h"
 
 #include <optional>
 #include <string>
 #include <string_view>
 
-#include <Infra/Configuration.h>
-#include <Infra/ProcessInfo.h>
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/Configuration.h>
+#include <Infra/Core/ProcessInfo.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Test/TestCase.h>
 
 #include "ApiWindows.h"
 #include "Strings.h"

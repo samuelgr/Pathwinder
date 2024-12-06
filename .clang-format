@@ -79,8 +79,6 @@ EmptyLineBeforeAccessModifier:                              Always
 FixNamespaceComments:                                       true
 IncludeBlocks:                                              Regroup
 IncludeCategories:
-    - Regex:                                                'TestCase\.h'
-      Priority:                                             -1
     - Regex:                                                '<[^/]+\.h>'
       Priority:                                             1
     - Regex:                                                '<[^/]+>'

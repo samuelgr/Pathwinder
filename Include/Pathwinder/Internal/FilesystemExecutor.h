@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <functional>
 
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"

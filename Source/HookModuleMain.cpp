@@ -10,8 +10,8 @@
  **************************************************************************************************/
 
 #include <Hookshot/Hookshot.h>
-#include <Infra/Message.h>
-#include <Infra/ProcessInfo.h>
+#include <Infra/Core/Message.h>
+#include <Infra/Core/ProcessInfo.h>
 
 #include "ApiWindows.h"
 #include "Globals.h"

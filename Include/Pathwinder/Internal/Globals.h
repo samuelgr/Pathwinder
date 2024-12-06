@@ -18,7 +18,7 @@
 #include "ApiWindows.h"
 
 #ifndef PATHWINDER_SKIP_CONFIG
-#include <Infra/Configuration.h>
+#include <Infra/Core/Configuration.h>
 #endif
 
 namespace Pathwinder

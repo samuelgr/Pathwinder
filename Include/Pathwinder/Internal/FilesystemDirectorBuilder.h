@@ -18,8 +18,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include <Infra/Configuration.h>
-#include <Infra/ValueOrError.h>
+#include <Infra/Core/Configuration.h>
+#include <Infra/Core/ValueOrError.h>
 
 #include "FilesystemDirector.h"
 #include "FilesystemRule.h"

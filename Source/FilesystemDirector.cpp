@@ -16,9 +16,9 @@
 #include <optional>
 #include <string_view>
 
-#include <Infra/DebugAssert.h>
-#include <Infra/Message.h>
-#include <Infra/Strings.h>
+#include <Infra/Core/DebugAssert.h>
+#include <Infra/Core/Message.h>
+#include <Infra/Core/Strings.h>
 
 #include "ApiWindows.h"
 #include "FilesystemInstruction.h"

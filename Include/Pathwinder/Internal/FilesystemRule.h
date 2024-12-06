@@ -19,10 +19,10 @@
 #include <string_view>
 #include <vector>
 
-#include <Infra/ArrayList.h>
-#include <Infra/DebugAssert.h>
-#include <Infra/Strings.h>
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/ArrayList.h>
+#include <Infra/Core/DebugAssert.h>
+#include <Infra/Core/Strings.h>
+#include <Infra/Core/TemporaryBuffer.h>
 
 namespace Pathwinder
 {

@@ -9,11 +9,11 @@
  *   Unit tests for thread pool functionality.
  **************************************************************************************************/
 
-#include "TestCase.h"
-
 #include "ThreadPool.h"
 
 #include <atomic>
+
+#include <Infra/Test/TestCase.h>
 
 #include "ApiWindows.h"
 

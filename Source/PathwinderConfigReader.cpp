@@ -14,7 +14,7 @@
 #include <map>
 #include <string_view>
 
-#include <Infra/Configuration.h>
+#include <Infra/Core/Configuration.h>
 
 #include "Strings.h"
 

@@ -20,8 +20,8 @@
 #include <string_view>
 #include <type_traits>
 
-#include <Infra/DebugAssert.h>
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/DebugAssert.h>
+#include <Infra/Core/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
 #include "BufferPool.h"

@@ -17,9 +17,9 @@
 #include <optional>
 
 #include <Hookshot/DynamicHook.h>
-#include <Infra/DebugAssert.h>
-#include <Infra/Message.h>
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/DebugAssert.h>
+#include <Infra/Core/Message.h>
+#include <Infra/Core/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
 #include "FileInformationStruct.h"

@@ -12,14 +12,13 @@
 
 #pragma once
 
-#include "TestCase.h"
-
 #include <array>
 #include <cstddef>
 #include <shared_mutex>
 #include <string_view>
 
-#include <Infra/Mutex.h>
+#include <Infra/Core/Mutex.h>
+#include <Infra/Test/TestCase.h>
 
 /// Recommended way of declaring a class that implements a mock context for free functions.
 /// Requires a class name and the number of contexts to create.

@@ -11,17 +11,16 @@
 
 #pragma once
 
-#include "TestCase.h"
-
 #include <map>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 
-#include <Infra/Strings.h>
-#include <Infra/TemporaryBuffer.h>
-#include <Infra/ValueOrError.h>
+#include <Infra/Core/Strings.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Core/ValueOrError.h>
+#include <Infra/Test/TestCase.h>
 
 #include "ApiWindows.h"
 #include "FilesystemOperations.h"

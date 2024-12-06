@@ -18,7 +18,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Natvis", "Natvis", "{6F5436
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Modules", "Modules", "{1E216D85-E0BF-428E-BDA1-CD9E2087AB05}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Infra", "Modules\Infra\Infra.vcxproj", "{5AF31C51-1646-4BDA-9407-12273B2DA870}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CoreInfra", "Modules\Infra\CoreInfra.vcxproj", "{5AF31C51-1646-4BDA-9407-12273B2DA870}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestInfra", "Modules\Infra\TestInfra.vcxproj", "{6ABF224B-C252-4876-B2E1-8CA88E93610A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -52,12 +54,21 @@ Global
 		{5AF31C51-1646-4BDA-9407-12273B2DA870}.Release|Win32.Build.0 = Release|Win32
 		{5AF31C51-1646-4BDA-9407-12273B2DA870}.Release|x64.ActiveCfg = Release|x64
 		{5AF31C51-1646-4BDA-9407-12273B2DA870}.Release|x64.Build.0 = Release|x64
+		{6ABF224B-C252-4876-B2E1-8CA88E93610A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{6ABF224B-C252-4876-B2E1-8CA88E93610A}.Debug|Win32.Build.0 = Debug|Win32
+		{6ABF224B-C252-4876-B2E1-8CA88E93610A}.Debug|x64.ActiveCfg = Debug|x64
+		{6ABF224B-C252-4876-B2E1-8CA88E93610A}.Debug|x64.Build.0 = Debug|x64
+		{6ABF224B-C252-4876-B2E1-8CA88E93610A}.Release|Win32.ActiveCfg = Release|Win32
+		{6ABF224B-C252-4876-B2E1-8CA88E93610A}.Release|Win32.Build.0 = Release|Win32
+		{6ABF224B-C252-4876-B2E1-8CA88E93610A}.Release|x64.ActiveCfg = Release|x64
+		{6ABF224B-C252-4876-B2E1-8CA88E93610A}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{5AF31C51-1646-4BDA-9407-12273B2DA870} = {1E216D85-E0BF-428E-BDA1-CD9E2087AB05}
+		{6ABF224B-C252-4876-B2E1-8CA88E93610A} = {1E216D85-E0BF-428E-BDA1-CD9E2087AB05}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {46F7ADE4-708C-4356-8ED0-5E2214A1B3EB}

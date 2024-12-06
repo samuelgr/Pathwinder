@@ -19,10 +19,10 @@
 #include <string>
 #include <string_view>
 
-#include <Infra/DebugAssert.h>
-#include <Infra/ProcessInfo.h>
-#include <Infra/Strings.h>
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/DebugAssert.h>
+#include <Infra/Core/ProcessInfo.h>
+#include <Infra/Core/Strings.h>
+#include <Infra/Core/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
 

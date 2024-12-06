@@ -15,15 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Source\Test\Harness.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Test\TestCase.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\Test\Utilities.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Globals.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -114,17 +105,11 @@
     <ClCompile Include="Source\Test\Case\Integration\RealWorldScenario.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Test\TestMain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Include\Pathwinder\Test\Harness.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Test\TestCase.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Include\Pathwinder\Test\Utilities.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Resources\Pathwinder.h">
       <Filter>Header Files</Filter>
     </ClInclude>

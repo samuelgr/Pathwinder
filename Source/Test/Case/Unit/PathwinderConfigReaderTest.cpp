@@ -9,14 +9,13 @@
  *   Unit tests for configuration file reading and parsing functionality.
  **************************************************************************************************/
 
-#include "TestCase.h"
-
 #include "PathwinderConfigReader.h"
 
 #include <string_view>
 
-#include <Infra/Configuration.h>
-#include <Infra/TemporaryBuffer.h>
+#include <Infra/Core/Configuration.h>
+#include <Infra/Core/TemporaryBuffer.h>
+#include <Infra/Test/TestCase.h>
 
 namespace PathwinderTest
 {

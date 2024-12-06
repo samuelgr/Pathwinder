@@ -16,7 +16,7 @@
 #include <string>
 #include <string_view>
 
-#include <Infra/Strings.h>
+#include <Infra/Core/Strings.h>
 
 #include "ApiWindows.h"
 #include "DirectoryOperationQueue.h"
