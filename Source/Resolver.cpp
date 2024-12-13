@@ -367,7 +367,7 @@ namespace Pathwinder
 
       resolvedStr << strParts[0];
 
-      for (size_t i = 1; i < strParts.Size(); i += 2)
+      for (unsigned int i = 1; i < strParts.Size(); i += 2)
       {
         if (true == strParts[i].empty())
         {

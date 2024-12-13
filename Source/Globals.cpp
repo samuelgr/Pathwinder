@@ -34,6 +34,10 @@
 #include "PathwinderConfigReader.h"
 #endif
 
+INFRA_DEFINE_PRODUCT_NAME_FROM_RESOURCE(
+    Infra::ProcessInfo::GetThisModuleInstanceHandle(), IDS_PATHWINDER_PRODUCT_NAME);
+INFRA_DEFINE_PRODUCT_VERSION_FROM_GIT_VERSION_INFO();
+
 namespace Pathwinder
 {
   namespace Globals
@@ -177,11 +181,6 @@ namespace Pathwinder
 
     void Initialize(void)
     {
-      Infra::ProcessInfo::SetProductInformation(
-          Infra::ProcessInfo::GetThisModuleInstanceHandle(),
-          IDS_PATHWINDER_PRODUCT_NAME,
-          Infra::ProcessInfo::GitVersionInfoForCurrentProject());
-
 #ifndef PATHWINDER_SKIP_CONFIG
       Infra::Configuration::ConfigurationData configData = ReadConfigurationFile();
 

@@ -176,7 +176,7 @@ namespace Pathwinder
           []() -> void
           {
             std::wstring_view pieces[] = {
-                *Infra::ProcessInfo::GetProductName(), kStrConfigurationFileExtension};
+                Infra::ProcessInfo::GetProductName(), kStrConfigurationFileExtension};
 
             size_t totalLength = 0;
             for (int i = 0; i < _countof(pieces); ++i)
@@ -215,7 +215,7 @@ namespace Pathwinder
               CoTaskMemFree(knownFolderPath);
             }
 
-            logFilename << *Infra::ProcessInfo::GetProductName() << L'_'
+            logFilename << Infra::ProcessInfo::GetProductName() << L'_'
                         << Infra::ProcessInfo::GetExecutableBaseName() << L'_'
                         << Infra::ProcessInfo::GetCurrentProcessId() << kStrLogFileExtension;
 

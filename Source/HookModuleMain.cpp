@@ -93,8 +93,8 @@ namespace Pathwinder
             Infra::Message::OutputFormatted(
                 Infra::Message::ESeverity::ForcedInteractiveError,
                 L"%.*s failed to set a hook for the Windows API function \"%s\" and cannot function without it.\n\nHookshot::EResult = %u",
-                static_cast<int>(Infra::ProcessInfo::GetProductName()->length()),
-                Infra::ProcessInfo::GetProductName()->data(),
+                static_cast<int>(Infra::ProcessInfo::GetProductName().length()),
+                Infra::ProcessInfo::GetProductName().data(),
                 hookRecord.hookProxy.GetFunctionName(),
                 static_cast<unsigned int>(setHookResult));
             TerminateProcess(Infra::ProcessInfo::GetCurrentProcessHandle(), (UINT)-1);
