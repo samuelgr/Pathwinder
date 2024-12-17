@@ -33,16 +33,17 @@
 
 namespace Pathwinder
 {
-  /// Reads the configured redirection mode from a filesystem rule configuration section or, if
+  /// Reads the configured redirection mode from a filesystem rule configuration setting or, if
   /// the redirection mode is not present, returns a default value.
   /// @param [in] configSection Configuration section object containing the filesystem rule's
   /// configuration information.
   /// @return Redirection mode enumerator, if it is either absent from the configuration section
   /// data object or present and maps to a valid enumerator.
-  static std::optional<ERedirectMode> RedirectModeFromConfigurationSection(
-      const Infra::Configuration::Section& configSection)
+  static std::optional<ERedirectMode> RedirectModeFromConfigurationSetting(
+      const std::optional<Infra::Configuration::Name>& configSetting)
   {
     constexpr ERedirectMode kDefaultRedirectMode = ERedirectMode::Simple;
+    if (false == configSetting.has_value()) return kDefaultRedirectMode;
 
     static const std::unordered_map<
         std::wstring_view,
@@ -52,12 +53,7 @@ namespace Pathwinder
         kRedirectModeStrings = {
             {L"Simple", ERedirectMode::Simple}, {L"Overlay", ERedirectMode::Overlay}};
 
-    if (false ==
-        configSection.NameExists(Strings::kStrConfigurationSettingFilesystemRuleRedirectMode))
-      return kDefaultRedirectMode;
-
-    const auto redirectModeIter = kRedirectModeStrings.find(*configSection.GetFirstStringValue(
-        Strings::kStrConfigurationSettingFilesystemRuleRedirectMode));
+    const auto redirectModeIter = kRedirectModeStrings.find((*configSetting)->GetString());
     if (kRedirectModeStrings.cend() == redirectModeIter) return std::nullopt;
 
     return redirectModeIter->second;
@@ -412,35 +408,37 @@ namespace Pathwinder
       FilesystemDirectorBuilder::AddRuleFromConfigurationSection(
           std::wstring&& ruleName, Infra::Configuration::Section& configSection)
   {
-    auto maybeOriginDirectory = configSection.ExtractFirstStringValue(
-        Strings::kStrConfigurationSettingFilesystemRuleOriginDirectory);
+    auto maybeOriginDirectory =
+        configSection.Extract(Strings::kStrConfigurationSettingFilesystemRuleOriginDirectory);
     if (false == maybeOriginDirectory.has_value())
       return Infra::Strings::Format(
           L"Error while creating filesystem rule \"%s\": Missing origin directory.",
           ruleName.c_str());
 
-    auto maybeTargetDirectory = configSection.ExtractFirstStringValue(
-        Strings::kStrConfigurationSettingFilesystemRuleTargetDirectory);
+    auto maybeTargetDirectory =
+        configSection.Extract(Strings::kStrConfigurationSettingFilesystemRuleTargetDirectory);
     if (false == maybeTargetDirectory.has_value())
       return Infra::Strings::Format(
           L"Error while creating filesystem rule \"%s\": Missing target directory.",
           ruleName.c_str());
 
-    auto maybeRedirectMode = RedirectModeFromConfigurationSection(configSection);
+    auto maybeRedirectMode = RedirectModeFromConfigurationSetting(
+        configSection.Extract(Strings::kStrConfigurationSettingFilesystemRuleRedirectMode));
     if (false == maybeRedirectMode.has_value())
       return Infra::Strings::Format(
           L"Error while creating filesystem rule \"%s\": Invalid redirection mode.",
           ruleName.c_str());
 
     auto filePatterns =
-        configSection
-            .ExtractStringValues(Strings::kStrConfigurationSettingFilesystemRuleFilePattern)
+        configSection.Extract(Strings::kStrConfigurationSettingFilesystemRuleFilePattern)
+            .value_or(Infra::Configuration::Name())
+            .ExtractAllStrings()
             .value_or(std::vector<std::wstring>());
 
     return AddRule(
         std::move(ruleName),
-        std::move(*maybeOriginDirectory),
-        std::move(*maybeTargetDirectory),
+        (*maybeOriginDirectory)->GetString(),
+        (*maybeTargetDirectory)->GetString(),
         std::move(filePatterns),
         std::move(*maybeRedirectMode));
   }

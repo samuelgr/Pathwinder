@@ -52,11 +52,6 @@ namespace Pathwinder
     /// folder" identifier.
     inline constexpr std::wstring_view kStrReferenceDomainKnownFolderIdentifier = L"FOLDERID";
 
-    /// Configuration file setting that redirects the entire configuration file from the Pathwinder
-    /// directory to the executable directory. Intended to be used in isolation.
-    inline constexpr std::wstring_view kStrConfigurationSettingRedirectConfigToExecutableDirectory =
-        L"RedirectConfigToExecutableDirectory";
-
     /// Configuration file setting for enabling and specifying the verbosity of output to the
     /// log file.
     inline constexpr std::wstring_view kStrConfigurationSettingLogLevel = L"LogLevel";

@@ -65,6 +65,8 @@ namespace PathwinderTest
 
     // Inserting a duplicate handle is a serious error that can potentially trigger a debug
     // assertion.
+    ScopedExpectDebugAssertion();
+
     try
     {
       handleStore.InsertHandle(
@@ -242,6 +244,8 @@ namespace PathwinderTest
     // Attempting to close a handle that is not open is a serious error that could potentially
     // trigger a debug assertion. If it does not, then at very least the return code should indicate
     // failure.
+    ScopedExpectDebugAssertion();
+
     try
     {
       NTSTATUS closeInvalidHandleResult = handleStore.RemoveAndCloseHandle(kHandle, nullptr);
@@ -327,6 +331,8 @@ namespace PathwinderTest
     // serious error that could potentially trigger a debug assertion. If it does not, then the
     // execution will continue, but what happens to the associated enumeration queue and file
     // information structure layout is not defined.
+    ScopedExpectDebugAssertion();
+
     try
     {
       handleStore.AssociateDirectoryEnumerationState(
@@ -358,6 +364,8 @@ namespace PathwinderTest
 
     // Attempting to associate a directory enumeration with a handle not in the open handle store is
     // a serious error that could potentially trigger a debug assertion.
+    ScopedExpectDebugAssertion();
+
     try
     {
       handleStore.AssociateDirectoryEnumerationState(

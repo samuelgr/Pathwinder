@@ -36,9 +36,6 @@ namespace Pathwinder
               ConfigurationFileLayoutNameAndValueType(
                   Strings::kStrConfigurationSettingLogLevel,
                   Infra::Configuration::EValueType::Integer),
-              ConfigurationFileLayoutNameAndValueType(
-                  Strings::kStrConfigurationSettingRedirectConfigToExecutableDirectory,
-                  Infra::Configuration::EValueType::Boolean),
           }),
   };
 
@@ -71,35 +68,32 @@ namespace Pathwinder
         (section.starts_with(Strings::kStrConfigurationSectionFilesystemRulePrefix)));
   }
 
-  EAction PathwinderConfigReader::ActionForSection(std::wstring_view section)
+  Action PathwinderConfigReader::ActionForSection(std::wstring_view section)
   {
     if ((true == configurationFileDynamicSections.contains(section)) ||
         (true == configurationFileLayout.contains(section)))
-      return EAction::Process;
-
-    if (true == IsFilesystemRuleSectionName(section)) return EAction::Process;
-
-    return EAction::Error;
+      return Action::Process();
+    if (true == IsFilesystemRuleSectionName(section)) return Action::Process();
+    return Action::Error();
   }
 
-  EAction PathwinderConfigReader::ActionForValue(
+  Action PathwinderConfigReader::ActionForValue(
       std::wstring_view section, std::wstring_view name, TIntegerView value)
   {
-    if (value >= 0) return EAction::Process;
-
-    return EAction::Error;
+    if (value >= 0) return Action::Process();
+    return Action::Error();
   }
 
-  EAction PathwinderConfigReader::ActionForValue(
+  Action PathwinderConfigReader::ActionForValue(
       std::wstring_view section, std::wstring_view name, TBooleanView value)
   {
-    return EAction::Process;
+    return Action::Process();
   }
 
-  EAction PathwinderConfigReader::ActionForValue(
+  Action PathwinderConfigReader::ActionForValue(
       std::wstring_view section, std::wstring_view name, TStringView value)
   {
-    return EAction::Process;
+    return Action::Process();
   }
 
   EValueType PathwinderConfigReader::TypeForValue(std::wstring_view section, std::wstring_view name)

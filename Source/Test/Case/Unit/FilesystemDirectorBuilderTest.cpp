@@ -527,7 +527,7 @@ namespace PathwinderTest
 
     auto buildResult = FilesystemDirectorBuilder::BuildFromConfigurationData(configData);
     TEST_ASSERT(true == buildResult.has_value());
-    TEST_ASSERT(true == configData.IsEmpty());
+    TEST_ASSERT(true == configData.Empty());
 
     FilesystemDirector director = std::move(buildResult.value());
 
@@ -563,7 +563,7 @@ namespace PathwinderTest
 
     auto buildResult = FilesystemDirectorBuilder::BuildFromConfigurationData(configData);
     TEST_ASSERT(true == buildResult.has_value());
-    TEST_ASSERT(true == configData.IsEmpty());
+    TEST_ASSERT(true == configData.Empty());
 
     FilesystemDirector director = std::move(buildResult.value());
 
@@ -591,7 +591,7 @@ namespace PathwinderTest
 
     auto buildResult = FilesystemDirectorBuilder::BuildFromConfigurationData(configData);
     TEST_ASSERT(false == buildResult.has_value());
-    TEST_ASSERT(true == configData.IsEmpty());
+    TEST_ASSERT(true == configData.Empty());
   }
 
   // Verifies that filesystem rules cannot be created from configuration sections that are missing
@@ -612,7 +612,7 @@ namespace PathwinderTest
     {
       auto buildResult = FilesystemDirectorBuilder::BuildFromConfigurationData(configData);
       TEST_ASSERT(false == buildResult.has_value());
-      TEST_ASSERT(true == configData.IsEmpty());
+      TEST_ASSERT(true == configData.Empty());
     }
   }
 } // namespace PathwinderTest

@@ -506,16 +506,16 @@ namespace Pathwinder
     {
       TConfiguredDefinitions configuredDefinitions;
 
-      for (auto definitionRecord = configuredDefinitionsSection.ExtractFirstName();
+      for (auto definitionRecord = configuredDefinitionsSection.ExtractFirst();
            definitionRecord.has_value();
-           definitionRecord = configuredDefinitionsSection.ExtractFirstName())
+           definitionRecord = configuredDefinitionsSection.ExtractFirst())
       {
         DebugAssert(
             Infra::Configuration::EValueType::String == definitionRecord->second.GetType(),
             "Configured definitions section contains a non-string value.");
 
         std::wstring definitionName = std::move(definitionRecord->first);
-        std::wstring definitionValue = *definitionRecord->second.ExtractFirstStringValue();
+        std::wstring definitionValue = *definitionRecord->second.ExtractFirstString();
 
         configuredDefinitions.emplace(std::move(definitionName), std::move(definitionValue));
       }

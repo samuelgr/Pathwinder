@@ -53,8 +53,6 @@ namespace Pathwinder
     /// @param [in] configData Read-only reference to a configuration data object.
     static void BuildFilesystemRules(Infra::Configuration::ConfigurationData& configData)
     {
-      if (true == configData.HasReadErrors()) return;
-
       auto maybeFilesystemDirector =
           FilesystemDirectorBuilder::BuildFromConfigurationData(configData);
 
@@ -100,11 +98,9 @@ namespace Pathwinder
     /// @param [in] configData Read-only reference to a configuration data object.
     static void EnableLogIfConfigured(const Infra::Configuration::ConfigurationData& configData)
     {
-      const int64_t logLevel = configData
-                                   .GetFirstIntegerValue(
-                                       Infra::Configuration::kSectionNameGlobal,
-                                       Strings::kStrConfigurationSettingLogLevel)
-                                   .value_or(0);
+      const int64_t logLevel = configData[Infra::Configuration::kSectionNameGlobal]
+                                         [Strings::kStrConfigurationSettingLogLevel]
+                                             .ValueOr(0);
 
       if (logLevel > 0)
       {
@@ -119,47 +115,38 @@ namespace Pathwinder
     /// Reads configuration data from the configuration file and returns the resulting
     /// configuration data object. Enables logging and outputs read errors if any are
     /// encountered.
-    /// @return Filled configuration data object.
-    static Infra::Configuration::ConfigurationData ReadConfigurationFile(void)
+    /// @param [in,out] configReader Configuration reader object to control the read operation and
+    /// to fill with any error messages that arise.
+    /// @return Filled configuration data object, assuming no errors were encountered.
+    static Infra::Configuration::ConfigurationData ReadConfigurationFile(
+        PathwinderConfigReader& configReader)
     {
       Infra::TemporaryString configFileName;
       configFileName << Infra::ProcessInfo::GetThisModuleDirectoryName() << L"\\"
                      << Strings::GetConfigurationFilename();
 
-      PathwinderConfigReader configReader;
       Infra::Configuration::ConfigurationData configData =
           configReader.ReadConfigurationFile(configFileName);
 
-      if ((false == configData.HasReadErrors()) &&
-          (true ==
-           configData
-               .GetFirstBooleanValue(
-                   Infra::Configuration::kSectionNameGlobal,
-                   Strings::kStrConfigurationSettingRedirectConfigToExecutableDirectory)
-               .value_or(false)))
-      {
-        configFileName.Clear();
-        configFileName << Infra::ProcessInfo::GetExecutableDirectoryName() << L"\\"
-                       << Strings::GetConfigurationFilename();
-        configData = configReader.ReadConfigurationFile(configFileName);
-      }
-
-      if (true == configData.HasReadErrors())
+      if (true == configReader.HasErrorMessages())
       {
         EnableLog(Infra::Message::ESeverity::Error);
 
         Infra::Message::Output(
             Infra::Message::ESeverity::Error,
             L"Errors were encountered during configuration file reading.");
-        for (const auto& readErrorMessage : configData.GetReadErrorMessages())
+        for (const auto& readErrorMessage : configReader.GetErrorMessages())
           Infra::Message::OutputFormatted(
               Infra::Message::ESeverity::Error, L"    %s", readErrorMessage.c_str());
-
-        configData.ClearReadErrorMessages();
+        Infra::Message::Output(
+            Infra::Message::ESeverity::Error,
+            L"None of the settings in the configuration file were applied. Fix the errors and restart the application.");
 
         Infra::Message::Output(
             Infra::Message::ESeverity::ForcedInteractiveWarning,
             L"Errors were encountered during configuration file reading. See log file on the Desktop for more information.");
+
+        configData.Clear();
       }
 
       return configData;
@@ -182,11 +169,15 @@ namespace Pathwinder
     void Initialize(void)
     {
 #ifndef PATHWINDER_SKIP_CONFIG
-      Infra::Configuration::ConfigurationData configData = ReadConfigurationFile();
-
+      PathwinderConfigReader configReader;
+      Infra::Configuration::ConfigurationData configData = ReadConfigurationFile(configReader);
       EnableLogIfConfigured(configData);
-      SetResolverConfiguredDefinitions(configData);
-      BuildFilesystemRules(configData);
+
+      if (false == configReader.HasErrorMessages())
+      {
+        SetResolverConfiguredDefinitions(configData);
+        BuildFilesystemRules(configData);
+      }
 #endif
     }
   } // namespace Globals
