@@ -22,6 +22,7 @@
 #include <Infra/Core/DebugAssert.h>
 #include <Infra/Core/ProcessInfo.h>
 #include <Infra/Core/Strings.h>
+#include <Infra/Core/SystemInfo.h>
 #include <Infra/Core/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
@@ -57,10 +58,10 @@ namespace Pathwinder
           {L"PathwinderCompleteFilename", Infra::ProcessInfo::GetThisModuleCompleteFilename()},
           {L"PathwinderBaseName", Infra::ProcessInfo::GetThisModuleBaseName()},
           {L"PathwinderDirectoryName", Infra::ProcessInfo::GetThisModuleDirectoryName()},
-          {L"NetBiosHostname", Strings::kStrNetBiosHostname},
-          {L"DnsHostname", Strings::kStrDnsHostname},
-          {L"DnsDomain", Strings::kStrDnsDomain},
-          {L"DnsFullyQualified", Strings::kStrDnsFullyQualified}};
+          {L"NetBiosHostname", Infra::SystemInfo::GetNetBiosHostname()},
+          {L"DnsHostname", Infra::SystemInfo::GetDnsHostname()},
+          {L"DnsDomain", Infra::SystemInfo::GetDnsDomain()},
+          {L"DnsFullyQualified", Infra::SystemInfo::GetDnsFullyQualified()}};
 
       const auto builtinStringsIter = kBuiltinStrings.find(name);
       if (kBuiltinStrings.cend() == builtinStringsIter)

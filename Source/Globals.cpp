@@ -88,7 +88,7 @@ namespace Pathwinder
           enableLogFlag,
           [logLevel]() -> void
           {
-            Infra::Message::CreateAndEnableLogFile(Strings::GetLogFilename());
+            Infra::Message::CreateAndEnableLogFile();
           });
 
       Infra::Message::SetMinimumSeverityForOutput(logLevel);
@@ -121,13 +121,7 @@ namespace Pathwinder
     static Infra::Configuration::ConfigurationData ReadConfigurationFile(
         PathwinderConfigReader& configReader)
     {
-      Infra::TemporaryString configFileName;
-      configFileName << Infra::ProcessInfo::GetThisModuleDirectoryName() << L"\\"
-                     << Strings::GetConfigurationFilename();
-
-      Infra::Configuration::ConfigurationData configData =
-          configReader.ReadConfigurationFile(configFileName);
-
+      Infra::Configuration::ConfigurationData configData = configReader.ReadConfigurationFile();
       if (true == configReader.HasErrorMessages())
       {
         EnableLog(Infra::Message::ESeverity::Error);
@@ -135,9 +129,7 @@ namespace Pathwinder
         Infra::Message::Output(
             Infra::Message::ESeverity::Error,
             L"Errors were encountered during configuration file reading.");
-        for (const auto& readErrorMessage : configReader.GetErrorMessages())
-          Infra::Message::OutputFormatted(
-              Infra::Message::ESeverity::Error, L"    %s", readErrorMessage.c_str());
+        configReader.LogAllErrorMessages();
         Infra::Message::Output(
             Infra::Message::ESeverity::Error,
             L"None of the settings in the configuration file were applied. Fix the errors and restart the application.");
@@ -152,7 +144,7 @@ namespace Pathwinder
       return configData;
     }
 
-    /// Reads configured definitions from the configuration file, if specified, and submits them
+    /// Reads configured definitions from the configuration file, if present, and submits them
     /// to the reference resolution subsystem.
     /// @param [in] configData Read-only reference to a configuration data object.
     static void SetResolverConfiguredDefinitions(

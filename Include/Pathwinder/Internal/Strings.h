@@ -27,9 +27,6 @@ namespace Pathwinder
 {
   namespace Strings
   {
-    // These strings can safely be used at any time, including to perform static initialization.
-    // Views are guaranteed to be null-terminated.
-
     /// Delimiter used to separate portions of a string that are to be taken as literals versus
     /// to be taken as named references.
     inline constexpr std::wstring_view kStrDelimiterReferenceVsLiteral = L"%";
@@ -78,33 +75,6 @@ namespace Pathwinder
     /// Configuration file setting for specifying a file pattern for a filesystem rule.
     inline constexpr std::wstring_view kStrConfigurationSettingFilesystemRuleFilePattern =
         L"FilePattern";
-
-    // These strings are not safe to access before run-time, and should not be used to perform
-    // dynamic initialization. Views are guaranteed to be null-terminated.
-
-    /// NetBIOS hostname of the machine on which the currently-running executable is running.
-    extern const std::wstring_view kStrNetBiosHostname;
-
-    /// DNS hostname of the machine on which the currently-running executable is running. Does not
-    /// include the domain name, just the hostname.
-    extern const std::wstring_view kStrDnsHostname;
-
-    /// DNS domain of the machine on which the currently-running executable is running. Does not
-    /// include the hostname, just the domain.
-    extern const std::wstring_view kStrDnsDomain;
-
-    /// Fully-qualified DNS name of the machine on which the currently-running executable is
-    /// running. Includes both hostname and domain.
-    extern const std::wstring_view kStrDnsFullyQualified;
-
-    /// Expected base filename of a configuration file, without the directory part.
-    /// Pathwinder configuration filename = Pathwinder.ini
-    std::wstring_view GetConfigurationFilename(void);
-
-    /// Expected filename for the log file.
-    /// Pathwinder log filename = (current user's desktop)\Pathwinder_(base name of the running
-    /// executable)_(process ID).log
-    std::wstring_view GetLogFilename(void);
 
     /// Determines if the specified filename matches the specified file pattern. An empty file
     /// pattern is presumed to match everything. Input filename must not contain any backslash
