@@ -104,7 +104,7 @@ void Pathwinder::Hooks::ReinitializeCurrentDirectory(void)
       currentDirectory.AsCString());
 
   Infra::TemporaryString tempDirectory;
-  tempDirectory.UnsafeSetSize(GetTempPath2(tempDirectory.Capacity(), tempDirectory.Data()));
+  tempDirectory.UnsafeSetSize(GetTempPathW(tempDirectory.Capacity(), tempDirectory.Data()));
   if (true == tempDirectory.Empty())
   {
     Infra::Message::OutputFormatted(
