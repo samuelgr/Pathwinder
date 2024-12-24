@@ -167,5 +167,10 @@ namespace Pathwinder
     /// @param [in] absolutePath Absolute path to check.
     /// @return Whether or not the supplied absolute path is a volume root path.
     bool PathIsVolumeRoot(std::wstring_view absolutePath);
+
+    /// Generates a new unique temporary directory path each invocation.
+    /// @return Unique temporary directory path, or an empty string if the base temporary directory
+    /// path cannot be determined.
+    Infra::TemporaryString UniqueTemporaryDirectory(void);
   } // namespace Strings
 } // namespace Pathwinder

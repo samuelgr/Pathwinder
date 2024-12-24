@@ -18,6 +18,7 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 
 #include <Infra/Core/DebugAssert.h>
 #include <Infra/Core/ProcessInfo.h>
@@ -335,6 +336,33 @@ namespace Pathwinder
       return PathBeginsWithDriveLetter(absolutePath) &&
           ((kPathDriveLetterPrefixLengthChars +
             PathGetWindowsNamespacePrefix(absolutePath).length()) == absolutePath.length());
+    }
+
+    Infra::TemporaryString UniqueTemporaryDirectory(void)
+    {
+      static std::unordered_set<size_t> generatedRandomNumbers;
+      size_t newRandomNumber = 0;
+      do
+      {
+        static auto kFixedTimestamp = GetTickCount();
+        newRandomNumber = std::hash<size_t>()(
+            static_cast<size_t>(std::rand()) + static_cast<size_t>(kFixedTimestamp) +
+            static_cast<size_t>(Infra::ProcessInfo::GetCurrentProcessId()));
+      }
+      while (false == generatedRandomNumbers.insert(newRandomNumber).second);
+
+      Infra::TemporaryString tempDirectoryBase;
+      tempDirectoryBase.UnsafeSetSize(
+          GetTempPathW(tempDirectoryBase.Capacity(), tempDirectoryBase.Data()));
+      if (true == tempDirectoryBase.Empty()) return L"";
+      if (L'\\' != tempDirectoryBase.Back()) tempDirectoryBase += L'\\';
+
+      return Infra::Strings::Format(
+          L"%s%.*s_%zx",
+          tempDirectoryBase.AsCString(),
+          static_cast<int>(Infra::ProcessInfo::GetProductName().length()),
+          Infra::ProcessInfo::GetProductName().data(),
+          newRandomNumber);
     }
   } // namespace Strings
 } // namespace Pathwinder
