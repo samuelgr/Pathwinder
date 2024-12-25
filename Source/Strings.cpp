@@ -273,6 +273,26 @@ namespace Pathwinder
           .Buffer = const_cast<decltype(UNICODE_STRING::Buffer)>(strView.data())};
     }
 
+    std::wstring_view GetTempDirectory(void)
+    {
+      static std::wstring tempDirectory;
+      static std::once_flag initFlag;
+
+      std::call_once(
+          initFlag,
+          []() -> void
+          {
+            Infra::TemporaryString tempDirectoryBase;
+            tempDirectoryBase.UnsafeSetSize(
+                GetTempPathW(tempDirectoryBase.Capacity(), tempDirectoryBase.Data()));
+            tempDirectoryBase.RemoveTrailing(L'\\');
+
+            tempDirectory = tempDirectoryBase;
+          });
+
+      return tempDirectory;
+    }
+
     Infra::TemporaryString PathAddWindowsNamespacePrefix(std::wstring_view absolutePath)
     {
       static constexpr std::wstring_view kWindowsNamespacePrefixToPrepend = L"\\??\\";
@@ -351,15 +371,10 @@ namespace Pathwinder
       }
       while (false == generatedRandomNumbers.insert(newRandomNumber).second);
 
-      Infra::TemporaryString tempDirectoryBase;
-      tempDirectoryBase.UnsafeSetSize(
-          GetTempPathW(tempDirectoryBase.Capacity(), tempDirectoryBase.Data()));
-      if (true == tempDirectoryBase.Empty()) return L"";
-      if (L'\\' != tempDirectoryBase.Back()) tempDirectoryBase += L'\\';
-
       return Infra::Strings::Format(
-          L"%s%.*s_%zx",
-          tempDirectoryBase.AsCString(),
+          L"%.*s\\%.*s_%zx",
+          static_cast<int>(GetTempDirectory().length()),
+          GetTempDirectory().data(),
           static_cast<int>(Infra::ProcessInfo::GetProductName().length()),
           Infra::ProcessInfo::GetProductName().data(),
           newRandomNumber);

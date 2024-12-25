@@ -88,6 +88,10 @@ namespace Pathwinder
     /// `false` otherwise.
     bool FileNameMatchesPattern(std::wstring_view fileName, std::wstring_view filePatternUpperCase);
 
+    /// Retrieves and return the path of the temporary directory, without a trailing backslash.
+    /// @return Temporary directory path.
+    std::wstring_view GetTempDirectory(void);
+
     /// Copies the specified absolute path and prepends it with an appropriate Windows namespace
     /// prefix for identifying file paths to Windows system calls. Invoke this function with an
     /// empty string as the input parameter to return a new string object filled with just the
