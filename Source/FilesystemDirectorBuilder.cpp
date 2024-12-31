@@ -29,6 +29,7 @@
 #include "ApiWindows.h"
 #include "FilesystemOperations.h"
 #include "FilesystemRule.h"
+#include "Globals.h"
 #include "Resolver.h"
 #include "Strings.h"
 
@@ -79,6 +80,57 @@ namespace Pathwinder
     }
   }
 
+  /// Writes the details of a new filesystem rule to the log. Does not print the name, just the
+  /// details like origin and target directories, redirect mode, and file patterns.
+  /// @param [in] ruleToLog Filesystem rule whose details are to be logged.
+  /// @param [in] indentNumSpaces Number of spaces to indent each line of the details.
+  static void WriteFilesystemRuleDetailsToLog(
+      const FilesystemRule& ruleToLog, unsigned int indentNumSpaces)
+  {
+    const std::wstring_view redirectModeString = RedirectModeToString(ruleToLog.GetRedirectMode());
+
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Info,
+        L"%*sRedirection mode = %.*s",
+        static_cast<int>(indentNumSpaces),
+        L"",
+        static_cast<int>(redirectModeString.length()),
+        redirectModeString.data());
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Info,
+        L"%*sOrigin directory = \"%.*s\"",
+        static_cast<int>(indentNumSpaces),
+        L"",
+        static_cast<int>(ruleToLog.GetOriginDirectoryFullPath().length()),
+        ruleToLog.GetOriginDirectoryFullPath().data());
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Info,
+        L"%*sTarget directory = \"%.*s\"",
+        static_cast<int>(indentNumSpaces),
+        L"",
+        static_cast<int>(ruleToLog.GetTargetDirectoryFullPath().length()),
+        ruleToLog.GetTargetDirectoryFullPath().data());
+
+    if (true == ruleToLog.HasFilePatterns())
+    {
+      for (const auto& filePattern : ruleToLog.GetFilePatterns())
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Info,
+            L"%*sFile pattern = \"%s\"",
+            static_cast<int>(indentNumSpaces),
+            L"",
+            filePattern.c_str());
+    }
+    else
+    {
+      Infra::Message::OutputFormatted(
+          Infra::Message::ESeverity::Info,
+          L"%*sFile pattern = \"*\"",
+          static_cast<int>(indentNumSpaces),
+          L"");
+    }
+  }
+
   std::optional<FilesystemDirector> FilesystemDirectorBuilder::BuildFromConfigurationData(
       Infra::Configuration::ConfigurationData& configData)
   {
@@ -115,40 +167,12 @@ namespace Pathwinder
       if (addFilesystemRuleResult.HasValue())
       {
         const FilesystemRule& newFilesystemRule = *(addFilesystemRuleResult.Value());
-        const std::wstring_view newFilesystemRuleRedirectMode =
-            RedirectModeToString(newFilesystemRule.GetRedirectMode());
-
         Infra::Message::OutputFormatted(
             Infra::Message::ESeverity::Info,
             L"Successfully created filesystem rule \"%.*s\".",
             static_cast<int>(newFilesystemRule.GetName().length()),
             newFilesystemRule.GetName().data());
-        Infra::Message::OutputFormatted(
-            Infra::Message::ESeverity::Info,
-            L"  Redirection mode = %.*s",
-            static_cast<int>(newFilesystemRuleRedirectMode.length()),
-            newFilesystemRuleRedirectMode.data());
-        Infra::Message::OutputFormatted(
-            Infra::Message::ESeverity::Info,
-            L"  Origin directory = \"%.*s\"",
-            static_cast<int>(newFilesystemRule.GetOriginDirectoryFullPath().length()),
-            newFilesystemRule.GetOriginDirectoryFullPath().data());
-        Infra::Message::OutputFormatted(
-            Infra::Message::ESeverity::Info,
-            L"  Target directory = \"%.*s\"",
-            static_cast<int>(newFilesystemRule.GetTargetDirectoryFullPath().length()),
-            newFilesystemRule.GetTargetDirectoryFullPath().data());
-
-        if (true == newFilesystemRule.HasFilePatterns())
-        {
-          for (const auto& filePattern : newFilesystemRule.GetFilePatterns())
-            Infra::Message::OutputFormatted(
-                Infra::Message::ESeverity::Info, L"  File pattern = \"%s\"", filePattern.c_str());
-        }
-        else
-        {
-          Infra::Message::Output(Infra::Message::ESeverity::Info, L"  File pattern = \"*\"");
-        }
+        WriteFilesystemRuleDetailsToLog(newFilesystemRule, 2);
       }
       else
       {
@@ -474,6 +498,14 @@ namespace Pathwinder
           return Infra::Strings::Format(
               L"Error while building a filesystem director configuration: %s",
               autoGenerateRuleResult.Error().AsCString());
+        Globals::TemporaryPathsToClean().emplace(
+            autoGenerateRuleResult.Value()->GetTargetDirectoryFullPath());
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Info,
+            L"Auto-generated filesystem rule \"%.*s\".",
+            static_cast<int>(autoGenerateRuleResult.Value()->GetName().length()),
+            autoGenerateRuleResult.Value()->GetName().data());
+        WriteFilesystemRuleDetailsToLog(*autoGenerateRuleResult.Value(), 2);
       }
       else if (true == std::holds_alternative<Infra::TemporaryString>(constraintViolation))
       {
@@ -536,7 +568,7 @@ namespace Pathwinder
 
         return SAutoGeneratedRuleSpec{
             .ruleName = std::wstring(Infra::Strings::Format(
-                L"%.*s:AddParentOfOriginDirectory, OriginDirectory=\"%.*s\"",
+                L"%.*s:AddParentOfOriginDirectory:%.*s",
                 static_cast<int>(kAutoGeneratedRuleNamePrefix.length()),
                 kAutoGeneratedRuleNamePrefix.data(),
                 static_cast<int>(

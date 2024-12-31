@@ -34,9 +34,13 @@ namespace Pathwinder
     /// directory.
     /// @param [in] absoluteDirectoryPath Absolute path of the directory to be created along
     /// with its hierarchy of ancestors.
-    /// @return System call return code for the last system call that completed successfully,
-    /// safely cast from `NTSTATUS` to a standard integer type.
-    intptr_t CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath);
+    /// @return System call return code for the last system call that completed successfully.
+    NTSTATUS CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath);
+
+    /// Attempts to delete the specified file or directory.
+    /// @param [in] absolutePath Absolute path of the entity to delete.
+    /// @return System call return code for the deletion operation.
+    NTSTATUS Delete(std::wstring_view absolutePath);
 
     /// Checks if the specified filesystem entity (file, directory, or otherwise) exists.
     /// @param [in] absolutePath Absolute path of the entity to check.

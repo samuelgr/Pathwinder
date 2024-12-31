@@ -22,6 +22,7 @@
 
 #include "ApiWindows.h"
 #include "FilesystemOperations.h"
+#include "Globals.h"
 #include "MockFilesystemOperations.h"
 
 namespace PathwinderTest
@@ -454,6 +455,8 @@ namespace PathwinderTest
         directorBuilder.AddRule(L"1", L"C:\\OriginDir\\1\\2\\3\\4", L"C:\\TargetDir\\1\\2\\3\\4")
             .HasValue());
 
+    Globals::TemporaryPathsToClean().clear();
+
     auto buildResult = directorBuilder.Build();
     TEST_ASSERT(buildResult.HasValue());
     TEST_ASSERT(buildResult.Value().HasRuleWithOriginDirectory(L"C:\\OriginDir\\1\\2\\3\\4"));
@@ -461,6 +464,10 @@ namespace PathwinderTest
     TEST_ASSERT(buildResult.Value().HasRuleWithOriginDirectory(L"C:\\OriginDir\\1\\2"));
     TEST_ASSERT(buildResult.Value().HasRuleWithOriginDirectory(L"C:\\OriginDir\\1"));
     TEST_ASSERT(buildResult.Value().HasRuleWithOriginDirectory(L"C:\\OriginDir"));
+
+    // Temporary directories that were generated for the new rules should be marked for
+    // auto-deletion when Pathwinder unloads due to process termination.
+    TEST_ASSERT(4 == Globals::TemporaryPathsToClean().size());
   }
 
   // Verifies that the filesystem director build process fails when the origin directory path

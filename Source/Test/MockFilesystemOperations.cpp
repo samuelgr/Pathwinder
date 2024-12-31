@@ -165,6 +165,22 @@ namespace PathwinderTest
     return handleValue;
   }
 
+  bool MockFilesystemOperations::RemoveFilesystemEntityInternal(std::wstring_view absolutePath)
+  {
+    const size_t lastBackslashIndex = absolutePath.find_last_of(L'\\');
+    if (std::wstring_view::npos == lastBackslashIndex) return false;
+    std::wstring_view directoryPart = absolutePath.substr(0, lastBackslashIndex);
+    std::wstring_view filePart = absolutePath.substr(lastBackslashIndex + 1);
+
+    filesystemContents.erase(absolutePath);
+
+    auto parentDirectoryIter = filesystemContents.find(directoryPart);
+    if (filesystemContents.end() == parentDirectoryIter) return false;
+
+    parentDirectoryIter->second.erase(filePart);
+    return true;
+  }
+
   NTSTATUS MockFilesystemOperations::CloseHandle(HANDLE handle)
   {
     const auto directoryHandleIter = openFilesystemHandles.find(handle);
@@ -180,7 +196,7 @@ namespace PathwinderTest
     return NtStatus::kSuccess;
   }
 
-  intptr_t MockFilesystemOperations::CreateDirectoryHierarchy(
+  NTSTATUS MockFilesystemOperations::CreateDirectoryHierarchy(
       std::wstring_view absoluteDirectoryPath)
   {
     const std::wstring_view absoluteDirectoryPathTrimmed =
@@ -188,6 +204,13 @@ namespace PathwinderTest
     AddFilesystemEntityInternal(
         absoluteDirectoryPathTrimmed, EFilesystemEntityType::Directory, 0, true);
     return NtStatus::kSuccess;
+  }
+
+  NTSTATUS MockFilesystemOperations::Delete(std::wstring_view absolutePath)
+  {
+    const std::wstring_view absolutePathTrimmed =
+        Infra::Strings::RemoveTrailing(absolutePath, L'\\');
+    return RemoveFilesystemEntityInternal(absolutePathTrimmed);
   }
 
   bool MockFilesystemOperations::Exists(std::wstring_view absolutePath)
@@ -419,10 +442,15 @@ namespace Pathwinder
       MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, CloseHandle, handle);
     }
 
-    intptr_t CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath)
+    NTSTATUS CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath)
     {
       MOCK_FREE_FUNCTION_BODY(
           MockFilesystemOperations, CreateDirectoryHierarchy, absoluteDirectoryPath);
+    }
+
+    NTSTATUS Delete(std::wstring_view absolutePath)
+    {
+      MOCK_FREE_FUNCTION_BODY(MockFilesystemOperations, Delete, absolutePath);
     }
 
     bool Exists(std::wstring_view absolutePath)

@@ -172,5 +172,11 @@ namespace Pathwinder
       }
 #endif
     }
+
+    std::unordered_set<std::wstring>& TemporaryPathsToClean(void)
+    {
+      static std::unordered_set<std::wstring> temporaryPathsToClean;
+      return temporaryPathsToClean;
+    }
   } // namespace Globals
 } // namespace Pathwinder

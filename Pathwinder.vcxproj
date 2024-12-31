@@ -116,6 +116,7 @@
   <ItemGroup>
     <ClCompile Include="Source\ApiWindows.cpp" />
     <ClCompile Include="Source\DirectoryOperationQueue.cpp" />
+    <ClCompile Include="Source\DllMain.cpp" />
     <ClCompile Include="Source\FileInformationStruct.cpp" />
     <ClCompile Include="Source\FilesystemDirector.cpp" />
     <ClCompile Include="Source\FilesystemDirectorBuilder.cpp" />

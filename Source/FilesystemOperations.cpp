@@ -228,7 +228,7 @@ namespace Pathwinder
       return Hooks::ProtectedDependency::NtClose::SafeInvoke(handle);
     }
 
-    intptr_t CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath)
+    NTSTATUS CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath)
     {
       const std::wstring_view windowsNamespacePrefix =
           Strings::PathGetWindowsNamespacePrefix(absoluteDirectoryPath);
@@ -288,6 +288,19 @@ namespace Pathwinder
       }
 
       return NtStatus::kSuccess;
+    }
+
+    NTSTATUS Delete(std::wstring_view absolutePath)
+    {
+      ENSURE_ABSOLUTE_PATH_PARAM_HAS_WINDOWS_NAMESPCE_PREFIX(absolutePath);
+
+      UNICODE_STRING absolutePathSystemString =
+          Strings::NtConvertStringViewToUnicodeString(absolutePath);
+      OBJECT_ATTRIBUTES absolutePathObjectAttributes{};
+      InitializeObjectAttributes(
+          &absolutePathObjectAttributes, &absolutePathSystemString, 0, nullptr, nullptr);
+
+      return Hooks::ProtectedDependency::NtDeleteFile::SafeInvoke(&absolutePathObjectAttributes);
     }
 
     bool Exists(std::wstring_view absolutePath)

@@ -775,9 +775,8 @@ namespace Pathwinder
             functionRequestIdentifier,
             static_cast<int>(instruction.GetExtraPreOperationOperand().length()),
             instruction.GetExtraPreOperationOperand().data());
-        extraPreOperationResult =
-            static_cast<NTSTATUS>(FilesystemOperations::CreateDirectoryHierarchy(
-                instruction.GetExtraPreOperationOperand()));
+        extraPreOperationResult = FilesystemOperations::CreateDirectoryHierarchy(
+            instruction.GetExtraPreOperationOperand());
       }
 
       if (!(NT_SUCCESS(extraPreOperationResult)))

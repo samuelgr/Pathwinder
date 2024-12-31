@@ -202,7 +202,8 @@ namespace PathwinderTest
 
     // FilesystemOperations
     NTSTATUS CloseHandle(HANDLE handle);
-    intptr_t CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath);
+    NTSTATUS CreateDirectoryHierarchy(std::wstring_view absoluteDirectoryPath);
+    NTSTATUS Delete(std::wstring_view absolutePath);
     bool Exists(std::wstring_view absolutePath);
     bool IsDirectory(std::wstring_view absolutePath);
     Infra::ValueOrError<HANDLE, NTSTATUS> OpenDirectoryForEnumeration(
@@ -228,7 +229,7 @@ namespace PathwinderTest
 
     /// Inserts a filesystem entity and all of its parent directories into the fake filesystem.
     /// For internal use only.
-    /// @param [in] absolutePath Absolute path of the directory to insert. Paths are
+    /// @param [in] absolutePath Absolute path of the filesystem entity to insert. Paths are
     /// case-insensitive.
     /// @param [in] type Type of filesystem entity to be inserted.
     /// @param [in] sizeInBytes Size, in bytes, of the new filesystem entity.
@@ -247,6 +248,13 @@ namespace PathwinderTest
     /// @param [in] ioMode I/O mode to be associaetd with the newly-opened handle.
     /// @return Handle to the newly-opened file or directory, or `nullptr` if it does not exist.
     HANDLE OpenFilesystemEntityInternal(std::wstring_view absolutePath, EOpenHandleMode ioMode);
+
+    /// Removes a filesystem entity from the fake filesystem.
+    /// For internal use only.
+    /// @param [in] absolutePath Absolute path of the filesystem entity to remove. Case-insensitive.
+    /// @return `true` if the filesystem entity was successfully located and deleted, `false`
+    /// otherwise.
+    bool RemoveFilesystemEntityInternal(std::wstring_view absolutePath);
 
     /// Configuration setting that determines whether or not it is considered a test failure to
     /// attempt to close an invalid (for example, not-previously-opened) handle. If so, doing so

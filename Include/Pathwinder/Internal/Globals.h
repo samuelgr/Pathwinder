@@ -13,7 +13,7 @@
 #pragma once
 
 #include <string>
-#include <string_view>
+#include <unordered_set>
 
 #include "ApiWindows.h"
 
@@ -25,9 +25,13 @@ namespace Pathwinder
 {
   namespace Globals
   {
-    /// Performs run-time initialization.
-    /// This function only performs operations that are safe to perform within a DLL entry
-    /// point.
+    /// Performs run-time initialization. This function only performs operations that are safe to
+    /// perform within a DLL entry point.
     void Initialize(void);
+
+    /// Retrieves a reference to a global data structure that holds temporary directory paths to
+    /// clean up when Pathwinder is unloaded.
+    std::unordered_set<std::wstring>& TemporaryPathsToClean(void);
+
   } // namespace Globals
 } // namespace Pathwinder
