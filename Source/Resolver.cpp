@@ -3,7 +3,7 @@
  *   Path redirection for files, directories, and registry entries.
  ***************************************************************************************************
  * Authored by Samuel Grossman
- * Copyright (c) 2022-2024
+ * Copyright (c) 2022-2025
  ***********************************************************************************************//**
  * @file Resolver.cpp
  *   Implementation of functions for resolving named references and relative path components.

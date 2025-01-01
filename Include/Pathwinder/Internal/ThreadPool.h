@@ -3,7 +3,7 @@
  *   Path redirection for files, directories, and registry entries.
  ***************************************************************************************************
  * Authored by Samuel Grossman
- * Copyright (c) 2022-2024
+ * Copyright (c) 2022-2025
  ***********************************************************************************************//**
  * @file ThreadPool.h
  *   Declaration of thread pool functionality for asynchronously and concurrently managing and

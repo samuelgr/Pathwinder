@@ -3,7 +3,7 @@
  *   Path redirection for files, directories, and registry entries.
  ***************************************************************************************************
  * Authored by Samuel Grossman
- * Copyright (c) 2022-2024
+ * Copyright (c) 2022-2025
  ***********************************************************************************************//**
  * @file ThreadPoolTest.cpp
  *   Unit tests for thread pool functionality.
