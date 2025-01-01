@@ -37,7 +37,7 @@ Pathwinder additionally offers several features that cannot be replicated by usi
 
 1. Ensure the [Visual C++ Runtime for Visual Studio 2022](https://docs.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) is installed. Pathwinder is linked against this runtime and will not work without it. If running a 64-bit operating system, install both the x86 and the x64 versions of this runtime, otherwise install just the x86 version.
 
-1. Download the [latest release of Hookshot](https://github.com/samuelgr/Hookshot/releases) and [follow the instructions](https://github.com/samuelgr/Hookshot/blob/master/USERS.md#getting-started) on how to set it up for a given application. This most likely means placing all of the Hookshot executables and DLLs into the same directory as the application's executable file.
+1. Download the [latest release of Hookshot](https://github.com/samuelgr/Hookshot/releases) and [follow the instructions](https://github.com/samuelgr/Hookshot/wiki/Getting-Started) on how to set it up for a given application. This most likely means placing all of the Hookshot executables and DLLs into the same directory as the application's executable file.
 
 1. Download the latest release of Pathwinder and place its DLL file into the same directory as the executable file for the desired application.
 
