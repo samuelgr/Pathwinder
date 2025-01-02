@@ -50,7 +50,9 @@ namespace Pathwinder
     /// semantics, so all sections in the configuration data object that define filesystem rules are
     /// extracted out of it. This has the effect of using the filesystem rules defined in the
     /// configuration file to govern the behavior of file operations globally.
-    /// @param [in] configData Read-only reference to a configuration data object.
+    /// @param [in] configData Reference to a configuration data object from which to obtain
+    /// filesystem rules. On return, the sections containing filesystem rules will have been
+    /// extracted.
     static void BuildFilesystemRules(Infra::Configuration::ConfigurationData& configData)
     {
       auto maybeFilesystemDirector =
@@ -64,8 +66,7 @@ namespace Pathwinder
       {
         // Errors encountered when creating filesystem rules or building the final
         // filesystem director result in no filesystem director being created at all.
-        // Therefore it is unnecessary to take any corrective action, such as automatically
-        // enabling dry-run mode. Reporting the error is sufficient.
+        // Therefore it is unnecessary to take any corrective action.
 
         if (true == Infra::Message::IsLogFileEnabled())
           Infra::Message::Output(
@@ -76,6 +77,41 @@ namespace Pathwinder
               Infra::Message::ESeverity::ForcedInteractiveWarning,
               L"Errors were encountered during filesystem rule creation. Enable logging and see log file for more information.");
       }
+    }
+
+    /// Extracts the variable definitions from the specified configuration data object and fills
+    /// them into the specified resolver object.
+    /// @param [in, out] resolver Resolver object to be filled with the configured definitions.
+    /// @param [in, out] configData Reference to a configuration data object from which to obtain
+    /// definitions. On return, the associated section will have been extracted.
+    /// @return Pre-filled resolver object.
+    static void AddConfiguredDefinitionsToResolver(
+        Resolver& resolver, Infra::Configuration::ConfigurationData& configData)
+    {
+      constexpr std::wstring_view kStrReferenceDomainConfigDefinition = L"CONF";
+
+      auto maybeConfiguredDefinitionsSection =
+          configData.ExtractSection(Strings::kStrConfigurationSectionDefinitions);
+      if (false == maybeConfiguredDefinitionsSection.has_value()) return;
+      auto& configuredDefinitionsSection = maybeConfiguredDefinitionsSection->second;
+
+      Resolver::TDefinitions configuredDefinitions;
+      for (auto definitionRecord = configuredDefinitionsSection.ExtractFirst();
+           definitionRecord.has_value();
+           definitionRecord = configuredDefinitionsSection.ExtractFirst())
+      {
+        DebugAssert(
+            Infra::Configuration::EValueType::String == definitionRecord->second.GetType(),
+            "Configured definitions section contains a non-string value.");
+
+        std::wstring definitionName = std::move(definitionRecord->first);
+        std::wstring definitionValue = *definitionRecord->second.ExtractFirstString();
+
+        configuredDefinitions.emplace(std::move(definitionName), std::move(definitionValue));
+      }
+
+      resolver.RegisterCustomDomain(
+          kStrReferenceDomainConfigDefinition, std::move(configuredDefinitions));
     }
 
     /// Enables the log if it is not already enabled.
@@ -143,20 +179,13 @@ namespace Pathwinder
 
       return configData;
     }
-
-    /// Reads configured definitions from the configuration file, if present, and submits them
-    /// to the reference resolution subsystem.
-    /// @param [in] configData Read-only reference to a configuration data object.
-    static void SetResolverConfiguredDefinitions(
-        Infra::Configuration::ConfigurationData& configData)
-    {
-      auto configuredDefinitionsSectionIter =
-          configData.Sections().find(Strings::kStrConfigurationSectionDefinitions);
-      if (configData.Sections().end() != configuredDefinitionsSectionIter)
-        Resolver::SetConfiguredDefinitionsFromSection(
-            configData.ExtractSection(configuredDefinitionsSectionIter).second);
-    }
 #endif
+
+    Resolver& ResolverWithConfiguredDefinitions(void)
+    {
+      static Resolver resolver;
+      return resolver;
+    }
 
     void Initialize(void)
     {
@@ -167,7 +196,7 @@ namespace Pathwinder
 
       if (false == configReader.HasErrorMessages())
       {
-        SetResolverConfiguredDefinitions(configData);
+        AddConfiguredDefinitionsToResolver(ResolverWithConfiguredDefinitions(), configData);
         BuildFilesystemRules(configData);
       }
 #endif

@@ -15,7 +15,6 @@
 #include <string>
 #include <string_view>
 
-#include <Infra/Core/Configuration.h>
 #include <Infra/Core/ProcessInfo.h>
 #include <Infra/Core/TemporaryBuffer.h>
 #include <Infra/Test/TestCase.h>
@@ -26,33 +25,9 @@
 namespace PathwinderTest
 {
   using namespace ::Pathwinder;
-  using namespace ::Pathwinder::Resolver;
 
-  /// Convenience class for setting and clearing configured definitions (these correspond to the
-  /// CONF domain) in reference resolution test cases. On construction, sets the configured
-  /// definitions to whatever is passed as input. On destruction, clears the configured
-  /// definitions.
-  class TemporaryConfiguredDefinitions
-  {
-  public:
-
-    inline TemporaryConfiguredDefinitions(TConfiguredDefinitions&& configuredDefinitions)
-    {
-      SetConfiguredDefinitions(std::move(configuredDefinitions));
-    }
-
-    inline TemporaryConfiguredDefinitions(
-        Infra::Configuration::Section&& configuredDefinitionsSection)
-    {
-      SetConfiguredDefinitionsFromSection(std::move(configuredDefinitionsSection));
-    }
-
-    /// Clears the configured definitions.
-    inline ~TemporaryConfiguredDefinitions(void)
-    {
-      ClearConfiguredDefinitions();
-    }
-  };
+  /// Domain name used to exercise resolver functionality for custom domain resolution.
+  constexpr std::wstring_view kStrReferenceDomainTesting = L"TESTING";
 
   /// Attempts to resolve an environment variable to a string.
   /// @param [in] name Environment variable name.
@@ -98,7 +73,8 @@ namespace PathwinderTest
 
     const std::optional<std::wstring> expectedResolveResult =
         GetEnvironmentVariableString(kEnvironmentVariableName);
-    const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
+    Resolver resolver;
+    const ResolvedStringViewOrError actualResolveResult = resolver.ResolveSingleReference(
         std::wstring(kStrReferenceDomainEnvironmentVariable) +
         std::wstring(kStrDelimterReferenceDomainVsName) + std::wstring(kEnvironmentVariableName));
 
@@ -115,8 +91,9 @@ namespace PathwinderTest
 
     const std::optional<std::wstring> expectedResolveResult =
         GetEnvironmentVariableString(kEnvironmentVariableName);
+    Resolver resolver;
     const ResolvedStringViewOrError actualResolveResult =
-        ResolveSingleReference(kEnvironmentVariableName);
+        resolver.ResolveSingleReference(kEnvironmentVariableName);
 
     TEST_ASSERT(true == expectedResolveResult.has_value());
     TEST_ASSERT(true == actualResolveResult.HasValue());
@@ -129,7 +106,8 @@ namespace PathwinderTest
   {
     constexpr std::wstring_view kEnvironmentVariableName = L"ASDF=GH=JKL;";
 
-    const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
+    Resolver resolver;
+    const ResolvedStringViewOrError actualResolveResult = resolver.ResolveSingleReference(
         std::wstring(kStrReferenceDomainEnvironmentVariable) +
         std::wstring(kStrDelimterReferenceDomainVsName) + std::wstring(kEnvironmentVariableName));
     TEST_ASSERT(true == actualResolveResult.HasError());
@@ -141,8 +119,9 @@ namespace PathwinderTest
   {
     constexpr std::wstring_view kEnvironmentVariableName = L"ASDF=GH=JKL;";
 
+    Resolver resolver;
     const ResolvedStringViewOrError actualResolveResult =
-        ResolveSingleReference(kEnvironmentVariableName);
+        resolver.ResolveSingleReference(kEnvironmentVariableName);
     TEST_ASSERT(true == actualResolveResult.HasError());
   }
 
@@ -177,8 +156,9 @@ namespace PathwinderTest
 
       const std::optional<std::wstring> expectedResolveResult =
           GetKnownFolderPathString(knownFolderIdentifier);
+      Resolver resolver;
       const ResolvedStringViewOrError actualResolveResult =
-          ResolveSingleReference(knownFolderInputString);
+          resolver.ResolveSingleReference(knownFolderInputString);
 
       TEST_ASSERT(actualResolveResult.HasValue() == expectedResolveResult.has_value());
 
@@ -206,147 +186,114 @@ namespace PathwinderTest
       const std::wstring knownFolderInputString =
           testInputPrefix + std::wstring(knownFolderIdentifierRecord.first);
 
+      Resolver resolver;
       const ResolvedStringViewOrError actualResolveResult =
-          ResolveSingleReference(knownFolderInputString);
+          resolver.ResolveSingleReference(knownFolderInputString);
       TEST_ASSERT(true == actualResolveResult.HasError());
     }
   }
 
-  // Verifies that a configured definition can be resolved correctly in the nominal case of no
+  // Verifies that a custom domain definition can be resolved correctly in the nominal case of no
   // embedded references.
-  TEST_CASE(Resolver_SingleReference_ConfiguredDefinition_Nominal)
+  TEST_CASE(Resolver_SingleReference_CustomDomainDefinition_Nominal)
   {
     const std::wstring kVariableName = L"W";
     const std::wstring kVariableValue = L"This is the evaluated value of W.";
 
-    TemporaryConfiguredDefinitions testDefinitions =
-        TConfiguredDefinitions({{kVariableName, kVariableValue}});
+    Resolver resolver;
+    resolver.RegisterCustomDomain(kStrReferenceDomainTesting, {{kVariableName, kVariableValue}});
 
     const std::wstring_view expectedResolveResult = kVariableValue;
-    const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
-        std::wstring(kStrReferenceDomainConfigDefinition) +
-        std::wstring(kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName));
+    const ResolvedStringViewOrError actualResolveResult = resolver.ResolveSingleReference(
+        std::wstring(kStrReferenceDomainTesting) + std::wstring(kStrDelimterReferenceDomainVsName) +
+        std::wstring(kVariableName));
 
     TEST_ASSERT(true == actualResolveResult.HasValue());
     TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
   }
 
-  // Verifies that a configured definition can be resolved correctly in the nominal case of no
-  // embedded references. Same as the nominal case but uses a configuration data section instead
-  // of a directly-supplied definition map.
-  TEST_CASE(Resolver_SingleReference_ConfiguredDefinition_NominalFromConfigSection)
-  {
-    const std::wstring kVariableName = L"W";
-    const std::wstring kVariableValue = L"This is the evaluated value of W.";
-
-    Infra::Configuration::Section testDefinitionSection(
-        {{std::wstring(kVariableName), kVariableValue}});
-
-    TemporaryConfiguredDefinitions testDefinitions(std::move(testDefinitionSection));
-
-    const std::wstring_view expectedResolveResult = kVariableValue;
-    const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
-        std::wstring(kStrReferenceDomainConfigDefinition) +
-        std::wstring(kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName));
-
-    TEST_ASSERT(true == actualResolveResult.HasValue());
-    TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
-  }
-
-  // Verifies that a configured definition can be resolved correctly in the more complex case of
+  // Verifies that a custom domain definition can be resolved correctly in the more complex case of
   // embedded references.
-  TEST_CASE(Resolver_SingleReference_ConfiguredDefinition_Embedded)
+  TEST_CASE(Resolver_SingleReference_CustomDomainDefinition_Embedded)
   {
-    TemporaryConfiguredDefinitions testDefinitions = TConfiguredDefinitions(
+    Resolver resolver;
+    resolver.RegisterCustomDomain(
+        kStrReferenceDomainTesting,
         {{L"X", L"Value of X"},
-         {L"Y", L"Value of Y incorporates value of X: (%CONF::X%)"},
-         {L"Z", L"Value of Z incorporates value of Y: (%CONF::Y%)"}});
+         {L"Y", L"Value of Y incorporates value of X: (%TESTING::X%)"},
+         {L"Z", L"Value of Z incorporates value of Y: (%TESTING::Y%)"}});
 
     const std::wstring_view expectedResolveResult =
         L"Value of Z incorporates value of Y: (Value of Y incorporates value of X: (Value of X))";
-    const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
-        std::wstring(kStrReferenceDomainConfigDefinition) +
-        std::wstring(kStrDelimterReferenceDomainVsName) + L"Z");
+    const ResolvedStringViewOrError actualResolveResult = resolver.ResolveSingleReference(
+        std::wstring(kStrReferenceDomainTesting) + std::wstring(kStrDelimterReferenceDomainVsName) +
+        L"Z");
 
     TEST_ASSERT(true == actualResolveResult.HasValue());
     TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
   }
 
-  // Verifies that a configured definition can be resolved correctly in the more complex case of
-  // embedded references. Same as the embedded test case but uses a configuration data section
-  // instead of a directly-supplied definition map.
-  TEST_CASE(Resolver_SingleReference_ConfiguredDefinition_EmbeddedFromConfigSection)
-  {
-    Infra::Configuration::Section testDefinitionSection(
-        {{L"X", L"Value of X"},
-         {L"Y", L"Value of Y incorporates value of X: (%CONF::X%)"},
-         {L"Z", L"Value of Z incorporates value of Y: (%CONF::Y%)"}});
-
-    TemporaryConfiguredDefinitions testDefinitions(std::move(testDefinitionSection));
-
-    const std::wstring_view expectedResolveResult =
-        L"Value of Z incorporates value of Y: (Value of Y incorporates value of X: (Value of X))";
-    const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
-        std::wstring(kStrReferenceDomainConfigDefinition) +
-        std::wstring(kStrDelimterReferenceDomainVsName) + L"Z");
-
-    TEST_ASSERT(true == actualResolveResult.HasValue());
-    TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
-  }
-
-  // Verifies that a configured definition fails to resolve when it references itself.
-  TEST_CASE(Resolver_SingleReference_ConfiguredDefinition_EmbeddedCircularSingle)
+  // Verifies that a custom domain definition fails to resolve when it references itself.
+  TEST_CASE(Resolver_SingleReference_CustomDomainDefinition_EmbeddedCircularSingle)
   {
     const std::wstring kVariableName = L"Invalid";
-    const std::wstring kVariableValue = L"This is the evaluated value of %CONF::Invalid%.";
+    const std::wstring kVariableValue = L"This is the evaluated value of %TESTING::Invalid%.";
 
-    TemporaryConfiguredDefinitions testDefinitions =
-        TConfiguredDefinitions({{kVariableName, kVariableValue}});
+    Resolver resolver;
+    resolver.RegisterCustomDomain(kStrReferenceDomainTesting, {{kVariableName, kVariableValue}});
 
-    const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
-        std::wstring(kStrReferenceDomainConfigDefinition) +
-        std::wstring(kStrDelimterReferenceDomainVsName) + std::wstring(kVariableName));
+    const ResolvedStringViewOrError actualResolveResult = resolver.ResolveSingleReference(
+        std::wstring(kStrReferenceDomainTesting) + std::wstring(kStrDelimterReferenceDomainVsName) +
+        std::wstring(kVariableName));
     TEST_ASSERT(true == actualResolveResult.HasError());
   }
 
-  // Verifies that a configured definition fails to resolve when there is a cycle across multiple
+  // Verifies that a custom domain definition fails to resolve when there is a cycle across multiple
   // references.
-  TEST_CASE(Resolver_SingleReference_ConfiguredDefinition_EmbeddedCircularMultiple)
+  TEST_CASE(Resolver_SingleReference_CustomDomainDefinition_EmbeddedCircularMultiple)
   {
-    TemporaryConfiguredDefinitions testDefinitions = TConfiguredDefinitions(
-        {{L"Invalid1", L"Value of %CONF::Invalid2%"},
-         {L"Invalid2", L"Value of Invalid2 incorporates %CONF::Invalid3%"},
-         {L"Invalid3", L"Value of Invalid3 incorporates %CONF::Invalid1%"}});
+    Resolver resolver;
+    resolver.RegisterCustomDomain(
+        kStrReferenceDomainTesting,
+        {{L"Invalid1", L"Value of %TESTING::Invalid2%"},
+         {L"Invalid2", L"Value of Invalid2 incorporates %TESTING::Invalid3%"},
+         {L"Invalid3", L"Value of Invalid3 incorporates %TESTING::Invalid1%"}});
 
-    const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
-        std::wstring(kStrReferenceDomainConfigDefinition) +
-        std::wstring(kStrDelimterReferenceDomainVsName) + L"Invalid2");
+    const ResolvedStringViewOrError actualResolveResult = resolver.ResolveSingleReference(
+        std::wstring(kStrReferenceDomainTesting) + std::wstring(kStrDelimterReferenceDomainVsName) +
+        L"Invalid2");
     TEST_ASSERT(true == actualResolveResult.HasError());
   }
 
-  // Verifies that a configured definition referencing an unrecognized variable fails to be
+  // Verifies that a custom domain definition referencing an unrecognized variable fails to be
   // resolved.
-  TEST_CASE(Resolver_SingleReference_ConfiguredDefinition_Invalid)
+  TEST_CASE(Resolver_SingleReference_CustomDomainDefinition_Invalid)
   {
-    const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
-        std::wstring(kStrReferenceDomainConfigDefinition) +
-        std::wstring(kStrDelimterReferenceDomainVsName) + L"UnknownVariable123456");
+    Resolver resolver;
+    resolver.RegisterCustomDomain(kStrReferenceDomainTesting, {{L"X", L"Value of X"}});
+
+    const ResolvedStringViewOrError actualResolveResult = resolver.ResolveSingleReference(
+        std::wstring(kStrReferenceDomainTesting) + std::wstring(kStrDelimterReferenceDomainVsName) +
+        L"UnknownVariable123456");
     TEST_ASSERT(true == actualResolveResult.HasError());
   }
 
-  // Verifies that valid references to built-in strings are resolved correctly.
+  // Verifies that valid references to built-in strings are resolved correctly and without regard
+  // for case.
   TEST_CASE(Resolver_SingleReference_Builtin_Nominal)
   {
     const std::pair<std::wstring_view, std::wstring_view> kBuiltinStringTestRecords[] = {
         {L"BUILTIN::ExecutableBaseName", Infra::ProcessInfo::GetExecutableBaseName()},
+        {L"builtin::executabledirectoryname", Infra::ProcessInfo::GetExecutableDirectoryName()},
         {L"BUILTIN::PathwinderDirectoryName", Infra::ProcessInfo::GetThisModuleDirectoryName()},
     };
 
     for (const auto& kBuiltinStringTestRecord : kBuiltinStringTestRecords)
     {
       const std::wstring_view expectedResolveResult = kBuiltinStringTestRecord.second;
+      Resolver resolver;
       const ResolvedStringViewOrError actualResolveResult =
-          ResolveSingleReference(kBuiltinStringTestRecord.first);
+          resolver.ResolveSingleReference(kBuiltinStringTestRecord.first);
 
       TEST_ASSERT(true == actualResolveResult.HasValue());
       TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
@@ -365,23 +312,26 @@ namespace PathwinderTest
         L"::",
         L""};
 
+    Resolver resolver;
     for (const auto& kInvalidInputString : kInvalidInputStrings)
-      TEST_ASSERT(true == ResolveSingleReference(kInvalidInputString).HasError());
+      TEST_ASSERT(true == resolver.ResolveSingleReference(kInvalidInputString).HasError());
   }
 
   // Verifies that valid inputs for all-reference resolution produce the correct successful
   // resolution results. No escape characters are supplied.
   TEST_CASE(Resolver_AllReferences_Nominal)
   {
-    TemporaryConfiguredDefinitions testDefinitions = TConfiguredDefinitions(
+    Resolver resolver;
+    resolver.RegisterCustomDomain(
+        kStrReferenceDomainTesting,
         {{L"BaseDir", L"%FOLDERID::SavedGames%"}, {L"PercentageComplete", L"56.789"}});
 
     const std::pair<std::wstring_view, std::wstring> kAllReferenceTestRecords[] = {
-        {L"Selected base directory: %CONF::BaseDir%",
+        {L"Selected base directory: %TESTING::BaseDir%",
          std::wstring(L"Selected base directory: ") +
              GetKnownFolderPathString(FOLDERID_SavedGames).value()},
-        {L"You are %CONF::PercentageComplete%%% done!", L"You are 56.789% done!"},
-        {L"System is %CONF::PercentageComplete%%% ready to provide your files in %CONF::BaseDir%.",
+        {L"You are %TESTING::PercentageComplete%%% done!", L"You are 56.789% done!"},
+        {L"System is %TESTING::PercentageComplete%%% ready to provide your files in %TESTING::BaseDir%.",
          std::wstring(L"System is 56.789% ready to provide your files in ") +
              GetKnownFolderPathString(FOLDERID_SavedGames).value() + std::wstring(L".")},
         {L"%%%%%%::%%%%::::%%%%", L"%%%::%%::::%%"}};
@@ -390,8 +340,7 @@ namespace PathwinderTest
     {
       const std::wstring_view expectedResolveResult = kAllReferenceTestRecord.second;
       const ResolvedStringOrError actualResolveResult =
-          ResolveAllReferences(kAllReferenceTestRecord.first);
-
+          resolver.ResolveAllReferences(kAllReferenceTestRecord.first);
       TEST_ASSERT(true == actualResolveResult.HasValue());
       TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
     }
@@ -402,7 +351,9 @@ namespace PathwinderTest
   // is used.
   TEST_CASE(Resolver_AllReferences_EscapeSequenceDefault)
   {
-    TemporaryConfiguredDefinitions testDefinitions = TConfiguredDefinitions(
+    Resolver resolver;
+    resolver.RegisterCustomDomain(
+        kStrReferenceDomainTesting,
         {{L"Variable1", L"abcdef"},
          {L"Variable2", L"ABCDEF"},
          {L"Variable3", L"This is a NICE test for real!"},
@@ -414,22 +365,22 @@ namespace PathwinderTest
     // reference itself. This is to ensure that only the reference result gets escaped, not the
     // literal, even if the literal contains special characters marked for escaping.
     const std::pair<std::wstring_view, std::wstring> kAllReferenceTestRecords[] = {
-        {L"abcdef %CONF::Variable1%",
+        {L"abcdef %TESTING::Variable1%",
          L"abcdef "
          L"ab\\cdef"},
-        {L"ABCDEF %CONF::Variable2%",
+        {L"ABCDEF %TESTING::Variable2%",
          L"ABCDEF "
          L"ABCDE\\F"},
-        {L"This is a NICE test for real! %CONF::Variable3%",
+        {L"This is a NICE test for real! %TESTING::Variable3%",
          L"This is a NICE test for real! "
          L"This\\ is\\ a\\ NICE\\ test\\ for\\ real!"},
-        {L"%CONF::Variable4%", L"\\ \\c\\ \\F\\ "}};
+        {L"%TESTING::Variable4%", L"\\ \\c\\ \\F\\ "}};
 
     for (const auto& kAllReferenceTestRecord : kAllReferenceTestRecords)
     {
       const std::wstring_view expectedResolveResult = kAllReferenceTestRecord.second;
       const ResolvedStringOrError actualResolveResult =
-          ResolveAllReferences(kAllReferenceTestRecord.first, kEscapeCharacters);
+          resolver.ResolveAllReferences(kAllReferenceTestRecord.first, kEscapeCharacters);
 
       TEST_ASSERT(true == actualResolveResult.HasValue());
       TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
@@ -441,7 +392,9 @@ namespace PathwinderTest
   // the start and end of escape sequences.
   TEST_CASE(Resolver_AllReferences_EscapeSequenceStartAndEnd)
   {
-    TemporaryConfiguredDefinitions testDefinitions = TConfiguredDefinitions(
+    Resolver resolver;
+    resolver.RegisterCustomDomain(
+        kStrReferenceDomainTesting,
         {{L"Variable5", L"abcdef"},
          {L"Variable6", L"ABCDEF"},
          {L"Variable7", L"This is a NICE test for real!"},
@@ -455,21 +408,21 @@ namespace PathwinderTest
     // reference itself. This is to ensure that only the reference result gets escaped, not the
     // literal, even if the literal contains special characters marked for escaping.
     const std::pair<std::wstring_view, std::wstring> kAllReferenceTestRecords[] = {
-        {L"abcdef %CONF::Variable5%",
+        {L"abcdef %TESTING::Variable5%",
          L"abcdef "
          L"ab!&!c>>def"},
-        {L"ABCDEF %CONF::Variable6%",
+        {L"ABCDEF %TESTING::Variable6%",
          L"ABCDEF "
          L"ABCDE!&!F>>"},
-        {L"This is a NICE test for real! %CONF::Variable7%",
+        {L"This is a NICE test for real! %TESTING::Variable7%",
          L"This is a NICE test for real! "
          L"This!&! >>is!&! >>a!&! >>NICE!&! >>test!&! >>for!&! >>real!"},
-        {L"%CONF::Variable8%", L"!&! >>!&!c>>!&! >>!&!F>>!&! >>"}};
+        {L"%TESTING::Variable8%", L"!&! >>!&!c>>!&! >>!&!F>>!&! >>"}};
 
     for (const auto& kAllReferenceTestRecord : kAllReferenceTestRecords)
     {
       const std::wstring_view expectedResolveResult = kAllReferenceTestRecord.second;
-      const ResolvedStringOrError actualResolveResult = ResolveAllReferences(
+      const ResolvedStringOrError actualResolveResult = resolver.ResolveAllReferences(
           kAllReferenceTestRecord.first,
           kEscapeCharacters,
           kEscapeSequenceStart,
@@ -483,16 +436,18 @@ namespace PathwinderTest
   // Verifies that invalid inputs for all-reference resolution cause the resolution to fail.
   TEST_CASE(Resolver_AllReferences_Invalid)
   {
-    TemporaryConfiguredDefinitions testDefinitions =
-        TConfiguredDefinitions({{L"BaseDir", L"%FOLDERID::TotallyUnrecognizedFolderIdentifier%"}});
+    Resolver resolver;
+    resolver.RegisterCustomDomain(
+        kStrReferenceDomainTesting,
+        {{L"BaseDir", L"%FOLDERID::TotallyUnrecognizedFolderIdentifier%"}});
 
     constexpr std::wstring_view kInvalidInputStrings[] = {
         L"Using computer %COMPUTERNAME% as user %USERNAME%. There is an extra % sign at the end that is not matched.",
-        L"Using computer %COMPUTERNAME% as user %CONF::InvalidReference%.",
-        L"Selected base directory: %CONF::BaseDir%",
+        L"Using computer %COMPUTERNAME% as user %TESTING::InvalidReference%.",
+        L"Selected base directory: %TESTING::BaseDir%",
         L"%%%"};
 
     for (const auto& kInvalidInputString : kInvalidInputStrings)
-      TEST_ASSERT(true == ResolveAllReferences(kInvalidInputString).HasError());
+      TEST_ASSERT(true == resolver.ResolveAllReferences(kInvalidInputString).HasError());
   }
 } // namespace PathwinderTest

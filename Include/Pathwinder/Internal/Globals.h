@@ -16,6 +16,7 @@
 #include <unordered_set>
 
 #include "ApiWindows.h"
+#include "Resolver.h"
 
 #ifndef PATHWINDER_SKIP_CONFIG
 #include <Infra/Core/Configuration.h>
@@ -28,6 +29,11 @@ namespace Pathwinder
     /// Performs run-time initialization. This function only performs operations that are safe to
     /// perform within a DLL entry point.
     void Initialize(void);
+
+    /// Manages a globally-shared resolver object that contains Pathwinder-specific definitions read
+    /// from a configuration file. This is for the purpose of dynamic reference resolution.
+    /// @return Mutable reference to the global resolver object.
+    Resolver& ResolverWithConfiguredDefinitions(void);
 
     /// Retrieves a reference to a global data structure that holds temporary directory paths to
     /// clean up when Pathwinder is unloaded.
