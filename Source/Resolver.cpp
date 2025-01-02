@@ -92,26 +92,12 @@ namespace Pathwinder
     /// @return Resolved value on success, error message on failure.
     static ResolvedStringOrError ResolveConfiguredDefinition(std::wstring_view name)
     {
-      static std::unordered_set<
-          std::wstring_view,
-          Infra::Strings::CaseInsensitiveHasher<wchar_t>,
-          Infra::Strings::CaseInsensitiveEqualityComparator<wchar_t>>
-          resolutionsInProgress;
-
       const auto configuredDefinitionIter = configuredDefinitions.find(name);
       if (configuredDefinitions.cend() == configuredDefinitionIter)
         return ResolvedStringOrError::MakeError(Infra::Strings::Format(
             L"%.*s: Unrecognized variable name", static_cast<int>(name.length()), name.data()));
-
-      std::pair resolutionInProgress = resolutionsInProgress.emplace(name);
-      if (false == resolutionInProgress.second)
-        return ResolvedStringOrError::MakeError(Infra::Strings::Format(
-            L"%.*s: Circular reference", static_cast<int>(name.length()), name.data()));
-
       ResolvedStringOrError resolvedDefinition =
           ResolveAllReferences(configuredDefinitionIter->second);
-      resolutionsInProgress.erase(resolutionInProgress.first);
-
       return resolvedDefinition;
     }
 
@@ -342,8 +328,30 @@ namespace Pathwinder
       return resolversByDomain;
     }
 
+    /// Creates a fully-qualified reference name from a domain and a variable.
+    /// @param [in] domain Domain part of the fully-qualified reference.
+    /// @param [in] name Name part of the fully-qualified reference.
+    /// @return String that represents the fully-qualified reference of the name within its domain.
+    static std::wstring FullyQualifiedReferenceFromParts(
+        std::wstring_view domain, std::wstring_view name)
+    {
+      std::wstring referenceFullyQualified;
+      referenceFullyQualified.reserve(
+          1 + domain.length() + kStrDelimterReferenceDomainVsName.length() + name.length());
+      referenceFullyQualified += domain;
+      referenceFullyQualified += kStrDelimterReferenceDomainVsName;
+      referenceFullyQualified += name;
+      return referenceFullyQualified;
+    }
+
     ResolvedStringViewOrError ResolveSingleReference(std::wstring_view str)
     {
+      static std::unordered_set<
+          std::wstring,
+          Infra::Strings::CaseInsensitiveHasher<wchar_t>,
+          Infra::Strings::CaseInsensitiveEqualityComparator<wchar_t>>
+          resolutionsInProgress;
+
       const auto previouslyResolvedIter = resolvedSingleReferenceCache.find(str);
       if (resolvedSingleReferenceCache.cend() != previouslyResolvedIter)
         return ResolvedStringViewOrError::MakeValue(previouslyResolvedIter->second);
@@ -378,7 +386,13 @@ namespace Pathwinder
             static_cast<int>(strPartReferenceDomain.length()),
             strPartReferenceDomain.data()));
 
+      std::pair resolutionInProgress = resolutionsInProgress.emplace(
+          FullyQualifiedReferenceFromParts(strPartReferenceDomain, strPartReferenceName));
+      if (false == resolutionInProgress.second)
+        return ResolvedStringViewOrError::MakeError(
+            Infra::Strings::Format(L"%s: Circular reference", resolutionInProgress.first->c_str()));
       ResolvedStringOrError resolveResult = resolverByDomainIter->second(strPartReferenceName);
+      resolutionsInProgress.erase(resolutionInProgress.first);
 
       if (true == resolveResult.HasValue())
         return ResolvedStringViewOrError::MakeValue(
