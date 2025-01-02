@@ -24,6 +24,28 @@ namespace Pathwinder
 {
   namespace Resolver
   {
+    /// Delimiter used to separate portions of a string that are to be taken as literals versus
+    /// to be taken as named references.
+    inline constexpr std::wstring_view kStrDelimiterReferenceVsLiteral = L"%";
+
+    /// Delimiter used to separate a named reference into a domain part and a name part.
+    inline constexpr std::wstring_view kStrDelimterReferenceDomainVsName = L"::";
+
+    /// Domain part of a named reference that identifies the domain as being a built-in string.
+    inline constexpr std::wstring_view kStrReferenceDomainBuiltin = L"BUILTIN";
+
+    /// Domain part of a named reference that identifies the domain as being a definition
+    /// contained in the configuration file.
+    inline constexpr std::wstring_view kStrReferenceDomainConfigDefinition = L"CONF";
+
+    /// Domain part of a named reference that identifies the domain as being an environment
+    /// variable.
+    inline constexpr std::wstring_view kStrReferenceDomainEnvironmentVariable = L"ENV";
+
+    /// Domain part of a named reference that identifies the domain as being a shell "known
+    /// folder" identifier.
+    inline constexpr std::wstring_view kStrReferenceDomainKnownFolderIdentifier = L"FOLDERID";
+
     /// Type alias for representing either the result of resolving references or an error
     /// message. This version fully contains and owns the resulting string.
     using ResolvedStringOrError = Infra::ValueOrError<std::wstring, Infra::TemporaryString>;

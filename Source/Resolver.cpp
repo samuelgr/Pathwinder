@@ -11,7 +11,7 @@
 
 #include "Resolver.h"
 
-#include <map>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -26,7 +26,6 @@
 #include <Infra/Core/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
-#include "Strings.h"
 
 namespace Pathwinder
 {
@@ -34,16 +33,28 @@ namespace Pathwinder
   {
     /// Default reference domain to use when none are specified.
     static constexpr std::wstring_view kReferenceDefaultDomain =
-        Strings::kStrReferenceDomainEnvironmentVariable;
+        kStrReferenceDomainEnvironmentVariable;
 
-    /// Type for all functions that attempt to resolve a specific type of reference.
-    using TResolveReferenceFunc = ResolvedStringOrError (*)(std::wstring_view);
+    /// Type alias for all functions that attempt to resolve a specific type of reference.
+    using TResolveReferenceFunc = std::function<ResolvedStringOrError(std::wstring_view)>;
+
+    /// Type alias for a registry for all resolver functions keyed by domain.
+    using TResolversByDomainRegistry = std::unordered_map<
+        std::wstring_view,
+        TResolveReferenceFunc,
+        Infra::Strings::CaseInsensitiveHasher<wchar_t>,
+        Infra::Strings::CaseInsensitiveEqualityComparator<wchar_t>>;
 
     /// Holds configured definitions, which correspond to the CONF domain.
     static TConfiguredDefinitions configuredDefinitions;
 
     /// Internal cache of the result of resolving a single reference.
-    static std::map<std::wstring, std::wstring, std::less<void>> resolvedSingleReferenceCache;
+    static std::unordered_map<
+        std::wstring,
+        std::wstring,
+        Infra::Strings::CaseInsensitiveHasher<wchar_t>,
+        Infra::Strings::CaseInsensitiveEqualityComparator<wchar_t>>
+        resolvedSingleReferenceCache;
 
     /// Resolves a built-in string reference.
     /// Built-in strings are a subset of the "Strings.h" declarations.
@@ -51,22 +62,27 @@ namespace Pathwinder
     /// @return Resolved value on success, error message on failure.
     static ResolvedStringOrError ResolveBuiltin(std::wstring_view name)
     {
-      static const std::unordered_map<std::wstring_view, std::wstring_view> kBuiltinStrings = {
-          {L"ExecutableCompleteFilename", Infra::ProcessInfo::GetExecutableCompleteFilename()},
-          {L"ExecutableBaseName", Infra::ProcessInfo::GetExecutableBaseName()},
-          {L"ExecutableDirectoryName", Infra::ProcessInfo::GetExecutableDirectoryName()},
-          {L"PathwinderCompleteFilename", Infra::ProcessInfo::GetThisModuleCompleteFilename()},
-          {L"PathwinderBaseName", Infra::ProcessInfo::GetThisModuleBaseName()},
-          {L"PathwinderDirectoryName", Infra::ProcessInfo::GetThisModuleDirectoryName()},
-          {L"NetBiosHostname", Infra::SystemInfo::GetNetBiosHostname()},
-          {L"DnsHostname", Infra::SystemInfo::GetDnsHostname()},
-          {L"DnsDomain", Infra::SystemInfo::GetDnsDomain()},
-          {L"DnsFullyQualified", Infra::SystemInfo::GetDnsFullyQualified()}};
+      static const std::unordered_map<
+          std::wstring_view,
+          std::wstring_view,
+          Infra::Strings::CaseInsensitiveHasher<wchar_t>,
+          Infra::Strings::CaseInsensitiveEqualityComparator<wchar_t>>
+          kBuiltinStrings = {
+              {L"ExecutableCompleteFilename", Infra::ProcessInfo::GetExecutableCompleteFilename()},
+              {L"ExecutableBaseName", Infra::ProcessInfo::GetExecutableBaseName()},
+              {L"ExecutableDirectoryName", Infra::ProcessInfo::GetExecutableDirectoryName()},
+              {L"PathwinderCompleteFilename", Infra::ProcessInfo::GetThisModuleCompleteFilename()},
+              {L"PathwinderBaseName", Infra::ProcessInfo::GetThisModuleBaseName()},
+              {L"PathwinderDirectoryName", Infra::ProcessInfo::GetThisModuleDirectoryName()},
+              {L"NetBiosHostname", Infra::SystemInfo::GetNetBiosHostname()},
+              {L"DnsHostname", Infra::SystemInfo::GetDnsHostname()},
+              {L"DnsDomain", Infra::SystemInfo::GetDnsDomain()},
+              {L"DnsFullyQualified", Infra::SystemInfo::GetDnsFullyQualified()}};
 
       const auto builtinStringsIter = kBuiltinStrings.find(name);
       if (kBuiltinStrings.cend() == builtinStringsIter)
         return ResolvedStringOrError::MakeError(Infra::Strings::Format(
-            L"%s: Unrecognized built-in string", std::wstring(name).c_str()));
+            L"%.*s: Unrecognized built-in string", static_cast<int>(name.length()), name.data()));
 
       return ResolvedStringOrError::MakeValue(builtinStringsIter->second);
     }
@@ -76,17 +92,21 @@ namespace Pathwinder
     /// @return Resolved value on success, error message on failure.
     static ResolvedStringOrError ResolveConfiguredDefinition(std::wstring_view name)
     {
-      static std::unordered_set<std::wstring_view> resolutionsInProgress;
+      static std::unordered_set<
+          std::wstring_view,
+          Infra::Strings::CaseInsensitiveHasher<wchar_t>,
+          Infra::Strings::CaseInsensitiveEqualityComparator<wchar_t>>
+          resolutionsInProgress;
 
       const auto configuredDefinitionIter = configuredDefinitions.find(name);
       if (configuredDefinitions.cend() == configuredDefinitionIter)
-        return ResolvedStringOrError::MakeError(
-            Infra::Strings::Format(L"%s: Unrecognized variable name", std::wstring(name).c_str()));
+        return ResolvedStringOrError::MakeError(Infra::Strings::Format(
+            L"%.*s: Unrecognized variable name", static_cast<int>(name.length()), name.data()));
 
       std::pair resolutionInProgress = resolutionsInProgress.emplace(name);
       if (false == resolutionInProgress.second)
-        return ResolvedStringOrError::MakeError(
-            Infra::Strings::Format(L"%s: Circular reference", std::wstring(name).c_str()));
+        return ResolvedStringOrError::MakeError(Infra::Strings::Format(
+            L"%.*s: Circular reference", static_cast<int>(name.length()), name.data()));
 
       ResolvedStringOrError resolvedDefinition =
           ResolveAllReferences(configuredDefinitionIter->second);
@@ -102,18 +122,20 @@ namespace Pathwinder
     {
       Infra::TemporaryBuffer<wchar_t> environmentVariableValue;
       const DWORD getEnvironmentVariableResult = GetEnvironmentVariable(
-          std::wstring(name).c_str(),
+          Infra::TemporaryString(name).AsCString(),
           environmentVariableValue.Data(),
           environmentVariableValue.Capacity());
 
       if (getEnvironmentVariableResult >= environmentVariableValue.Capacity())
         return ResolvedStringOrError::MakeError(Infra::Strings::Format(
-            L"%s: Failed to obtain environment variable value: Value is too long",
-            std::wstring(name).c_str()));
+            L"%.*s: Failed to obtain environment variable value: Value is too long",
+            static_cast<int>(name.length()),
+            name.data()));
       else if (0 == getEnvironmentVariableResult)
         return ResolvedStringOrError::MakeError(Infra::Strings::Format(
-            L"%s: Failed to obtain environment variable value: %s",
-            std::wstring(name).c_str(),
+            L"%.*s: Failed to obtain environment variable value: %s",
+            static_cast<int>(name.length()),
+            name.data(),
             Infra::Strings::FromSystemErrorCode(GetLastError()).AsCString()));
 
       return ResolvedStringOrError::MakeValue(environmentVariableValue.Data());
@@ -129,7 +151,11 @@ namespace Pathwinder
     {
       // Every single known folder definition from "KnownFolders.h" is contained in this map.
       // Some of them are virtual and so cannot be mapped to real paths.
-      static const std::unordered_map<std::wstring_view, const KNOWNFOLDERID*>
+      static const std::unordered_map<
+          std::wstring_view,
+          const KNOWNFOLDERID*,
+          Infra::Strings::CaseInsensitiveHasher<wchar_t>,
+          Infra::Strings::CaseInsensitiveEqualityComparator<wchar_t>>
           kKnownFolderIdentifiers = {
               {L"NetworkFolder", &FOLDERID_NetworkFolder},
               {L"ComputerFolder", &FOLDERID_ComputerFolder},
@@ -277,7 +303,9 @@ namespace Pathwinder
       const auto knownFolderIter = kKnownFolderIdentifiers.find(name);
       if (kKnownFolderIdentifiers.cend() == knownFolderIter)
         return ResolvedStringOrError::MakeError(Infra::Strings::Format(
-            L"%s: Unrecognized known folder identifier", std::wstring(name).c_str()));
+            L"%.*s: Unrecognized known folder identifier",
+            static_cast<int>(name.length()),
+            name.data()));
 
       wchar_t* knownFolderPath = nullptr;
       const HRESULT getKnownFolderPathResult =
@@ -288,34 +316,40 @@ namespace Pathwinder
         if (nullptr != knownFolderPath) CoTaskMemFree(knownFolderPath);
 
         return ResolvedStringOrError::MakeError(Infra::Strings::Format(
-            L"%s: Failed to obtain known folder path: error code 0x%08lx",
-            std::wstring(name).c_str(),
+            L"%.*s: Failed to obtain known folder path: error code 0x%08lx",
+            static_cast<int>(name.length()),
+            name.data(),
             static_cast<unsigned long>(getKnownFolderPathResult)));
       }
       else
       {
         std::wstring knownFolderPathString(knownFolderPath);
-
         if (nullptr != knownFolderPath) CoTaskMemFree(knownFolderPath);
-
         return ResolvedStringOrError::MakeValue(std::move(knownFolderPathString));
       }
     }
 
+    /// Manages and returns a mutable reference to the registry of resolver functions keyed by
+    /// domain.
+    /// @return Mutable reference to the registry of resolver functions by domain.
+    static TResolversByDomainRegistry& ResolversByDomain(void)
+    {
+      static TResolversByDomainRegistry resolversByDomain = {
+          {kStrReferenceDomainBuiltin, &ResolveBuiltin},
+          {kStrReferenceDomainConfigDefinition, &ResolveConfiguredDefinition},
+          {kStrReferenceDomainEnvironmentVariable, &ResolveEnvironmentVariable},
+          {kStrReferenceDomainKnownFolderIdentifier, &ResolveKnownFolderIdentifier}};
+      return resolversByDomain;
+    }
+
     ResolvedStringViewOrError ResolveSingleReference(std::wstring_view str)
     {
-      static const std::unordered_map<std::wstring_view, TResolveReferenceFunc> kResolversByDomain =
-          {{Strings::kStrReferenceDomainBuiltin, &ResolveBuiltin},
-           {Strings::kStrReferenceDomainConfigDefinition, &ResolveConfiguredDefinition},
-           {Strings::kStrReferenceDomainEnvironmentVariable, &ResolveEnvironmentVariable},
-           {Strings::kStrReferenceDomainKnownFolderIdentifier, &ResolveKnownFolderIdentifier}};
-
       const auto previouslyResolvedIter = resolvedSingleReferenceCache.find(str);
       if (resolvedSingleReferenceCache.cend() != previouslyResolvedIter)
         return ResolvedStringViewOrError::MakeValue(previouslyResolvedIter->second);
 
       Infra::TemporaryVector<std::wstring_view> strParts =
-          Infra::Strings::Split(str, Strings::kStrDelimterReferenceDomainVsName);
+          Infra::Strings::Split(str, kStrDelimterReferenceDomainVsName);
       std::wstring_view strPartReferenceDomain;
       std::wstring_view strPartReferenceName;
 
@@ -332,14 +366,17 @@ namespace Pathwinder
           break;
 
         default:
-          return ResolvedStringViewOrError::MakeError(
-              Infra::Strings::Format(L"%s: Unparseable reference", std::wstring(str).c_str()));
+          return ResolvedStringViewOrError::MakeError(Infra::Strings::Format(
+              L"%.*s: Unparseable reference", static_cast<int>(str.length()), str.data()));
       }
 
-      const auto resolverByDomainIter = kResolversByDomain.find(strPartReferenceDomain);
-      if (kResolversByDomain.cend() == resolverByDomainIter)
+      const auto& resolversByDomain = ResolversByDomain();
+      const auto resolverByDomainIter = resolversByDomain.find(strPartReferenceDomain);
+      if (resolversByDomain.cend() == resolverByDomainIter)
         return ResolvedStringViewOrError::MakeError(Infra::Strings::Format(
-            L"%s: Unrecognized reference domain", std::wstring(strPartReferenceDomain).c_str()));
+            L"%.*s: Unrecognized reference domain",
+            static_cast<int>(strPartReferenceDomain.length()),
+            strPartReferenceDomain.data()));
 
       ResolvedStringOrError resolveResult = resolverByDomainIter->second(strPartReferenceName);
 
@@ -358,13 +395,15 @@ namespace Pathwinder
     {
       Infra::TemporaryString resolvedStr;
       Infra::TemporaryVector<std::wstring_view> strParts =
-          Infra::Strings::Split(str, Strings::kStrDelimiterReferenceVsLiteral);
+          Infra::Strings::Split(str, kStrDelimiterReferenceVsLiteral);
 
       if (1 != (strParts.Size() % 2))
         return ResolvedStringOrError::MakeError(Infra::Strings::Format(
-            L"%s: Unmatched '%s' delimiters",
-            std::wstring(str).c_str(),
-            Strings::kStrDelimiterReferenceVsLiteral.data()));
+            L"%.*s: Unmatched '%.*s' delimiters",
+            static_cast<int>(str.length()),
+            str.data(),
+            static_cast<int>(kStrDelimiterReferenceVsLiteral.length()),
+            kStrDelimiterReferenceVsLiteral.data()));
 
       resolvedStr << strParts[0];
 
@@ -372,7 +411,7 @@ namespace Pathwinder
       {
         if (true == strParts[i].empty())
         {
-          resolvedStr << Strings::kStrDelimiterReferenceVsLiteral;
+          resolvedStr << kStrDelimiterReferenceVsLiteral;
         }
         else
         {
@@ -381,8 +420,9 @@ namespace Pathwinder
 
           if (true == resolvedReferenceResult.HasError())
             return ResolvedStringOrError::MakeError(Infra::Strings::Format(
-                L"%s: Failed to resolve reference: %s",
-                std::wstring(str).c_str(),
+                L"%.*s: Failed to resolve reference: %s",
+                static_cast<int>(str.length()),
+                str.data(),
                 resolvedReferenceResult.Error().AsCString()));
 
           if (true == escapeCharacters.empty())
@@ -412,8 +452,9 @@ namespace Pathwinder
 
       if (true == resolvedStr.Overflow())
         return ResolvedStringOrError::MakeError(Infra::Strings::Format(
-            L"%s: Successfully resolved, but result exceeds the limit of %u characters",
-            std::wstring(str).c_str(),
+            L"%.*s: Successfully resolved, but result exceeds the limit of %u characters",
+            static_cast<int>(str.length()),
+            str.data(),
             resolvedStr.Capacity()));
 
       return ResolvedStringOrError::MakeValue(resolvedStr);
