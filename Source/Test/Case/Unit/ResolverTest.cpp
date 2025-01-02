@@ -100,8 +100,7 @@ namespace PathwinderTest
         GetEnvironmentVariableString(kEnvironmentVariableName);
     const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
         std::wstring(kStrReferenceDomainEnvironmentVariable) +
-        std::wstring(kStrDelimterReferenceDomainVsName) +
-        std::wstring(kEnvironmentVariableName));
+        std::wstring(kStrDelimterReferenceDomainVsName) + std::wstring(kEnvironmentVariableName));
 
     TEST_ASSERT(true == expectedResolveResult.has_value());
     TEST_ASSERT(true == actualResolveResult.HasValue());
@@ -132,8 +131,7 @@ namespace PathwinderTest
 
     const ResolvedStringViewOrError actualResolveResult = ResolveSingleReference(
         std::wstring(kStrReferenceDomainEnvironmentVariable) +
-        std::wstring(kStrDelimterReferenceDomainVsName) +
-        std::wstring(kEnvironmentVariableName));
+        std::wstring(kStrDelimterReferenceDomainVsName) + std::wstring(kEnvironmentVariableName));
     TEST_ASSERT(true == actualResolveResult.HasError());
   }
 
@@ -168,8 +166,7 @@ namespace PathwinderTest
         {L"SavedGames", &FOLDERID_SavedGames},
         {L"Windows", &FOLDERID_Windows}};
 
-    const std::wstring testInputPrefix =
-        std::wstring(kStrReferenceDomainKnownFolderIdentifier) +
+    const std::wstring testInputPrefix = std::wstring(kStrReferenceDomainKnownFolderIdentifier) +
         std::wstring(kStrDelimterReferenceDomainVsName);
 
     for (const auto& knownFolderIdentifierRecord : kKnownFolderIdentifierRecords)
@@ -201,8 +198,7 @@ namespace PathwinderTest
         {L" InternetCache", &FOLDERID_InternetCache},
         {L"\tWindows", &FOLDERID_Windows}};
 
-    const std::wstring testInputPrefix =
-        std::wstring(kStrReferenceDomainKnownFolderIdentifier) +
+    const std::wstring testInputPrefix = std::wstring(kStrReferenceDomainKnownFolderIdentifier) +
         std::wstring(kStrDelimterReferenceDomainVsName);
 
     for (const auto& knownFolderIdentifierRecord : kKnownFolderIdentifierRecords)
@@ -498,39 +494,5 @@ namespace PathwinderTest
 
     for (const auto& kInvalidInputString : kInvalidInputStrings)
       TEST_ASSERT(true == ResolveAllReferences(kInvalidInputString).HasError());
-  }
-
-  // Verifies that paths with relative components are correctly converted to absolute.
-  TEST_CASE(Resolver_RelativePathComponents_Nominal)
-  {
-    const std::pair<std::wstring_view, std::wstring> kRelativePathToAbsoluteTestRecords[] = {
-        {L"C:\\Test\\..", L"C:"},
-        {L"C:\\Test\\..\\", L"C:\\"},
-        {L"C:\\.\\Test\\.\\..\\.", L"C:"},
-        {L"C:\\.\\Test\\.\\..\\.\\", L"C:\\"},
-        {L"C:\\Test\\Test2\\SomeBaseDir\\..\\SomeReplacementDir",
-         L"C:\\Test\\Test2\\SomeReplacementDir"}};
-
-    for (const auto& kRelativePathToAbsoluteTestRecord : kRelativePathToAbsoluteTestRecords)
-    {
-      const std::wstring_view expectedResolveResult = kRelativePathToAbsoluteTestRecord.second;
-      const ResolvedStringOrError actualResolveResult =
-          ResolveRelativePathComponents(kRelativePathToAbsoluteTestRecord.first);
-
-      TEST_ASSERT(true == actualResolveResult.HasValue());
-      TEST_ASSERT(actualResolveResult.Value() == expectedResolveResult);
-    }
-  }
-
-  TEST_CASE(Resolver_RelativePathComponents_Invalid)
-  {
-    constexpr std::wstring_view kInvalidInputStrings[] = {
-        L"C:\\Test\\..\\..",
-        L"..",
-        L"C:\\.\\..\\.",
-        L"C:\\Test\\Test2\\SomeBaseDir\\..\\..\\..\\..\\..\\SomeReplacementDir"};
-
-    for (const auto& kInvalidInputString : kInvalidInputStrings)
-      TEST_ASSERT(true == ResolveRelativePathComponents(kInvalidInputString).HasError());
   }
 } // namespace PathwinderTest

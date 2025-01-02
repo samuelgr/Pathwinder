@@ -35,6 +35,85 @@
 
 namespace Pathwinder
 {
+  /// Resolves a filesystem path that potentially has relative path components ('.' and '..') by
+  /// turning it into an absolute path.
+  /// @param [in] potentiallyRelativePath Path to be resolved from potentially relative to
+  /// absolute.
+  /// @param [in] pathDelimiter Delimiter to use when separating components of the path. Defaults
+  /// to the Windows standard delimiter of a single backslash.
+  /// @return Input path turned into an absolute path or an error message if the process failed.
+  static Resolver::ResolvedStringOrError PathResolveRelativeToAbsolute(
+      std::wstring_view potentiallyRelativePath, std::wstring_view pathDelimiter = L"\\")
+  {
+    const bool hasTrailingPathDelimiter = potentiallyRelativePath.ends_with(pathDelimiter);
+
+    Infra::TemporaryVector<std::wstring_view> resolvedPathComponents;
+    size_t resolvedPathLength = 0;
+
+    for (std::wstring_view pathComponent :
+         Infra::Strings::Tokenizer(potentiallyRelativePath, pathDelimiter))
+    {
+      if ((pathComponent.empty()) || (pathComponent == L"."))
+      {
+        // Current-directory references and empty path components can be skipped. An empty path
+        // component indicates either there is a trailing path delimiter or there are multiple
+        // consecutive path delimiters somewhere in the middle of the path.
+
+        continue;
+      }
+      else if (pathComponent == L"..")
+      {
+        // Parent-directory references need one path component to be popped.
+
+        if (resolvedPathComponents.Size() < 2)
+          return Resolver::ResolvedStringOrError::MakeError(Infra::Strings::Format(
+              L"%.*s: Invalid path: Too many \"..\" parent directory references",
+              static_cast<int>(potentiallyRelativePath.length()),
+              potentiallyRelativePath.data()));
+
+        const size_t resolvedPathLengthToRemove =
+            resolvedPathComponents.Back().length() + pathDelimiter.length();
+        if (resolvedPathLengthToRemove > resolvedPathLength)
+          return Resolver::ResolvedStringOrError::MakeError(Infra::Strings::Format(
+              L"%.*s: Internal error: Removing too many characters while resolving a single \"..\" parent directory reference",
+              static_cast<int>(potentiallyRelativePath.length()),
+              potentiallyRelativePath.data()));
+
+        resolvedPathComponents.PopBack();
+        resolvedPathLength -= resolvedPathLengthToRemove;
+      }
+      else
+      {
+        // Any other path components need to be pushed without modification.
+
+        if (resolvedPathComponents.Size() == resolvedPathComponents.Capacity())
+          return Resolver::ResolvedStringOrError::MakeError(Infra::Strings::Format(
+              L"%.*s: Invalid path: Hierarchy is too deep, exceeds the limit of %u path components",
+              static_cast<int>(potentiallyRelativePath.length()),
+              potentiallyRelativePath.data(),
+              resolvedPathComponents.Capacity()));
+        resolvedPathComponents.PushBack(pathComponent);
+        resolvedPathLength += pathComponent.length() + pathDelimiter.length();
+      }
+    }
+
+    std::wstring resolvedPath;
+    if (false == resolvedPathComponents.Empty())
+    {
+      resolvedPath.reserve(resolvedPathLength);
+      for (std::wstring_view resolvedPathComponent : resolvedPathComponents)
+      {
+        resolvedPath.append(resolvedPathComponent);
+        resolvedPath.append(pathDelimiter);
+      }
+
+      if (false == hasTrailingPathDelimiter)
+        resolvedPath.resize(resolvedPath.size() - pathDelimiter.length());
+    }
+
+    return std::move(resolvedPath);
+  }
+
   /// Reads the configured redirection mode from a filesystem rule configuration setting or, if
   /// the redirection mode is not present, returns a default value.
   /// @param [in] configSection Configuration section object containing the filesystem rule's
@@ -313,7 +392,7 @@ namespace Pathwinder
           ruleName.c_str(),
           maybeOriginDirectoryResolvedString.Error().AsCString());
     maybeOriginDirectoryResolvedString =
-        Resolver::ResolveRelativePathComponents(maybeOriginDirectoryResolvedString.Value());
+        PathResolveRelativeToAbsolute(maybeOriginDirectoryResolvedString.Value());
     if (true == maybeOriginDirectoryResolvedString.HasError())
       return Infra::Strings::Format(
           L"Error while creating filesystem rule \"%s\": Origin directory: %s.",
@@ -349,7 +428,7 @@ namespace Pathwinder
           ruleName.c_str(),
           maybeTargetDirectoryResolvedString.Error().AsCString());
     maybeTargetDirectoryResolvedString =
-        Resolver::ResolveRelativePathComponents(maybeTargetDirectoryResolvedString.Value());
+        PathResolveRelativeToAbsolute(maybeTargetDirectoryResolvedString.Value());
     if (true == maybeTargetDirectoryResolvedString.HasError())
       return Infra::Strings::Format(
           L"Error while creating filesystem rule \"%s\": Target directory: %s.",
