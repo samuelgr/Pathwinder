@@ -62,18 +62,39 @@ namespace Pathwinder
     /// @return Resolved value on success, error message on failure.
     static ResolvedStringOrError ResolveBuiltin(std::wstring_view name)
     {
+      static const struct
+      {
+        std::wstring productCompleteFilename;
+        std::wstring productBaseName;
+        std::wstring productDirectoryName;
+      } kBuiltinProductKeyStrings = {
+          .productCompleteFilename = std::wstring(Infra::Strings::Format(
+              L"%.*sCompleteFilename",
+              static_cast<int>(Infra::ProcessInfo::GetProductName().length()),
+              Infra::ProcessInfo::GetProductName().data())),
+          .productBaseName = std::wstring(Infra::Strings::Format(
+              L"%.*sBaseName",
+              static_cast<int>(Infra::ProcessInfo::GetProductName().length()),
+              Infra::ProcessInfo::GetProductName().data())),
+          .productDirectoryName = std::wstring(Infra::Strings::Format(
+              L"%.*sDirectoryName",
+              static_cast<int>(Infra::ProcessInfo::GetProductName().length()),
+              Infra::ProcessInfo::GetProductName().data()))};
       static const std::unordered_map<
           std::wstring_view,
           std::wstring_view,
           Infra::Strings::CaseInsensitiveHasher<wchar_t>,
           Infra::Strings::CaseInsensitiveEqualityComparator<wchar_t>>
           kBuiltinStrings = {
+              {kBuiltinProductKeyStrings.productCompleteFilename,
+               Infra::ProcessInfo::GetThisModuleCompleteFilename()},
+              {kBuiltinProductKeyStrings.productBaseName,
+               Infra::ProcessInfo::GetThisModuleBaseName()},
+              {kBuiltinProductKeyStrings.productDirectoryName,
+               Infra::ProcessInfo::GetThisModuleDirectoryName()},
               {L"ExecutableCompleteFilename", Infra::ProcessInfo::GetExecutableCompleteFilename()},
               {L"ExecutableBaseName", Infra::ProcessInfo::GetExecutableBaseName()},
               {L"ExecutableDirectoryName", Infra::ProcessInfo::GetExecutableDirectoryName()},
-              {L"PathwinderCompleteFilename", Infra::ProcessInfo::GetThisModuleCompleteFilename()},
-              {L"PathwinderBaseName", Infra::ProcessInfo::GetThisModuleBaseName()},
-              {L"PathwinderDirectoryName", Infra::ProcessInfo::GetThisModuleDirectoryName()},
               {L"NetBiosHostname", Infra::SystemInfo::GetNetBiosHostname()},
               {L"DnsHostname", Infra::SystemInfo::GetDnsHostname()},
               {L"DnsDomain", Infra::SystemInfo::GetDnsDomain()},
