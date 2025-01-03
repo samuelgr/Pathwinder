@@ -129,7 +129,6 @@
     <ClCompile Include="Source\Hooks.cpp" />
     <ClCompile Include="Source\OpenHandleStore.cpp" />
     <ClCompile Include="Source\PathwinderConfigReader.cpp" />
-    <ClCompile Include="Source\Resolver.cpp" />
     <ClCompile Include="Source\Strings.cpp" />
     <ClCompile Include="Source\ThreadPool.cpp" />
   </ItemGroup>
@@ -150,7 +149,6 @@
     <ClInclude Include="Include\Pathwinder\Internal\OpenHandleStore.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PathwinderConfigReader.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PrefixTree.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\Resolver.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Strings.h" />
     <ClInclude Include="Include\Pathwinder\Internal\ThreadPool.h" />
     <ClInclude Include="Resources\Pathwinder.h" />

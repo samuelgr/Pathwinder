@@ -20,9 +20,9 @@
 
 #include <Infra/Core/Message.h>
 #include <Infra/Core/ProcessInfo.h>
+#include <Infra/Core/Resolver.h>
 #include <Infra/Core/TemporaryBuffer.h>
 
-#include "Resolver.h"
 #include "Strings.h"
 
 #ifndef PATHWINDER_SKIP_CONFIG
@@ -86,7 +86,7 @@ namespace Pathwinder
     /// definitions. On return, the associated section will have been extracted.
     /// @return Pre-filled resolver object.
     static void AddConfiguredDefinitionsToResolver(
-        Resolver& resolver, Infra::Configuration::ConfigurationData& configData)
+        Infra::Resolver& resolver, Infra::Configuration::ConfigurationData& configData)
     {
       constexpr std::wstring_view kStrReferenceDomainConfigDefinition = L"CONF";
 
@@ -95,7 +95,7 @@ namespace Pathwinder
       if (false == maybeConfiguredDefinitionsSection.has_value()) return;
       auto& configuredDefinitionsSection = maybeConfiguredDefinitionsSection->second;
 
-      Resolver::TDefinitions configuredDefinitions;
+      Infra::Resolver::TDefinitions configuredDefinitions;
       for (auto definitionRecord = configuredDefinitionsSection.ExtractFirst();
            definitionRecord.has_value();
            definitionRecord = configuredDefinitionsSection.ExtractFirst())
@@ -181,9 +181,9 @@ namespace Pathwinder
     }
 #endif
 
-    Resolver& ResolverWithConfiguredDefinitions(void)
+    Infra::Resolver& ResolverWithConfiguredDefinitions(void)
     {
-      static Resolver resolver;
+      static Infra::Resolver resolver;
       return resolver;
     }
 

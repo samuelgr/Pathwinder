@@ -22,6 +22,7 @@
 #include <Infra/Core/Configuration.h>
 #include <Infra/Core/DebugAssert.h>
 #include <Infra/Core/Message.h>
+#include <Infra/Core/Resolver.h>
 #include <Infra/Core/Strings.h>
 #include <Infra/Core/TemporaryBuffer.h>
 #include <Infra/Core/ValueOrError.h>
@@ -30,7 +31,6 @@
 #include "FilesystemOperations.h"
 #include "FilesystemRule.h"
 #include "Globals.h"
-#include "Resolver.h"
 #include "Strings.h"
 
 namespace Pathwinder
@@ -42,7 +42,7 @@ namespace Pathwinder
   /// @param [in] pathDelimiter Delimiter to use when separating components of the path. Defaults
   /// to the Windows standard delimiter of a single backslash.
   /// @return Input path turned into an absolute path or an error message if the process failed.
-  static ResolvedStringOrError PathResolveRelativeToAbsolute(
+  static Infra::ResolvedStringOrError PathResolveRelativeToAbsolute(
       std::wstring_view potentiallyRelativePath, std::wstring_view pathDelimiter = L"\\")
   {
     const bool hasTrailingPathDelimiter = potentiallyRelativePath.ends_with(pathDelimiter);
@@ -66,7 +66,7 @@ namespace Pathwinder
         // Parent-directory references need one path component to be popped.
 
         if (resolvedPathComponents.Size() < 2)
-          return ResolvedStringOrError::MakeError(Infra::Strings::Format(
+          return Infra::ResolvedStringOrError::MakeError(Infra::Strings::Format(
               L"%.*s: Invalid path: Too many \"..\" parent directory references",
               static_cast<int>(potentiallyRelativePath.length()),
               potentiallyRelativePath.data()));
@@ -74,7 +74,7 @@ namespace Pathwinder
         const size_t resolvedPathLengthToRemove =
             resolvedPathComponents.Back().length() + pathDelimiter.length();
         if (resolvedPathLengthToRemove > resolvedPathLength)
-          return ResolvedStringOrError::MakeError(Infra::Strings::Format(
+          return Infra::ResolvedStringOrError::MakeError(Infra::Strings::Format(
               L"%.*s: Internal error: Removing too many characters while resolving a single \"..\" parent directory reference",
               static_cast<int>(potentiallyRelativePath.length()),
               potentiallyRelativePath.data()));
@@ -87,7 +87,7 @@ namespace Pathwinder
         // Any other path components need to be pushed without modification.
 
         if (resolvedPathComponents.Size() == resolvedPathComponents.Capacity())
-          return ResolvedStringOrError::MakeError(Infra::Strings::Format(
+          return Infra::ResolvedStringOrError::MakeError(Infra::Strings::Format(
               L"%.*s: Invalid path: Hierarchy is too deep, exceeds the limit of %u path components",
               static_cast<int>(potentiallyRelativePath.length()),
               potentiallyRelativePath.data(),
@@ -384,7 +384,7 @@ namespace Pathwinder
     // 4. Verify that the resulting directory is not a filesystem root (i.e. it has a parent
     // directory). If all operations succeed then the filesystem rule object can be created.
 
-    ResolvedStringOrError maybeOriginDirectoryResolvedString =
+    Infra::ResolvedStringOrError maybeOriginDirectoryResolvedString =
         Globals::ResolverWithConfiguredDefinitions().ResolveAllReferences(originDirectory);
     if (true == maybeOriginDirectoryResolvedString.HasError())
       return Infra::Strings::Format(
@@ -420,7 +420,7 @@ namespace Pathwinder
           L"Error while creating filesystem rule \"%s\": Constraint violation: Origin directory is already in use as a target directory by another rule.",
           ruleName.c_str());
 
-    ResolvedStringOrError maybeTargetDirectoryResolvedString =
+    Infra::ResolvedStringOrError maybeTargetDirectoryResolvedString =
         Globals::ResolverWithConfiguredDefinitions().ResolveAllReferences(targetDirectory);
     if (true == maybeTargetDirectoryResolvedString.HasError())
       return Infra::Strings::Format(

@@ -121,7 +121,6 @@
     <ClCompile Include="Source\Globals.cpp" />
     <ClCompile Include="Source\OpenHandleStore.cpp" />
     <ClCompile Include="Source\PathwinderConfigReader.cpp" />
-    <ClCompile Include="Source\Resolver.cpp" />
     <ClCompile Include="Source\Strings.cpp" />
     <ClCompile Include="Source\Test\Case\Integration\DocumentedExample.cpp" />
     <ClCompile Include="Source\Test\Case\Integration\RealWorldScenario.cpp" />
@@ -134,7 +133,6 @@
     <ClCompile Include="Source\Test\Case\Unit\OpenHandleStoreTest.cpp" />
     <ClCompile Include="Source\Test\Case\Unit\PathwinderConfigReaderTest.cpp" />
     <ClCompile Include="Source\Test\Case\Unit\PrefixTreeTest.cpp" />
-    <ClCompile Include="Source\Test\Case\Unit\ResolverTest.cpp" />
     <ClCompile Include="Source\Test\Case\Unit\ThreadPoolTest.cpp" />
     <ClCompile Include="Source\Test\IntegrationTestSupport.cpp" />
     <ClCompile Include="Source\Test\MockDirectoryOperationQueue.cpp" />
@@ -158,7 +156,6 @@
     <ClInclude Include="Include\Pathwinder\Internal\OpenHandleStore.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PathwinderConfigReader.h" />
     <ClInclude Include="Include\Pathwinder\Internal\PrefixTree.h" />
-    <ClInclude Include="Include\Pathwinder\Internal\Resolver.h" />
     <ClInclude Include="Include\Pathwinder\Internal\Strings.h" />
     <ClInclude Include="Include\Pathwinder\Internal\ThreadPool.h" />
     <ClInclude Include="Include\Pathwinder\Test\IntegrationTestSupport.h" />

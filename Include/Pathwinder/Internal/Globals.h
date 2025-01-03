@@ -15,8 +15,9 @@
 #include <string>
 #include <unordered_set>
 
+#include <Infra/Core/Resolver.h>
+
 #include "ApiWindows.h"
-#include "Resolver.h"
 
 #ifndef PATHWINDER_SKIP_CONFIG
 #include <Infra/Core/Configuration.h>
@@ -33,7 +34,7 @@ namespace Pathwinder
     /// Manages a globally-shared resolver object that contains Pathwinder-specific definitions read
     /// from a configuration file. This is for the purpose of dynamic reference resolution.
     /// @return Mutable reference to the global resolver object.
-    Resolver& ResolverWithConfiguredDefinitions(void);
+    Infra::Resolver& ResolverWithConfiguredDefinitions(void);
 
     /// Retrieves a reference to a global data structure that holds temporary directory paths to
     /// clean up when Pathwinder is unloaded.
