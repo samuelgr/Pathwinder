@@ -27,6 +27,12 @@ namespace Pathwinder
 {
   namespace Strings
   {
+    /// Resolver domain for configured definitions.
+    constexpr std::wstring_view kStrReferenceDomainConfigDefinition = L"CONF";
+
+    /// Resolver domain for configured definitions with a default value if undefined.
+    constexpr std::wstring_view kStrReferenceDomainConfigOptionalDefinition = L"CONF?";
+
     /// Configuration file setting for enabling and specifying the verbosity of output to the
     /// log file.
     inline constexpr std::wstring_view kStrConfigurationSettingLogLevel = L"LogLevel";

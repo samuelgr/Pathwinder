@@ -88,14 +88,14 @@ namespace Pathwinder
     static void AddConfiguredDefinitionsToResolver(
         Infra::Resolver& resolver, Infra::Configuration::ConfigurationData& configData)
     {
-      constexpr std::wstring_view kStrReferenceDomainConfigDefinition = L"CONF";
-
       auto maybeConfiguredDefinitionsSection =
           configData.ExtractSection(Strings::kStrConfigurationSectionDefinitions);
       if (false == maybeConfiguredDefinitionsSection.has_value()) return;
       auto& configuredDefinitionsSection = maybeConfiguredDefinitionsSection->second;
 
-      Infra::Resolver::TDefinitions configuredDefinitions;
+      static Infra::Resolver::TDefinitions configuredDefinitions;
+      configuredDefinitions.clear();
+
       for (auto definitionRecord = configuredDefinitionsSection.ExtractFirst();
            definitionRecord.has_value();
            definitionRecord = configuredDefinitionsSection.ExtractFirst())
@@ -111,7 +111,9 @@ namespace Pathwinder
       }
 
       resolver.RegisterCustomDomain(
-          kStrReferenceDomainConfigDefinition, std::move(configuredDefinitions));
+          Strings::kStrReferenceDomainConfigDefinition, configuredDefinitions);
+      resolver.RegisterCustomDomain(
+          Strings::kStrReferenceDomainConfigOptionalDefinition, configuredDefinitions, L"");
     }
 
     /// Enables the log if it is not already enabled.
