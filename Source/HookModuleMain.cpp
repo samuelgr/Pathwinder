@@ -21,20 +21,22 @@
 /// Convenience wrapper for instantiating a hook record structure for a protected hook the given
 /// named Windows API function.
 #define PROTECTED_HOOK_RECORD(windowsApiFunctionName)                                              \
-  {                                                                                                \
-    .protectedHookSetFunc =                                                                        \
-        ::Pathwinder::Hooks::ProtectedDependency::##windowsApiFunctionName::SetHook,               \
-    .hookProxy = HOOKSHOT_DYNAMIC_HOOK_PROXY(windowsApiFunctionName)                               \
-  }
+  {.protectedHookSetFunc =                                                                         \
+       ::Pathwinder::Hooks::ProtectedDependency::##windowsApiFunctionName::SetHook,                \
+   .hookProxy = HOOKSHOT_DYNAMIC_HOOK_PROXY(windowsApiFunctionName)}
 
 /// Convenience wrapper for instantiating a hook record structure for an unprotected hook given the
 /// named Windows API function.
 #define UNPROTECTED_HOOK_RECORD(windowsApiFunctionName)                                            \
-  {                                                                                                \
-    .unprotectedHookOriginalAddress =                                                              \
-        GetInternalWindowsApiFunctionAddress(#windowsApiFunctionName),                             \
-    .hookProxy = HOOKSHOT_DYNAMIC_HOOK_PROXY(windowsApiFunctionName)                               \
-  }
+  {.unprotectedHookOriginalAddress =                                                               \
+       GetInternalWindowsApiFunctionAddress(#windowsApiFunctionName),                              \
+   .hookProxy = HOOKSHOT_DYNAMIC_HOOK_PROXY(windowsApiFunctionName)}
+
+/// Convenience wrapper for instantiating a hook record structure for an unprotected hook using a
+/// static address that the linker resolves.
+#define UNPROTECTED_STATIC_HOOK_RECORD(windowsApiFunctionName)                                     \
+  {.unprotectedHookOriginalAddress = &windowsApiFunctionName,                                      \
+   .hookProxy = HOOKSHOT_DYNAMIC_HOOK_PROXY(windowsApiFunctionName)}
 
 namespace Pathwinder
 {
@@ -72,6 +74,10 @@ namespace Pathwinder
           PROTECTED_HOOK_RECORD(NtSetInformationFile),
           UNPROTECTED_HOOK_RECORD(NtQueryAttributesFile),
           UNPROTECTED_HOOK_RECORD(NtQueryFullAttributesFile),
+          UNPROTECTED_STATIC_HOOK_RECORD(ShellExecuteA),
+          UNPROTECTED_STATIC_HOOK_RECORD(ShellExecuteW),
+          UNPROTECTED_STATIC_HOOK_RECORD(ShellExecuteExA),
+          UNPROTECTED_STATIC_HOOK_RECORD(ShellExecuteExW),
       };
 
       Infra::Message::OutputFormatted(

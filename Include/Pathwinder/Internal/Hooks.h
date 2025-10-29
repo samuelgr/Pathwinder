@@ -221,5 +221,17 @@ namespace Pathwinder
     HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
         NtQueryFullAttributesFile,
         NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES, SFileNetworkOpenInformation*));
+
+    // Pathwinder also does not require these hooks to be set in order to function correctly. They
+    // are shell functions that implement higher-level behavior and can bypass in-process system
+    // calls entirely by communicating with the Explorer process directly. Hooking them helps ensure
+    // that Explorer sees the true view of the filesystem, rather than the illusion that Pathwinder
+    // presents to the application.
+
+    HOOKSHOT_DYNAMIC_HOOK_FROM_FUNCTION(ShellExecuteA);
+    HOOKSHOT_DYNAMIC_HOOK_FROM_FUNCTION(ShellExecuteW);
+    HOOKSHOT_DYNAMIC_HOOK_FROM_FUNCTION(ShellExecuteExA);
+    HOOKSHOT_DYNAMIC_HOOK_FROM_FUNCTION(ShellExecuteExW);
+
   } // namespace Hooks
 } // namespace Pathwinder

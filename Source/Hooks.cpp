@@ -19,6 +19,7 @@
 #include <Hookshot/DynamicHook.h>
 #include <Infra/Core/DebugAssert.h>
 #include <Infra/Core/Message.h>
+#include <Infra/Core/Strings.h>
 #include <Infra/Core/TemporaryBuffer.h>
 
 #include "ApiWindows.h"
@@ -522,4 +523,145 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtQueryFullAttributesFile::Hook(
       {
         return Original(ObjectAttributes, FileInformation);
       });
+}
+
+HINSTANCE Pathwinder::Hooks::DynamicHook_ShellExecuteA::Hook(
+    HWND hwnd,
+    LPCSTR lpOperation,
+    LPCSTR lpFile,
+    LPCSTR lpParameters,
+    LPCSTR lpDirectory,
+    INT nShowCmd)
+{
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Warning,
+      L"%s: Hook function not yet implemented. Selected request parameters dumped below.",
+      GetFunctionName());
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Warning,
+      L"  lpOperation = %s",
+      ((nullptr != lpOperation) ? Infra::Strings::ConvertNarrowToWide(lpOperation).AsCString()
+                                : L"nullptr"));
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Warning,
+      L"  lpFile = %s",
+      ((nullptr != lpFile) ? Infra::Strings::ConvertNarrowToWide(lpFile).AsCString() : L"nullptr"));
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Warning,
+      L"  lpParameters = %s",
+      ((nullptr != lpParameters) ? Infra::Strings::ConvertNarrowToWide(lpParameters).AsCString()
+                                 : L"nullptr"));
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Warning,
+      L"  lpDirectory = %s",
+      ((nullptr != lpDirectory) ? Infra::Strings::ConvertNarrowToWide(lpDirectory).AsCString()
+                                : L"nullptr"));
+
+  return Original(hwnd, lpOperation, lpFile, lpParameters, lpDirectory, nShowCmd);
+}
+
+HINSTANCE Pathwinder::Hooks::DynamicHook_ShellExecuteW::Hook(
+    HWND hwnd,
+    LPCWSTR lpOperation,
+    LPCWSTR lpFile,
+    LPCWSTR lpParameters,
+    LPCWSTR lpDirectory,
+    INT nShowCmd)
+{
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Warning,
+      L"%s: Hook function not yet implemented. Selected request parameters dumped below.",
+      GetFunctionName());
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Warning,
+      L"  lpOperation = %s",
+      ((nullptr != lpOperation) ? lpOperation : L"nullptr"));
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Warning,
+      L"  lpFile = %s",
+      ((nullptr != lpFile) ? lpFile : L"nullptr"));
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Warning,
+      L"  lpParameters = %s",
+      ((nullptr != lpParameters) ? lpParameters : L"nullptr"));
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Warning,
+      L"  lpDirectory = %s",
+      ((nullptr != lpDirectory) ? lpDirectory : L"nullptr"));
+
+  return Original(hwnd, lpOperation, lpFile, lpParameters, lpDirectory, nShowCmd);
+}
+
+BOOL Pathwinder::Hooks::DynamicHook_ShellExecuteExA::Hook(SHELLEXECUTEINFOA* pExecInfo)
+{
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Warning,
+      L"%s: Hook function not yet implemented. Selected request parameters dumped below.",
+      GetFunctionName());
+  if (nullptr != pExecInfo)
+  {
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Warning,
+        L"  pExecInfo->lpVerb = %s",
+        ((nullptr != pExecInfo->lpVerb)
+             ? Infra::Strings::ConvertNarrowToWide(pExecInfo->lpVerb).AsCString()
+             : L"nullptr"));
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Warning,
+        L"  pExecInfo->lpFile = %s",
+        ((nullptr != pExecInfo->lpFile)
+             ? Infra::Strings::ConvertNarrowToWide(pExecInfo->lpFile).AsCString()
+             : L"nullptr"));
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Warning,
+        L"  pExecInfo->lpParameters = %s",
+        ((nullptr != pExecInfo->lpParameters)
+             ? Infra::Strings::ConvertNarrowToWide(pExecInfo->lpParameters).AsCString()
+             : L"nullptr"));
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Warning,
+        L"  pExecInfo->lpDirectory = %s",
+        ((nullptr != pExecInfo->lpDirectory)
+             ? Infra::Strings::ConvertNarrowToWide(pExecInfo->lpDirectory).AsCString()
+             : L"nullptr"));
+  }
+  else
+  {
+    Infra::Message::Output(Infra::Message::ESeverity::Warning, L"  pExecInfo = nullptr");
+  }
+
+  return Original(pExecInfo);
+}
+
+BOOL Pathwinder::Hooks::DynamicHook_ShellExecuteExW::Hook(SHELLEXECUTEINFOW* pExecInfo)
+{
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Warning,
+      L"%s: Hook function not yet implemented. Selected request parameters dumped below.",
+      GetFunctionName());
+  if (nullptr != pExecInfo)
+  {
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Warning,
+        L"  pExecInfo->lpVerb = %s",
+        ((nullptr != pExecInfo->lpVerb) ? pExecInfo->lpVerb : L"nullptr"));
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Warning,
+        L"  pExecInfo->lpFile = %s",
+        ((nullptr != pExecInfo->lpFile) ? pExecInfo->lpFile : L"nullptr"));
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Warning,
+        L"  pExecInfo->lpParameters = %s",
+        ((nullptr != pExecInfo->lpParameters) ? pExecInfo->lpParameters : L"nullptr"));
+    Infra::Message::OutputFormatted(
+        Infra::Message::ESeverity::Warning,
+        L"  pExecInfo->lpDirectory = %s",
+        ((nullptr != pExecInfo->lpDirectory) ? pExecInfo->lpDirectory : L"nullptr"));
+  }
+  else
+  {
+    Infra::Message::Output(Infra::Message::ESeverity::Warning, L"  pExecInfo = nullptr");
+  }
+
+  return Original(pExecInfo);
 }
