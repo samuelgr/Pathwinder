@@ -393,7 +393,8 @@ namespace PathwinderTest
   // and the file operation attempts to open an existing file. When the query is for a directory
   // that exists on the origin side, it is expected that a pre-operation is added to ensure the
   // same hierarchy exists on the target side. When the query is for a file, whether or not it
-  // exists on the origin side, no such pre-operation is necessary.
+  // exists on the origin side, no such pre-operation is necessary. One query additionally exercises
+  // trailing backslash handling by including a trailing backslash in the input.
   TEST_CASE(
       FilesystemDirector_GetInstructionForFileOperation_OriginHierarchyExists_OpenExistingFile)
   {
@@ -413,6 +414,12 @@ namespace PathwinderTest
         {L"C:\\Origin1",
          FileOperationInstruction::SimpleRedirectTo(
              L"C:\\Target1",
+             EAssociateNameWithHandle::Unredirected,
+             {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
+             L"C:\\Target1")},
+        {L"C:\\Origin1\\",
+         FileOperationInstruction::SimpleRedirectTo(
+             L"C:\\Target1\\",
              EAssociateNameWithHandle::Unredirected,
              {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
              L"C:\\Target1")},
@@ -450,7 +457,8 @@ namespace PathwinderTest
   // and the file operation attempts to create a new file. Regardless of the nature of the
   // filesystem entity that is the subject of the query (file or directory) a pre-operation is
   // needed to ensure the parent hierarchy exists on the target side if it also exists on the
-  // origin side.
+  // origin side. One query includes a trailing backslash to ensure that the path hierarchy extra
+  // pre-operation operand is still filled correctly.
   TEST_CASE(FilesystemDirector_GetInstructionForFileOperation_OriginHierarchyExists_CreateNewFile)
   {
     MockFilesystemOperations mockFilesystem;
@@ -463,6 +471,12 @@ namespace PathwinderTest
         {L"C:\\Origin1\\AnyTypeOfFile",
          FileOperationInstruction::SimpleRedirectTo(
              L"C:\\Target1\\AnyTypeOfFile",
+             EAssociateNameWithHandle::Unredirected,
+             {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
+             L"C:\\Target1")},
+        {L"C:\\Origin1\\NewDirectoryToCreate\\",
+         FileOperationInstruction::SimpleRedirectTo(
+             L"C:\\Target1\\NewDirectoryToCreate\\",
              EAssociateNameWithHandle::Unredirected,
              {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
              L"C:\\Target1")}};
@@ -482,7 +496,9 @@ namespace PathwinderTest
   // side and the file operation attempts to create a new file inside a filesystem rule's origin
   // directory. Regardless of the nature of the filesystem entity that is the subject of the query
   // (file or directory) a pre-operation is needed to ensure the parent hierarchy exists on the
-  // target side if the directory matches a filesystem rule's origin directory.
+  // target side if the directory matches a filesystem rule's origin directory. One query includes a
+  // trailing backslash to ensure that the path hierarchy extra pre-operation operand is still
+  // filled correctly.
   TEST_CASE(
       FilesystemDirector_GetInstructionForFileOperation_OriginHierarchyDoesNotExist_CreateNewFileInOriginDirectory)
   {
@@ -495,6 +511,12 @@ namespace PathwinderTest
         {L"C:\\Origin1\\AnyTypeOfFile",
          FileOperationInstruction::SimpleRedirectTo(
              L"C:\\Target1\\AnyTypeOfFile",
+             EAssociateNameWithHandle::Unredirected,
+             {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
+             L"C:\\Target1")},
+        {L"C:\\Origin1\\NewDirectoryToCreate\\",
+         FileOperationInstruction::SimpleRedirectTo(
+             L"C:\\Target1\\NewDirectoryToCreate\\",
              EAssociateNameWithHandle::Unredirected,
              {static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists)},
              L"C:\\Target1")}};

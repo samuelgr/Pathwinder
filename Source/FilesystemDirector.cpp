@@ -727,9 +727,19 @@ namespace Pathwinder
           FilesystemOperations::IsDirectory(
               unredirectedPathDirectoryPartWithWindowsNamespacePrefix))
       {
+        // If the input absolute path had a trailing backslash, then the redirected file path might
+        // too, to ensure the system will see a trailing backslash if the application supplied one.
+        // We need to remove it here because it is always one level above in the directory hierarchy
+        // that we want to ensure exists. So first we remove trailing backslashes, then we obtain a
+        // substring to get at the parent directory (or the entire string if there are no
+        // backslashes left), and finally remove any trailing backslashes left behind by the
+        // substring operation.
+
         extraPreOperations.insert(static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists));
         extraPreOperationOperand = Infra::Strings::RemoveTrailing(
-            redirectedFilePath.substr(0, redirectedFilePath.find_last_of(L'\\')), L'\\');
+            redirectedFilePath.substr(
+                0, Infra::Strings::RemoveTrailing(redirectedFilePath, L'\\').find_last_of(L'\\')),
+            L'\\');
       }
     }
     else
@@ -741,7 +751,7 @@ namespace Pathwinder
       // origin side to the target side, and it would be incorrect for the access to fail due to
       // file-not-found if the requested directory exists on the origin side.
 
-      if (FilesystemOperations::IsDirectory(absoluteFilePath))
+      if (FilesystemOperations::IsDirectory(absoluteFilePathTrimmedForQuery))
       {
         extraPreOperations.insert(static_cast<int>(EExtraPreOperation::EnsurePathHierarchyExists));
         extraPreOperationOperand = Infra::Strings::RemoveTrailing(redirectedFilePath, L'\\');
