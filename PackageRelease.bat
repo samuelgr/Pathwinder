@@ -13,4 +13,5 @@ set files_release_build_x64=Pathwinder.HookModule.64.dll
 
 set third_party_license=Hookshot XstdBitSet
 
-call Modules\Infra\Build\Scripts\PackageRelease.bat
+set infra_command="Modules\Infra\Build\Scripts\PackageRelease.bat" %* 
+call %%infra_command%%
