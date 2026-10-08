@@ -1052,29 +1052,6 @@ namespace Pathwinder
       return fileOperationsList;
     }
 
-    /// Determines if the next possible filename should be tried or if the existing system call
-    /// result should be returned to the application.
-    /// @param [in] systemCallResult Result of the system call for the present attempt.
-    /// @return `true` if the result indicates that the next filename should be tried, `false` if
-    /// the result indicates to stop trying and move on.
-    static bool ShouldTryNextFilename(NTSTATUS systemCallResult)
-    {
-      // If the error code is related to a file not being found then it is safe to try the next
-      // file. All other codes, including I/O errors, permission issues, or even success, should
-      // be passed to the application.
-      switch (systemCallResult)
-      {
-        case NtStatus::kObjectNameInvalid:
-        case NtStatus::kObjectNameNotFound:
-        case NtStatus::kObjectPathInvalid:
-        case NtStatus::kObjectPathNotFound:
-          return true;
-
-        default:
-          return false;
-      }
-    }
-
     /// Inserts a newly-opened handle into the open handle store, selecting an associated path based
     /// on the file operation redirection instruction.
     /// @param [in] functionName Name of the API function whose hook function is invoking this
@@ -1594,10 +1571,10 @@ namespace Pathwinder
                 static_cast<int>(lastAttemptedPath.length()),
                 lastAttemptedPath.data());
 
-          if (false == ShouldTryNextFilename(systemCallResult)) break;
+          if (NT_SUCCESS(systemCallResult)) break;
         }
 
-        if (false == ShouldTryNextFilename(systemCallResult)) break;
+        if (NT_SUCCESS(systemCallResult)) break;
       }
 
       if (true == lastAttemptedPath.empty())
@@ -1743,7 +1720,7 @@ namespace Pathwinder
               static_cast<int>(lastAttemptedPath.length()),
               lastAttemptedPath.data());
 
-          if (false == ShouldTryNextFilename(systemCallResult)) break;
+          if (NT_SUCCESS(systemCallResult)) break;
         }
       }
 
@@ -1978,7 +1955,7 @@ namespace Pathwinder
             static_cast<int>(lastAttemptedPath.length()),
             lastAttemptedPath.data());
 
-        if (false == ShouldTryNextFilename(systemCallResult)) break;
+        if (NT_SUCCESS(systemCallResult)) break;
       }
 
       if (true == lastAttemptedPath.empty()) return underlyingSystemCallInvoker(objectAttributes);
