@@ -374,9 +374,15 @@ namespace Pathwinder
 
   NTSTATUS MergedFileInformationQueue::EnumerationStatus(void) const
   {
-    // If any queue reports an error then the overall status is that error.
-    // Otherwise, it is possible to determine whether or not enumeration is finished based on
-    // the front element source queue pointer being `nullptr` or not.
+    // If any queue reports an error then the overall status is that error. Otherwise, it is
+    // possible to determine whether or not enumeration is finished based on the front element
+    // source queue pointer being `nullptr` or not.
+    //
+    // Reporting `STATUS_NO_SUCH_FILE` is a special case. The underlying system calls only return
+    // this if there is no match on the enumeration file pattern. It must be reported to the
+    // application if it is true, meaning that all of the underlying queues also report this error
+    // code. If even a single one does not, then this code is not the correct result.
+    int numQueuesReportingNoSuchFile = 0;
     for (const auto& underlyingQueue : queuesToMerge)
     {
       if (nullptr == underlyingQueue) continue;
@@ -388,12 +394,17 @@ namespace Pathwinder
         case NtStatus::kNoMoreFiles:
           break;
 
+        case NtStatus::kNoSuchFile:
+          numQueuesReportingNoSuchFile += 1;
+          break;
+
         default:
           if (!(NT_SUCCESS(underlyingQueueStatus))) return underlyingQueueStatus;
           break;
       }
     }
 
+    if (queuesToMerge.size() == numQueuesReportingNoSuchFile) return NtStatus::kNoSuchFile;
     if (nullptr == frontElementSourceQueue) return NtStatus::kNoMoreFiles;
 
     return NtStatus::kMoreEntries;

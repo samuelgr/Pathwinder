@@ -946,6 +946,52 @@ namespace PathwinderTest
     }
   }
 
+  // Verifies that a merged file information queue correctly reports that there is no such file
+  // matching the enumeration file pattern if all of the underlying queues report the same.
+  TEST_CASE(MergedFileInformationQueue_EnumerationStatus_EnumerationFailedNoSuchFile)
+  {
+    constexpr std::pair<NTSTATUS, NTSTATUS> kEnumerationStatusRecords[] = {
+        {Pathwinder::NtStatus::kNoSuchFile, Pathwinder::NtStatus::kNoSuchFile},
+    };
+
+    constexpr NTSTATUS expectedEnumerationStatus = Pathwinder::NtStatus::kNoSuchFile;
+
+    for (const auto& enumerationStatusRecord : kEnumerationStatusRecords)
+    {
+      MergedFileInformationQueue mergedQueue = MergedFileInformationQueue::Create<2>(
+          {std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.first),
+           std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)});
+
+      const NTSTATUS actualEnumerationStatus = mergedQueue.EnumerationStatus();
+      TEST_ASSERT(actualEnumerationStatus == expectedEnumerationStatus);
+    }
+  }
+
+  // Verifies that a merged file information queue correctly reports that the enumeration is in
+  // progress even if one of the underlying directories reports no such file. This can happen when
+  // enumerating multiple directories with a file pattern and only one of the directories contains a
+  // matching files, a common case in Overlay mode.
+  TEST_CASE(
+      MergedFileInformationQueue_EnumerationStatus_EnumerationInProgressWithSecondDirectoryNoMatch)
+  {
+    constexpr std::pair<NTSTATUS, NTSTATUS> kEnumerationStatusRecords[] = {
+        {Pathwinder::NtStatus::kMoreEntries, Pathwinder::NtStatus::kNoSuchFile},
+        {Pathwinder::NtStatus::kNoSuchFile, Pathwinder::NtStatus::kMoreEntries},
+    };
+
+    constexpr NTSTATUS expectedEnumerationStatus = Pathwinder::NtStatus::kMoreEntries;
+
+    for (const auto& enumerationStatusRecord : kEnumerationStatusRecords)
+    {
+      MergedFileInformationQueue mergedQueue = MergedFileInformationQueue::Create<2>(
+          {std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.first),
+           std::make_unique<MockDirectoryOperationQueue>(enumerationStatusRecord.second)});
+
+      const NTSTATUS actualEnumerationStatus = mergedQueue.EnumerationStatus();
+      TEST_ASSERT(actualEnumerationStatus == expectedEnumerationStatus);
+    }
+  }
+
   // Verifies that a merged file information queue correctly reports that the enumeration is
   // completed when all of the underlying queues report the same.
   TEST_CASE(MergedFileInformationQueue_EnumerationStatus_EnumerationComplete)
