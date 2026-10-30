@@ -152,6 +152,26 @@ namespace Pathwinder
             PVOID,
             ULONG));
 
+    // https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw
+    // Executables located in redirected directories cannot be launched without this hook because
+    // the kernel resolves the image path itself, without involving any of the file hooks above.
+    // The hook is placed here rather than at the underlying `NtCreateUserProcess` because the
+    // caller holds locks during that system call that make even routine work (rule lookup, file
+    // queries, logging) deadlock.
+    PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
+        CreateProcessW,
+        BOOL(__stdcall)(
+            LPCWSTR,
+            LPWSTR,
+            LPSECURITY_ATTRIBUTES,
+            LPSECURITY_ATTRIBUTES,
+            BOOL,
+            DWORD,
+            LPVOID,
+            LPCWSTR,
+            LPSTARTUPINFOW,
+            LPPROCESS_INFORMATION));
+
     // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-zwdeletefile
     PROTECTED_HOOKSHOT_DYNAMIC_HOOK_FROM_TYPESPEC(
         NtDeleteFile, NTSTATUS(__stdcall)(POBJECT_ATTRIBUTES));

@@ -13,8 +13,11 @@
 #include "Hooks.h"
 
 #include <atomic>
+#include <cwchar>
 #include <functional>
+#include <new>
 #include <optional>
+#include <string>
 
 #include <Hookshot/DynamicHook.h>
 #include <Infra/Core/DebugAssert.h>
@@ -199,6 +202,251 @@ NTSTATUS Pathwinder::Hooks::DynamicHook_NtCreateFile::Hook(
             EaBuffer,
             EaLength);
       });
+}
+
+
+/// Determines if the specified file exists and is not a directory.
+/// Used to decide whether an overlay-mode image path redirection is safe to apply. The Win32 call
+/// updates the calling thread's last error value, which belongs to the caller, so it is preserved
+/// across this function in order to leave no trace on the invoking application.
+/// @param [in] path Absolute path to check.
+/// @return `true` if a file exists at the specified path, `false` otherwise.
+[[maybe_unused]] static bool FileExists(std::wstring_view path)
+{
+  const DWORD lastError = GetLastError();
+
+  const std::wstring nullTerminatedPath(path.begin(), path.end());
+  const DWORD attributes = GetFileAttributesW(nullTerminatedPath.c_str());
+
+  SetLastError(lastError);
+
+  return (INVALID_FILE_ATTRIBUTES != attributes) &&
+      (0 == (attributes & FILE_ATTRIBUTE_DIRECTORY));
+}
+
+/// Determines the path that an executable should actually be launched from, applying a redirection
+/// rule when one matches and the redirected file exists.
+/// @param [in] imagePath Absolute path of the executable as requested by the caller.
+/// @return Redirected path if one should be used, otherwise no value.
+static std::optional<std::wstring> LookupRedirectedImagePath(std::wstring_view imagePath)
+{
+  const Pathwinder::FileOperationInstruction instruction =
+      FilesystemDirectorInstance().GetInstructionForFileOperation(
+          imagePath,
+          Pathwinder::FileAccessMode::ReadOnly(),
+          Pathwinder::CreateDisposition::OpenExistingFile());
+
+  if (false == instruction.HasRedirectedFilename()) return std::nullopt;
+
+  // The redirected filename carries a Windows namespace prefix, but a process image path is
+  // expected to be a plain absolute path, so the prefix is removed.
+  std::wstring_view redirectedPath = instruction.GetRedirectedFilename();
+  redirectedPath.remove_prefix(
+      Pathwinder::Strings::PathGetWindowsNamespacePrefix(redirectedPath).length());
+
+  // Process creation cannot fall back to another path when the redirected path is unusable: the
+  // kernel resolves the image file itself and fails the entire call, and the caller does not retry
+  // with the original path. Rewriting the image path to a file that does not exist would therefore
+  // turn a launch that works today into a failure, so the redirected file is always checked for
+  // existence first and the original path is retained when it is absent.
+  if (false == FileExists(redirectedPath)) return std::nullopt;
+
+  return std::wstring(redirectedPath);
+}
+
+BOOL Pathwinder::Hooks::DynamicHook_CreateProcessW::Hook(
+    LPCWSTR lpApplicationName,
+    LPWSTR lpCommandLine,
+    LPSECURITY_ATTRIBUTES lpProcessAttributes,
+    LPSECURITY_ATTRIBUTES lpThreadAttributes,
+    BOOL bInheritHandles,
+    DWORD dwCreationFlags,
+    LPVOID lpEnvironment,
+    LPCWSTR lpCurrentDirectory,
+    LPSTARTUPINFOW lpStartupInfo,
+    LPPROCESS_INFORMATION lpProcessInformation)
+{
+  // The executable path is supplied either directly as `lpApplicationName`, or as the first token
+  // of `lpCommandLine` when the former is null. Both forms are redirected so that the two remain
+  // consistent. The caller's buffers are never modified: replacement strings are owned by this
+  // function and merely passed to the original function.
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Info,
+      L"%s(%u): lpApplicationName=\"%s\", lpCommandLine=\"%s\", lpCurrentDirectory=\"%s\".",
+      GetFunctionName(),
+      GetRequestIdentifier(),
+      (nullptr != lpApplicationName) ? lpApplicationName : L"<null>",
+      (nullptr != lpCommandLine) ? lpCommandLine : L"<null>",
+      (nullptr != lpCurrentDirectory) ? lpCurrentDirectory : L"<null>");
+
+  std::optional<std::wstring> applicationNameReplacement;
+  std::optional<std::wstring> commandLineReplacement;
+
+  if (nullptr != lpApplicationName)
+  {
+    applicationNameReplacement = LookupRedirectedImagePath(lpApplicationName);
+
+    if (true == applicationNameReplacement.has_value())
+    {
+      Infra::Message::OutputFormatted(
+          Infra::Message::ESeverity::Info,
+          L"%s(%u): Redirecting process image path from \"%s\" to \"%s\".",
+          GetFunctionName(),
+          GetRequestIdentifier(),
+          lpApplicationName,
+          applicationNameReplacement->c_str());
+
+      lpApplicationName = applicationNameReplacement->c_str();
+    }
+  }
+
+  // Every path that appears on the command line has to be redirected, not just the executable.
+  // Programs such as the WeChat plugin host receive directories through arguments like
+  // "--flue-runtime-dir=<path>" and open them directly, without going through any hook, so leaving
+  // them pointing at an origin directory that does not exist on this machine makes the child
+  // process abort right after it starts. This must run regardless of whether `lpApplicationName`
+  // was supplied, because callers that pass an explicit application name may still embed
+  // origin-drive paths (e.g. crashpad's "--database=<path>") in the command line.
+  if (nullptr != lpCommandLine)
+  {
+    const std::wstring_view original(lpCommandLine);
+
+    std::wstring rebuiltCommandLine;
+    rebuiltCommandLine.reserve(original.size() + 256);
+
+    size_t copiedUpTo = 0;
+    size_t index = 0;
+
+    while ((index + 2) < original.size())
+    {
+      const bool startsArgument =
+          (0 == index) || (L'"' == original[index - 1]) || (L'=' == original[index - 1]) ||
+          (L' ' == original[index - 1]);
+
+      if ((true == startsArgument) && (0 != iswalpha(original[index])) &&
+          (L':' == original[index + 1]) && (L'\\' == original[index + 2]))
+      {
+        size_t pathEnd = index;
+
+        while ((pathEnd < original.size()) && (L'"' != original[pathEnd]) &&
+               (L' ' != original[pathEnd]))
+        {
+          ++pathEnd;
+        }
+
+        const std::wstring_view path(original.data() + index, pathEnd - index);
+
+        const Pathwinder::FileOperationInstruction instruction =
+            FilesystemDirectorInstance().GetInstructionForFileOperation(
+                path,
+                Pathwinder::FileAccessMode::ReadOnly(),
+                Pathwinder::CreateDisposition::OpenExistingFile());
+
+        if (true == instruction.HasRedirectedFilename())
+        {
+          std::wstring_view redirectedPath = instruction.GetRedirectedFilename();
+          redirectedPath.remove_prefix(
+              Pathwinder::Strings::PathGetWindowsNamespacePrefix(redirectedPath).length());
+
+          rebuiltCommandLine.append(original.substr(copiedUpTo, index - copiedUpTo));
+          rebuiltCommandLine.append(redirectedPath);
+          copiedUpTo = pathEnd;
+
+          Infra::Message::OutputFormatted(
+              Infra::Message::ESeverity::Info,
+              L"%s(%u): Redirecting command line path from \"%.*s\" to \"%s\".",
+              GetFunctionName(),
+              GetRequestIdentifier(),
+              static_cast<int>(path.length()),
+              path.data(),
+              redirectedPath.data());
+        }
+
+        index = pathEnd;
+      }
+      else
+      {
+        ++index;
+      }
+    }
+
+    if (copiedUpTo > 0)
+    {
+      rebuiltCommandLine.append(original.substr(copiedUpTo));
+      commandLineReplacement = std::move(rebuiltCommandLine);
+      lpCommandLine = const_cast<LPWSTR>(commandLineReplacement->c_str());
+    }
+  }
+
+  // The current directory is redirected as well. The kernel applies it while creating the process,
+  // before any of this process' hooks can intercept the lookup, so an origin directory that is
+  // absent on this machine makes the whole call fail even when the executable was redirected
+  // successfully. Unlike an image path, a directory is a valid target here, so its existence check
+  // does not exclude directories.
+  std::optional<std::wstring> currentDirectoryReplacement;
+
+  if (nullptr != lpCurrentDirectory)
+  {
+    const Pathwinder::FileOperationInstruction instruction =
+        FilesystemDirectorInstance().GetInstructionForFileOperation(
+            lpCurrentDirectory,
+            Pathwinder::FileAccessMode::ReadOnly(),
+            Pathwinder::CreateDisposition::OpenExistingFile());
+
+    if (true == instruction.HasRedirectedFilename())
+    {
+      std::wstring_view redirectedPath = instruction.GetRedirectedFilename();
+      redirectedPath.remove_prefix(
+          Pathwinder::Strings::PathGetWindowsNamespacePrefix(redirectedPath).length());
+
+      std::wstring redirectedDirectory(redirectedPath);
+
+      const DWORD lastError = GetLastError();
+      const DWORD attributes = GetFileAttributesW(redirectedDirectory.c_str());
+      SetLastError(lastError);
+
+      if (INVALID_FILE_ATTRIBUTES != attributes)
+      {
+        Infra::Message::OutputFormatted(
+            Infra::Message::ESeverity::Info,
+            L"%s(%u): Redirecting current directory from \"%s\" to \"%s\".",
+            GetFunctionName(),
+            GetRequestIdentifier(),
+            lpCurrentDirectory,
+            redirectedDirectory.c_str());
+
+        currentDirectoryReplacement = std::move(redirectedDirectory);
+        lpCurrentDirectory = currentDirectoryReplacement->c_str();
+      }
+    }
+  }
+
+  const BOOL callSucceeded = Original(
+      lpApplicationName,
+      lpCommandLine,
+      lpProcessAttributes,
+      lpThreadAttributes,
+      bInheritHandles,
+      dwCreationFlags,
+      lpEnvironment,
+      lpCurrentDirectory,
+      lpStartupInfo,
+      lpProcessInformation);
+
+  const DWORD lastError = GetLastError();
+
+  Infra::Message::OutputFormatted(
+      Infra::Message::ESeverity::Info,
+      L"%s(%u): CreateProcessW returned %s (lastError=%lu, processId=%lu).",
+      GetFunctionName(),
+      GetRequestIdentifier(),
+      (TRUE == callSucceeded) ? L"TRUE" : L"FALSE",
+      lastError,
+      ((TRUE == callSucceeded) && (nullptr != lpProcessInformation))
+          ? lpProcessInformation->dwProcessId
+          : 0UL);
+
+  return callSucceeded;
 }
 
 NTSTATUS Pathwinder::Hooks::DynamicHook_NtDeleteFile::Hook(POBJECT_ATTRIBUTES ObjectAttributes)
